@@ -1,0 +1,15 @@
+.env
+/.obsidian/
+/.pi/
+/.tmp-relevo/
+/Event Details.md
+/data/
+*.db
+*.db-wal
+*.db-shm
+/bin/
+node_modules/
+/web/dist/
+/docs/casos/caso-01-gee/
+/_por_eliminar/
+.DS_Store
