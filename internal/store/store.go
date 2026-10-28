@@ -44,10 +44,12 @@ func Open(ctx context.Context, dataDir string) (*DB, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
-	dsn := "file:" + filepath.Join(dataDir, dbFileName) +
-		"?_pragma=busy_timeout(" + strconv.Itoa(busyTimeoutMS) + ")" +
+	pragmas := "_pragma=busy_timeout(" + strconv.Itoa(busyTimeoutMS) + ")" +
 		"&_pragma=foreign_keys(1)" +
 		"&_pragma=journal_mode(WAL)"
+	dsn := "file:" + filepath.Join(dataDir, dbFileName) + "?" + pragmas
+	// The reader pool can never write (query_only is per connection).
+	readerDSN := dsn + "&_pragma=query_only(1)"
 
 	writer, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -63,7 +65,7 @@ func Open(ctx context.Context, dataDir string) (*DB, error) {
 		return nil, err
 	}
 
-	reader, err := sql.Open("sqlite", dsn)
+	reader, err := sql.Open("sqlite", readerDSN)
 	if err != nil {
 		_ = writer.Close()
 		return nil, fmt.Errorf("open reader: %w", err)

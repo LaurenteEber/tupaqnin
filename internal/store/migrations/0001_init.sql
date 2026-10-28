@@ -2,6 +2,12 @@
 -- model usage, label counters). Criticality and the computed "ready"
 -- state are never stored (§1.1, §1.5). Dates are fixed-width UTC text
 -- (T-7): 2006-01-02T15:04:05.000Z.
+-- [EL DISEÑO NO LO DICE] choices made here, kept minimal: SQLite types
+-- (TEXT/INTEGER/REAL, edge.current as 0/1); composite keys for version
+-- and edge; delivery and model_call carry no declared key (rowid);
+-- foreign keys to project/object beyond the diagram; nullability only
+-- where identity requires NOT NULL; no indexes beyond the implicit
+-- ones SQLite creates for PRIMARY KEY and UNIQUE constraints.
 
 CREATE TABLE project (
     id            TEXT PRIMARY KEY,
