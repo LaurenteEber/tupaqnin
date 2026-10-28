@@ -1,0 +1,51 @@
+{
+  "name": "01-principal-valid",
+  "deltas": [
+    "{\"triage_line\": \"Constru",
+    "ir: redacto la primera s",
+    "ección del pedido.\", \"cl",
+    "osing_risk\": \"none\", \"ne",
+    "w_text\": [{\"section_id\":",
+    " \"new-1\", \"base_version\"",
+    ": 0, \"anchor\": \"\", \"oper",
+    "ation\": \"insert_after\", ",
+    "\"text\": \"# Alcance\\n\\nPr",
+    "imera versión del alcanc",
+    "e.\"}], \"proposed_roles\":",
+    " [{\"section_id\": \"new-1\"",
+    ", \"role\": \"other\"}], \"de",
+    "ferred\": [{\"what\": \"Conf",
+    "irmar el destinatario\", ",
+    "\"why\": \"Todavía no está ",
+    "en el pedido\"}], \"note\":",
+    " \"Intenté una primera se",
+    "cción mínima; descarté d",
+    "ecisiones nuevas hasta c",
+    "onocer el pedido.\"}"
+  ],
+  "items": [
+    {
+      "type": "reasoning",
+      "id": "rs_fixture",
+      "summary": [],
+      "encrypted_content": "fixture-encrypted-content"
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"triage_line\": \"Construir: redacto la primera sección del pedido.\", \"closing_risk\": \"none\", \"new_text\": [{\"section_id\": \"new-1\", \"base_version\": 0, \"anchor\": \"\", \"operation\": \"insert_after\", \"text\": \"# Alcance\\n\\nPrimera versión del alcance.\"}], \"proposed_roles\": [{\"section_id\": \"new-1\", \"role\": \"other\"}], \"deferred\": [{\"what\": \"Confirmar el destinatario\", \"why\": \"Todavía no está en el pedido\"}], \"note\": \"Intenté una primera sección mínima; descarté decisiones nuevas hasta conocer el pedido.\"}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1200,
+    "output_tokens": 220,
+    "context_window": 1048576,
+    "cost_usd": 0.002385
+  },
+  "delta_delay": 0
+}

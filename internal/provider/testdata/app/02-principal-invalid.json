@@ -1,0 +1,33 @@
+{
+  "name": "02-principal-invalid",
+  "deltas": [
+    "{\"triage_line\": \"Constru",
+    "ir: sigo.\", \"closing_ris",
+    "k\": \"none\"}"
+  ],
+  "items": [
+    {
+      "type": "reasoning",
+      "id": "rs_fixture",
+      "summary": [],
+      "encrypted_content": "fixture-encrypted-content"
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"triage_line\": \"Construir: sigo.\", \"closing_risk\": \"none\"}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 900,
+    "output_tokens": 40,
+    "context_window": 1048576,
+    "cost_usd": 0.001295
+  },
+  "delta_delay": 0
+}

@@ -1,0 +1,129 @@
+package provider_test
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/LaurenteEber/tupaqnin/internal/provider"
+)
+
+func messageFixture(name, text string, delay time.Duration) provider.Fixture {
+	return provider.Fixture{
+		Name:   name,
+		Deltas: []string{text},
+		Items: []json.RawMessage{json.RawMessage(
+			`{"type":"message","role":"assistant","content":[{"type":"output_text","text":"` + text + `"}]}`)},
+		Usage:      provider.Usage{InputTokens: 8, OutputTokens: 2},
+		DeltaDelay: delay,
+	}
+}
+
+func TestT11_FakeEmitsDeltasAtItsDeltaDelayRhythm(t *testing.T) {
+	fx := messageFixture("slow", "abc", 25*time.Millisecond)
+	fx.Deltas = []string{"a", "b", "c"}
+	f := provider.NewFake(fx)
+
+	var got []string
+	start := time.Now()
+	resp, err := f.Respond(context.Background(), provider.Request{Model: provider.PrincipalModel},
+		func(d provider.Delta) { got = append(got, d.Text) })
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Respond: %v", err)
+	}
+	if strings.Join(got, "") != "abc" || resp.Text != "abc" {
+		t.Fatalf("deltas/text: got %v / %q, want abc", got, resp.Text)
+	}
+	if elapsed < 50*time.Millisecond {
+		t.Fatalf("deltas did not wait DeltaDelay: elapsed %v for 3 deltas at 25ms", elapsed)
+	}
+}
+
+func TestT11_FakeReplaysFixturesInOrderAndCycles(t *testing.T) {
+	f := provider.NewFake(messageFixture("one", "first", 0), messageFixture("two", "second", 0))
+	ctx := context.Background()
+
+	for i, want := range []string{"first", "second", "first"} {
+		resp, err := f.Respond(ctx, provider.Request{Model: provider.PrincipalModel}, nil)
+		if err != nil {
+			t.Fatalf("Respond %d: %v", i, err)
+		}
+		if resp.Text != want {
+			t.Fatalf("Respond %d: got %q, want %q", i, resp.Text, want)
+		}
+	}
+}
+
+func TestB5_FakeCountTokensIsOnePerFourCharacters(t *testing.T) {
+	f := provider.NewFake()
+	n, err := f.CountTokens(context.Background(), provider.PrincipalModel,
+		[]json.RawMessage{json.RawMessage("12345678"), json.RawMessage("12345678")})
+	if err != nil {
+		t.Fatalf("CountTokens: %v", err)
+	}
+	if n != 4 {
+		t.Fatalf("CountTokens: got %d, want 4 (16 chars / 4)", n)
+	}
+}
+
+func TestT11_FakeCallWritesAModelCallRow(t *testing.T) {
+	db := openTempDB(t)
+	f := provider.NewFake(messageFixture("one", "hello", 0))
+	f.Recorder = db
+
+	if _, err := f.Respond(context.Background(), provider.Request{
+		ProjectID: "p1", TurnID: "turn-1", InstanceID: "inst-1",
+		Role: provider.RolePrincipal, Model: provider.PrincipalModel, Effort: provider.PrincipalEffort,
+		Input: []json.RawMessage{json.RawMessage(`{"role":"user","content":"hi"}`)},
+	}, nil); err != nil {
+		t.Fatalf("Respond: %v", err)
+	}
+	var count int
+	if err := db.Reader.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM model_call WHERE project_id = 'p1'`).Scan(&count); err != nil {
+		t.Fatalf("count model_call: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("model_call rows: got %d, want 1", count)
+	}
+}
+
+func TestT11_AppFixturesLoadInOrderAndStream90sHas90Deltas(t *testing.T) {
+	app, err := provider.AppFixtures()
+	if err != nil {
+		t.Fatalf("AppFixtures: %v", err)
+	}
+	if len(app) != 2 || app[0].Name != "01-principal-valid" || app[1].Name != "02-principal-invalid" {
+		t.Fatalf("AppFixtures: got %+v, want the valid then the invalid fixture", app)
+	}
+	valid := providerResponseText(t, app[0])
+	if !strings.Contains(valid, `"note"`) || !strings.Contains(valid, `"triage_line"`) {
+		t.Fatalf("valid fixture is not a principal output with note and triage: %s", valid)
+	}
+	invalid := providerResponseText(t, app[1])
+	if strings.Contains(invalid, `"note"`) {
+		t.Fatalf("invalid fixture must miss the required note: %s", invalid)
+	}
+
+	stream, err := provider.LoadFixture("testdata/stream-90s.json")
+	if err != nil {
+		t.Fatalf("LoadFixture stream-90s: %v", err)
+	}
+	if len(stream.Deltas) != 90 || stream.DeltaDelay != time.Second {
+		t.Fatalf("stream-90s: got %d deltas at %v, want 90 at 1s",
+			len(stream.Deltas), stream.DeltaDelay)
+	}
+}
+
+func providerResponseText(t *testing.T, fx provider.Fixture) string {
+	t.Helper()
+	f := provider.NewFake(fx)
+	resp, err := f.Respond(context.Background(), provider.Request{Model: provider.PrincipalModel}, nil)
+	if err != nil {
+		t.Fatalf("Respond fixture %s: %v", fx.Name, err)
+	}
+	return resp.Text
+}
