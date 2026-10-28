@@ -399,9 +399,9 @@
       "pattern": "^new-[1-9][0-9]*$"
     },
     "label": {
-      "description": "Etiqueta corta de un objeto que ya existe en el proyecto (T-2, glosario §8). No admite «new-n».",
+      "description": "Etiqueta corta de un objeto que ya existe en el proyecto (T-2, glosario §8). No admite «new-n». El patrón no excluye «new-n» porque el motor de expresiones regulares de Go (RE2) no admite lookahead: lo rechaza la regla 4 de la validación en Go (espec. §3).",
       "type": "string",
-      "pattern": "^(?!new-)[a-z]{2,5}-[1-9][0-9]*$"
+      "pattern": "^[a-z]{2,5}-[1-9][0-9]*$"
     }
   }
 }

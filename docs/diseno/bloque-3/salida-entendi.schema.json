@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-entendi.schema.json",
+  "title": "Salida fija del principal en el «Entendí»",
+  "description": "Contrato de fichas §7 (fila «Principal · «Entendí»»), en forma de esquema. La app lo valida antes de guardarlo; si no cumple, lo reintenta una vez y luego queda como pendiente del agente (fichas §7). Los casos y el rol propuesto no confirman nada: los confirmas tú (fichas §2, K-2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "understood",
+    "criteria",
+    "material_readings",
+    "sections"
+  ],
+  "properties": {
+    "understood": {
+      "description": "Lo que entendió del pedido, para el destinatario del pedido. Sin códigos internos.",
+      "$ref": "#/$defs/text"
+    },
+    "criteria": {
+      "description": "Una entrada por cada criterio del pedido: cómo lo aplicará, con un caso que cuenta y otro que no.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "criterion",
+          "counts",
+          "does_not_count"
+        ],
+        "properties": {
+          "criterion": {
+            "$ref": "#/$defs/label"
+          },
+          "counts": {
+            "description": "Un caso concreto que cuenta según el criterio.",
+            "$ref": "#/$defs/text"
+          },
+          "does_not_count": {
+            "description": "Un caso concreto que no cuenta.",
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
+    },
+    "material_readings": {
+      "description": "Lo que leyó con seguridad de tu material, como casos que confirmas (fichas §8.2). Vacío si no hay material.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case"
+        ],
+        "properties": {
+          "case": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
+    },
+    "sections": {
+      "description": "Secciones que propone para el documento, en orden, cada una con su rol propuesto (K-2). La app las crea en borrador con el rol «propuesto».",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "description": "Etiqueta de una sección que ya existe, o «new-n» si la propone en esta salida.",
+            "type": "string",
+            "pattern": "^(new-[1-9][0-9]*|[a-z]{2,5}-[1-9][0-9]*)$"
+          },
+          "title": {
+            "$ref": "#/$defs/text",
+            "description": "Título de la sección. Dónde se guarda lo decide B-18 del backlog de la rebanada 1 (por decidir)."
+          },
+          "role": {
+            "enum": [
+              "conclusion",
+              "recommendation",
+              "other"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "Etiqueta corta de un objeto que ya existe en el proyecto (T-2, glosario §8). No admite «new-n». El patrón no excluye «new-n» porque el motor de expresiones regulares de Go (RE2) no admite lookahead: lo rechaza la regla 4 de la validación en Go (espec. §3).",
+      "type": "string",
+      "pattern": "^[a-z]{2,5}-[1-9][0-9]*$"
+    },
+    "new_id": {
+      "description": "Id provisional de un objeto que nace en esta salida; la app le asigna su etiqueta al aplicarla (T-3).",
+      "type": "string",
+      "pattern": "^new-[1-9][0-9]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -29,6 +29,7 @@ func (s *Server) devStreamTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	turnID := fmt.Sprintf("dev-%d", devStreamCounter.Add(1))
+	s.hub.BeginTurn("dev", turnID)
 	fake := provider.NewFake(fixture)
 	go func() {
 		resp, err := fake.Respond(r.Context(), provider.Request{

@@ -118,6 +118,35 @@ func TestT11_AppFixturesLoadInOrderAndStream90sHas90Deltas(t *testing.T) {
 	}
 }
 
+func TestT11_MicrotestFixturesReplayWithTheFake(t *testing.T) {
+	// Real recordings from micro-test 0.8 (run by Eber with the key).
+	valid, err := provider.LoadFixture("testdata/microtest-valid.json")
+	if err != nil {
+		t.Fatalf("LoadFixture microtest-valid: %v", err)
+	}
+	resp, err := provider.NewFake(valid).Respond(context.Background(),
+		provider.Request{Model: provider.PrincipalModel}, nil)
+	if err != nil {
+		t.Fatalf("Respond microtest-valid: %v", err)
+	}
+	if !strings.Contains(resp.Text, `"triage_line"`) || !strings.Contains(resp.Text, `"note"`) {
+		t.Fatalf("valid recording does not replay as a principal output: %.120s", resp.Text)
+	}
+
+	invalid, err := provider.LoadFixture("testdata/microtest-invalid.json")
+	if err != nil {
+		t.Fatalf("LoadFixture microtest-invalid: %v", err)
+	}
+	resp, err = provider.NewFake(invalid).Respond(context.Background(),
+		provider.Request{Model: provider.PrincipalModel}, nil)
+	if err != nil {
+		t.Fatalf("Respond microtest-invalid: %v", err)
+	}
+	if strings.Contains(resp.Text, `"triage_line"`) {
+		t.Fatalf("invalid recording must not look like a principal output: %.120s", resp.Text)
+	}
+}
+
 func providerResponseText(t *testing.T, fx provider.Fixture) string {
 	t.Helper()
 	f := provider.NewFake(fx)

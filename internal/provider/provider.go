@@ -38,6 +38,13 @@ type Request struct {
 	Instructions string
 	Input        []json.RawMessage
 	Schema       json.RawMessage
+	// SchemaStrict asks Meta to validate Schema against its strict
+	// subset (Meta structured-output docs: with strict, every object
+	// must list all of its properties in required, among other
+	// rules). The principal's schema uses optional properties by
+	// design, so it is sent without strict and validated in Go
+	// instead (B-2; finding of micro-test 0.8, param="schema").
+	SchemaStrict bool
 }
 
 // Response is one completed call: every raw output item, the joined
@@ -61,15 +68,18 @@ type Delta struct {
 	Text string
 }
 
-// ProviderError is an error from the provider, carrying only its code
-// and type. The raw error body is never kept or logged (T-10).
+// ProviderError is an error from the provider, carrying only its
+// code, type and the request field it names (param, per Meta's error
+// docs; code may be null there). The raw error body, including its
+// message, is never kept or logged (T-10).
 type ProviderError struct {
-	Code string
-	Type string
+	Code  string
+	Type  string
+	Param string
 }
 
 func (e *ProviderError) Error() string {
-	return fmt.Sprintf("provider error: code=%q type=%q", e.Code, e.Type)
+	return fmt.Sprintf("provider error: code=%q type=%q param=%q", e.Code, e.Type, e.Param)
 }
 
 // CallRecorder stores one model_call row per call (§1.4).

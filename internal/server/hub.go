@@ -67,6 +67,24 @@ func NewHub() *Hub {
 	return &Hub{HeartbeatInterval: 15 * time.Second, turns: make(map[turnKey]*turnStream)}
 }
 
+// BeginTurn registers a turn so its stream can be opened (P-9).
+// The turn runner calls it when the turn is created, before any
+// client can connect. Opening the stream of a turn that was never
+// begun answers 404 and creates nothing.
+func (h *Hub) BeginTurn(projectID, turnID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.turn(projectID, turnID)
+}
+
+// HasTurn reports whether the turn was begun, without creating it.
+func (h *Hub) HasTurn(projectID, turnID string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	_, ok := h.turns[turnKey{projectID, turnID}]
+	return ok
+}
+
 func (h *Hub) turn(projectID, turnID string) *turnStream {
 	key := turnKey{projectID, turnID}
 	t, ok := h.turns[key]

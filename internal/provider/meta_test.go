@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -105,7 +106,7 @@ func TestT10_ProviderErrorKeepsRawBodyOutOfErrorAndLog(t *testing.T) {
 	var logBuf strings.Builder
 	logger := slog.New(slog.NewJSONHandler(&logBuf, nil))
 	m := cannedMeta(nil, http.StatusBadRequest, "application/json",
-		`{"error":{"code":"bad_input","type":"invalid_request_error","message":"`+marker+`"}}`, nil, logger)
+		`{"error":{"code":null,"type":"invalid_request_error","param":"text","message":"`+marker+`"}}`, nil, logger)
 
 	_, err := m.Respond(context.Background(), provider.Request{
 		ProjectID: "p1", Model: provider.PrincipalModel,
@@ -118,8 +119,8 @@ func TestT10_ProviderErrorKeepsRawBodyOutOfErrorAndLog(t *testing.T) {
 	if !errors.As(err, &perr) {
 		t.Fatalf("Respond error type: got %T, want *ProviderError", err)
 	}
-	if perr.Code != "bad_input" || perr.Type != "invalid_request_error" {
-		t.Fatalf("ProviderError: got %+v, want bad_input/invalid_request_error", perr)
+	if perr.Code != "http_400" || perr.Type != "invalid_request_error" || perr.Param != "text" {
+		t.Fatalf("ProviderError: got %+v, want http_400 (code was null)/invalid_request_error/text", perr)
 	}
 	if strings.Contains(err.Error(), marker) || strings.Contains(logBuf.String(), marker) {
 		t.Fatalf("raw provider body leaked: err=%q log=%q", err, logBuf.String())
@@ -163,6 +164,45 @@ func TestT11_EachMetaCallWritesAModelCallRow(t *testing.T) {
 	}
 	if !strings.Contains(inputItems, `"hi"`) {
 		t.Fatalf("model_call input_items does not hold what was sent: %s", inputItems)
+	}
+}
+
+func TestB2_SchemaStrictFlagReachesTheRequest(t *testing.T) {
+	cases := []struct {
+		name   string
+		strict bool
+		want   string
+	}{
+		{"without strict by default", false, `"strict":false`},
+		{"with strict when asked", true, `"strict":true`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var bodies [][]byte
+			m := cannedMeta(&bodies, http.StatusOK, "text/event-stream", sseReply, nil, nil)
+			_, err := m.Respond(context.Background(), provider.Request{
+				ProjectID: "p1", Model: provider.PrincipalModel,
+				Input:        []json.RawMessage{json.RawMessage(`{"role":"user","content":"hi"}`)},
+				Schema:       json.RawMessage(`{"type":"object"}`),
+				SchemaStrict: tc.strict,
+			}, nil)
+			if err != nil {
+				t.Fatalf("Respond: %v", err)
+			}
+			if len(bodies) != 1 || !strings.Contains(string(bodies[0]), tc.want) {
+				t.Fatalf("request does not carry %s: %s", tc.want, bodies)
+			}
+		})
+	}
+}
+
+func TestP8_MetaCallHasAFiveMinuteCap(t *testing.T) {
+	m := provider.NewMeta("test-key", nil, nil)
+	if m.Client == nil {
+		t.Fatal("NewMeta: got a nil HTTP client, want one with a timeout")
+	}
+	if m.Client.Timeout != 5*time.Minute {
+		t.Fatalf("Meta call timeout: got %v, want 5m (P-8)", m.Client.Timeout)
 	}
 }
 

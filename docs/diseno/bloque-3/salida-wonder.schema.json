@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-wonder.schema.json",
+  "title": "Salida fija de Wonder en la firma",
+  "description": "Contrato de fichas §7 (fila «Wonder»), en forma de esquema. Wonder no da la respuesta: «missing» nombra qué falta sin decirlo (flujos §3). La app decide «coincide» con estas marcas (fichas §2); Wonder no firma ni confirma nada. No se llama en la firma breve (A-4).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decisions",
+    "origin_question",
+    "previous_case",
+    "new_case"
+  ],
+  "properties": {
+    "decisions": {
+      "description": "Una entrada por cada decisión crítica de la sección, en el orden en que llegaron.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision",
+          "verdict",
+          "missing",
+          "passage"
+        ],
+        "properties": {
+          "decision": {
+            "$ref": "#/$defs/label"
+          },
+          "verdict": {
+            "enum": [
+              "match",
+              "missing_in_explanation",
+              "missing_in_text"
+            ]
+          },
+          "missing": {
+            "description": "Si falta en tu explicación: qué falta, nombrado sin la respuesta. Si no: null.",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "passage": {
+            "description": "Si falta en el texto: el pasaje literal de la sección donde falta. Si no: null.",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "origin_question": {
+      "description": "La pregunta de origen sobre el supuesto que eligió la app (fichas §9); si no hay arista, la elige Wonder. «answer» juzga tu respuesta; es null mientras no respondiste.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "answer"
+      ],
+      "properties": {
+        "question": {
+          "$ref": "#/$defs/text"
+        },
+        "answer": {
+          "anyOf": [
+            {
+              "enum": [
+                "answers",
+                "does_not_answer"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "previous_case": {
+      "description": "Sobre tu respuesta al último caso nuevo de esta firma. null si no hubo caso.",
+      "anyOf": [
+        {
+          "enum": [
+            "applies_well",
+            "does_not_apply"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "new_case": {
+      "description": "Si hay una brecha en tu explicación: un caso nuevo de una línea sobre ese punto, distinto de los anteriores y que no está en la historia. Si no hay brecha: null.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/text"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "Etiqueta corta de un objeto que ya existe en el proyecto (T-2, glosario §8). No admite «new-n». El patrón no excluye «new-n» porque el motor de expresiones regulares de Go (RE2) no admite lookahead: lo rechaza la regla 4 de la validación en Go (espec. §3).",
+      "type": "string",
+      "pattern": "^[a-z]{2,5}-[1-9][0-9]*$"
+    },
+    "new_id": {
+      "description": "Id provisional de un objeto que nace en esta salida; la app le asigna su etiqueta al aplicarla (T-3).",
+      "type": "string",
+      "pattern": "^new-[1-9][0-9]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

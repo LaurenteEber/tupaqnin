@@ -17,6 +17,14 @@ func (s *Server) streamTurn(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	turnID := r.PathValue("turnID")
 
+	// P-9: a turn that was never begun does not exist. Answer 404
+	// without creating a hub entry (the hub lives in memory, so this
+	// also covers turns from before a restart).
+	if !s.hub.HasTurn(projectID, turnID) {
+		http.NotFound(w, r)
+		return
+	}
+
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 
 	h := w.Header()

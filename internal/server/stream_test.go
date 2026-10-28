@@ -92,6 +92,7 @@ func TestB1_LateSubscriberReceivesEverythingFromTheStart(t *testing.T) {
 	handler := server.NewWithHub(nil, hub)
 
 	// The turn emits before anyone connects.
+	hub.BeginTurn("p1", "t1")
 	hub.PublishDelta("p1", "t1", "one ")
 	hub.PublishDelta("p1", "t1", "two ")
 
@@ -127,6 +128,7 @@ func TestB1_Stream90ArrivesCompleteWithHeartbeats(t *testing.T) {
 	hub.HeartbeatInterval = 15 * time.Millisecond
 	handler := server.NewWithHub(nil, hub)
 
+	hub.BeginTurn("p1", "t90")
 	fake := provider.NewFake(fixture)
 	go func() {
 		resp, err := fake.Respond(context.Background(), provider.Request{
@@ -162,9 +164,31 @@ func TestB1_Stream90ArrivesCompleteWithHeartbeats(t *testing.T) {
 	}
 }
 
+func TestP9_UnknownTurnStreamIs404AndCreatesNothing(t *testing.T) {
+	hub := server.NewHub()
+	handler := server.NewWithHub(nil, hub)
+
+	for i := 0; i < 2; i++ {
+		w := newSyncWriter()
+		done := serveAsync(t, handler, "/api/projects/p1/turns/does-not-exist/stream", w)
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("attempt %d: unknown turn stream did not answer; body:\n%s", i, w.String())
+		}
+		if w.status != http.StatusNotFound {
+			t.Fatalf("attempt %d: got status %d, want 404 (and no entry created)", i, w.status)
+		}
+		if strings.Contains(w.String(), "event:") {
+			t.Fatalf("attempt %d: 404 answer must not be an event stream:\n%s", i, w.String())
+		}
+	}
+}
+
 func TestB1_ErrorEventCarriesOnlyCodeAndCatalogMessage(t *testing.T) {
 	hub := server.NewHub()
 	handler := server.NewWithHub(nil, hub)
+	hub.BeginTurn("p1", "t1")
 	hub.PublishError("p1", "t1", "provider_error")
 
 	w := newSyncWriter()

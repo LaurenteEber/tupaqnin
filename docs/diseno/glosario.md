@@ -1,6 +1,6 @@
 ---
 titulo: Glosario · del diseño (español) al código (inglés)
-estado: v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
+estado: v1.4 · 28-oct · suma los campos de las salidas del «Entendí» y de Wonder · v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
 relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, el backlog y AGENTS.md
 ---
 
@@ -145,3 +145,5 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 | comprobador: candidatos (contradicción · término dudoso · relato del proceso · escrito sin decisión · fuente que no sostiene · excede lo revisado) | `candidates` (`contradiction` · `doubtful_term` · `process_narrative` · `text_without_decision` · `source_not_supporting` · `exceeds_reviewed`) |
 | Wonder: por decisión crítica coincide · falta en tu explicación · falta en el texto | `match` · `missing_in_explanation` · `missing_in_text` |
 | Wonder: la pregunta de origen la responde · no · caso nuevo lo aplica bien · no | `answers` · `does_not_answer` · `applies_well` · `does_not_apply` |
+| Wonder, campos de su salida: por decisión (marca · qué falta, sin la respuesta · pasaje) · pregunta de origen · caso anterior · caso nuevo | `decisions` (`verdict` · `missing` · `passage`) · `origin_question` (`question` · `answer`) · `previous_case` · `new_case` (`salida-wonder.schema.json`) |
+| «Entendí», campos de su salida: lo entendido · por criterio (caso que cuenta · caso que no) · lo leído de tu material · secciones con su rol propuesto | `understood` · `criteria` (`counts` · `does_not_count`) · `material_readings` · `sections` (`title` · `role`) (`salida-entendi.schema.json`) |

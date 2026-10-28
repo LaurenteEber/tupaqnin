@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // DefaultBaseURL is Meta's Model API (docs: base_url
@@ -28,9 +29,17 @@ type Meta struct {
 	Logger   *slog.Logger
 }
 
-// NewMeta returns a client with the default base URL and HTTP client.
+// callTimeout caps one whole Meta call, streaming included (P-8).
+// [EL DISEÑO NO LO DICE]: the design names no per-call limit; the
+// supervision proposes 5 minutes so a hung call cannot hold a turn
+// forever.
+const callTimeout = 5 * time.Minute
+
+// NewMeta returns a client with the default base URL and an HTTP
+// client capped at callTimeout per call.
 func NewMeta(apiKey string, recorder CallRecorder, logger *slog.Logger) *Meta {
-	return &Meta{APIKey: apiKey, BaseURL: DefaultBaseURL, Client: http.DefaultClient,
+	return &Meta{APIKey: apiKey, BaseURL: DefaultBaseURL,
+		Client:   &http.Client{Timeout: callTimeout},
 		Recorder: recorder, Logger: logger}
 }
 
@@ -105,7 +114,7 @@ func (m *Meta) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 	}
 	if len(req.Schema) > 0 {
 		body.Text = &textParam{Format: formatParam{
-			Type: "json_schema", Name: "principal_output", Strict: true, Schema: req.Schema}}
+			Type: "json_schema", Name: "principal_output", Strict: req.SchemaStrict, Schema: req.Schema}}
 	}
 	payload, err := marshalWithInput(body, req.Input)
 	if err != nil {
@@ -160,7 +169,7 @@ func (m *Meta) client() *http.Client {
 	if m.Client != nil {
 		return m.Client
 	}
-	return http.DefaultClient
+	return &http.Client{Timeout: callTimeout}
 }
 
 // httpError turns a non-200 reply into a ProviderError with only its
@@ -171,21 +180,25 @@ func (m *Meta) httpError(httpResp *http.Response) error {
 	perr := &ProviderError{Code: fmt.Sprintf("http_%d", httpResp.StatusCode), Type: "http_error"}
 	var parsed struct {
 		Error *struct {
-			Code string `json:"code"`
-			Type string `json:"type"`
+			Code  *string `json:"code"`
+			Type  string  `json:"type"`
+			Param *string `json:"param"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &parsed); err == nil && parsed.Error != nil {
-		if parsed.Error.Code != "" {
-			perr.Code = parsed.Error.Code
+		if parsed.Error.Code != nil && *parsed.Error.Code != "" {
+			perr.Code = *parsed.Error.Code
 		}
 		if parsed.Error.Type != "" {
 			perr.Type = parsed.Error.Type
 		}
+		if parsed.Error.Param != nil {
+			perr.Param = *parsed.Error.Param
+		}
 	}
 	if m.Logger != nil {
 		m.Logger.Error("provider error", "code", perr.Code, "type", perr.Type,
-			"status", httpResp.StatusCode)
+			"param", perr.Param, "status", httpResp.StatusCode)
 	}
 	return perr
 }
