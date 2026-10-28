@@ -1,6 +1,6 @@
 # Pinned by digest for reproducible, tamper-evident builds.
 # Build stage
-FROM golang:1.24@sha256:d2d2bc1c84f7e60d7d2438a3836ae7d0c847f4888464e7ec9ba3a1339a1ee804 AS build
+FROM golang:1.27@sha256:2669ec97bbb6e54602952b4171211116e3fe90e5f9c47619920c74554b3d7d09 AS build
 WORKDIR /src
 COPY go.mod ./
 COPY cmd/ ./cmd/
