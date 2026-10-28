@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/dlclark/regexp2"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -200,8 +198,9 @@ func compiledSchema() (*jsonschema.Schema, map[string]any, error) {
 			compiledErr = fmt.Errorf("cycle: parse principal schema: %w", err)
 			return
 		}
+		// The validator's default (RE2) engine is enough: the design
+		// schema carries no lookahead (backlog 0.8 finding).
 		c := jsonschema.NewCompiler()
-		c.UseRegexpEngine(ecmaEngine)
 		const loc = "https://tupaqnin.invalid/principal_output.schema.json"
 		if err := c.AddResource(loc, doc); err != nil {
 			compiledErr = fmt.Errorf("cycle: add principal schema: %w", err)
@@ -220,26 +219,6 @@ func compiledSchema() (*jsonschema.Schema, map[string]any, error) {
 		compiledSch, compiledDoc = sch, rawDoc
 	})
 	return compiledSch, compiledDoc, compiledErr
-}
-
-// ecmaRegexp adapts regexp2 to the validator: JSON Schema patterns
-// are ECMA-262, which Go's RE2 cannot always parse (micro-test 0.8).
-type ecmaRegexp regexp2.Regexp
-
-func (re *ecmaRegexp) MatchString(s string) bool {
-	matched, err := (*regexp2.Regexp)(re).MatchString(s)
-	return err == nil && matched
-}
-
-func (re *ecmaRegexp) String() string { return (*regexp2.Regexp)(re).String() }
-
-func ecmaEngine(s string) (jsonschema.Regexp, error) {
-	re, err := regexp2.Compile(s, regexp2.ECMAScript)
-	if err != nil {
-		return nil, err
-	}
-	re.MatchTimeout = time.Second
-	return (*ecmaRegexp)(re), nil
 }
 
 // stripOptionalNulls removes, recursively, the null values of

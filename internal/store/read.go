@@ -144,3 +144,36 @@ func (db *DB) EventsSince(ctx context.Context, projectID string, seq int) ([]Eve
 	}
 	return out, nil
 }
+
+// AllObjects returns every object of the project with the body of its
+// current version, ordered by label. It backs the computed working
+// state (specification §5: the memory is a query, never a source).
+func (db *DB) AllObjects(ctx context.Context, projectID string) ([]Object, error) {
+	rows, err := db.Reader.QueryContext(ctx,
+		`SELECT o.id, o.label, o.type, o.state, o.current_version, v.body
+		 FROM object o
+		 JOIN version v ON v.project_id = o.project_id AND v.object_id = o.id
+			AND v.version = o.current_version
+		 WHERE o.project_id = ? ORDER BY o.label`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list all objects: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []Object
+	for rows.Next() {
+		var obj Object
+		var state sql.NullString
+		var body string
+		if err := rows.Scan(&obj.ID, &obj.Label, &obj.Type, &state, &obj.CurrentVersion, &body); err != nil {
+			return nil, fmt.Errorf("list all objects: %w", err)
+		}
+		obj.ProjectID = projectID
+		obj.State = state.String
+		obj.Body = json.RawMessage(body)
+		out = append(out, obj)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list all objects: %w", err)
+	}
+	return out, nil
+}
