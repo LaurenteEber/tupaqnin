@@ -40,6 +40,18 @@ func (r *statusRecorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
+// Flush forwards to the underlying writer so streaming handlers can
+// flush through this middleware (specification §6).
+func (r *statusRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer
+// (for example, to clear the write deadline on streaming routes).
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 // requestLog logs one JSON line per request with method, path, status
 // and duration only (T-10): never the body, query, headers or any
 // document or message content.
@@ -57,12 +69,32 @@ func requestLog(logger *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
+// Server is the HTTP surface: its routes, and the hub that turns
+// publish their stream events to (backlog 0.6).
+type Server struct {
+	hub    *Hub
+	logger *slog.Logger
+}
+
+// Hub returns the hub turn runners publish stream events to.
+func (s *Server) Hub() *Hub { return s.hub }
+
 // New returns the HTTP handler for the application. A nil logger
 // discards request logs.
 func New(logger *slog.Logger) http.Handler {
+	return NewWithHub(logger, NewHub())
+}
+
+// NewWithHub is New with a caller-provided hub, so the turn runner
+// (and tests) publish to the same hub the streams read from.
+func NewWithHub(logger *slog.Logger, hub *Hub) http.Handler {
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
+	if hub == nil {
+		hub = NewHub()
+	}
+	s := &Server{hub: hub, logger: logger}
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +102,9 @@ func New(logger *slog.Logger) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
+
+	mux.HandleFunc("GET /api/projects/{projectID}/turns/{turnID}/stream", s.streamTurn)
+	registerDevRoutes(mux, s)
 
 	staticFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {

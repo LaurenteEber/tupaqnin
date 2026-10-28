@@ -57,9 +57,16 @@ Bloques: 1 Núcleo (flujo humano-agentes) · 2 Memoria del orquestador · 3 Plat
 11. **Un solo escritor por archivo (28-oct).** Dos programas que escriben el mismo archivo se pisan sin aviso (Obsidian guarda su copia en memoria; la herramienta del chat puede entregar una copia vieja).
     - Antes de editar, el chat avisa qué archivos tocará y Eber cierra esas pestañas en Obsidian; al terminar, el chat avisa «listo».
     - El chat lee el archivo del disco justo antes de editarlo y edita sobre esa versión; si cambió, vuelve a leer y fusiona.
+    - **El chat edita en el disco, en su lugar (28-oct).** Con la herramienta de shell de la computadora, aplica el cambio con un script corto que lee el archivo y lo reescribe. No copia el archivo a la nube para devolverlo después: esa copia de ida y vuelta escribió versiones viejas varias veces el 28-oct, aunque Obsidian estaba cerrado.
     - El chat verifica unos 30 s después de escribir que su cambio sigue ahí; si no, lo dice de inmediato.
     - Si Eber responde en un archivo, lo avisa en el chat; si responde en el chat, lo escribe el chat.
     - Commit antes de cada tanda larga de cambios del chat.
+12. **Dos carpetas: en una se escribe y en la otra solo se mira (28-oct).** Pedido de Eber, en literal: «solo trabajamos en la carpeta tupaqnin_desing y en al carpeta tupaqnin no realizamos ningún cambio solo supervisamos lo que el agente de muse code está avanzando».
+    - **`SideProjects/tupaqnin_design/`:** aquí escribe el chat (diseño, backlog, decisiones), con la regla 11.
+    - **`SideProjects/tupaqnin/`:** es la carpeta del agente de código (Muse Code). El chat solo lee: lista, lee y usa `git --no-optional-locks` para `status`, `log` y `diff`.
+    - En `tupaqnin/` el chat no crea, edita, mueve ni borra nada: ni `CLAUDE.md`, ni notas, ni temporales. Tampoco corre builds, pruebas ni instalaciones, ni toca el `.env`. Si hace falta correr algo, copia los archivos a su espacio en la nube y lo corre allá.
+    - Lo que el chat encuentra al supervisar va a Eber, y si es una decisión, como fila con contraste. Al agente le habla Eber, no el chat.
+    - Comprobación: `git status` en `tupaqnin/` muestra lo mismo antes y después de cada supervisión.
 
 ## 4. Cómo se prueba el ciclo: simulación con subagentes
 

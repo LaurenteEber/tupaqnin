@@ -32,6 +32,16 @@ func parseFixture(b []byte) (Fixture, error) {
 //go:embed testdata/app
 var appFixturesFS embed.FS
 
+//go:embed testdata/stream-90s.json
+var stream90Fixture []byte
+
+// Stream90Fixture returns the hand-made 90-second streaming fixture
+// (about 90 deltas, one per second), used by the streaming test and
+// the development stream route (backlog 0.5 and 0.6).
+func Stream90Fixture() (Fixture, error) {
+	return parseFixture(stream90Fixture)
+}
+
 // AppFixtures returns the embedded app fixtures in filename order.
 func AppFixtures() ([]Fixture, error) {
 	entries, err := appFixturesFS.ReadDir("testdata/app")

@@ -1,0 +1,25 @@
+## Caso 10 · umbral justo antes de una firma · corte en fila 13 · arranque: 7 952 caracteres (con) / 7 508 (sin)
+- H1: parcial. La capa 1 basta para todo lo registrado. Los dos relevos repiten PA-01 en literal (relevo 15: «"ok" no elige ninguna opción. PA-01 sigue abierto»), bloquean S-CR (fila 17), conservan D-03 y D-01 y no tocan el 12 %. Lo que se desvía es la firma de S-AI. El original llama a Wonder y hace la pregunta de origen (original 15: «¿De qué supuesto depende el límite aguas abajo?»). Los relevos, en cambio, aplican la firma breve (con 14: «no hay decisiones críticas de S-AI en la capa 1, así que es firma breve»), que es correcta según fichas §8: «si la sección no tiene decisiones críticas (A-4) […] no hay contraste de Wonder ni pregunta de origen». Causa: registro. Antes del corte, el guion nunca registra la decisión ni el supuesto de S-AI.
+- H2: parcial. Lecturas con / sin: 2 / 2, más la sobrelectura del relevo sin nota: las 3 primeras líneas de los 11 archivos. De más: leer(S-CR) en el relevo sin nota, que lo reconoce («¿La primera línea del índice ya lo respondía? Sí»). La primera línea reconstruida de S-CR («el 12 % de las mediciones aguas abajo») resolvió sola la duda que en la v1 llevó a reabrir la cifra. En cambio, leer(S-PM) y leer(F-01) no respondieron («la lectura tampoco: el texto no viene»). [inferencia] La sobrelectura no contamina la comparación: esas 3 líneas solo repiten la primera línea y metadatos que ya trae el arranque, y nada de la nota.
+- H3: indistinto. Todo lo de la nota ya estaba en otra capa: «leer su "ok" como opción» está en la capa 1 («Tu respuesta (fila 8): "ok". No elige opción»), «proponer firmar Área de influencia» está en IP-13 y «tarjetas con "porque" vacío» está en D-03 y D-04. El relevo sin nota no repite intentos fallidos ni pierde pistas, así que no se cumple la regla del autor y no se reabre la opción C.
+- Continuidad con nota:
+  - L1 · la respuesta a la pregunta de origen se vuelve un encargo nuevo: con 16, «registro la decisión "puntos de muestreo: solo aguas abajo" […] abre una tarjeta». Causa: simulación, porque la entrada 3 no trae la pregunta de Wonder.
+  - L7 · el índice no bastó: S-PM y F-01. Causa: simulación.
+- Continuidad sin nota:
+  - El mismo L1, más grave: edita S-PM («agrego que el muestreo se hace en los puntos aguas abajo») y en la fila 19 lanza al juez sobre ese cambio. Causa: simulación.
+  - L7 · lee de más: S-CR y la sobrelectura.
+  - Sin L6: trata T-03 y T-04 como abiertas, contra lo que dice el arranque, pero así lo fija estados §3: «Abierta | "ok", "sí" o el campo vacío».
+- Regresión v1:
+  - El L6 desaparece: ya no amenaza el 12 % (sin 16: «Sin cifras nuevas, sin cambios en S-CR»).
+  - La lectura errónea de «aguas abajo» se repite y ahora cae en S-PM.
+- Defensa:
+  - Con nota: igual. Anuncia que «tendrás que explicar sin mirar D-03 […] y D-01» (relevo 17), pero deja T-03 «a la vista» sin exigir el porque.
+  - Sin nota: algo mejor. Exige el porque de D-03 ante «¿Con qué límite compararon?». El costo es una tarjeta espuria en S-PM.
+  - En los dos se pierde la pregunta de origen de S-AI, que la hoja oculta no pregunta.
+- Armador:
+  - Usó solo lo registrado. Las primeras líneas y la nota usan filas ≤ 13: la nota toma «siguiente: firmar "Área de influencia"» de IP-13, y el «aguas abajo» de S-CR viene de K-01 («mismas mediciones»).
+  - Registró T-03 y T-04 como «confirmadas», siguiendo al guion y contra estados §3. Lo marcó.
+  - El mensaje de la fila 2 («mañana lo presento») quedó fuera de los 3 últimos. No afectó.
+- Hallazgos:
+  - H1 · choque · Tarjeta crítica aceptada con «ok» — arranque: «Tarjetas abiertas: ninguna. T-03 y T-04 quedaron aceptadas con "ok"» · bloque 2: «Copia los estados del bloque 1 y no define estados propios». Los dos relevos lo marcan [AMBIGUO] y resuelven distinto: el relevo con nota deja la tarjeta a la vista, el sin nota la trata como abierta. Es el H1 de la v1, sin corregir. Corrección: precisar en la capa 1 que una decisión con «respuesta sin "porque" válido» va a «lo que te toca» como tarjeta abierta (agrega 0).
+  - H2 · simulación · Firma con pregunta de origen sin registro previo ni pregunta en la entrada — entradas: «2. Responde "ok". 3. Escribe: "Usa los puntos de monitoreo aguas abajo"» · bloque 2: «decisiones críticas vigentes, con […] sus aristas (criterios que aplica, supuesto del que depende…)». Es el H2 de la v1, que se repite. Corrección: el guion registra antes del corte la decisión y el supuesto de S-AI, y la entrada trae en literal la pregunta que responde (agrega 0).

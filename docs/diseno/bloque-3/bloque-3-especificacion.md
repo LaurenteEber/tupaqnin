@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Especificación (va a código y pruebas)
-estado: v2.8 · 28-oct · `model_call` guarda también lo enviado y la instancia (la conversación del principal se rehace desde ahí) · v2.7 · 28-oct · reverificación: tarjeta solo para decisiones del agente (T-5); cómo se declara un `new-n` (T-3) · v2.6 · 28-oct · defaults técnicos validados aplicados: etiquetas cortas e ids provisionales (T-2, T-3), operación y reglas del ancla (T-4), criticidad al escribir y marca tuya (T-5), nota sin rechazo por largo (T-6); §9 en inglés (T-1) · v2.5 · 28-oct · nombres de tablas, campos y valores en inglés con el glosario (T-1) · v2.4 · 28-oct · §1 modelo de datos al día con fichas §9, estados y bloque 2 (nodos, 11 aristas, eventos, lo entregado y el uso de contexto) · v2.3 · 28-oct · referencias a las decisiones reorganizadas (B3-3, B3-9, B3-14 a B3-17, K-16); aristas según fichas §9; la caché de la memoria no es fuente · v2.2 · 27-oct · propuesta; alineada con el bloque 1 v4.5 (A-1 a A-5) y, en §9, con el marco del bloque 1 v4.7 (M-1 a M-4)
+estado: v2.10 · 28-oct · el vencimiento de §6 sigue a B3-18 · v2.9 · 28-oct · links, cuentas y sesiones (§1.7, B3-18), seguridad mínima (§6, B3-22), topes por link y saldo de la firma (§6, B3-20), horas de «Entrega» (§8) · v2.8 · 28-oct · `model_call` guarda también lo enviado y la instancia (la conversación del principal se rehace desde ahí) · v2.7 · 28-oct · reverificación: tarjeta solo para decisiones del agente (T-5); cómo se declara un `new-n` (T-3) · v2.6 · 28-oct · defaults técnicos validados aplicados: etiquetas cortas e ids provisionales (T-2, T-3), operación y reglas del ancla (T-4), criticidad al escribir y marca tuya (T-5), nota sin rechazo por largo (T-6); §9 en inglés (T-1) · v2.5 · 28-oct · nombres de tablas, campos y valores en inglés con el glosario (T-1) · v2.4 · 28-oct · §1 modelo de datos al día con fichas §9, estados y bloque 2 (nodos, 11 aristas, eventos, lo entregado y el uso de contexto) · v2.3 · 28-oct · referencias a las decisiones reorganizadas (B3-3, B3-9, B3-14 a B3-17, K-16); aristas según fichas §9; la caché de la memoria no es fuente · v2.2 · 27-oct · propuesta; alineada con el bloque 1 v4.5 (A-1 a A-5) y, en §9, con el marco del bloque 1 v4.7 (M-1 a M-4)
 relacion: detalla bloque-3.md. Toma del bloque 3 anterior lo que sigue valiendo (marcado «se toma») y lo alinea con bloque-1-estados.md, bloque-1-fichas.md §7 y bloque-2.md. Lo marcado `[inicial]` se calibra construyendo
 ---
 
@@ -175,6 +175,17 @@ erDiagram
 
 - Las fechas (T-7), las migraciones (T-8), la configuración (T-9), los registros (T-10) y las pruebas (T-11) están en `defaults-tecnicos.md`.
 
+### 1.7 Links, cuentas y sesiones (B3-18, B3-22) · rebanada «Entrega»
+
+*Entran con una migración nueva en «Entrega» (T-8). La migración `0001` de la rebanada 0 no las tiene, y está bien así.*
+
+| Tabla | Campos | Reglas |
+|---|---|---|
+| `invitation` · el link | `id` · `token_hash` · `label` (por ejemplo, jurado o invitados) · `budget_usd` · `spent_usd` · `max_accounts` · `max_anon_projects` · `revoked_at` · `created_at` | El token nunca se guarda en claro. Lo crea y lo revoca un comando en el servidor; no hay pantalla de administración. Por defecto `[inicial]`: invitados, 10 USD, 3 cuentas y 5 proyectos sin cuenta; jurado, 30 USD, 10 cuentas y 10 proyectos sin cuenta |
+| `account` · la cuenta | `id` · `invitation_id` · `username` (único) · `password_hash` · `created_at` | Solo se registra quien llegó con un link. Clave de 10 a 64 caracteres, con bcrypt de costo 12. Sin correo, así que no hay recuperación de clave |
+| `session` · la sesión | `id_hash` · `account_id` (vacío si es sin cuenta) · `invitation_id` · `expires_at` · `created_at` | La base guarda solo el hash de la cookie. Sesión nueva al registrarte, entrar y salir. Dura 14 días `[inicial]` |
+| `project` suma | `account_id` (vacío si es sin cuenta) · `anon_session_hash` | Sin cuenta: un proyecto por navegador, que vence 7 días `[inicial]` después de tu última actividad (`expires_at`). Al registrarte, pasa a tu cuenta y deja de vencer. Con cuenta: hasta 3 proyectos `[inicial]` |
+
 ## 2. Escritura
 
 - **Condicionada por versión (se toma):** `UPDATE … WHERE id = ? AND current_version = ?` con `rowsAffected == 1`; el evento y la versión nueva en la misma transacción. Sin cambio canónico no hay escritura. Nunca hay una transacción abierta mientras se espera al modelo.
@@ -238,10 +249,12 @@ Lo que pasa la validación se aplica; luego corren las comprobaciones (flujo §1
 - **Fly.io** (se toma): una máquina, disco de 3 GB, siempre encendida; plan B Railway con el mismo contenedor. **No se despliega desde la entrega hasta que termine el juzgamiento.**
 - **Copia (se toma):** `VACUUM INTO` diaria fuera del host; ensayo de restauración con `integrity_check` el 2-nov.
 - **Streaming (se toma):** sin límite de escritura en esas rutas, latido cada 15 s, un escritor por conexión, `idle_timeout` fijado.
-- **Acceso por invitación (B3-3):** link con token, pocos proyectos por token; solo un POST crea proyecto. Topes: 3 USD por proyecto, 10 USD/día, 60 USD total, fondo aparte para el jurado `[inicial]`; reserva del máximo antes de cada llamada.
+- **Acceso (B3-3, B3-18):** cada persona ve solo sus proyectos. Con el link creas y descargas tu primer proyecto sin cuenta; para conservarlo o crear otro, te registras con usuario y clave (§1.7). Al entrar, el token del link se canjea por una cookie y la app redirige a una dirección sin token; el registro de esa ruta no lo guarda. Solo un POST crea proyecto.
+- **Topes (B3-20, B3-22):** 3 USD por proyecto · el saldo de cada link (§1.7) · 10 USD al día para los links que no son del jurado · 60 USD en total `[inicial]` · reserva del máximo antes de cada llamada · del tope del proyecto se aparta un saldo para la firma (≈ el costo de 2 contrastes `[inicial]`). Al 80 % del tope del proyecto, un aviso de una línea; al tope, el agente se detiene con su informe y tu trabajo sigue intacto.
 - **Tamaño (se toma):** sección ≤ 200 KB, fuente ≤ 5 MB, 25 MB por proyecto; al 80 % del disco no se aceptan proyectos nuevos, salvo del jurado.
-- **Seguridad (se toma):** Mermaid ≥ 11.15 sin HTML crudo; CSP sin scripts en línea; cookies `__Host-`; `http.CrossOriginProtection`; el streaming nunca reenvía errores crudos del proveedor; una prueba recorre todas las rutas con la cookie de otro visitante.
-- **Vencimiento:** 14 días, si el aviso lo promete; si no entra, el aviso no promete plazo.
+- **Seguridad (se toma):** Mermaid ≥ 11.15 sin HTML crudo; CSP sin scripts en línea; cookies `__Host-`; `http.CrossOriginProtection`; el streaming nunca reenvía errores crudos del proveedor; una prueba recorre todas las rutas con la cookie de otro visitante y con otra cuenta.
+- **Seguridad mínima de la demo pública (B3-22),** cada punto con su prueba: límite de intentos de entrada por IP (tomada solo de `Fly-Client-IP`) y espera creciente por cuenta, sin bloqueo total · un solo control de dueño en toda ruta con `{projectID}`; las herramientas del agente usan el proyecto del turno · fuentes de una lista cerrada de tipos (PDF, CSV, XLSX, MD y TXT `[inicial]`), servidas como descarga · markdown sin HTML crudo (goldmark sin `WithUnsafe`) ni enlaces `javascript:`, y React sin `innerHTML` para el texto · al comprobar una URL, solo `http` y `https`, sin IP privadas, locales ni de enlace (también tras una redirección), con 5 s y 5 MB como máximo · tope de cuerpo en toda petición · `Strict-Transport-Security` · copia diaria en almacenamiento privado.
+- **Vencimiento (B3-18):** un proyecto sin cuenta vence 7 días `[inicial]` después de tu última actividad, y el aviso lo dice. Con cuenta, el proyecto se conserva.
 
 ## 7. Pila (se toma)
 
@@ -256,10 +269,10 @@ React + Vite (editor TipTap 3; tipos generados desde Go con `tygo`) · Go en un 
 | 2 · Protecciones | Estado de trabajo completo (vista) · avisos en el texto · el marco y la línea de vuelta (§9) | 8–13 |
 | 3 · Potencia | Búsqueda web de lectores y verificación de pasajes | 2–3 |
 | 4 · Casos difíciles | Propuestas por choque · deshacer y edición sospechosa | 3–4 |
-| Entrega | Acceso por invitación y topes · copia y restauración · seguridad | 5–6 |
-| **Total** | | **35–48** |
+| Entrega | Inicio, links, cuentas y sesiones (B3-18) · topes y avisos (B3-20) · seguridad mínima (B3-22) · copia y restauración | 14–18 |
+| **Total** | | **44–60** |
 
-**Lectura honesta:** es la mitad de las 60–65 h del plan, antes de la lógica del bloque 1 (encargos, comprobaciones, firma, interfaz). Con agentes de código parte se solapa, pero no alcanza sin recortes. Las palancas, en orden: espejo git y cadena de huellas (ya fuera, B3-16), voz solo si sobra tiempo (B3-14), acceso por invitación mínimo (B3-3), y las rebanadas 3–4 tras interruptores, como ya dice el plan.
+**Lectura honesta:** con «Entrega» (B3-18 y B3-22), este bloque solo ya ocupa entre dos tercios y casi todas las 60–65 h del plan, antes de la lógica del bloque 1 (encargos, comprobaciones, firma, interfaz). Con agentes de código parte se solapa, pero no alcanza sin recortes. Las palancas, en orden: espejo git y cadena de huellas (ya fuera, B3-16), voz solo si sobra tiempo (B3-14), las cuentas (B3-18: sin ellas, queda solo el link), y las rebanadas 3–4 tras interruptores, como ya dice el plan.
 
 ## 9. El marco (bloque 1, M-1 a M-4)
 

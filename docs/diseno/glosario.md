@@ -1,6 +1,6 @@
 ---
 titulo: Glosario · del diseño (español) al código (inglés)
-estado: v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
+estado: v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
 relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, el backlog y AGENTS.md
 ---
 
@@ -14,6 +14,9 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 |---|---|
 | PROYECTO · OBJETO · VERSION · VINCULO · EVENTO · ENTREGA · LLAMADA | `project` · `object` · `version` · `edge` · `event` · `delivery` · `model_call` |
 | etiqueta corta del objeto · contador de etiquetas por prefijo (T-2) | `label` (campo de `object`) · `label_counter` |
+| link de invitación · cuenta · sesión (B3-18, B3-22; espec. §1.7) | `invitation` · `account` · `session` |
+| saldo del link · lo gastado · máximo de cuentas · máximo de proyectos sin cuenta · link revocado | `budget_usd` · `spent_usd` · `max_accounts` · `max_anon_projects` · `revoked_at` |
+| dueño del proyecto: la cuenta, o la sesión si es sin cuenta | `account_id` · `anon_session_hash` (campos de `project`) |
 
 ## 2. Nodos del grafo y sus estados
 

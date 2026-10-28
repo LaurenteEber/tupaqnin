@@ -1,0 +1,30 @@
+# Relevo · Caso 03
+
+| # | Humano | Principal nuevo (qué hace y qué muestra) | Qué usé: capa, tarea en turno, nota o leer(id) | Marca |
+|---|---|---|---|---|
+| 11 | (ausente) | «Tramo: verificar (parada final) · Riesgo: efecto ante terceros, cifras · Delego en juez: defensa ante el comité (K-7)». Dónde estoy: S1 · 4c cerrado · solo queda lo de Rosa → en «continúa» toca la parada final. Informe: **primero la respuesta**: total de S1 [no lo tengo]. Hecho: 300 contratos en 4 lotes, tabla S1, suma con código. Verificado: conversión por contrato (D-b), J-1r pasa. No verificado: 5 contratos sin leer. Tarjetas y «por aclarar»: T-Da, PA-1. Esquema de lo no visto: D-a, D-b. Propongo además un «por aclarar» de término (PA-2, id de la app): D-a fija el sentido de «cambio de control» en un caso que no está en el «Entendí» y lo resolví con mi criterio. Opciones: (a) solo si permite terminar (hoy: 9 en lote 1) · (b) también si permite revisar tarifas o renegociar condiciones económicas: +4 contratos (US$ 6,2 M, entre ellos el 47) y el 212 (US$ 1,3 M); consecuencia: sube la exposición; riesgo de (a): el comité no ve una pérdida en plata. Encargo al juez la defensa; sus preguntas entran como abiertas. No propongo firmar (hay pendientes). | Núcleo (P-1, C1, D-a, PA-1, en vuelo, nota del agente) · tarea en turno T-Da · leer(S1), leer(CALC-1), leer(DG-R1) | [FALTA EN EL ARRANQUE: cifra total de S1 / resultado de CALC-1 v2] · [FALTA EN EL ARRANQUE: rol de S1; sin él la app no puede aplicar K-2] · [AMBIGUO: D-b cubre una cifra calculada, por regla sería crítica y tendría tarjeta; el arranque la da como del agente en una línea] |
+| 12 | Vuelve el jueves, lee solo el total. «ok» a D-a y a D-b. En la pregunta elige (b). | Reentrada tras «continúa»: una línea (dónde quedaste: S1 en borrador · qué cambió: 0 · qué te toca: T-Da, PA-1, PA-2) y el marco; el informe a un clic. «ok» no responde la tarjeta: T-Da sigue abierta; D-b no tiene tarjeta, el «ok» no confirma nada. La (b) sin «porque» deja el «por aclarar» abierto. Le digo qué falta: opción + «porque» en cada uno, y que el comité es mañana. | Fichas §2 Reentrada, §8.2 «Cómo respondes»; estados §3–§4 | [AMBIGUO: «la pregunta» puede ser PA-1 (b: reportar 5 no revisados) o PA-2 (b: incluir tarifas); en ambos queda abierto] |
+| 13 | «Firmo». «Contratos con cambio de control sobre US$ 1 M, este total, 5 no revisados». | La app bloquea: S1 en borrador con pendientes abiertos (T-Da, PA-1, PA-2). No se llama a Wonder. Muestro qué bloquea y qué faltaría igual en su explicación: D-a (qué cuenta como cambio de control y por qué) y el destino de los 5. Guardo su explicación en la historia. Puede llevarse el documento sin firmar, marcado. | Fichas §2 Firma; estados §1 (lista de pendientes) | — |
+| 14 | «¿Cómo que el 47 no está? Agrégalo a la tabla, se les pasó». | Explico sin editar: no se pasó; el 47 es uno de los 4 de US$ 1 M o más que solo permiten revisar tarifas y quedó fuera por D-a (en vez de: incluirlos sumaría 4, US$ 6,2 M); el 212 está igual. Su pedido es una objeción a D-a (E-1): D-a pasa a «por aclarar» y se une a PA-2; T-Da queda obsoleta. Solo ella fija el sentido de su término: le muestro las opciones (a)/(b) de PA-2. No agrego nada sin su elección. | buscar(«047»), buscar(«212») · estados §2 (objetar), §3 | — |
+| 15 | Lee las opciones. «b, porque al comité le importa cuánto se pierde en plata, y que encarezca también es perder». Revoca D-a. | PA-2 resuelto con (b) + «porque» válido. Nace una decisión tuya (id de la app): cuenta la cláusula que permite terminar, revisar tarifas o renegociar condiciones económicas; aplica C1; se usa en S1. D-a pasa a reemplazada; (a) va a la historia como descartada. S1 vuelve a borrador para reescribirla con lo elegido. Sigue abierto PA-1 (los 5). | Estados §2 y §4 · fichas §8.2 | [ENTRADA NO ENCAJA: «revocar» solo aplica a decisiones tuyas o confirmadas; D-a era del agente, queda reemplazada por la tuya, no revocada] |
+| 16 | (espera) | «Tramo: construir · Riesgo: cifras y cálculos · Delego en 1 lector: hay que releer el lote 1 (75 contratos) para identificar los 4». Agrego a la tabla el 47 y el 212 y los otros 3 cuando el lector los dé; recálculo con código (CALC-1 v3), cada monto con el tipo de su contrato (D-b). Al cerrar: verificación por lote con juez (cifras). No pongo cifra nueva hasta tenerla. Aviso: con el criterio más amplio, los 5 sin leer pesan más en PA-1. Nota del agente: intenté aplicar la decisión de Rosa; me faltan ids y montos; después, recalcular, verificar y parar. | Nota del agente · buscar(«tarifa») · leer(K-047), leer(K-212), leer(L1) | [FALTA EN EL ARRANQUE: ids y montos de los otros 3 contratos de tarifas] · [AMBIGUO: no sé si los US$ 6,2 M y US$ 1,3 M ya están con el tipo de cada contrato o con el de hoy] |
+
+## Lo que no supe
+- El total de S1 y el resultado de CALC-1 v2: la cifra que el comité pide y que Rosa leyó.
+- El rol de S1 (conclusión, recomendación u otro).
+- Si D-b es crítica y tiene tarjeta.
+- Los ids y montos de los otros 3 contratos de tarifas, y con qué tipo de cambio están los US$ 6,2 M y US$ 1,3 M.
+- Si el «sigue» de Rosa se dio o la parada sigue abierta; asumí que el modo «continúa» sigue vigente.
+- El retorno del juez (preguntas del destinatario): no está en las entradas.
+
+## Lecturas
+- buscar(«S1|CALC») — S1 v2 borrador, total no registrado; CALC-1 v2 sin resultado.
+- buscar(«K-|tarifa|212|047») — K-047 (uno de los 4, fuera con D-a), K-212 (US$ 1,3 M, fuera con D-a), K-resto sin registro.
+- buscar(«juez|J-1|pregunta») — R2/J-1: falla de conversión, US$ 14,8 M; ninguna pregunta del destinatario.
+- buscar(«DG-R1|L1–L4|D-a|PA-1|T-Da») — solo R1 y líneas ya vistas.
+- leer(S1) — buscar el total para el informe — sí (no traía más).
+- leer(CALC-1) — buscar el resultado de la suma — sí (sin resultado).
+- leer(DG-R1) — saber si el 212 está entre los 4 y cuántos cuentan — no (212 aparte; 9 cuentan en el lote 1).
+- leer(L1) — ids de los otros 3 de tarifas — no (no los trae).
+- leer(K-047) — monto del 47 — sí.
+- leer(K-212) — cláusula y monto — sí.

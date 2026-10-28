@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Plataforma y archivos
-estado: v2.2 · 28-oct · decisiones reorganizadas (abiertas: B3-3, B3-9, B3-15 a B3-17; adoptada: B3-14 voz; B3-2 pasó al bloque 1 como K-16) · v2.1 · 27-oct · registra el marco mental del bloque 1 (M-1 a M-4)
+estado: v2.3 · 28-oct · §4: inicio con cuentas, lo gastado en la barra y la nota del agente (B3-18 a B3-21) · v2.2 · 28-oct · decisiones reorganizadas (abiertas: B3-3, B3-9, B3-15 a B3-17; adoptada: B3-14 voz; B3-2 pasó al bloque 1 como K-16) · v2.1 · 27-oct · registra el marco mental del bloque 1 (M-1 a M-4)
 relacion: alinea el bloque 3 anterior (25-oct) con el bloque 1 v4.4 (fichas, estados y flujos v1.3; A-1 a A-5 de la v4.5 están en la especificación v2.1), el bloque 2 v1.1 y el plan del hackathon. Especificación: bloque-3-especificacion.md · decisiones: bloque-3-decisiones.md · qué se tomó y qué cambió: bloque-3-revision.md
 ---
 
@@ -58,10 +58,11 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  TOP["Barra · línea de triaje · modo · costo · «Firmar sección»"]
+  INI["Inicio (B3-18, B3-19)<br/>aviso · tus proyectos · registrarte o entrar<br/>«Probar con el caso de demo» · «Proyecto en blanco»"] --> TOP
+  TOP["Barra · línea de triaje · modo · lo gastado frente al tope (B3-20) · «Firmar sección»"]
   TOP --> NAV["Secciones con su estado<br/>+ número de pendientes"]
   TOP --> DOC["Editor de la sección<br/>propuestas con su contraste · «por aclarar» con sus variantes<br/>avisos «cambió» y «escrita con lo anterior» · Deshacer"]
-  TOP --> PAN["Panel<br/>chat · tarjetas y «por aclarar» pendientes<br/>informe de parada · digesto"]
+  TOP --> PAN["Panel<br/>chat · nota del agente, plegada (B3-21)<br/>tarjetas y «por aclarar» pendientes<br/>informe de parada · digesto"]
   TOP --> MAR["El marco · panel fijo a la izquierda, plegable (B3-9)<br/>arriba, al volver tras días: dónde quedaste · qué cambió · qué te toca<br/>para qué · cómo se juzga · esqueleto · lo que te toca<br/>filtro «solo lo que no viste»"]
   MAR -- "clic en una decisión" --> HIS
   DOC -- "clic en un párrafo" --> HIS["Historia de ese párrafo<br/>decisiones, contraste, quién y cuándo"]
@@ -71,6 +72,7 @@ flowchart TD
 - **Es la lista de fichas §5, completa:** línea de triaje, tarjetas, «por aclarar», informe, digesto, historia por párrafo, el marco y la línea de vuelta, firma, la marca de las secciones sin firmar y la alerta de edición sospechosa con «Deshacer».
 - **El marco (bloque 1, M-1 a M-4):** muestra qué se construye y por qué, ordenado por el argumento; no es un historial. Es de solo lectura, lo calcula la app sin modelo y usa el mismo cálculo que el estado de trabajo del bloque 2, así que no se desalinea. Cada decisión crítica es un ítem con ícono; al desplegarla, una tarjeta con su contraste, tu «porque» y enlaces a la historia y al texto. Detalle en la especificación §9.
 - **Presupuesto de avisos:** en el texto solo se marcan «cambió desde que la firmaste», «escrita con lo anterior» y lo que tiene una propuesta. Lo demás va al número de pendientes, que abres cuando quieres.
+- **Cada persona ve solo sus proyectos (B3-18).** Con el link entras al inicio y creas tu primer proyecto sin cuenta; para conservarlo o crear otro, te registras con usuario y clave. La seguridad mínima está en B3-22 y en la especificación §6.
 - **Objetos, no carpetas.** Exportar el documento con las secciones sin firmar marcadas es obligatorio (K-10 b); la vista de carpeta y la carpeta para Obsidian, solo si sobra tiempo (B3-15).
 
 ## 5. Lo que este bloque guarda para los otros

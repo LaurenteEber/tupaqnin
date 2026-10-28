@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 1 · Núcleo — el ciclo mínimo funcional
-estado: v4.10 · 28-oct · hipótesis de las sondas contra la contradicción (B2-7 del bloque 2) · v4.9 · 27-oct · integra D1–D22, P1–P6, C1–C6, R1–R6 con R3′, E-1 a E-4, F-1, F-2, G-1, A-1 a A-5, K-1 a K-11 (K-10 solo en su parte b) y K-13, M-1 a M-4, N-1 y N-2; K-12 retirada; desde la v4.6 se lee en ~3 páginas y el detalle está en bloque-1-fichas.md §8
+estado: v4.11 · 28-oct · la hipótesis de la precarga no se prueba en el hackathon (H-3) · v4.10 · 28-oct · hipótesis de las sondas contra la contradicción (B2-7 del bloque 2) · v4.9 · 27-oct · integra D1–D22, P1–P6, C1–C6, R1–R6 con R3′, E-1 a E-4, F-1, F-2, G-1, A-1 a A-5, K-1 a K-11 (K-10 solo en su parte b) y K-13, M-1 a M-4, N-1 y N-2; K-12 retirada; desde la v4.6 se lee en ~3 páginas y el detalle está en bloque-1-fichas.md §8
 reglas: ../_reglas-de-trabajo.md · decisiones: bloque-1-decisiones.md · detalle: bloque-1-fichas.md, bloque-1-estados.md, bloque-1-flujos.md · pruebas: ../../casos-prueba/ (simulacion-v4.1, regresion-v4.2) · origen D15–D22: ver bloque-1-decisiones.md
 ---
 
@@ -122,7 +122,7 @@ Un análisis de sensibilidad no es parte del ciclo: se encarga si lo pides, o si
 | La historia por párrafo ayuda a explicar sin mirar | Firmas que coinciden al primer intento | ≥ 60 % | La historia la narra el agente, con enlaces |
 | La parada llega a tiempo y sus preguntas del destinatario sirven | Preguntas que abordas o respondes «no» (no las que ignoras) | ≥ 50 % | Menos preguntas, o solo a pedido |
 | La línea de triaje se entiende sola | Veces que preguntas qué significa | ≤ 1 por sesión | Se reformula la línea |
-| La tarjeta precargada desde el chat evita reescribir | Caso 1: respuestas del chat aplicadas sin reescribir | ≥ 80 % | Se quita la precarga |
+| La tarjeta precargada desde el chat evita reescribir (no se prueba en el hackathon: H-3) | Caso 1: respuestas del chat aplicadas sin reescribir | ≥ 80 % | Se quita la precarga |
 | El agente declara bien qué cambios actualizó | Cierres «actualizado» que no reabres ni contradice la firma («falta en el texto») | ≥ 90 % | Cada cierre lo confirmas tú |
 | La app elige bien el supuesto de la pregunta de origen | Caso de demo: la pregunta apunta al supuesto real (el porcentaje de uso) | 9 de 10 firmas | Lo elige Wonder |
 | La firma es proporcional | Tiempo de firma de una sección con 1–2 decisiones críticas · secciones de la demo que quedan sin firmar | ≤ 3 min · < 50 % | Niveles de firma por destinatario y riesgo |

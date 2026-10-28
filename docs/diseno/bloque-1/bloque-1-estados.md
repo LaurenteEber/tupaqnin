@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 1 · Estados de los objetos
-estado: v1.9 · 28-oct · la app valida «reemplaza» (§1, B2-7 del bloque 2) · v1.8 · 28-oct · la historia registra el modo, tus mensajes y el informe de parada (los usa el bloque 2) · v1.7 · 27-oct · K-13 y N-1; K-12 retirada (los objetos con estados son nodos del grafo del proyecto, fichas §9, salvo la historia, que son sus eventos; el rol es un atributo de la sección) · corregido tras su validación (V1–V8), la auditoría de perfiles y el barrido de coherencia; E-1, E-2, E-4, G-1, A-1, A-4, K-1, K-2, K-5, K-6, K-10, K-11 y M-1 adoptadas
+estado: v1.11 · 28-oct · rol vacío en «+ Sección»: lo propone el principal (K-17) · v1.10 · 28-oct · rol de una sección que creas tú (K-17) · v1.9 · 28-oct · la app valida «reemplaza» (§1, B2-7 del bloque 2) · v1.8 · 28-oct · la historia registra el modo, tus mensajes y el informe de parada (los usa el bloque 2) · v1.7 · 27-oct · K-13 y N-1; K-12 retirada (los objetos con estados son nodos del grafo del proyecto, fichas §9, salvo la historia, que son sus eventos; el rol es un atributo de la sección) · corregido tras su validación (V1–V8), la auditoría de perfiles y el barrido de coherencia; E-1, E-2, E-4, G-1, A-1, A-4, K-1, K-2, K-5, K-6, K-10, K-11 y M-1 adoptadas
 relacion: amplía §4 de bloque-1-fichas.md; sigue el ciclo de bloque-1.md (v4.9). Es lo que el bloque 3 guarda y lo que el bloque 2 entrega en literal
 ---
 
@@ -112,7 +112,7 @@ Nace por un cambio del agente sobre una sección firmada o en «cambió», o por
 | **Criterio** | Vigente → nueva versión (solo tú) | Una nueva versión dispara la comprobación de contradicción sobre lo escrito |
 | **Caso del «Entendí»** | Sin confirmar → confirmado o corregido | Si no respondes, el trabajo sigue; lo que dependa de un caso sin confirmar puede saltar como «término en caso dudoso» |
 | **Premisa** | Vigente → contradicha → la mantienes o la cambias (por «por aclarar») | En un proyecto exploratorio no hay premisa. Lo que respondes a «¿qué esperas encontrar?» es la expectativa de esa ronda: no cambia la premisa ni el carácter exploratorio (K-5) |
-| **Rol de la sección** (conclusión · recomendación · otro) | Propuesto → confirmado (solo tú); lo puedes cambiar cuando quieras (K-13) | Lo propone el principal en el «Entendí», o en el paso que crea la sección; si no respondes, rige lo propuesto y queda visible (K-2). Si cambias el rol y con eso una decisión de una sección firmada se vuelve crítica, esa sección pasa a «cambió» (K-13, K-6). Lo usan la criticidad, la vía directa y «escrito sin decisión» |
+| **Rol de la sección** (conclusión · recomendación · otro) | Propuesto → confirmado (solo tú); lo puedes cambiar cuando quieras (K-13) | Lo propone el principal en el «Entendí», o en el paso que crea la sección; si no respondes, rige lo propuesto y queda visible (K-2). Si creas tú la sección con «+ Sección», el rol que eliges nace confirmado; si lo dejas vacío, lo propone el principal en su siguiente paso (K-17). Si cambias el rol y con eso una decisión de una sección firmada se vuelve crítica, esa sección pasa a «cambió» (K-13, K-6). Lo usan la criticidad, la vía directa y «escrito sin decisión» |
 
 ## 7. Ronda (investigación o juez)
 
