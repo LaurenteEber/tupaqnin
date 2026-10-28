@@ -7,8 +7,11 @@ package server
 import (
 	"embed"
 	"encoding/json"
+	"io"
 	"io/fs"
+	"log/slog"
 	"net/http"
+	"time"
 )
 
 //go:embed static
@@ -26,8 +29,40 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// New returns the HTTP handler for the application.
-func New() http.Handler {
+// statusRecorder records the status code written by a handler.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+// requestLog logs one JSON line per request with method, path, status
+// and duration only (T-10): never the body, query, headers or any
+// document or message content.
+func requestLog(logger *slog.Logger, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		logger.Info("request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rec.status,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
+	})
+}
+
+// New returns the HTTP handler for the application. A nil logger
+// discards request logs.
+func New(logger *slog.Logger) http.Handler {
+	if logger == nil {
+		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
+	}
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -42,5 +77,5 @@ func New() http.Handler {
 	}
 	mux.Handle("GET /", http.FileServer(http.FS(staticFS)))
 
-	return securityHeaders(mux)
+	return requestLog(logger, securityHeaders(mux))
 }

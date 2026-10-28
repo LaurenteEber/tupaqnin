@@ -14,7 +14,7 @@ func TestHealthz(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
-	server.New().ServeHTTP(rec, req)
+	server.New(nil).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /healthz: got status %d, want %d", rec.Code, http.StatusOK)
@@ -44,7 +44,7 @@ func TestSecurityHeaders(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
 			rec := httptest.NewRecorder()
 
-			server.New().ServeHTTP(rec, req)
+			server.New(nil).ServeHTTP(rec, req)
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("GET %s: got status %d, want %d", tt.path, rec.Code, http.StatusOK)
@@ -67,7 +67,7 @@ func TestIndex(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 
-	server.New().ServeHTTP(rec, req)
+	server.New(nil).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /: got status %d, want %d", rec.Code, http.StatusOK)

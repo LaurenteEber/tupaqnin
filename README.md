@@ -28,16 +28,16 @@ It is designed for Meta's models: Muse Spark for the agent and Muse Wonder to co
 Requires Go 1.27.
 
 ```sh
-make run    # http://localhost:8080 — GET /healthz and GET /
+TQ_PROVIDER=fake make run    # http://localhost:8080 — GET /healthz and GET /
 make test
 make vet
 make build  # bin/tupaqnin
 ```
 
-The skeleton only reads `PORT` (default 8080) and needs no API key.
-Configuration from environment variables (piece 0.2) and the fake provider
-(`TQ_PROVIDER=fake`, piece 0.5) arrive as slice 0 lands; the app never reads
-a `.env` file itself, so copying `.env.example` to `.env` does nothing yet.
+Configuration comes only from environment variables (see `.env.example`);
+the app never reads a `.env` file itself. `META_API_KEY` is required unless
+`TQ_PROVIDER=fake`; defaults are `PORT=8080` and `TQ_DATA_DIR=./data`.
+The Meta and fake providers arrive in piece 0.5.
 
 ## Repository map
 
