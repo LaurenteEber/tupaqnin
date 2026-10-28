@@ -14,6 +14,7 @@ import (
 
 	"github.com/LaurenteEber/tupaqnin/internal/config"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
+	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
 func main() {
@@ -24,6 +25,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "config: %v\n", err)
 		os.Exit(1)
 	}
+
+	// The database creates itself (schema and migrations) at startup.
+	db, err := store.Open(context.Background(), cfg.DataDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "store: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() { _ = db.Close() }()
 
 	// No global WriteTimeout: streaming routes (specification §6) write
 	// for a long time and set their own pacing and heartbeat.
