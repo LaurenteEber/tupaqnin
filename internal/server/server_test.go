@@ -31,6 +31,38 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestSecurityHeaders(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "health endpoint", path: "/healthz"},
+		{name: "index page", path: "/"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rec := httptest.NewRecorder()
+
+			server.New().ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("GET %s: got status %d, want %d", tt.path, rec.Code, http.StatusOK)
+			}
+			wantHeaders := map[string]string{
+				"Content-Security-Policy": "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+				"X-Content-Type-Options":  "nosniff",
+				"Referrer-Policy":         "strict-origin-when-cross-origin",
+			}
+			for header, want := range wantHeaders {
+				if got := rec.Header().Get(header); got != want {
+					t.Errorf("GET %s: header %s = %q, want %q", tt.path, header, got, want)
+				}
+			}
+		})
+	}
+}
+
 func TestIndex(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()

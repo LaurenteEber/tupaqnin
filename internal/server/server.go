@@ -14,6 +14,18 @@ import (
 //go:embed static
 var staticFiles embed.FS
 
+// securityHeaders sets the security headers required by specification
+// §6 (CSP with no inline scripts, no MIME sniffing, no framing).
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // New returns the HTTP handler for the application.
 func New() http.Handler {
 	mux := http.NewServeMux()
@@ -30,5 +42,5 @@ func New() http.Handler {
 	}
 	mux.Handle("GET /", http.FileServer(http.FS(staticFS)))
 
-	return mux
+	return securityHeaders(mux)
 }
