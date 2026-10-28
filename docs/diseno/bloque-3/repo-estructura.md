@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Estructura del repo público y primer commit
-estado: v1 · 28-oct · especificación de B3-10 a B3-13 (adoptadas); va a implementación
+estado: v1.1 · 28-oct · Go 1.27 (Eber usa go1.27.3) · v1 · 28-oct · especificación de B3-10 a B3-13 (adoptadas); va a implementación
 relacion: bloque-3-decisiones.md (B3-10 a B3-13) · bloque-3-especificacion.md §6 y §7 · bloque-3.md
 ---
 
@@ -18,7 +18,7 @@ tupaqnin/
 ├── HACKATHON.md         qué existía antes del 27-oct y qué se hizo durante el evento
 ├── LICENSE              MIT
 ├── Makefile             run · test · vet · build
-├── go.mod               github.com/LaurenteEber/tupaqnin · Go 1.24 · sin dependencias
+├── go.mod               github.com/LaurenteEber/tupaqnin · Go 1.27 · sin dependencias
 ├── .env.example         META_API_KEY · PORT · TQ_DATA_DIR
 ├── .gitignore
 ├── .github/workflows/ci.yml
@@ -30,8 +30,9 @@ tupaqnin/
 │   ├── memory/          arranque por tarea, tope, umbral                        → bloque 2
 │   ├── provider/        cliente de la Responses API de Meta + uno falso         → especificación §7
 │   ├── fingerprint/     huella tq-md/1                                          → especificación §4
-│   └── server/          HTTP, streaming, acceso; página embebida               → especificación §6
-├── web/                 React + Vite (llega en la rebanada 1)
+│   ├── server/          HTTP, streaming, acceso; página embebida               → especificación §6
+│   └── voice/           voz: transcripción con Meta, sin guardar el audio      → B3-14 (solo si sobra tiempo)
+├── web/                 React + Vite (el editor mínimo llega en la rebanada 0, según el plan)
 ├── deploy/              Dockerfile · fly.toml
 └── docs/                el diseño actual (investigación, decisiones, casos, bloques 1–3, pruebas)
 ```
@@ -42,15 +43,17 @@ tupaqnin/
 
 | Pieza | Contenido | Listo cuando… |
 |---|---|---|
-| `go.mod` | Módulo `github.com/LaurenteEber/tupaqnin`, `go 1.24`, sin dependencias | `go build ./...` pasa |
+| `go.mod` | Módulo `github.com/LaurenteEber/tupaqnin`, `go 1.27`, sin dependencias ni línea `toolchain` | `go build ./...` pasa con go1.27.3 |
 | `cmd/tupaqnin/main.go` | Lee `PORT` (por defecto 8080) y sirve el handler de `internal/server`, con `ReadHeaderTimeout` | `make run` levanta el servidor |
 | `internal/server/` | Ruta `GET /healthz` → `{"status":"ok"}`; `GET /` → una página mínima embebida (`static/index.html`) que dice qué es tupaqnin y que está en construcción | Las dos rutas tienen prueba |
-| Los otros 6 paquetes de `internal/` | Solo un `doc.go`: qué hace el paquete y qué parte del diseño implementa (la columna «→» del árbol) | `go vet ./...` pasa |
-| `web/` | Solo `README.md`: React + Vite, TipTap, tipos con `tygo`; «solo presenta, lo que tiene valor de evidencia lo calcula Go» | — |
-| `deploy/` | `Dockerfile` en dos etapas (compila con `CGO_ENABLED=0`; imagen *distroless*), y `fly.toml` con disco en `/data`, máquina siempre encendida y chequeo a `/healthz`. **No se despliega todavía** (B3-8 abierta) | `docker build -f deploy/Dockerfile .` construye |
+| Los otros 7 paquetes de `internal/` (incluido `voice/`) | Solo un `doc.go`: qué hace el paquete y qué parte del diseño implementa (la columna «→» del árbol) | `go vet ./...` pasa |
+| `web/` | Solo `README.md`: React + Vite, TipTap, tipos con `tygo`; «solo presenta, lo que tiene valor de evidencia lo calcula Go». El editor mínimo entra después, en la rebanada 0 (`../_plan-hackathon.md`) | — |
+| `deploy/` | `Dockerfile` en dos etapas (compila en `golang:1.27` con `CGO_ENABLED=0`; imagen *distroless*), y `fly.toml` con disco en `/data`, máquina siempre encendida y chequeo a `/healthz`. **No se despliega todavía** (B3-17 y H-2 del plan) | `docker build -f deploy/Dockerfile .` construye |
 | `Makefile` | `run`, `test`, `vet`, `build` (a `bin/`) | `make test` pasa |
-| `.github/workflows/ci.yml` | En cada push a `main` y en cada PR: `go vet ./...` y `go test ./...` con Go 1.24 | El primer push queda en verde |
+| `.github/workflows/ci.yml` | En cada push a `main` y en cada PR: `go vet ./...` y `go test ./...`, con la versión de Go que toma `actions/setup-go` de `go.mod` (`go-version-file: go.mod`) | El primer push queda en verde |
 | `.env.example` | `META_API_KEY=` · `PORT=8080` · `TQ_DATA_DIR=./data`, con la nota «nunca subir `.env`» | — |
+
+**Voz preparada (B3-14):** `internal/voice/` existe desde el primer commit, con su `doc.go` y una interfaz `Transcriber` (de audio a texto) que todavía no tiene implementación. En `web/`, la caja donde escribes al agente y la de la explicación de firma son un mismo componente de entrada, que hoy solo acepta texto. Sumar la voz es implementar esa interfaz y agregar el botón de micrófono a ese componente, sin tocar el ciclo: lo que llega al ciclo es siempre texto.
 
 **Fuera del primer commit:** la lógica del ciclo, SQLite (`modernc.org/sqlite`), el cliente de Meta y `web/` con código. Entran en la rebanada 0 y siguientes (`../_plan-hackathon.md`).
 

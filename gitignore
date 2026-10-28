@@ -1,0 +1,41 @@
+# tupaqnin · .gitignore (repo-estructura.md §4, B3-11)
+
+# Secrets: never commit. .env.example is committed.
+.env
+.env.*
+!.env.example
+
+# App data (SQLite is the authority; never in git)
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Go build output
+/bin/
+*.test
+*.out
+coverage.*
+
+# Web (React + Vite)
+node_modules/
+/web/dist/
+/web/.vite/
+*.tsbuildinfo
+
+# Local tools and editors
+.DS_Store
+/.obsidian/
+/.pi/
+/.atl/
+/.codegraph/
+/.tmp-relevo/
+.claude/settings.local.json
+.idea/
+.vscode/
+*.swp
+
+# Local-only material (not public)
+/Event Details.md
+/_por_eliminar/
+/docs/casos/caso-01-gee/

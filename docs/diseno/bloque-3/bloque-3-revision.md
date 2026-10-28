@@ -4,6 +4,8 @@ estado: 27-oct
 relacion: registro de qué se tomó y qué se cambió del bloque 3 anterior (bloque-3-plataforma-y-archivos.md y bloque-3-hallazgos.md, 25-oct) al pasar a la v2. Los dos archivos siguen en git (commit 4fc57e3)
 ---
 
+*Nota (28-oct): este archivo es proceso. Sus referencias a B3-1, B3-2 y B3-4 a B3-8 son anteriores a la reorganización de `bloque-3-decisiones.md` (B3-1 ya estaba decidida en el bloque 1; B3-2 es K-16 en el bloque 1; B3-4 a B3-8 son B3-14).*
+
 # Bloque 3 · Revisión del 27-oct
 
 ## 1. Sección por sección del bloque 3 anterior

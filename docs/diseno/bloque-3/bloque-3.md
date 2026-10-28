@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Plataforma y archivos
-estado: v2.1 · 27-oct · propuesta para Eber (decisiones B3-1 a B3-9 abiertas); registra el marco mental del bloque 1 (M-1 a M-4)
+estado: v2.2 · 28-oct · decisiones reorganizadas (abiertas: B3-3, B3-9, B3-15 a B3-17; adoptada: B3-14 voz; B3-2 pasó al bloque 1 como K-16) · v2.1 · 27-oct · registra el marco mental del bloque 1 (M-1 a M-4)
 relacion: alinea el bloque 3 anterior (25-oct) con el bloque 1 v4.4 (fichas, estados y flujos v1.3; A-1 a A-5 de la v4.5 están en la especificación v2.1), el bloque 2 v1.1 y el plan del hackathon. Especificación: bloque-3-especificacion.md · decisiones: bloque-3-decisiones.md · qué se tomó y qué cambió: bloque-3-revision.md
 ---
 
@@ -40,19 +40,19 @@ flowchart TD
 
 | Antes (25-oct) | Ahora | Por qué |
 |---|---|---|
-| El agente escribe con 7 herramientas (`edit_section`, `propose_record`, `open_act`…) | **Lee con `buscar` y `leer`; escribe solo entregando su paso con forma fija** (fichas §7). La app valida y aplica (B3-1) | Una sola puerta de escritura; la app ya calcula lo demás |
+| El agente escribe con 7 herramientas (`edit_section`, `propose_record`, `open_act`…) | **Lee con `buscar` y `leer`; escribe solo entregando su paso con forma fija** (fichas §7). La app valida y aplica (fichas §1, N-1) | Una sola puerta de escritura; la app ya calcula lo demás |
 | Actos con predicción oculta | **Tarjetas** con opción y «porque» | Lo decidió el bloque 1 |
 | Propuestas de revocación con `supersedes` | **El agente solo reemplaza sus decisiones, fuera de lo firmado;** revocar es solo tuyo | Estados §2 |
 | Marcadores `[POR ACLARAR]` dentro del texto | **«Por aclarar» es un objeto** con sus opciones y variantes; el editor lo muestra sin escribirlo en el texto | Lo firmado no lleva metadatos |
 | Cuatro estados de sección | **Cinco** (suma «escrita con lo anterior», E-4) | Estados §1 |
-| La firma congela una instantánea al abrir la puerta | **Mientras firmas, los pasos del agente sobre esa sección llegan como propuesta,** igual que en una firmada (B3-2) | Una sola regla en vez de dos |
+| La firma congela una instantánea al abrir la puerta | **Mientras firmas, los pasos del agente sobre esa sección llegan como propuesta,** igual que en una firmada (K-16, propuesta en el bloque 1) | Una sola regla en vez de dos |
 | Contraste: Cubierto · Omitido · Contradicho | **Coincide · falta en tu explicación · falta en el texto**, pregunta de origen, caso nuevo, pausa tras 2 fallos | Flujo de firma del bloque 1 |
 | Agente que choca con tu edición: rehace una vez y luego propuesta | **Directo a propuesta;** tu edición rige | Flujo de comprobaciones |
 | Búsqueda web apagada | **Encendida solo para los lectores;** la app verifica cada pasaje | F-2 |
-| Sin memoria del agente en el hackathon | **El estado de trabajo del bloque 2 completo,** calculado desde la historia | B2-1 a B2-3 · alcance en el plan |
+| Sin memoria del agente en el hackathon | **La memoria del principal del bloque 2,** calculada desde el grafo y la historia, con un arranque por tarea | B2-1 a B2-7 · alcance en B2-5 |
 | Sin deshacer | **Deshacer cada edición tuya con un clic** y reaplicar la propuesta desplazada | G-1 |
-| Espejo git como Debería · cadena de huellas | **A la hoja de ruta** (B3-5, B3-6) | Horas; no protegen nada del caso de demo |
-| Voz para explicar en la firma (Debe) · «mueve una caja» del diagrama | **Texto primero; voz como Debería** (B3-4) · sale, porque la demo es el caso 2 (H-1) | Horas |
+| Espejo git como Debería · cadena de huellas | **A la hoja de ruta** (B3-16) | Horas; no protegen nada del caso de demo |
+| Voz para explicar en la firma (Debe) · «mueve una caja» del diagrama | **Texto en el hackathon; voz para firmar y para conversar con el agente solo si sobra tiempo, con el repo ya preparado** (B3-14) · «mueve una caja» sale, porque la demo es el caso 2 (H-1) | Horas |
 
 ## 4. Qué ves
 
@@ -71,7 +71,7 @@ flowchart TD
 - **Es la lista de fichas §5, completa:** línea de triaje, tarjetas, «por aclarar», informe, digesto, historia por párrafo, el marco y la línea de vuelta, firma, la marca de las secciones sin firmar y la alerta de edición sospechosa con «Deshacer».
 - **El marco (bloque 1, M-1 a M-4):** muestra qué se construye y por qué, ordenado por el argumento; no es un historial. Es de solo lectura, lo calcula la app sin modelo y usa el mismo cálculo que el estado de trabajo del bloque 2, así que no se desalinea. Cada decisión crítica es un ítem con ícono; al desplegarla, una tarjeta con su contraste, tu «porque» y enlaces a la historia y al texto. Detalle en la especificación §9.
 - **Presupuesto de avisos:** en el texto solo se marcan «cambió desde que la firmaste», «escrita con lo anterior» y lo que tiene una propuesta. Lo demás va al número de pendientes, que abres cuando quieres.
-- **Objetos, no carpetas.** La vista de carpeta y la exportación son Debería (B3-7).
+- **Objetos, no carpetas.** Exportar el documento con las secciones sin firmar marcadas es obligatorio (K-10 b); la vista de carpeta y la carpeta para Obsidian, solo si sobra tiempo (B3-15).
 
 ## 5. Lo que este bloque guarda para los otros
 

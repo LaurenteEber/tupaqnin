@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 2 · Memoria del principal
-estado: v3.4 · 28-oct · todas las decisiones críticas vigentes van siempre en las sondas · v3.3: regresión del caso 3 (criticidad en la tarea en turno, tarea cuando solo queda lo tuyo, sondas con pedido y «Entendí») · v3.2: hipótesis movidas a hipotesis.md · v3.1: validación con el bloque 1 (sondas siempre con criterios, premisa y tus decisiones; orden de recorte del arranque); v3.0: arranque por tarea con tope y decisiones en forma compacta (B2-1, B2-2) y sondas (B2-7); el historial de versiones está en git y en encargo.md
+estado: v3.6 · 28-oct · etiquetas con el formato `dec-x` (T-2); la nota del agente entra en la capa 3 con sus primeras 80 palabras (T-6) · v3.5 · 28-oct · sondas con el «Entendí» confirmado entero; segunda corrida de sondas: 6 de 6 · v3.4: todas las decisiones críticas vigentes van siempre en las sondas · v3.3: regresión del caso 3 (criticidad en la tarea en turno, tarea cuando solo queda lo tuyo, sondas con pedido y «Entendí») · v3.2: hipótesis movidas a hipotesis.md · v3.1: validación con el bloque 1 (sondas siempre con criterios, premisa y tus decisiones; orden de recorte del arranque); v3.0: arranque por tarea con tope y decisiones en forma compacta (B2-1, B2-2) y sondas (B2-7); el historial de versiones está en git y en encargo.md
 reglas: ../_reglas-de-trabajo.md · encargo: encargo.md · decisiones: decisiones.md · términos: ../bloque-1/bloque-1.md, ../bloque-1/bloque-1-estados.md y ../bloque-1/bloque-1-fichas.md · pruebas: ../../casos-prueba/relevo-b2-v1/resultado.md y ../../casos-prueba/relevo-b2-v2/resultado.md (regresión)
 ---
 
@@ -38,7 +38,7 @@ Una memoria por proyecto; es lo que el bloque 1 llama «estado de trabajo». **N
 | **2 · Índice** | Cada sección (uno de sus 5 estados más el número de pendientes), decisión no crítica, ronda (de investigación o de juez, con su digesto o informe) y fuente, incluidos los cálculos | Una línea: id · versión · estado · primera línea |
 | **3 · En vuelo** | Modo («normal» o «continúa hasta terminar») y tu mensaje al activarlo · sección y paso actuales · último triaje · pendientes del agente (bloque 1, estados §1) · cambios sin cerrar por sección · inventario de lo no revisado · rondas abiertas · **lo diferido**, hasta que un informe lo recoja (B2-6) · nota del agente del último paso | Completa |
 
-- **Solo cuenta la versión vigente** de cada decisión. Lo reemplazado queda en la historia («reemplaza D-x»), como el *upsert* por tema de Engram.
+- **Solo cuenta la versión vigente** de cada decisión. Lo reemplazado queda en la historia («reemplaza dec-x»), como el *upsert* por tema de Engram.
 - **La primera línea es la respuesta:** por la regla «primero la respuesta», la primera línea de cada sección, digesto o decisión ya dice lo esencial, y el índice la usa tal cual.
 - **Nota del agente:** es parte de la salida de cada paso (bloque 1, fichas §7). Dice qué intentó, qué descartó y qué piensa hacer después. Va marcada «del agente».
 - **Nunca contiene:** copias de documentos, tus mensajes parafraseados ni nada que solo valga para un modelo.
@@ -47,7 +47,7 @@ Una memoria por proyecto; es lo que el bloque 1 llama «estado de trabajo». **N
 
 **Un solo arranque** para otro día (no hay una conversación viva del principal en tu sesión), cambio de modelo o umbral. **Es un recorte de la memoria por tarea y pesa como máximo 15 % de la ventana `[inicial]`;** apunta a ≤ 5 %, y una prueba automática lo mide. Va de lo estable a lo variable, para aprovechar la caché por prefijo:
 
-1. **Núcleo:** la capa 1 sin las decisiones críticas ajenas a la tarea, más la capa 3. **Nunca se recorta.**
+1. **Núcleo:** la capa 1 sin las decisiones críticas ajenas a la tarea, más la capa 3. **Nunca se recorta.** La nota del agente entra en la capa 3 con sus primeras 80 palabras `[inicial]` (T-6): es su forma fija, no un recorte por tope.
 2. **Tarea en turno:** tu mensaje sin respuesta; si no hay, el paso en vuelo; si no, el primer pendiente del agente o lo diferido; si solo queda lo tuyo, la parada con su informe. Va con lo que usa según el grafo: sus decisiones críticas en forma compacta (la criticidad la calcula la app por regla, aunque todavía no haya tarjeta), las no críticas en una línea, los supuestos de los que depende y sus fuentes.
 3. **Índice recortado:** la capa 2, con una línea por sección y conteos para lo demás («312 fuentes → `buscar`»), y líneas sueltas si caben.
 4. **Lo que cambió** desde lo último entregado al principal, sea cual sea su instancia o modelo.
@@ -73,9 +73,9 @@ Una memoria por proyecto; es lo que el bloque 1 llama «estado de trabajo». **N
 
 Con el arranque por tarea, el principal no ve de entrada las decisiones críticas de otras secciones. **La contradicción no depende de que las vea:** la juzga en cada paso un turno de otro LLM, el comprobador del bloque 1, con contexto limpio y sin ver el razonamiento del principal.
 
-- **Sondas que arma la app:** una pregunta cerrada {lo protegido en literal, pasaje nuevo} → contradice · no · duda. La duda salta. Van siempre el pedido, los criterios con sus casos confirmados del «Entendí», la premisa, todas tus decisiones y **todas las decisiones críticas vigentes**, estén o no vinculadas al paso; además, las decisiones confirmadas y las de una sección firmada que el grafo vincula a lo que tocó el paso. Todas van en una sola llamada. Si cambió un criterio o la premisa, la sonda va contra el texto vigente de cada sección afectada (bloque 1, estados §6).
+- **Sondas que arma la app:** una pregunta cerrada {lo protegido en literal, pasaje nuevo} → contradice · no · duda. La duda salta. Van siempre el pedido, el «Entendí» confirmado con sus casos, los criterios, la premisa, todas tus decisiones y **todas las decisiones críticas vigentes**, estén o no vinculadas al paso; además, las decisiones confirmadas y las de una sección firmada que el grafo vincula a lo que tocó el paso. Todas van en una sola llamada. Si cambió un criterio o la premisa, la sonda va contra el texto vigente de cada sección afectada (bloque 1, estados §6).
 - **Lo estructural lo ve la app sola:** rechaza una salida cuyo «reemplaza» apunte a una decisión tuya, confirmada o de una sección firmada.
-- **Si se le pasó al principal,** el «por aclarar» dice «la última entrega contradice D-x · no lo declaró el agente», y cuenta en la métrica del bloque 1. En «continúa hasta terminar», va al informe para tu revisión. No bloquea ni deshace (DEC-003).
+- **Si se le pasó al principal,** el «por aclarar» dice «la última entrega contradice dec-x · no lo declaró el agente», y cuenta en la métrica del bloque 1. En «continúa hasta terminar», va al informe para tu revisión. No bloquea ni deshace (DEC-003).
 
 ## 6. Cada caso
 
