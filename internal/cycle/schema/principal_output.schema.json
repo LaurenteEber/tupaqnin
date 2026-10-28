@@ -1,0 +1,407 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-principal.schema.json",
+  "title": "Salida fija del principal en cada paso",
+  "description": "Contrato de fichas §7 (fila «Principal, en cada paso»), en forma de esquema. La app valida esta salida antes de aplicarla (especificación §3); si no cumple, la reintenta una vez y luego queda como pendiente del agente. Cada campo cita su fuente. Los nombres van en inglés (T-1); su equivalencia con el diseño está en ../glosario.md §6. Ids: el principal escribe etiquetas cortas del proyecto (T-2, glosario §8) o, para lo que nace en esta salida, ids provisionales «new-n» declarados en ella (T-3). Cada new-n se declara una sola vez (decisión u open question con su id; sección nueva con su entrada en proposed_roles); la app comprueba esa unicidad en Go. Toda palabra clave que el modo estricto de Meta no admita (if/then, minLength, pattern, anyOf, propiedades opcionales) se omite del esquema enviado y se valida en Go (micro-prueba 0.8).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "triage_line",
+    "closing_risk",
+    "note"
+  ],
+  "properties": {
+    "triage_line": {
+      "description": "La línea de triaje del paso: tramo, riesgo y, si delega, la razón (fichas §8.3, D16, K-3).",
+      "type": "string",
+      "minLength": 1
+    },
+    "closing_risk": {
+      "description": "Riesgo con que cierra el paso: «ninguno» o uno de la lista cerrada (D17, fichas §8.3).",
+      "type": "string",
+      "enum": [
+        "none",
+        "figures_and_calculations",
+        "sources_and_citations",
+        "conclusions_and_recommendations",
+        "contradicts_confirmed",
+        "third_party_effect",
+        "unverifiable"
+      ]
+    },
+    "new_text": {
+      "description": "Texto que el paso escribe, con su ancla y su operación (T-4). Todas las anclas se buscan en base_version, en NFC y con espacios colapsados; no pueden solaparse y se aplican de atrás hacia adelante. Si un ancla no aparece o se repite, el rechazo dice cuántas veces aparece (especificación §3, regla 2).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "section_id",
+          "base_version",
+          "anchor",
+          "operation",
+          "text"
+        ],
+        "properties": {
+          "section_id": {
+            "description": "Etiqueta de la sección, o «new-n» si la sección nace en esta salida.",
+            "$ref": "#/$defs/ref"
+          },
+          "base_version": {
+            "description": "Versión de la sección que leyó el principal; 0 en una sección nueva.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "anchor": {
+            "description": "Pasaje literal que existe en esa versión. Vacío con «insert_after» = al inicio de la sección; es la única forma válida en una sección nueva.",
+            "type": "string"
+          },
+          "operation": {
+            "description": "«replace»: el ancla se reemplaza por el texto. «insert_after»: el texto va después del ancla (T-4).",
+            "type": "string",
+            "enum": [
+              "replace",
+              "insert_after"
+            ]
+          },
+          "text": {
+            "description": "Markdown sin HTML crudo ni contenido invisible (especificación §3, regla 3).",
+            "type": "string"
+          }
+        },
+        "if": {
+          "properties": {
+            "operation": {
+              "const": "replace"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "anchor": {
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "new_decisions": {
+      "description": "Cada decisión nueva con su contraste completo (especificación §3, regla 5; fichas §7).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statement",
+          "instead_of",
+          "would_choose_if",
+          "assumption",
+          "used_in_sections"
+        ],
+        "properties": {
+          "id": {
+            "description": "Id provisional (T-3): otros campos de esta salida pueden apuntar a él.",
+            "$ref": "#/$defs/new_id"
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instead_of": {
+            "type": "string",
+            "minLength": 1
+          },
+          "would_choose_if": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assumption": {
+            "description": "«assumption: true» marca una decisión de supuesto (fichas §9).",
+            "type": "boolean"
+          },
+          "used_in_sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            },
+            "minItems": 1
+          },
+          "supersedes": {
+            "description": "Etiqueta de una decisión propia, vigente y fuera de lo firmado, o null. La app rechaza la salida si apunta a una decisión tuya, confirmada o de una sección firmada (fichas §3, B2-7).",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/label"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "applies": {
+            "description": "Ids de criterios (arista «aplica», N-1).",
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "depends_on_assumption": {
+            "description": "Etiqueta o «new-n» de una decisión con «assumption: true», o la etiqueta de la premisa, o null (arista «depende del supuesto», N-1).",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "used_decisions": {
+      "description": "Decisiones de otras secciones usadas en este paso (arista «se usa en»).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    },
+    "proposed_roles": {
+      "description": "Rol de cada sección nueva que crea el paso (K-2).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "section_id",
+          "role"
+        ],
+        "properties": {
+          "section_id": {
+            "description": "«new-n» de una sección que nace en esta salida (así se declara, K-2), o la etiqueta de una sección existente.",
+            "$ref": "#/$defs/ref"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "conclusion",
+              "recommendation",
+              "other"
+            ]
+          }
+        }
+      }
+    },
+    "proposed_open_questions": {
+      "description": "Lo que solo decide el humano (D21, P5, C1). El principal propone; la app lo abre.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "question",
+          "options",
+          "depends_on"
+        ],
+        "properties": {
+          "id": {
+            "description": "Id provisional (T-3).",
+            "$ref": "#/$defs/new_id"
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "option",
+                "contrast",
+                "consequence",
+                "risk"
+              ],
+              "properties": {
+                "option": {
+                  "type": "string"
+                },
+                "contrast": {
+                  "type": "string"
+                },
+                "consequence": {
+                  "type": "string"
+                },
+                "risk": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "depends_on": {
+            "description": "Ids de lo que bloquea (arista «bloquea»).",
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/ref"
+            },
+            "minItems": 1
+          },
+          "variants": {
+            "description": "Variantes rotuladas que el agente avanza sin elegir (P5).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "figure_links": {
+      "description": "Cada cifra nueva y la decisión que la cubre (arista «la cubre»). Un dato reproducido no va aquí: lo vincula la app (A-3).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "figure_anchor",
+          "decision_id"
+        ],
+        "properties": {
+          "figure_anchor": {
+            "type": "string",
+            "description": "Pasaje literal de la cifra en el texto que resulta del paso (T-4)."
+          },
+          "decision_id": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    },
+    "used_sources": {
+      "description": "Fuentes usadas en el paso (arista «usa»; A-1).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    },
+    "citations": {
+      "description": "Cada cita con su pasaje literal; la app verifica el pasaje en la fuente (A-2).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_anchor",
+          "source_id",
+          "passage"
+        ],
+        "properties": {
+          "claim_anchor": {
+            "type": "string",
+            "description": "Pasaje literal de la afirmación en el texto que resulta del paso (T-4)."
+          },
+          "source_id": {
+            "$ref": "#/$defs/label"
+          },
+          "passage": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Pasaje literal de la fuente, sin traducir (T-1)."
+          }
+        }
+      }
+    },
+    "handled_changes": {
+      "description": "Cambios de la lista de una sección que el paso atiende (A-1). «reviewed_unchanged» exige un «porque».",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "change_id",
+          "result"
+        ],
+        "properties": {
+          "change_id": {
+            "description": "Etiqueta del cambio en la lista de la sección («chg-n», T-2).",
+            "$ref": "#/$defs/label"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "updated",
+              "reviewed_unchanged"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "if": {
+          "properties": {
+            "result": {
+              "const": "reviewed_unchanged"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "deferred": {
+      "description": "Lo que el principal deja «para después»; la app lo lleva en la capa 3 hasta que un informe lo recoja (B2-6). No se recorta: si un ítem pasa de 30 palabras `[inicial]`, se registra (T-6).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "what",
+          "why"
+        ],
+        "properties": {
+          "what": {
+            "type": "string",
+            "minLength": 1
+          },
+          "why": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "note": {
+      "description": "Nota corta para el bloque 2, marcada «del agente»: qué intentó, qué descartó y qué piensa hacer después (B2-1). Se guarda completa; la capa 3 y el arranque usan sus primeras 80 palabras `[inicial]`, marcadas «recortada». No se rechaza por largo (T-6).",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "ref": {
+      "description": "Etiqueta corta de un objeto del proyecto (T-2, glosario §8) o id provisional «new-n» de un objeto que nace en esta salida (T-3). Nunca un id interno.",
+      "type": "string",
+      "pattern": "^(new-[1-9][0-9]*|[a-z]{2,5}-[1-9][0-9]*)$"
+    },
+    "new_id": {
+      "description": "Id provisional de un objeto que nace en esta salida; la app le asigna su etiqueta al aplicarla (T-3).",
+      "type": "string",
+      "pattern": "^new-[1-9][0-9]*$"
+    },
+    "label": {
+      "description": "Etiqueta corta de un objeto que ya existe en el proyecto (T-2, glosario §8). No admite «new-n». El patrón no excluye «new-n» porque el motor de expresiones regulares de Go (RE2) no admite lookahead: lo rechaza la regla 4 de la validación en Go (espec. §3).",
+      "type": "string",
+      "pattern": "^[a-z]{2,5}-[1-9][0-9]*$"
+    }
+  }
+}
