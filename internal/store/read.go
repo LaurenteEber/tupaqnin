@@ -8,13 +8,64 @@ import (
 	"fmt"
 )
 
+// queryer is what the read pool and a write transaction share.
+type queryer interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+// Querier reads the current graph: the read pool, or a write
+// transaction that must see its own writes, as the criticality does
+// in each transaction that changes edges or a role (T-5).
+type Querier interface {
+	GetObject(ctx context.Context, projectID, idOrLabel string) (Object, error)
+	ListObjects(ctx context.Context, projectID string, t ObjectType) ([]Object, error)
+	AllObjects(ctx context.Context, projectID string) ([]Object, error)
+	EdgesFrom(ctx context.Context, projectID, fromID string) ([]Edge, error)
+	EdgesTo(ctx context.Context, projectID, toID string) ([]Edge, error)
+}
+
+var (
+	_ Querier = (*DB)(nil)
+	_ Querier = (*Tx)(nil)
+)
+
+// GetObject, ListObjects, AllObjects, EdgesFrom and EdgesTo read inside
+// the transaction, its own writes included.
+func (tx *Tx) GetObject(ctx context.Context, projectID, idOrLabel string) (Object, error) {
+	return getObject(ctx, tx.tx, projectID, idOrLabel)
+}
+
+func (tx *Tx) ListObjects(ctx context.Context, projectID string, t ObjectType) ([]Object, error) {
+	return listObjects(ctx, tx.tx, projectID, t)
+}
+
+func (tx *Tx) AllObjects(ctx context.Context, projectID string) ([]Object, error) {
+	return allObjects(ctx, tx.tx, projectID)
+}
+
+func (tx *Tx) EdgesFrom(ctx context.Context, projectID, fromID string) ([]Edge, error) {
+	return edges(ctx, tx.tx, projectID, "from_id", fromID)
+}
+
+func (tx *Tx) EdgesTo(ctx context.Context, projectID, toID string) ([]Edge, error) {
+	return edges(ctx, tx.tx, projectID, "to_id", toID)
+}
+
+// ProjectID is the project the transaction writes to.
+func (tx *Tx) ProjectID() string { return tx.projectID }
+
 // GetObject returns the object by internal id or short label within
 // the project, with the body of its current version.
 func (db *DB) GetObject(ctx context.Context, projectID, idOrLabel string) (Object, error) {
+	return getObject(ctx, db.Reader, projectID, idOrLabel)
+}
+
+func getObject(ctx context.Context, q queryer, projectID, idOrLabel string) (Object, error) {
 	var obj Object
 	var state sql.NullString
 	var body string
-	err := db.Reader.QueryRowContext(ctx,
+	err := q.QueryRowContext(ctx,
 		`SELECT o.id, o.label, o.type, o.state, o.current_version, v.body
 		 FROM object o
 		 JOIN version v ON v.project_id = o.project_id AND v.object_id = o.id
@@ -37,10 +88,14 @@ func (db *DB) GetObject(ctx context.Context, projectID, idOrLabel string) (Objec
 // ListObjects returns every object of the type in the project,
 // ordered by label.
 func (db *DB) ListObjects(ctx context.Context, projectID string, t ObjectType) ([]Object, error) {
+	return listObjects(ctx, db.Reader, projectID, t)
+}
+
+func listObjects(ctx context.Context, q queryer, projectID string, t ObjectType) ([]Object, error) {
 	if !t.Valid() {
 		return nil, fmt.Errorf("%w: object type %q", ErrInvalidType, t)
 	}
-	rows, err := db.Reader.QueryContext(ctx,
+	rows, err := q.QueryContext(ctx,
 		`SELECT o.id, o.label, o.type, o.state, o.current_version, v.body
 		 FROM object o
 		 JOIN version v ON v.project_id = o.project_id AND v.object_id = o.id
@@ -69,9 +124,9 @@ func (db *DB) ListObjects(ctx context.Context, projectID string, t ObjectType) (
 	return out, nil
 }
 
-func (db *DB) edges(ctx context.Context, projectID, column, id string) ([]Edge, error) {
+func edges(ctx context.Context, q queryer, projectID, column, id string) ([]Edge, error) {
 	// column is one of two fixed literals chosen below, never input.
-	rows, err := db.Reader.QueryContext(ctx,
+	rows, err := q.QueryContext(ctx,
 		`SELECT id, type, from_id, to_id, anchor, version, current FROM edge
 		 WHERE project_id = ? AND `+column+` = ? AND current = 1 ORDER BY id`,
 		projectID, id)
@@ -102,12 +157,12 @@ func (db *DB) edges(ctx context.Context, projectID, column, id string) ([]Edge, 
 // [EL DISEÑO NO LO DICE]: whether reads return superseded edges is
 // not stated; only current edges are returned, as the graph uses them.
 func (db *DB) EdgesFrom(ctx context.Context, projectID, fromID string) ([]Edge, error) {
-	return db.edges(ctx, projectID, "from_id", fromID)
+	return edges(ctx, db.Reader, projectID, "from_id", fromID)
 }
 
 // EdgesTo returns the current edges entering the object, in the project.
 func (db *DB) EdgesTo(ctx context.Context, projectID, toID string) ([]Edge, error) {
-	return db.edges(ctx, projectID, "to_id", toID)
+	return edges(ctx, db.Reader, projectID, "to_id", toID)
 }
 
 // EventsSince returns the history after seq, in seq order (T-7: the
@@ -149,7 +204,11 @@ func (db *DB) EventsSince(ctx context.Context, projectID string, seq int) ([]Eve
 // current version, ordered by label. It backs the computed working
 // state (specification §5: the memory is a query, never a source).
 func (db *DB) AllObjects(ctx context.Context, projectID string) ([]Object, error) {
-	rows, err := db.Reader.QueryContext(ctx,
+	return allObjects(ctx, db.Reader, projectID)
+}
+
+func allObjects(ctx context.Context, q queryer, projectID string) ([]Object, error) {
+	rows, err := q.QueryContext(ctx,
 		`SELECT o.id, o.label, o.type, o.state, o.current_version, v.body
 		 FROM object o
 		 JOIN version v ON v.project_id = o.project_id AND v.object_id = o.id

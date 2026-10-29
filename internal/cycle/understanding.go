@@ -101,59 +101,62 @@ func (g *Gate) EndUnderstanding(ctx context.Context, projectID, turnID string, a
 	}
 
 	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
-		ev := store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID}
-		byLabel := make(map[string]CriterionRef, len(criteria))
-		for _, c := range criteria {
-			byLabel[c.Label] = c
-		}
-		for _, entry := range parsed.Criteria {
-			crit := byLabel[entry.Criterion]
-			for _, kase := range []struct {
-				text   string
-				counts bool
-			}{{entry.Counts, true}, {entry.DoesNotCount, false}} {
+		// Proposing a role can make a decision critical (T-5).
+		return TrackCriticality(ctx, tx, turnID, func() error {
+			ev := store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID}
+			byLabel := make(map[string]CriterionRef, len(criteria))
+			for _, c := range criteria {
+				byLabel[c.Label] = c
+			}
+			for _, entry := range parsed.Criteria {
+				crit := byLabel[entry.Criterion]
+				for _, kase := range []struct {
+					text   string
+					counts bool
+				}{{entry.Counts, true}, {entry.DoesNotCount, false}} {
+					if _, err := tx.CreateObject(store.ObjectUnderstandingCase, "unconfirmed",
+						map[string]any{"text": kase.text, "counts": kase.counts, "criterion_id": crit.ID}, ev); err != nil {
+						return err
+					}
+				}
+			}
+			for _, reading := range parsed.Material {
 				if _, err := tx.CreateObject(store.ObjectUnderstandingCase, "unconfirmed",
-					map[string]any{"text": kase.text, "counts": kase.counts, "criterion_id": crit.ID}, ev); err != nil {
+					map[string]any{"text": reading.Case, "criterion_id": ""}, ev); err != nil {
 					return err
 				}
 			}
-		}
-		for _, reading := range parsed.Material {
-			if _, err := tx.CreateObject(store.ObjectUnderstandingCase, "unconfirmed",
-				map[string]any{"text": reading.Case, "criterion_id": ""}, ev); err != nil {
-				return err
-			}
-		}
-		for _, sec := range parsed.Sections {
-			if strings.HasPrefix(sec.ID, "new-") {
-				if _, err := tx.CreateObject(store.ObjectSection, "draft",
-					map[string]any{
-						"title": sec.Title, "text": "",
-						"role":         map[string]any{"value": sec.Role, "state": "proposed"},
-						"open_changes": []any{},
-					}, ev); err != nil {
+			for _, sec := range parsed.Sections {
+				if strings.HasPrefix(sec.ID, "new-") {
+					if _, err := tx.CreateObject(store.ObjectSection, "draft",
+						map[string]any{
+							"title": sec.Title, "text": "",
+							"role":         map[string]any{"value": sec.Role, "state": "proposed"},
+							"open_changes": []any{},
+						}, ev); err != nil {
+						return err
+					}
+					continue
+				}
+				obj, err := g.db.GetObject(ctx, projectID, sec.ID)
+				if err != nil {
 					return err
 				}
-				continue
+				body := map[string]any{}
+				_ = json.Unmarshal(obj.Body, &body)
+				body["role"] = map[string]any{"value": sec.Role, "state": "proposed"}
+				if _, err := tx.UpdateObject(obj.ID, obj.CurrentVersion, obj.State, body,
+					store.EventInput{Type: store.EventRoleChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID,
+						Data: map[string]any{"label": sec.ID, "role": sec.Role, "state": "proposed"}}); err != nil && !errors.Is(err, store.ErrNoChange) {
+					return err
+				}
 			}
-			obj, err := g.db.GetObject(ctx, projectID, sec.ID)
-			if err != nil {
-				return err
-			}
-			body := map[string]any{}
-			_ = json.Unmarshal(obj.Body, &body)
-			body["role"] = map[string]any{"value": sec.Role, "state": "proposed"}
-			if _, err := tx.UpdateObject(obj.ID, obj.CurrentVersion, obj.State, body,
-				store.EventInput{Type: store.EventRoleChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID,
-					Data: map[string]any{"label": sec.ID, "role": sec.Role, "state": "proposed"}}); err != nil && !errors.Is(err, store.ErrNoChange) {
-				return err
-			}
-		}
-		_, err := tx.AppendEvent(store.EventInput{
-			Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal", TurnID: turnID,
-			Data: map[string]any{"turn_kind": "understanding", "understood": parsed.Understood},
+			_, err := tx.AppendEvent(store.EventInput{
+				Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal", TurnID: turnID,
+				Data: map[string]any{"turn_kind": "understanding", "understood": parsed.Understood},
+			})
+			return err
 		})
-		return err
 	})
 	if err != nil {
 		return UnderstandingResult{}, err

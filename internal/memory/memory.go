@@ -171,36 +171,6 @@ func openChangeLabels(b body) []string {
 	return out
 }
 
-// isCritical computes criticality from the graph (§1.5, T-5):
-// covers a figure, is used in a conclusion or recommendation
-// section, affects two or more sections, or the human marked it.
-// [EL DISEÑO NO LO DICE]: §1.5 names one Go function without naming
-// its package; it lives here until the checks slice needs it too.
-func isCritical(obj store.Object, b body, edgesFrom []store.Edge, edgesTo []store.Edge, sections map[string]store.Object) bool {
-	if b.boolean("human_marked_critical") {
-		return true
-	}
-	for _, e := range edgesTo {
-		if e.Type == store.EdgeCovers {
-			return true
-		}
-	}
-	usedIn := 0
-	for _, e := range edgesFrom {
-		if e.Type != store.EdgeUsedIn {
-			continue
-		}
-		usedIn++
-		if sec, ok := sections[e.ToID]; ok {
-			role, _ := decodeBody(sec)["role"].(map[string]any)
-			if v, _ := role["value"].(string); v == "conclusion" || v == "recommendation" {
-				return true
-			}
-		}
-	}
-	return usedIn >= 2
-}
-
 // WorkingState computes the three layers from the graph and the
 // history. Nothing is cached as a source (specification §5).
 func (m *Memory) WorkingState(ctx context.Context, projectID string) (State, error) {
@@ -292,9 +262,14 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 		}
 	}
 
-	critical := make(map[string]bool)
-	for _, dec := range byType[store.ObjectDecision] {
-		critical[dec.ID] = isCritical(dec, decodeBody(dec), edgesFrom[dec.ID], edgesTo[dec.ID], sections)
+	// Criticality comes from the one function of T-5.
+	reasons, err := graph.CriticalAll(ctx, m.db, projectID)
+	if err != nil {
+		return State{}, nil, nil, err
+	}
+	critical := make(map[string]bool, len(reasons))
+	for id := range reasons {
+		critical[id] = true
 	}
 	for _, dec := range byType[store.ObjectDecision] {
 		b := decodeBody(dec)

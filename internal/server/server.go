@@ -134,6 +134,9 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("GET /api/projects/{projectID}/sections", s.listSections)
 		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}", s.putSection)
 		mux.HandleFunc("POST /api/projects/{projectID}/messages", s.postMessage)
+		mux.HandleFunc("GET /api/projects/{projectID}/todo", s.getTodo)
+		mux.HandleFunc("GET /api/projects/{projectID}/cards/{label}", s.getCard)
+		mux.HandleFunc("POST /api/projects/{projectID}/cards/{label}/answer", s.answerCard)
 	}
 
 	mux.HandleFunc("GET /api/projects/{projectID}/turns/{turnID}/stream", s.streamTurn)

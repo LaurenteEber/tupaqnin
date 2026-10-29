@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -168,15 +169,18 @@ func (s *Server) putSectionRole(w http.ResponseWriter, r *http.Request) {
 	body["role"] = map[string]any{"value": req.Role, "state": "confirmed"}
 	var updated store.Object
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
-		var err error
-		updated, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, obj.State, body,
-			store.EventInput{Type: store.EventRoleChanged, Actor: "human", ObjectID: obj.ID,
-				Data: map[string]any{"label": label, "from": str(oldRole, "value"), "to": req.Role, "state": "confirmed"}})
-		if errors.Is(err, store.ErrNoChange) {
-			err = nil
-			updated = obj
-		}
-		return err
+		// Changing the role can make a decision critical (T-5, K-13).
+		return cycle.TrackCriticality(r.Context(), tx, "", func() error {
+			var err error
+			updated, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, obj.State, body,
+				store.EventInput{Type: store.EventRoleChanged, Actor: "human", ObjectID: obj.ID,
+					Data: map[string]any{"label": label, "from": str(oldRole, "value"), "to": req.Role, "state": "confirmed"}})
+			if errors.Is(err, store.ErrNoChange) {
+				err = nil
+				updated = obj
+			}
+			return err
+		})
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")

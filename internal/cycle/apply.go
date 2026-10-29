@@ -128,9 +128,11 @@ func (g *Gate) ApplyStep(ctx context.Context, projectID, turnID string, output j
 	beforeApplyWrite()
 	var labels map[string]string
 	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
-		var err error
-		labels, err = p.apply(tx, turnID, out, plan)
-		return err
+		return TrackCriticality(ctx, tx, turnID, func() error {
+			var err error
+			labels, err = p.apply(tx, turnID, out, plan)
+			return err
+		})
 	})
 	var stale errStale
 	if errors.As(err, &stale) {

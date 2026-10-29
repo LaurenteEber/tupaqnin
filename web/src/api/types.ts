@@ -39,6 +39,40 @@ export interface PostMessageResponse {
 }
 
 //////////
+// source: cards.go
+
+/**
+ * Shapes for P4 (backlog-r1 1.4): a card reads its decision, why it is
+ * critical and the sections that use it (pantallas.md, P4).
+ */
+export interface CardView {
+  label: string;
+  state: string;
+  decision: string;
+  statement: string;
+  instead_of: string;
+  would_choose_if: string;
+  reasons: string[];
+  sections: string[];
+}
+/**
+ * TodoView is what is yours to do (estados §1); in slice 1, the open
+ * cards.
+ */
+export interface TodoView {
+  cards: CardView[];
+}
+export interface AnswerCardRequest {
+  option: string; // keep · other
+  reason: string;
+}
+export interface AnswerCardResponse {
+  card: string;
+  decision: string;
+  new_decision?: string;
+}
+
+//////////
 // source: hub.go
 
 /**

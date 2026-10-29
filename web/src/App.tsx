@@ -12,6 +12,7 @@ import type { ProjectView, SectionView } from "./api/types";
 import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
 import { UnderstandingPanel } from "./components/UnderstandingPanel";
+import { CardPanel } from "./components/CardPanel";
 import { SectionEditor } from "./components/SectionEditor";
 import { initialLang, translate, type Lang } from "./i18n";
 
@@ -177,7 +178,19 @@ export function App() {
           projectID={projectID}
           refreshKey={understandingKey}
           pending={understandingTurn && step?.status === "agent_pending"}
-          onRoleChanged={() => void refreshSections(projectID)}
+          onRoleChanged={() => {
+            void refreshSections(projectID);
+            setUnderstandingKey((k) => k + 1); // a role can open a card (K-13)
+          }}
+        />
+      )}
+
+      {projectID && (
+        <CardPanel
+          lang={lang}
+          projectID={projectID}
+          refreshKey={understandingKey}
+          onAnswered={() => void refreshSections(projectID)}
         />
       )}
 

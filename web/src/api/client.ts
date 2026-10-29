@@ -1,4 +1,5 @@
 import type {
+  AnswerCardResponse,
   CaseView,
   CreateProjectResponse,
   PostMessageResponse,
@@ -8,6 +9,7 @@ import type {
   SectionRoleView,
   SectionView,
   SourceView,
+  TodoView,
   UnderstandingView,
 } from "./types";
 
@@ -89,6 +91,27 @@ export async function correctCase(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
+    }),
+  );
+}
+
+// P4 (backlog-r1 1.4): what is yours to do, and answering a card. Go
+// decides whether the «porque» counts (422 invalid_reason).
+export async function getTodo(projectID: string): Promise<TodoView> {
+  return json(await fetch(`/api/projects/${projectID}/todo`));
+}
+
+export async function answerCard(
+  projectID: string,
+  label: string,
+  option: "keep" | "other",
+  reason: string,
+): Promise<AnswerCardResponse> {
+  return json(
+    await fetch(`/api/projects/${projectID}/cards/${label}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ option, reason }),
     }),
   );
 }
