@@ -2,13 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createProject,
   createSection,
+  listProjects,
   listSections,
   postMessage,
   subscribeTurn,
   type StepPayload,
 } from "./api/client";
-import type { SectionView } from "./api/types";
+import type { ProjectView, SectionView } from "./api/types";
 import { MessageInput } from "./components/MessageInput";
+import { RequestPanel } from "./components/RequestPanel";
 import { SectionEditor } from "./components/SectionEditor";
 import { initialLang, translate, type Lang } from "./i18n";
 
@@ -16,6 +18,7 @@ export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
 
+  const [projects, setProjects] = useState<ProjectView[]>([]);
   const [projectID, setProjectID] = useState("");
   const [sections, setSections] = useState<SectionView[]>([]);
   const [selected, setSelected] = useState("");
@@ -38,13 +41,37 @@ export function App() {
     if (projectID) void refreshSections(projectID);
   }, [projectID, refreshSections]);
 
-  async function newProject() {
-    const created = await createProject();
+  const refreshProjects = useCallback(async () => {
+    setProjects(await listProjects());
+  }, []);
+
+  useEffect(() => {
+    void refreshProjects();
+  }, [refreshProjects]);
+
+  async function newProject(template = "") {
+    const created = await createProject(template);
     setSections([]);
     setSelected("");
     setStreamText("");
     setStep(null);
     setProjectID(created.project_id);
+    await refreshProjects();
+  }
+
+  function watchTurn(turn_id: string) {
+    setWorking(true);
+    subscribeTurn(projectID, turn_id, {
+      onDelta: (delta) => setStreamText((prev) => prev + delta),
+      onStep: (payload) => {
+        setStep(payload);
+        setWorking(false);
+      },
+      onError: (code) => {
+        setErrorCode(code);
+        setWorking(false);
+      },
+    });
   }
 
   async function newSection() {
@@ -75,18 +102,7 @@ export function App() {
       setErrorCode(e instanceof Error && e.message === "http_409" ? "turn_running" : "turn_failed");
       return;
     }
-    setWorking(true);
-    subscribeTurn(projectID, turn_id, {
-      onDelta: (delta) => setStreamText((prev) => prev + delta),
-      onStep: (payload) => {
-        setStep(payload);
-        setWorking(false);
-      },
-      onError: (code) => {
-        setErrorCode(code);
-        setWorking(false);
-      },
-    });
+    watchTurn(turn_id);
   }
 
   const current = sections.find((s) => s.label === selected);
@@ -99,8 +115,11 @@ export function App() {
           <p className="tagline">{t("app.tagline")}</p>
         </div>
         <div className="header-actions">
+          <button type="button" onClick={() => void newProject("case-5")}>
+            {t("project.demo")}
+          </button>
           <button type="button" onClick={() => void newProject()}>
-            {t("project.new")}
+            {t("project.blank")}
           </button>
           <div className="lang-switch" role="group" aria-label="language">
             <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
@@ -117,6 +136,33 @@ export function App() {
         <p className="project-line">
           {t("project.current")}: <code>{projectID}</code>
         </p>
+      )}
+
+      <section className="projects-panel">
+        <h2>{t("project.list")}</h2>
+        <ul>
+          {projects.map((p) => (
+            <li key={p.project_id}>
+              <button type="button" onClick={() => setProjectID(p.project_id)}>
+                {p.name || p.project_id}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {projectID && (
+        <RequestPanel
+          key={projectID}
+          lang={lang}
+          projectID={projectID}
+          onSubmitted={(turnID) => {
+            setStreamText("");
+            setStep(null);
+            setErrorCode("");
+            watchTurn(turnID);
+          }}
+        />
       )}
 
       <div className="layout">

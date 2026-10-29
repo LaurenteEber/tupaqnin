@@ -16,12 +16,20 @@ import (
 	"github.com/LaurenteEber/tupaqnin/internal/config"
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/memory"
+	"github.com/LaurenteEber/tupaqnin/internal/pdfextract"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
 func main() {
+	// Hidden child for PDF extraction (B-9): a parser stuck in a
+	// loop cannot be killed in-process, so it runs here, on stdin,
+	// where the parent can kill it at the deadline.
+	if len(os.Args) > 1 && os.Args[1] == pdfextract.Subcommand {
+		os.Exit(pdfextract.RunChild(os.Stdin, os.Stdout, os.Stderr))
+	}
+
 	logger := config.NewLogger()
 
 	cfg, err := config.Load()

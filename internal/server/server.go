@@ -119,7 +119,13 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 	})
 
 	if db != nil && starter != nil {
-		mux.HandleFunc("POST /api/projects", s.createProject)
+		mux.HandleFunc("POST /api/projects", s.createProjectV2)
+		mux.HandleFunc("GET /api/projects", s.listProjects)
+		mux.HandleFunc("GET /api/projects/{projectID}/request", s.getRequest)
+		mux.HandleFunc("PUT /api/projects/{projectID}/request", s.putRequest)
+		mux.HandleFunc("POST /api/projects/{projectID}/sources", s.uploadSource)
+		mux.HandleFunc("GET /api/projects/{projectID}/sources/{label}/download", s.downloadSource)
+		mux.HandleFunc("POST /api/projects/{projectID}/request/submit", s.submitRequest)
 		mux.HandleFunc("POST /api/projects/{projectID}/sections", s.createSection)
 		mux.HandleFunc("GET /api/projects/{projectID}/sections", s.listSections)
 		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}", s.putSection)

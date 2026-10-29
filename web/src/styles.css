@@ -111,6 +111,31 @@ button.active { background: var(--accent); border-color: var(--accent); color: #
 }
 .turn-error { color: #8c2f1b; }
 
+.projects-panel { margin-top: 16px; }
+.projects-panel h2, .request-panel h2 { font-size: 18px; margin: 0 0 8px; }
+.projects-panel ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+
+.request-panel {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 640px;
+}
+.request-panel label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.request-panel label:has(> input[type="checkbox"]) { flex-direction: row; align-items: center; }
+.request-panel input[type="text"], .request-panel input:not([type]), .request-panel textarea, .request-panel select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.request-panel input:focus, .request-panel textarea:focus, .request-panel select:focus { border-color: var(--accent); outline: none; }
+.request-panel h3 { margin: 8px 0 0; font-size: 16px; }
+.request-panel ul { margin: 0; padding-left: 18px; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }

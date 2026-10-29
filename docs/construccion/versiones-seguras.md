@@ -1,6 +1,6 @@
 ---
 titulo: Versiones recomendadas del stack · seguridad de la cadena de dependencias
-estado: v0.2 · 29-oct · adoptada con cambios por Eber: se mantienen las versiones mayores actuales de la web; pnpm 12.16.1 · v0.1 · 29-oct · recomendación
+estado: v0.3 · 29-oct · extensiones de TipTap de la 1.0 y librería de PDF aprobada · v0.2 · 29-oct · adoptada con cambios por Eber: se mantienen las versiones mayores actuales de la web; pnpm 12.16.1 · v0.1 · 29-oct · recomendación
 relacion: complementa B-19 (backlog-r1.md) y la pila de bloque-3-especificacion.md §7. No reemplaza ninguna decisión: lo que contradice el diseño está marcado.
 ---
 
@@ -34,7 +34,7 @@ Fuentes: [Node.js · October 2026 Security Releases](https://nodejs.org/en/blog/
 | typescript | 7.0.2 | **5.9.3** | Sin avisos; la 7 queda para después del hackathon |
 | vite | 8.3.5 | **6.4.5** | Fuera de los avisos de octubre; la 8 queda para después |
 | @vitejs/plugin-react | 6.1.2 | **4.7.0** | La 6 pide Vite 8 |
-| @tiptap/core · /pm · /react · /starter-kit | 3.32.0 | **3.32.0** | Todas iguales; el lockfile actual trae 3.32.1, que aún no cumple los 7 días |
+| @tiptap/core · /pm · /react · /starter-kit · /extension-document · /extension-paragraph · /extension-text | 3.32.0 | **3.32.0** | Todas iguales; el lockfile actual trae 3.32.1, que aún no cumple los 7 días |
 | mermaid | 11.17.2 | **11.17.2** | ≥ 11.15, como pide la espec. |
 | esbuild | lo resuelve Vite | **0.25.12** (vía Vite) | Solo en `allowBuilds` |
 
@@ -59,7 +59,7 @@ allowBuilds:
 | golang.org/x/text | v0.43.0 | |
 | github.com/gowebpki/jcs | v1.0.2 | |
 | github.com/gzuidhof/tygo | v0.2.21 | Con la directiva `tool` de `go.mod` (B-19) |
-| Librería de PDF | pendiente | La aprueba Eber (B-9); se revisa igual antes de fijarla |
+| Librería de PDF | `github.com/ledongthuc/pdf`, commit de al menos 7 días (lo fija el agente en la 1.1) | Aprobada por Eber el 29-oct (B-9). Corre en un proceso hijo que se mata a los 10 s |
 
 ## 4. CI y despliegue
 

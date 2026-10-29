@@ -1,8 +1,11 @@
 import type {
   CreateProjectResponse,
   PostMessageResponse,
+  ProjectView,
+  RequestView,
   SectionResponse,
   SectionView,
+  SourceView,
 } from "./types";
 
 // Thin API client. It only transports what Go computes (AGENTS.md
@@ -14,8 +17,62 @@ async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function createProject(): Promise<CreateProjectResponse> {
-  return json(await fetch("/api/projects", { method: "POST" }));
+export async function createProject(template = ""): Promise<CreateProjectResponse> {
+  return json(
+    await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "", template }),
+    }),
+  );
+}
+
+export async function listProjects(): Promise<ProjectView[]> {
+  return json(await fetch("/api/projects"));
+}
+
+export async function getRequest(projectID: string): Promise<RequestView> {
+  return json(await fetch(`/api/projects/${projectID}/request`));
+}
+
+export async function putRequest(
+  projectID: string,
+  req: { text: string; audience: string; criteria: string[]; premise: string; exploratory: boolean },
+): Promise<RequestView> {
+  return json(
+    await fetch(`/api/projects/${projectID}/request`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    }),
+  );
+}
+
+// Uploads one source; on failure throws the catalog code the API
+// returned (source.error.<code> in the i18n catalog).
+export async function uploadSource(
+  projectID: string,
+  kind: string,
+  file: File,
+): Promise<SourceView> {
+  const form = new FormData();
+  form.set("kind", kind);
+  form.set("file", file);
+  const res = await fetch(`/api/projects/${projectID}/sources`, { method: "POST", body: form });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "internal");
+  }
+  return (await res.json()) as SourceView;
+}
+
+export async function submitRequest(projectID: string): Promise<PostMessageResponse> {
+  const res = await fetch(`/api/projects/${projectID}/request/submit`, { method: "POST" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "internal");
+  }
+  return (await res.json()) as PostMessageResponse;
 }
 
 export async function createSection(projectID: string): Promise<SectionResponse> {

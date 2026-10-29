@@ -81,6 +81,45 @@ export interface Hub {
 }
 
 //////////
+// source: request.go
+
+/**
+ * Shapes for backlog-r1 1.1 (P1 minimum and the left half of P2).
+ */
+export interface CreateProjectRequest {
+  name: string;
+  template: string; // empty · case-5
+}
+export interface ProjectView {
+  project_id: string;
+  name: string;
+  created_at: string;
+}
+export interface RequestView {
+  text: string;
+  audience: string;
+  criteria: string[];
+  premise: string;
+  exploratory: boolean;
+  sources: SourceView[];
+}
+export interface PutRequestRequest {
+  text: string;
+  audience: string;
+  criteria: string[];
+  premise: string;
+  exploratory: boolean;
+}
+export interface SourceView {
+  label: string;
+  version: number /* int */;
+  kind: string;
+  filename: string;
+  media_type: string;
+  fingerprint: string;
+}
+
+//////////
 // source: server.go
 /*
 Package server implements HTTP, streaming and access for tupaqnin

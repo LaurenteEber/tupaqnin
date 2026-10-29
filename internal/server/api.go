@@ -71,16 +71,6 @@ func (s *Server) requireProject(w http.ResponseWriter, r *http.Request, projectI
 	return true
 }
 
-// POST /api/projects → {project_id}
-func (s *Server) createProject(w http.ResponseWriter, r *http.Request) {
-	id, err := s.db.CreateProject(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal")
-		return
-	}
-	writeJSON(w, http.StatusCreated, CreateProjectResponse{ProjectID: id})
-}
-
 // POST /api/projects/{projectID}/sections → {label, version}:
 // a new empty section in draft.
 func (s *Server) createSection(w http.ResponseWriter, r *http.Request) {
