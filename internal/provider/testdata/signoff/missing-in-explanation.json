@@ -1,0 +1,30 @@
+{
+  "name": "missing-in-explanation",
+  "turn_kind": "signoff",
+  "deltas": [
+    "{\"decisions\": [{\"decision\": \"dec-1\", \"verdict\": \"missing_in_explanation\", \"missing\": \"Por qué",
+    " la regla deja fuera algunos estudios.\", \"passage\": null}], \"origin_question\": {\"question\": \"",
+    "¿De qué supuesto sale que todos los estudios midan igual?\", \"answer\": null}, \"previous_case\":",
+    " null, \"new_case\": \"Un estudio usa un filtro más fino que los demás: ¿entra en la comparación",
+    "?\"}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"decisions\": [{\"decision\": \"dec-1\", \"verdict\": \"missing_in_explanation\", \"missing\": \"Por qué la regla deja fuera algunos estudios.\", \"passage\": null}], \"origin_question\": {\"question\": \"¿De qué supuesto sale que todos los estudios midan igual?\", \"answer\": null}, \"previous_case\": null, \"new_case\": \"Un estudio usa un filtro más fino que los demás: ¿entra en la comparación?\"}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1800,
+    "output_tokens": 240,
+    "context_window": 1048576,
+    "cost_usd": 0.012
+  },
+  "delta_delay": 0
+}

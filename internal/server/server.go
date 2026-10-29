@@ -78,6 +78,7 @@ type Server struct {
 	logger     *slog.Logger
 	db         *store.DB
 	starter    TurnStarter
+	signoffs   SignoffStarter
 	editors    *editors
 	projectCap float64
 }
@@ -155,6 +156,17 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("POST /api/projects/{projectID}/cards/{label}/answer", s.answerCard)
 		mux.HandleFunc("GET /api/projects/{projectID}/frame", s.getFrame)
 		mux.HandleFunc("POST /api/projects/{projectID}/frame/decisions/{label}/seen", s.postFrameDecisionSeen)
+		// P7, the signoff (backlog-r1 1.7, B-13, B-14).
+		mux.HandleFunc("POST /api/projects/{projectID}/sections/{label}/signoff", s.requestSignoff)
+		mux.HandleFunc("GET /api/projects/{projectID}/signoffs/{label}", s.getSignoff)
+		mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/sign", s.signSignoff)
+		mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/leave", s.leaveSignoff)
+		if signoffs, ok := starter.(SignoffStarter); ok {
+			s.signoffs = signoffs
+			mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/explanation", s.postSignoffExplanation)
+			mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/answers", s.postSignoffAnswers)
+			mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/ask", s.postSignoffAsk)
+		}
 	}
 
 	mux.HandleFunc("GET /api/projects/{projectID}/turns/{turnID}/stream", s.streamTurn)

@@ -574,10 +574,14 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 	filter := newFieldFilter(stepStreamKeys)
 	var last StepResult
 	var lastText string
+	var notice string // B-14: what the last step could not write, for the agent
 	for n := 1; n <= MaxChainSteps; n++ {
 		message := ContinueMessage
 		if n == 1 && human {
 			message = text
+		}
+		if notice != "" {
+			message = notice + "\n\n" + message
 		}
 		instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
 		if err != nil {
@@ -616,6 +620,10 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			return err
 		}
 		last, lastText = result, outText
+		notice = ""
+		if len(applied.Rejected) > 0 {
+			notice = strings.Join(applied.Rejected, "\n")
+		}
 		if result.Status != StatusAccepted || !applied.Work {
 			break
 		}

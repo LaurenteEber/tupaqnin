@@ -219,6 +219,224 @@ export interface Number {
 }
 
 //////////
+// source: signoff.go
+
+/**
+ * SignoffPhase is where a signoff is, read from its events (B-14).
+ */
+export type SignoffPhase = string;
+/**
+ * SignoffInProgress: a sign-n without signoff_cancelled, without the
+ * signing and without a signoff_paused after its last round.
+ */
+export const SignoffInProgress: SignoffPhase = "in_progress";
+/**
+ * SignoffPaused: its last event is signoff_paused (E-2); asking to
+ * sign again creates another sign-n.
+ */
+export const SignoffPaused: SignoffPhase = "paused";
+/**
+ * SignoffCancelled: it has a signoff_cancelled (left · edited ·
+ * missing_in_text).
+ */
+export const SignoffCancelled: SignoffPhase = "cancelled";
+/**
+ * SignoffSigned: the section moved to signed with this signoff.
+ */
+export const SignoffSigned: SignoffPhase = "signed";
+/**
+ * Reasons of signoff_cancelled (glossary §4, B-14).
+ */
+export const CancelLeft = "left";
+/**
+ * Reasons of signoff_cancelled (glossary §4, B-14).
+ */
+export const CancelEdited = "edited";
+/**
+ * Reasons of signoff_cancelled (glossary §4, B-14).
+ */
+export const CancelMissingInText = "missing_in_text";
+/**
+ * MaxFailedCases is how many failed cases pause a signoff (E-2
+ * [inicial]).
+ */
+export const MaxFailedCases = 2;
+/**
+ * PendingMissingInText is «falta en el texto» señalado por Wonder
+ * (glossary §9): an agent pending, with Wonder's passage, that closes
+ * when the section's fingerprint changes (B-15).
+ */
+export const PendingMissingInText = "missing_in_text";
+/**
+ * The values of signoff_step in the data of a sign-n's events: the
+ * request, your explanation, your answers and the signing.
+ */
+export const StepRequested = "requested";
+/**
+ * The values of signoff_step in the data of a sign-n's events: the
+ * request, your explanation, your answers and the signing.
+ */
+export const StepExplanation = "explanation";
+/**
+ * The values of signoff_step in the data of a sign-n's events: the
+ * request, your explanation, your answers and the signing.
+ */
+export const StepAnswers = "answers";
+/**
+ * The values of signoff_step in the data of a sign-n's events: the
+ * request, your explanation, your answers and the signing.
+ */
+export const StepSigned = "signed";
+/**
+ * SignoffBody is what a sign-n stores (specification §4, «lo que guarda
+ * la firma»; B-14: the section version, your explanation, the answers
+ * and the result of each round). Ids are internal: the view and the
+ * brief for Wonder translate them to labels, here only.
+ */
+export interface SignoffBody {
+  section_id: string;
+  section_version: number /* int */;
+  brief: boolean;
+  critical_decisions: SignedRef[];
+  /**
+   * OriginAssumptionID is the assumption the app chose in the graph
+   * (fichas §9); empty when there is no edge and Wonder chooses.
+   */
+  origin_assumption_id: string;
+  explanation: string;
+  origin_question: string;
+  origin_answer: string;
+  cases: SignoffCase[];
+  failed_cases: number /* int */;
+  /**
+   * Coincides is decided in Go from Wonder's marks of the last round
+   * (backlog-r1 1.7).
+   */
+  coincides: boolean;
+  contrasted_by: string;
+  wonder_unavailable: boolean;
+  /**
+   * The commitment, written when signing (specification §4).
+   */
+  section_fingerprint?: string;
+  criteria?: SignedRef[];
+  sources?: SignedSource[];
+  answered_cards?: string[];
+  /**
+   * Rounds are Wonder's results, beside the commitment, not inside it
+   * (specification §4).
+   */
+  rounds: SignoffRound[];
+  /**
+   * Ended mirrors the event that ended the signoff, so its last
+   * version differs (left · edited · missing_in_text · paused ·
+   * signed). The phase is still read from the history.
+   */
+  ended?: string;
+}
+/**
+ * SignedRef is an object by internal id and version.
+ */
+export interface SignedRef {
+  id: string;
+  version: number /* int */;
+}
+/**
+ * SignedSource is a source by internal id and fingerprint.
+ */
+export interface SignedSource {
+  id: string;
+  fingerprint: string;
+}
+/**
+ * SignoffCase is one application case of the signoff (glossary §7,
+ * application_case) with your answer and Wonder's judgment of it.
+ */
+export interface SignoffCase {
+  case: string;
+  answer: string;
+  result: string; // applies_well · does_not_apply · "" while not judged
+}
+/**
+ * SignoffRound is one Wonder round: who contrasted and its output, as
+ * it came (labels only).
+ */
+export interface SignoffRound {
+  contrasted_by: string;
+  wonder_unavailable: boolean;
+  output: any /* json.RawMessage */;
+  coincides: boolean;
+}
+/**
+ * WonderVerdict is Wonder's mark of one critical decision in the last
+ * round, with the block of the section where its point is (P7: «Ver la
+ * historia de ese punto»).
+ */
+export interface WonderVerdict {
+  decision: string;
+  verdict: string;
+  missing?: string;
+  passage?: string;
+  block: number /* int */;
+}
+/**
+ * SignoffView is what P7 reads (pantallas P7): computed in Go, labels
+ * only.
+ */
+export interface SignoffView {
+  label: string;
+  section: string;
+  section_title: string;
+  phase: SignoffPhase;
+  cancelled?: string;
+  brief: boolean;
+  /**
+   * Pendings of the section now (estados §1); signing needs none.
+   */
+  pendings: Pending[];
+  critical_decisions: string[];
+  origin_assumption?: string;
+  explanation: string;
+  origin_question: string;
+  origin_answer: string;
+  verdicts: WonderVerdict[];
+  cases: SignoffCase[];
+  /**
+   * OpenCase is the new case waiting for your answer, if any.
+   */
+  open_case?: string;
+  failed_cases: number /* int */;
+  max_failed_cases: number /* int */;
+  rounds: number /* int */;
+  contrasted_by?: string;
+  wonder_unavailable: boolean;
+  coincides: boolean;
+  /**
+   * CanSign: in progress, no pendings, and everything coincides (or,
+   * in a brief signoff, your explanation is there).
+   */
+  can_sign: boolean;
+}
+/**
+ * WonderOutput is Wonder's fixed output (salida-wonder.schema.json,
+ * glossary §10).
+ */
+export interface WonderOutput {
+  decisions: {
+    decision: string;
+    verdict: string;
+    missing?: string;
+    passage?: string;
+  }[];
+  origin_question: {
+    question: string;
+    answer?: string;
+  };
+  previous_case?: string;
+  new_case?: string;
+}
+
+//////////
 // source: status.go
 
 /**

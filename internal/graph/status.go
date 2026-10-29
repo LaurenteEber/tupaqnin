@@ -41,7 +41,7 @@ type Pending struct {
 // SectionStatus is the one function every view uses for a section's
 // state and its pendings (specification §4, estados §1). The pendings of
 // slice 1 are the open cards of the decisions the section uses and the
-// agent's pendings, computed (B-15).
+// agent's pendings, computed (B-15), «falta en el texto» included.
 func SectionStatus(ctx context.Context, db *store.DB, projectID, label string) (Status, []Pending, error) {
 	section, err := db.GetObject(ctx, projectID, label)
 	if err != nil {
@@ -96,6 +96,12 @@ func SectionStatus(ctx context.Context, db *store.DB, projectID, label string) (
 	}
 	for _, d := range superseded {
 		pendings = append(pendings, Pending{Kind: PendingSupersededDecision, About: d})
+	}
+	// «Falta en el texto» señalado por Wonder en la firma (B-14, B-15):
+	// the passage of the signoff's event, until the section's fingerprint
+	// changes.
+	for _, passage := range missingInText(section, events) {
+		pendings = append(pendings, Pending{Kind: PendingMissingInText, About: passage})
 	}
 
 	status := Status(section.State)

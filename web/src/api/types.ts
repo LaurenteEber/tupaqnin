@@ -249,6 +249,33 @@ export interface Server {
 export type Option = any;
 
 //////////
+// source: signoffs.go
+
+/**
+ * SignoffStarter starts the signoff's turns (B-13, B-14): Wonder's
+ * rounds and «Preguntar al agente». *cycle.Runner satisfies it; the
+ * routes that start a turn exist only when the starter does.
+ */
+export type SignoffStarter = any;
+/**
+ * SignoffBlocked is the answer to asking to sign when the signoff cannot
+ * open or sign: the error code and, for pendings, the list (7a, flujos
+ * §3 «la app te muestra qué falta»).
+ */
+export interface SignoffBlocked {
+  error: string;
+  pendings?: Pending[];
+  open_changes?: string[];
+}
+export interface SignoffTextRequest {
+  text: string;
+}
+export interface SignoffAnswersRequest {
+  origin_answer: string;
+  case_answer: string;
+}
+
+//////////
 // source: understanding.go
 
 /**

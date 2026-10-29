@@ -1,4 +1,4 @@
-.PHONY: run test vet build microtest web web-types
+.PHONY: run test vet build microtest microtest-signoff web web-types
 
 run:
 	go run ./cmd/tupaqnin
@@ -29,3 +29,9 @@ web-types:
 # the macOS keychain, never from a file or the repo. Eber runs this.
 microtest:
 	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestPrincipalSchema -count=1 -v
+
+# Real Wonder outputs for the signoff tests (backlog-r1 1.7), recorded
+# into internal/provider/testdata/signoff/ only when their marks match
+# each scenario. Same keychain key as microtest. Eber runs this.
+microtest-signoff:
+	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestWonderSignoff -count=1 -v

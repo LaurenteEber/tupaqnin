@@ -96,9 +96,18 @@ func TestT11_AppFixturesLoadInOrderAndStream90sHas90Deltas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AppFixtures: %v", err)
 	}
-	if len(app) != 5 || app[0].Name != "01-principal-valid" || app[1].Name != "01b-principal-critical-decision" ||
-		app[2].Name != "02-principal-invalid" || app[3].Name != "03-understanding-valid" || app[4].Name != "04-principal-no-work" {
-		t.Fatalf("AppFixtures: got %d fixtures, want valid, critical decision, invalid, understanding and no-work", len(app))
+	if len(app) != 7 || app[0].Name != "01-principal-valid" || app[1].Name != "01b-principal-critical-decision" ||
+		app[2].Name != "02-principal-invalid" || app[3].Name != "03-understanding-valid" || app[4].Name != "04-principal-no-work" ||
+		app[5].Name != "05-signoff-first-round" || app[6].Name != "06-signoff-second-round" {
+		t.Fatalf("AppFixtures: got %d fixtures, want valid, critical decision, invalid, understanding, no-work and two signoff rounds", len(app))
+	}
+	// The demo's signoff (backlog-r1 1.7): Wonder outputs, first with
+	// the origin question unanswered, then judging the answer.
+	if text := providerResponseText(t, app[5]); !strings.Contains(text, `"origin_question"`) || !strings.Contains(text, `"answer": null`) {
+		t.Fatalf("first signoff round is not a Wonder output awaiting the origin answer: %s", text)
+	}
+	if text := providerResponseText(t, app[6]); !strings.Contains(text, `"answer": "answers"`) {
+		t.Fatalf("second signoff round must judge the origin answer: %s", text)
 	}
 	if text := providerResponseText(t, app[3]); !strings.Contains(text, `"understood"`) {
 		t.Fatalf("understanding fixture is not an understanding output: %s", text)
@@ -208,7 +217,8 @@ func TestP29_AppFixturesDeclareTheirTurnKind(t *testing.T) {
 	want := map[string]provider.TurnKind{
 		"01-principal-valid": provider.TurnStep, "02-principal-invalid": provider.TurnStep,
 		"03-understanding-valid": provider.TurnUnderstanding, "04-principal-no-work": provider.TurnStep,
-		"01b-principal-critical-decision": provider.TurnStep,
+		"01b-principal-critical-decision": provider.TurnStep, "05-signoff-first-round": provider.TurnSignoff,
+		"06-signoff-second-round": provider.TurnSignoff,
 	}
 	for _, fx := range app {
 		if fx.TurnKind != want[fx.Name] {

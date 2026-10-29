@@ -10,12 +10,13 @@ import type {
   SectionResponse,
   SectionRoleView,
   SectionView,
+  SignoffBlocked,
   SourceView,
   SummaryView,
   TodoView,
   UnderstandingView,
 } from "./types";
-import type { Frame } from "./graph";
+import type { Frame, SignoffView } from "./graph";
 
 // Thin API client. It only transports what Go computes (AGENTS.md
 // rule 5): no state, fingerprint or validity is decided here.
@@ -198,6 +199,76 @@ export async function markDecisionSeen(projectID: string, label: string): Promis
   if (!res.ok) throw new Error(`http_${res.status}`);
 }
 
+// P7, the signoff (backlog-r1 1.7). Go decides everything: whether it
+// opens, what is missing, whether it coincides and can be signed. On a
+// refusal these throw the API's error code (signoff.error.<code> in
+// the i18n catalog).
+async function signoffJSON<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "internal");
+  }
+  return (await res.json()) as T;
+}
+
+function post(path: string, body?: unknown): Promise<Response> {
+  return fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+export type RequestSignoffResult =
+  | { kind: "opened"; signoff: SignoffView }
+  | { kind: "blocked"; blocked: SignoffBlocked };
+
+// 7a: asking to sign opens the signoff, or lists what keeps it closed.
+export async function requestSignoff(projectID: string, section: string): Promise<RequestSignoffResult> {
+  const res = await post(`/api/projects/${projectID}/sections/${section}/signoff`);
+  if (res.status === 409) {
+    const blocked = (await res.json()) as SignoffBlocked;
+    if (blocked.error === "pendings") return { kind: "blocked", blocked };
+    throw new Error(blocked.error ?? "internal");
+  }
+  return { kind: "opened", signoff: await signoffJSON<SignoffView>(res) };
+}
+
+export async function getSignoff(projectID: string, label: string): Promise<SignoffView> {
+  return signoffJSON(await fetch(`/api/projects/${projectID}/signoffs/${label}`));
+}
+
+export async function postSignoffExplanation(projectID: string, label: string, text: string): Promise<PostMessageResponse> {
+  return signoffJSON(await post(`/api/projects/${projectID}/signoffs/${label}/explanation`, { text }));
+}
+
+export async function postSignoffAnswers(
+  projectID: string,
+  label: string,
+  originAnswer: string,
+  caseAnswer: string,
+): Promise<PostMessageResponse> {
+  return signoffJSON(
+    await post(`/api/projects/${projectID}/signoffs/${label}/answers`, {
+      origin_answer: originAnswer,
+      case_answer: caseAnswer,
+    }),
+  );
+}
+
+export async function signSignoff(projectID: string, label: string): Promise<SignoffView> {
+  return signoffJSON(await post(`/api/projects/${projectID}/signoffs/${label}/sign`));
+}
+
+export async function leaveSignoff(projectID: string, label: string): Promise<SignoffView> {
+  return signoffJSON(await post(`/api/projects/${projectID}/signoffs/${label}/leave`));
+}
+
+// «Preguntar al agente»: an answer without new text (B-14).
+export async function askFromSignoff(projectID: string, label: string, text: string): Promise<PostMessageResponse> {
+  return signoffJSON(await post(`/api/projects/${projectID}/signoffs/${label}/ask`, { text }));
+}
+
 export async function getSummary(projectID: string): Promise<SummaryView> {
   return json(await fetch(`/api/projects/${projectID}/summary`));
 }
@@ -244,6 +315,9 @@ export interface StepPayload {
   // The understanding's step names the chain that starts after it (B-17).
   understood?: string;
   next_turn_id?: string;
+  // A Wonder round of the signoff names its signoff and outcome (1.7).
+  signoff?: string;
+  outcome?: string;
 }
 
 // StreamDelta is one streamed piece (P-28): Go sends only the parsed

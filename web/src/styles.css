@@ -198,6 +198,40 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 
 .flash { box-shadow: 0 0 0 3px var(--todo); transition: box-shadow 0.3s; }
 
+/* P7 · the signoff, full screen, without the frame (1.7) */
+.signoff {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+}
+.signoff-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.signoff-head h2 { margin: 0; font-family: var(--doc); font-size: 22px; font-weight: 500; }
+.signoff-phase { background: var(--todo-soft); border-radius: 6px; padding: 8px 10px; margin: 0; }
+.signoff-steps { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.signoff-steps > li { display: flex; flex-direction: column; gap: 8px; }
+.signoff-steps ul { margin: 0; padding-left: 18px; }
+.signoff textarea, .signoff input[type="text"] {
+  font: inherit;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--panel);
+}
+.signoff textarea:focus, .signoff input[type="text"]:focus { border-color: var(--accent); outline: none; }
+.signoff-quote { margin: 0; padding: 6px 10px; border-left: 3px solid var(--line); color: var(--muted); white-space: pre-wrap; }
+.signoff-verdicts { display: flex; flex-direction: column; gap: 6px; }
+.signoff-verdicts button { margin-left: 8px; }
+.signoff-origin, .signoff-case, .signoff-ask { display: flex; flex-direction: column; gap: 6px; }
+.signoff-origin p, .signoff-case p { margin: 0; }
+.signoff-actions { display: flex; align-items: center; gap: 12px; }
+.sign-blocked { background: var(--todo-soft); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.sign-blocked ul { margin: 0; padding-left: 18px; }
+
 /* Narrow screens: the columns stack. */
 @media (max-width: 980px) {
   .app { height: auto; }

@@ -180,13 +180,23 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	if state == "signed" {
 		state = "changed_since_signoff"
 	}
+	// Your edit of a section in signoff cancels the signoff in progress
+	// (K-16, B-14: signoff_cancelled, edited), in the same transaction.
+	signing, inSignoff, err := graph.ActiveSignoff(r.Context(), s.db, projectID, current.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
 
 	var updated store.Object
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		var err error
 		updated, err = tx.UpdateObject(current.ID, req.BaseVersion, state, body,
 			store.EventInput{Type: store.EventEdit, Actor: "human"})
-		return err
+		if err != nil || !inSignoff {
+			return err
+		}
+		return cycle.CancelSignoff(tx, signing, graph.CancelEdited, "human", map[string]any{"section": current.Label})
 	})
 	switch {
 	case errors.Is(err, store.ErrVersionConflict):

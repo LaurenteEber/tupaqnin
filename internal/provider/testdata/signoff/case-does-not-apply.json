@@ -1,0 +1,30 @@
+{
+  "name": "case-does-not-apply",
+  "turn_kind": "signoff",
+  "deltas": [
+    "{\"decisions\": [{\"decision\": \"dec-1\", \"verdict\": \"missing_in_explanation\", \"missing\": \"Por qué la r",
+    "egla deja fuera algunos estudios.\", \"passage\": null}], \"origin_question\": {\"question\": \"¿De qué su",
+    "puesto sale que todos los estudios midan igual?\", \"answer\": \"answers\"}, \"previous_case\": \"does_not",
+    "_apply\", \"new_case\": \"Dos estudios reportan el mismo tamaño con unidades distintas: ¿se comparan?\"",
+    "}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"decisions\": [{\"decision\": \"dec-1\", \"verdict\": \"missing_in_explanation\", \"missing\": \"Por qué la regla deja fuera algunos estudios.\", \"passage\": null}], \"origin_question\": {\"question\": \"¿De qué supuesto sale que todos los estudios midan igual?\", \"answer\": \"answers\"}, \"previous_case\": \"does_not_apply\", \"new_case\": \"Dos estudios reportan el mismo tamaño con unidades distintas: ¿se comparan?\"}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1800,
+    "output_tokens": 240,
+    "context_window": 1048576,
+    "cost_usd": 0.012
+  },
+  "delta_delay": 0
+}

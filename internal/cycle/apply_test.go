@@ -317,3 +317,93 @@ func TestP32_AgentProposalDoesNotChangeAConfirmedRole(t *testing.T) {
 		t.Fatalf("not_applied: %v", notApplied)
 	}
 }
+
+// lockedStep writes in sec-1 (with a figure in that text) and in a new
+// section, with a new decision used there (B-14).
+const lockedStep = `{
+  "triage_line": "Construir: dos secciones.", "closing_risk": "none", "note": "Paso de prueba.",
+  "new_text": [
+    {"section_id": "sec-1", "base_version": 1, "anchor": "Cierre.", "operation": "replace", "text": "Cierre con 1,5 veces."},
+    {"section_id": "new-1", "base_version": 0, "anchor": "", "operation": "insert_after", "text": "Texto de la otra sección."}
+  ],
+  "proposed_roles": [{"section_id": "new-1", "role": "other", "title": "Otra"}],
+  "new_decisions": [{"id": "new-2", "statement": "Contar por veces.", "instead_of": "Contar crudo.",
+    "would_choose_if": "Todos midieran igual.", "assumption": false, "used_in_sections": ["new-1"]}],
+  "figure_links": [{"figure_anchor": "1,5 veces", "decision_id": "new-2"}]
+}`
+
+func requireOnlyLockedTextRejected(t *testing.T, db *store.DB, applied cycle.ApplyResult, version int) {
+	t.Helper()
+	if !applied.Applied {
+		t.Fatalf("the rest of the step must apply: %v", applied.Errors)
+	}
+	if len(applied.Rejected) != 1 || !strings.Contains(applied.Rejected[0], "sec-1") {
+		t.Fatalf("rejected: %v, want one message for the agent naming sec-1", applied.Rejected)
+	}
+	sec, b := object(t, db, "sec-1")
+	if sec.CurrentVersion != version || strings.Contains(b["text"].(string), "1,5") {
+		t.Fatalf("sec-1 changed: version %d, %q", sec.CurrentVersion, b["text"])
+	}
+	other, ob := object(t, db, applied.Labels["new-1"])
+	if other.Type != store.ObjectSection || ob["text"] != "Texto de la otra sección." {
+		t.Fatalf("the other section: %+v %v", other, ob)
+	}
+	if _, err := db.GetObject(context.Background(), "p1", applied.Labels["new-2"]); err != nil {
+		t.Fatalf("the new decision must apply: %v", err)
+	}
+	if figures, _ := db.ListObjects(context.Background(), "p1", store.ObjectFigure); len(figures) != 0 {
+		t.Fatalf("the figure of the rejected text must not apply: %d", len(figures))
+	}
+	ended := eventsOfType(t, db, store.EventStepEnded)
+	notApplied, _ := eventData(t, ended[len(ended)-1])["not_applied"].(map[string]any)
+	if texts, _ := notApplied["new_text"].([]any); len(texts) != 1 {
+		t.Fatalf("not_applied: %v, want the rejected new_text", notApplied)
+	}
+}
+
+// B-14: an agent step that touches a section in signoff: only that
+// new_text is rejected, with a message for the agent; the rest applies.
+func TestB14_StepOnASectionInSignoffRejectsOnlyThatText(t *testing.T) {
+	db := seedStepProject(t)
+	if open, err := cycle.NewGate(db).RequestSignoff(context.Background(), "p1", "sec-1"); err != nil || !open.Opened {
+		t.Fatalf("RequestSignoff: %+v, %v", open, err)
+	}
+	requireOnlyLockedTextRejected(t, db, applyRecorded(t, db, json.RawMessage(lockedStep)), 1)
+}
+
+// B-14: the same for a signed section (until slice 4).
+func TestB14_StepOnASignedSectionRejectsOnlyThatText(t *testing.T) {
+	db := seedStepProject(t)
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		sec, err := tx.GetObject(context.Background(), "p1", "sec-1")
+		if err != nil {
+			return err
+		}
+		var b map[string]any
+		_ = json.Unmarshal(sec.Body, &b)
+		_, err = tx.UpdateObject(sec.ID, sec.CurrentVersion, "signed", b, store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("sign sec-1: %v", err)
+	}
+	// The section is at version 2 now; the step reads it there.
+	requireOnlyLockedTextRejected(t, db,
+		applyRecorded(t, db, json.RawMessage(strings.Replace(lockedStep, `"base_version": 1`, `"base_version": 2`, 1))), 2)
+}
+
+// The previous behavior holds: without a signoff the same step writes
+// sec-1 and its figure.
+func TestB14_StepOnASectionNotInSignoffStillApplies(t *testing.T) {
+	db := seedStepProject(t)
+	applied := applyRecorded(t, db, json.RawMessage(lockedStep))
+	if !applied.Applied || len(applied.Rejected) != 0 {
+		t.Fatalf("got %+v, want applied with nothing rejected", applied)
+	}
+	if _, b := object(t, db, "sec-1"); !strings.Contains(b["text"].(string), "1,5 veces") {
+		t.Fatalf("sec-1: %q", b["text"])
+	}
+	if figures, _ := db.ListObjects(context.Background(), "p1", store.ObjectFigure); len(figures) != 1 {
+		t.Fatalf("figures: %d, want 1", len(figures))
+	}
+}

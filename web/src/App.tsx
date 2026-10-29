@@ -7,11 +7,12 @@ import {
   listProjects,
   listSections,
   postMessage,
+  requestSignoff,
   subscribeTurn,
   type StepPayload,
   type StreamDelta,
 } from "./api/client";
-import type { ProjectView, SectionView, SummaryView } from "./api/types";
+import type { ProjectView, SectionView, SignoffBlocked, SummaryView } from "./api/types";
 import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
 import { UnderstandingPanel } from "./components/UnderstandingPanel";
@@ -19,6 +20,7 @@ import { CardPanel } from "./components/CardPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { SectionEditor } from "./components/SectionEditor";
 import { FramePanel, type TodoTarget } from "./components/FramePanel";
+import { SignoffPanel } from "./components/SignoffPanel";
 import { initialLang, translate, type Lang } from "./i18n";
 
 export function App() {
@@ -48,6 +50,11 @@ export function App() {
   const [frameTick, setFrameTick] = useState(0);
   const bumpFrame = useCallback(() => setFrameTick((k) => k + 1), []);
   const [menuOpen, setMenuOpen] = useState(false);
+  // P7 (1.7): the signoff in progress takes the whole screen, without
+  // the frame; what keeps a signoff from opening is listed here.
+  const [signing, setSigning] = useState("");
+  const [signBlocked, setSignBlocked] = useState<SignoffBlocked | null>(null);
+  const [signError, setSignError] = useState("");
   const saveRef = useRef<() => Promise<void>>(async () => {});
   const registerSave = useCallback((fn: () => Promise<void>) => {
     saveRef.current = fn;
@@ -153,8 +160,31 @@ export function App() {
     bumpFrame(); // the first line may have changed (M-4)
   }
 
+  // 7a: only you ask to sign. The editor saves first (§2); Go opens the
+  // signoff or lists what is pending.
+  async function askToSign() {
+    if (!projectID || !current) return;
+    await saveRef.current();
+    setSignBlocked(null);
+    setSignError("");
+    try {
+      const result = await requestSignoff(projectID, current.label);
+      if (result.kind === "blocked") setSignBlocked(result.blocked);
+      else setSigning(result.signoff.label);
+    } catch (e) {
+      setSignError(e instanceof Error ? e.message : "internal");
+    }
+  }
+
+  function closeSignoff() {
+    setSigning("");
+    if (projectID) void refreshSections(projectID);
+  }
+
   function openProject(id: string) {
     if (id !== projectID) {
+      setSigning("");
+      setSignBlocked(null);
       setSections([]);
       setSelected("");
       setHistoryBlock(0);
@@ -235,6 +265,9 @@ export function App() {
         </div>
       </header>
 
+      {projectID && signing ? (
+        <SignoffPanel lang={lang} projectID={projectID} label={signing} onClose={closeSignoff} />
+      ) : (
       <div className={`columns${projectID && sections.length > 0 ? "" : " nodoc"}`}>
         <aside className="col" aria-label={t("frame.title")}>
           <div className="hd">
@@ -391,18 +424,37 @@ export function App() {
           <section className="col doc" aria-label={t("doc.title")} id="document">
             <div className="hd">
               <span className="lbl">{t("doc.title")}</span>
-              {/* Signing is piece 1.7: the button is in place, without a flow. */}
               <button
                 type="button"
                 id="sign-section"
                 className="primary small"
-                disabled
-                title={t("doc.sign_unavailable")}
+                disabled={!current || !editor || current.state === "signed"}
+                onClick={() => void askToSign()}
               >
                 {t("doc.sign")}
               </button>
             </div>
             <div className="scroll">
+              {signBlocked && (
+                <div className="sign-blocked" role="status">
+                  <b>{t("signoff.blocked")}</b>
+                  <ul>
+                    {signBlocked.pendings?.map((p, i) => (
+                      <li key={i}>
+                        {t(`pending.${p.kind}`)}
+                        {p.about && <> · «{p.about}»</>}
+                      </li>
+                    ))}
+                    {signBlocked.open_changes?.map((c) => (
+                      <li key={c}>{t("signoff.open_change")}</li>
+                    ))}
+                  </ul>
+                  <button type="button" className="small" onClick={() => setSignBlocked(null)}>
+                    {t("history.close")}
+                  </button>
+                </div>
+              )}
+              {signError && <p className="turn-error">{t(`signoff.error.${signError}`)}</p>}
               <ul className="section-tabs">
                 {sections.map((s) => (
                   <li key={s.label}>
@@ -412,6 +464,7 @@ export function App() {
                       onClick={() => {
                         setSelected(s.label);
                         setHistoryBlock(0);
+                        setSignBlocked(null);
                       }}
                     >
                       {sectionName(s)} · {t(`section.status.${s.state}`)}
@@ -470,6 +523,7 @@ export function App() {
           </section>
         )}
       </div>
+      )}
     </main>
   );
 }

@@ -161,6 +161,7 @@ const (
 	EventSuspiciousEditAlert      EventType = "suspicious_edit_alert"
 	EventSignoffCase              EventType = "signoff_case"
 	EventSignoffPaused            EventType = "signoff_paused"
+	EventSignoffCancelled         EventType = "signoff_cancelled" // reason: left · edited · missing_in_text (B-14)
 	EventBriefSignoff             EventType = "brief_signoff"
 	EventAudienceQuestionDeclined EventType = "audience_question_declined"
 	EventUsageChange              EventType = "usage_change"
@@ -182,7 +183,7 @@ func (t EventType) Valid() bool {
 	case EventStateChanged, EventStepEnded, EventModeSet, EventHumanMessage,
 		EventStopReport, EventDecisionSeen, EventEdit, EventEditUndone,
 		EventSuspiciousEditAlert, EventSignoffCase, EventSignoffPaused,
-		EventBriefSignoff, EventAudienceQuestionDeclined, EventUsageChange,
+		EventSignoffCancelled, EventBriefSignoff, EventAudienceQuestionDeclined, EventUsageChange,
 		EventSourceNewVersion, EventRoleChanged, EventAudienceChanged,
 		EventEdge, EventAnswerWithoutReason, EventActTimed, EventMarkedCritical,
 		EventProbe, EventStartup, EventOutputRetry:

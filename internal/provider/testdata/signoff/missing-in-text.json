@@ -1,0 +1,30 @@
+{
+  "name": "missing-in-text",
+  "turn_kind": "signoff",
+  "deltas": [
+    "{\"decisions\": [{\"decision\": \"dec-1\", \"verdict\": \"missing_in_text\", \"m",
+    "issing\": null, \"passage\": \"Así la comparación es justa.\"}], \"origin_q",
+    "uestion\": {\"question\": \"¿De qué supuesto sale que todos los estudios ",
+    "midan igual?\", \"answer\": null}, \"previous_case\": null, \"new_case\": nu",
+    "ll}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"decisions\": [{\"decision\": \"dec-1\", \"verdict\": \"missing_in_text\", \"missing\": null, \"passage\": \"Así la comparación es justa.\"}], \"origin_question\": {\"question\": \"¿De qué supuesto sale que todos los estudios midan igual?\", \"answer\": null}, \"previous_case\": null, \"new_case\": null}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1800,
+    "output_tokens": 240,
+    "context_window": 1048576,
+    "cost_usd": 0.012
+  },
+  "delta_delay": 0
+}

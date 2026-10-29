@@ -84,6 +84,10 @@ type ApplyResult struct {
 	Errors  []string
 	Labels  map[string]string
 	Work    bool
+	// Rejected are the new_text items not applied because their section
+	// is in signoff or signed (B-14), each with a message for the agent;
+	// the rest of the step applied.
+	Rejected []string
 }
 
 // errStale is a section that changed since the version the agent read
@@ -124,6 +128,10 @@ func (g *Gate) ApplyStep(ctx context.Context, projectID, turnID string, output j
 	if len(errs) > 0 {
 		return ApplyResult{Errors: errs}, nil
 	}
+	var rejected []string
+	for _, r := range plan.rejected {
+		rejected = append(rejected, r.message)
+	}
 
 	beforeApplyWrite()
 	var labels map[string]string
@@ -141,7 +149,7 @@ func (g *Gate) ApplyStep(ctx context.Context, projectID, turnID string, output j
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	return ApplyResult{Applied: true, Labels: labels,
+	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected,
 		Work: len(out.NewText) > 0 || len(out.NewDecisions) > 0}, nil
 }
 
@@ -156,6 +164,8 @@ type project struct {
 	byID     map[string]store.Object
 	edgesOut map[string][]store.Edge
 	sources  []store.Object
+	// inSignoff are the sections with a signoff in progress (B-14).
+	inSignoff map[string]bool
 }
 
 func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, error) {
@@ -167,8 +177,12 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 	if err != nil {
 		return nil, err
 	}
+	inSignoff, err := graph.SectionsInSignoff(ctx, g.db, projectID)
+	if err != nil {
+		return nil, err
+	}
 	p := &project{labels: labeler, byID: make(map[string]store.Object, len(objects)),
-		edgesOut: make(map[string][]store.Edge)}
+		edgesOut: make(map[string][]store.Edge), inSignoff: inSignoff}
 	for _, obj := range objects {
 		p.byID[obj.ID] = obj
 		if obj.Type == store.ObjectSource {
@@ -227,6 +241,31 @@ type plan struct {
 	sections []*sectionPlan // in the order of their first new_text item
 	declared map[string]string
 	newRoles map[string]proposedRole
+	// rejected are the new_text items on a section in signoff or signed
+	// (B-14); the figures and citations whose anchor is only in them are
+	// skipped with them.
+	rejected      []rejectedText
+	skipFigures   map[int]bool
+	skipCitations map[int]bool
+}
+
+// rejectedText is one new_text item not applied (B-14).
+type rejectedText struct {
+	section string
+	text    string
+	message string
+}
+
+// lockedMessage tells the agent why its text on a section was not
+// applied (B-14): until slice 4 a step on a section in signoff or
+// signed is rejected there; the rest of the step applies.
+func lockedMessage(label string, signing bool) string {
+	if signing {
+		return fmt.Sprintf("%s is being signed by the person: your new_text for it was not applied; the rest of your step was. "+
+			"Do not write in %s while it is being signed", label, label)
+	}
+	return fmt.Sprintf("%s is signed: your new_text for it was not applied; the rest of your step was. "+
+		"Do not write in a signed section", label)
 }
 
 // rawHTML finds the start of an HTML tag, comment or declaration (rule 3).
@@ -242,7 +281,8 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 	fail := func(path, format string, args ...any) {
 		errs = append(errs, path+": "+fmt.Sprintf(format, args...))
 	}
-	pl := &plan{declared: map[string]string{}, newRoles: map[string]proposedRole{}}
+	pl := &plan{declared: map[string]string{}, newRoles: map[string]proposedRole{},
+		skipFigures: map[int]bool{}, skipCitations: map[int]bool{}}
 
 	// Rule 4: each new-n is declared once (a decision or an open
 	// question with its id; a new section in proposed_roles).
@@ -400,6 +440,15 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 				if !ok {
 					continue
 				}
+				// B-14: a section in signoff or signed rejects only this
+				// text, before B-11 looks at its version.
+				// [EL DISEÑO NO LO DICE]: «firmada» is the signed state;
+				// a section in changed_since_signoff keeps today's rule.
+				if signing := p.inSignoff[obj.ID]; signing || obj.State == "signed" {
+					pl.rejected = append(pl.rejected, rejectedText{section: item.SectionID, text: item.Text,
+						message: lockedMessage(item.SectionID, signing)})
+					continue
+				}
 				if obj.CurrentVersion != item.BaseVersion { // B-11
 					fail(path+"/base_version", "%s", errStale{label: item.SectionID}.Error())
 					continue
@@ -449,23 +498,32 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 	// writes (T-4 (3)).
 	// [EL DISEÑO NO LO DICE]: they name no section; each must appear
 	// once across all the sections the step writes.
-	written := func(path, anchor string) {
+	// An anchor found only in a text rejected by B-14 is skipped with it.
+	written := func(path, anchor string) (skip bool) {
 		n := 0
 		for _, sp := range pl.sections {
 			n += len(graph.Compare(sp.result).Find(anchor))
 		}
+		if n == 0 {
+			for _, r := range pl.rejected {
+				if len(graph.Compare(r.text).Find(anchor)) > 0 {
+					return true
+				}
+			}
+		}
 		if n != 1 {
 			fail(path, "the anchor appears %d times in the text this step writes; give a longer anchor that appears once", n)
 		}
+		return false
 	}
 	for i, f := range out.FigureLinks {
-		written(fmt.Sprintf("/figure_links/%d/figure_anchor", i), f.FigureAnchor)
+		pl.skipFigures[i] = written(fmt.Sprintf("/figure_links/%d/figure_anchor", i), f.FigureAnchor)
 		if len(graph.Numbers(f.FigureAnchor)) == 0 {
 			fail(fmt.Sprintf("/figure_links/%d/figure_anchor", i), "the anchor of a figure must contain its number")
 		}
 	}
 	for i, c := range out.Citations {
-		written(fmt.Sprintf("/citations/%d/claim_anchor", i), c.ClaimAnchor)
+		pl.skipCitations[i] = written(fmt.Sprintf("/citations/%d/claim_anchor", i), c.ClaimAnchor)
 	}
 	return pl, errs
 }
@@ -738,7 +796,10 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 		return ""
 	}
 	linkedValues := map[string]bool{}
-	for _, f := range out.FigureLinks {
+	for i, f := range out.FigureLinks {
+		if pl.skipFigures[i] {
+			continue
+		}
 		sec := inSection(f.FigureAnchor)
 		value := graph.Numbers(f.FigureAnchor)[0].Raw
 		// [EL DISEÑO NO LO DICE]: a figure's value is the first number of
@@ -760,7 +821,10 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 			linkedValues[v] = true
 		}
 	}
-	for _, c := range out.Citations {
+	for i, c := range out.Citations {
+		if pl.skipCitations[i] {
+			continue
+		}
 		cit, err := tx.CreateObject(store.ObjectCitation, "",
 			map[string]any{"section_id": inSection(c.ClaimAnchor), "anchor": c.ClaimAnchor, "passage": c.Passage},
 			agent(store.EventStateChanged))
@@ -795,6 +859,30 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 	}
 	if rolesNotApplied != nil {
 		notApplied["proposed_roles"] = rolesNotApplied // P-32
+	}
+	if len(pl.rejected) > 0 { // B-14
+		var texts []any
+		for _, r := range pl.rejected {
+			texts = append(texts, map[string]any{"section_id": r.section, "text": r.text, "message": r.message})
+		}
+		notApplied["new_text"] = texts
+		var figures, citations []any
+		for i, f := range out.FigureLinks {
+			if pl.skipFigures[i] {
+				figures = append(figures, map[string]any{"figure_anchor": f.FigureAnchor, "decision_id": f.DecisionID})
+			}
+		}
+		for i, c := range out.Citations {
+			if pl.skipCitations[i] {
+				citations = append(citations, map[string]any{"claim_anchor": c.ClaimAnchor, "source_id": c.SourceID})
+			}
+		}
+		if figures != nil {
+			notApplied["figure_links"] = figures
+		}
+		if citations != nil {
+			notApplied["citations"] = citations
+		}
 	}
 	deferred := []any{}
 	var longDeferred []int
