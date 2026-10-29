@@ -34,6 +34,13 @@ the deferred list is what the app carries forward.
 - Never translate an anchor, a passage, a figure, or anything the
   human wrote. Anchors must copy the delivered Markdown exactly.
 
+## Section titles
+
+- A section's title lives apart from its text. A new section takes
+  its title in `proposed_roles` (`title`).
+- Do not repeat the section's title as a heading inside its text:
+  start the text with its content.
+
 ## Ids
 
 - Refer to things only by the short labels you were given

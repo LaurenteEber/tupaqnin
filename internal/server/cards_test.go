@@ -48,7 +48,7 @@ func TestP4_TodoListsTheOpenCardAndAnAssentLeavesItThere(t *testing.T) {
 	todo := decode[server.TodoView](t, do(t, h, http.MethodGet, base+"/todo", nil))
 	if len(todo.Cards) != 1 || todo.Cards[0].Label != "card-1" || todo.Cards[0].Decision != "dec-1" ||
 		len(todo.Cards[0].Reasons) == 0 || todo.Cards[0].Reasons[0] != "conclusion_or_recommendation_section" ||
-		len(todo.Cards[0].Sections) != 1 || todo.Cards[0].Sections[0] != "sec-1" {
+		len(todo.Cards[0].Sections) != 1 || todo.Cards[0].Sections[0].Title != "Síntesis" {
 		t.Fatalf("todo: %+v", todo)
 	}
 	if rec := do(t, h, http.MethodPost, base+"/cards/card-1/answer", map[string]any{"option": "keep", "reason": "ok"}); rec.Code != http.StatusUnprocessableEntity {
@@ -88,5 +88,17 @@ func TestK13_RoleChangeThroughTheRouteOpensTheCard(t *testing.T) {
 	}
 	if todo := decode[server.TodoView](t, do(t, h, http.MethodGet, base+"/todo", nil)); len(todo.Cards) != 1 {
 		t.Fatalf("todo after role change: %+v, want one open card", todo)
+	}
+}
+
+// P-36: the card names its sections by title, never by label.
+func TestP36_CardNamesItsSectionsByTitle(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	seedUnderstanding(t, db, projectID)
+	seedCriticalDecision(t, db, projectID)
+	card := decode[server.CardView](t, do(t, h, http.MethodGet, "/api/projects/"+projectID+"/cards/card-1", nil))
+	if len(card.Sections) != 1 || card.Sections[0].Title != "Síntesis" {
+		t.Fatalf("card sections: %+v, want the title Síntesis", card.Sections)
 	}
 }

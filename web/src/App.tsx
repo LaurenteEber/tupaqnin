@@ -215,7 +215,8 @@ export function App() {
   const currentProject = projects.find((p) => p.project_id === projectID);
   // Never an internal id on screen (P-30): the name, or the catalog's.
   const projectName = (p?: ProjectView) => p?.name || t("project.untitled");
-  const sectionName = (s: SectionView) => s.title || t("section.label", { label: s.label });
+  // Never a label on screen (P-30, P-36): the title, or the catalog's.
+  const sectionName = (s: SectionView) => s.title || t("section.untitled");
 
   return (
     <main className="app">

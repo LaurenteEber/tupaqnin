@@ -153,5 +153,6 @@
   "doc.trace.last_triage": "Last step",
   "doc.trace.spent": "Spent",
   "doc.trace.none": "none yet",
-  "request.refine": "Refine (optional): for whom, criteria, your idea, exploratory"
+  "request.refine": "Refine (optional): for whom, criteria, your idea, exploratory",
+  "section.untitled": "Untitled section"
 }

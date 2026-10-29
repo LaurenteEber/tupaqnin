@@ -60,7 +60,15 @@ export interface CardView {
   instead_of: string;
   would_choose_if: string;
   reasons: string[];
-  sections: string[];
+  sections: SectionRef[];
+}
+/**
+ * SectionRef names a section on screen by its title (P-36, B-18); the
+ * label is only for the page to navigate, never shown.
+ */
+export interface SectionRef {
+  label: string;
+  title: string;
 }
 /**
  * TodoView is what is yours to do (estados §1); in slice 1, the open

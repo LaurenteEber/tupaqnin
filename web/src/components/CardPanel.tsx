@@ -57,7 +57,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
           <p>{card.statement}</p>
           <p>{t("card.instead_of")}: {card.instead_of}</p>
           {card.would_choose_if && <p>{t("card.would_choose_if")}: {card.would_choose_if}</p>}
-          <p>{t("card.sections")}: {card.sections.join(", ")}</p>
+          <p>{t("card.sections")}: {card.sections.map((s) => s.title || t("section.untitled")).join(", ")}</p>
           <label>
             <input
               type="radio"

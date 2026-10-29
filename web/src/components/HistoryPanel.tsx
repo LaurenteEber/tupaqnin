@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getBlockHistory } from "../api/client";
 import type { Entry } from "../api/graph";
 import { translate, type Lang } from "../i18n";
@@ -16,6 +16,13 @@ export function HistoryPanel({ lang, projectID, label, name, block, onClose }: {
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [entries, setEntries] = useState<Entry[] | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+
+  // The panel opens below the editor, inside a scrolling column: bring
+  // it into view, or the click seems to do nothing (P-34).
+  useEffect(() => {
+    panel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [block, label]);
 
   useEffect(() => {
     setEntries(null);
@@ -23,7 +30,7 @@ export function HistoryPanel({ lang, projectID, label, name, block, onClose }: {
   }, [projectID, label, block]);
 
   return (
-    <div className="request-panel">
+    <div className="request-panel" ref={panel}>
       <h2>{t("history.title", { section: name, block: String(block) })}</h2>
       <button type="button" onClick={onClose}>{t("history.close")}</button>
       {entries && entries.length === 0 && <p>{t("history.empty")}</p>}

@@ -40,7 +40,7 @@ export function FramePanel({ lang, projectID, refreshKey, onSection, onHistory, 
   if (!frame) return null;
 
   const titleOf = (label: string) =>
-    frame.sections.find((s) => s.label === label)?.title || t("section.label", { label });
+    frame.sections.find((s) => s.label === label)?.title || t("section.untitled");
 
   if (!frame.purpose.request_text) {
     return (

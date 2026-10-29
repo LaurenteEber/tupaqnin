@@ -20,8 +20,15 @@ type CardView struct {
 	Statement     string   `json:"statement"`
 	InsteadOf     string   `json:"instead_of"`
 	WouldChooseIf string   `json:"would_choose_if"`
-	Reasons       []string `json:"reasons"`
-	Sections      []string `json:"sections"`
+	Reasons       []string     `json:"reasons"`
+	Sections      []SectionRef `json:"sections"`
+}
+
+// SectionRef names a section on screen by its title (P-36, B-18); the
+// label is only for the page to navigate, never shown.
+type SectionRef struct {
+	Label string `json:"label"`
+	Title string `json:"title"`
 }
 
 // TodoView is what is yours to do (estados §1); in slice 1, the open
@@ -43,7 +50,7 @@ type AnswerCardResponse struct {
 
 func (s *Server) cardView(r *http.Request, projectID string, card store.Object) (CardView, error) {
 	ctx := r.Context()
-	view := CardView{Label: card.Label, State: card.State, Reasons: []string{}, Sections: []string{}}
+	view := CardView{Label: card.Label, State: card.State, Reasons: []string{}, Sections: []SectionRef{}}
 	dec, err := s.db.GetObject(ctx, projectID, str(bodyMap(card), "decision_id"))
 	if err != nil {
 		return view, err
@@ -68,7 +75,7 @@ func (s *Server) cardView(r *http.Request, projectID string, card store.Object) 
 			continue
 		}
 		if sec, err := s.db.GetObject(ctx, projectID, e.ToID); err == nil {
-			view.Sections = append(view.Sections, sec.Label)
+			view.Sections = append(view.Sections, SectionRef{Label: sec.Label, Title: str(bodyMap(sec), "title")})
 		}
 	}
 	return view, nil
