@@ -1,0 +1,70 @@
+{
+  "name": "01b-principal-critical-decision",
+  "turn_kind": "step",
+  "deltas": [
+    "{\"triage_line\": \"Constru",
+    "ir: fijo la regla de com",
+    "paración, crítica porque",
+    " sostiene las conclusion",
+    "es.\", \"closing_risk\": \"f",
+    "igures_and_calculations\"",
+    ", \"new_text\": [{\"section",
+    "_id\": \"new-1\", \"base_ver",
+    "sion\": 0, \"anchor\": \"\", ",
+    "\"operation\": \"insert_aft",
+    "er\", \"text\": \"Comparamos",
+    " solo estudios con el mi",
+    "smo tamaño mínimo de par",
+    "tícula: así la diferenci",
+    "a es de 1,5 veces.\"}], \"",
+    "proposed_roles\": [{\"sect",
+    "ion_id\": \"new-1\", \"role\"",
+    ": \"conclusion\", \"title\":",
+    " \"Regla de comparación\"}",
+    "], \"new_decisions\": [{\"i",
+    "d\": \"new-2\", \"statement\"",
+    ": \"Comparar solo estudio",
+    "s con el mismo tamaño mí",
+    "nimo de partícula.\", \"in",
+    "stead_of\": \"Comparar los",
+    " conteos tal cual.\", \"wo",
+    "uld_choose_if\": \"Todos l",
+    "os estudios usaran el mi",
+    "smo filtro.\", \"assumptio",
+    "n\": false, \"used_in_sect",
+    "ions\": [\"new-1\"]}], \"fig",
+    "ure_links\": [{\"figure_an",
+    "chor\": \"1,5 veces\", \"dec",
+    "ision_id\": \"new-2\"}], \"n",
+    "ote\": \"Registré la regla",
+    " de comparación con su c",
+    "ontraste; la cifra 1,5 q",
+    "ueda cubierta por ella.\"",
+    "}"
+  ],
+  "items": [
+    {
+      "type": "reasoning",
+      "id": "rs_fixture",
+      "summary": [],
+      "encrypted_content": "fixture-encrypted-content"
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"triage_line\": \"Construir: fijo la regla de comparación, crítica porque sostiene las conclusiones.\", \"closing_risk\": \"figures_and_calculations\", \"new_text\": [{\"section_id\": \"new-1\", \"base_version\": 0, \"anchor\": \"\", \"operation\": \"insert_after\", \"text\": \"Comparamos solo estudios con el mismo tamaño mínimo de partícula: así la diferencia es de 1,5 veces.\"}], \"proposed_roles\": [{\"section_id\": \"new-1\", \"role\": \"conclusion\", \"title\": \"Regla de comparación\"}], \"new_decisions\": [{\"id\": \"new-2\", \"statement\": \"Comparar solo estudios con el mismo tamaño mínimo de partícula.\", \"instead_of\": \"Comparar los conteos tal cual.\", \"would_choose_if\": \"Todos los estudios usaran el mismo filtro.\", \"assumption\": false, \"used_in_sections\": [\"new-1\"]}], \"figure_links\": [{\"figure_anchor\": \"1,5 veces\", \"decision_id\": \"new-2\"}], \"note\": \"Registré la regla de comparación con su contraste; la cifra 1,5 queda cubierta por ella.\"}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1200,
+    "output_tokens": 220,
+    "context_window": 1048576,
+    "cost_usd": 0.002385
+  },
+  "delta_delay": 0
+}

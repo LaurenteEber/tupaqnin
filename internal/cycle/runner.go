@@ -288,6 +288,13 @@ func (r *Runner) call(ctx context.Context, projectID, turnID, instanceID string,
 	}, r.filtered(projectID, turnID, f))
 }
 
+// FieldPublisher is a TurnPublisher that also streams each piece with
+// its field (triage_line, text, note, understood; P-28) and, in a
+// devroutes build only, the raw model text as field "raw".
+type FieldPublisher interface {
+	PublishFieldDelta(projectID, turnID string, s Segment)
+}
+
 // filtered streams only what the person reads of the model's raw JSON
 // (P-28).
 func (r *Runner) filtered(projectID, turnID string, f *fieldFilter) func(provider.Delta) {
@@ -296,7 +303,20 @@ func (r *Runner) filtered(projectID, turnID string, f *fieldFilter) func(provide
 		if r.pub == nil {
 			return
 		}
-		if text := f.feed(d.Text); text != "" {
+		fp, ok := r.pub.(FieldPublisher)
+		if rawStream && ok {
+			fp.PublishFieldDelta(projectID, turnID, Segment{Field: "raw", Text: d.Text})
+		}
+		for _, s := range f.feed(d.Text) {
+			if ok {
+				fp.PublishFieldDelta(projectID, turnID, s)
+				continue
+			}
+			text := s.Text
+			if s.Start && f.published {
+				text = "\n\n" + text
+			}
+			f.published = true
 			r.pub.PublishDelta(projectID, turnID, text)
 		}
 	}

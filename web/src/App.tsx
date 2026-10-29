@@ -7,6 +7,7 @@ import {
   postMessage,
   subscribeTurn,
   type StepPayload,
+  type StreamDelta,
 } from "./api/client";
 import type { ProjectView, SectionView } from "./api/types";
 import { MessageInput } from "./components/MessageInput";
@@ -25,7 +26,10 @@ export function App() {
   const [projectID, setProjectID] = useState("");
   const [sections, setSections] = useState<SectionView[]>([]);
   const [selected, setSelected] = useState("");
-  const [streamText, setStreamText] = useState("");
+  // The streamed turn, by field (P-28): triage line, text, note or
+  // understanding; the raw model text only in a devroutes build.
+  const [stream, setStream] = useState<StreamDelta[]>([]);
+  const [rawStream, setRawStream] = useState("");
   const [step, setStep] = useState<StepPayload | null>(null);
   const [errorCode, setErrorCode] = useState("");
   const [working, setWorking] = useState(false);
@@ -57,16 +61,33 @@ export function App() {
     const created = await createProject(template);
     setSections([]);
     setSelected("");
-    setStreamText("");
+    clearStream();
     setStep(null);
     setProjectID(created.project_id);
     await refreshProjects();
   }
 
+  function clearStream() {
+    setStream([]);
+    setRawStream("");
+  }
+
   function watchTurn(turn_id: string) {
     setWorking(true);
     subscribeTurn(projectID, turn_id, {
-      onDelta: (delta) => setStreamText((prev) => prev + delta),
+      onDelta: (delta) => {
+        if (delta.field === "raw") {
+          setRawStream((prev) => prev + delta.text);
+          return;
+        }
+        setStream((prev) => {
+          const last = prev[prev.length - 1];
+          if (!delta.start && last && last.field === delta.field) {
+            return [...prev.slice(0, -1), { ...last, text: last.text + delta.text }];
+          }
+          return [...prev, { field: delta.field, text: delta.text }];
+        });
+      },
       onStep: (payload) => {
         setStep(payload);
         setWorking(false);
@@ -74,7 +95,7 @@ export function App() {
           // The agent's chain starts on its own after the understanding.
           setUnderstandingKey((k) => k + 1);
           setUnderstandingTurn(false);
-          setStreamText("");
+          clearStream();
           watchTurn(payload.next_turn_id);
           return;
         }
@@ -107,7 +128,7 @@ export function App() {
     if (!projectID) return;
     await saveRef.current(); // always save before sending (§2)
     setUnderstandingTurn(false);
-    setStreamText("");
+    clearStream();
     setStep(null);
     setErrorCode("");
     let turn_id: string;
@@ -200,7 +221,7 @@ export function App() {
           lang={lang}
           projectID={projectID}
           onSubmitted={(turnID) => {
-            setStreamText("");
+            clearStream();
             setStep(null);
             setErrorCode("");
             setUnderstandingTurn(true);
@@ -247,19 +268,35 @@ export function App() {
 
           <MessageInput lang={lang} disabled={!projectID} onSend={send} />
 
-          {(working || streamText || step || errorCode) && (
+          {(working || stream.length > 0 || step || errorCode) && (
             <div className="turn-panel" aria-live="polite">
               {working && <p className="working">{t("turn.working")}</p>}
-              {streamText && <pre className="stream-text">{streamText}</pre>}
+              {stream.map((piece, i) =>
+                piece.field === "text" ? (
+                  <div key={i} className="stream-text">{piece.text}</div>
+                ) : piece.field === "triage_line" ? (
+                  <p key={i}><strong>{t("turn.triage")}:</strong> {piece.text}</p>
+                ) : piece.field === "note" ? (
+                  <p key={i}><strong>{t("turn.note")}:</strong> {piece.text}</p>
+                ) : (
+                  <p key={i}>{piece.text}</p>
+                ),
+              )}
+              {rawStream && (
+                <details>
+                  <summary>{t("turn.raw")}</summary>
+                  <pre>{rawStream}</pre>
+                </details>
+              )}
               {step && (
                 <div className="step-result">
                   <p>{t(`turn.status.${step.status}`)}</p>
-                  {step.triage_line && (
+                  {stream.length === 0 && step.triage_line && (
                     <p>
                       <strong>{t("turn.triage")}:</strong> {step.triage_line}
                     </p>
                   )}
-                  {step.note && (
+                  {stream.length === 0 && step.note && (
                     <p>
                       <strong>{t("turn.note")}:</strong> {step.note}
                     </p>

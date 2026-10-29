@@ -91,5 +91,6 @@
   "card.apply": "Apply",
   "card.error.invalid_reason": "Write a reason: «ok» does not count.",
   "card.error.card_closed": "This card is closed: its decision changed.",
-  "card.error.failed": "The answer could not be saved. Try again."
+  "card.error.failed": "The answer could not be saved. Try again.",
+  "turn.raw": "Raw model output (development)"
 }

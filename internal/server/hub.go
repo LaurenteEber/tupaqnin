@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"sync"
 	"time"
+
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 )
 
 // Stream event types (backlog 0.6). A heartbeat is an SSE comment, not
@@ -20,6 +22,8 @@ const (
 type StreamEvent struct {
 	Type    string
 	Text    string
+	Field   string // delta: triage_line · text · note · understood · raw (P-28)
+	Start   bool   // delta: first piece of a new value
 	Step    json.RawMessage
 	Code    string
 	Message string
@@ -113,6 +117,12 @@ func (h *Hub) publish(projectID, turnID string, ev StreamEvent, terminal bool) {
 // PublishDelta stores and forwards one text delta of the turn.
 func (h *Hub) PublishDelta(projectID, turnID, text string) {
 	h.publish(projectID, turnID, StreamEvent{Type: EventDelta, Text: text}, false)
+}
+
+// PublishFieldDelta stores and forwards one piece of a streamed field
+// (P-28).
+func (h *Hub) PublishFieldDelta(projectID, turnID string, s cycle.Segment) {
+	h.publish(projectID, turnID, StreamEvent{Type: EventDelta, Text: s.Text, Field: s.Field, Start: s.Start}, false)
 }
 
 // PublishStep stores the step result and ends the turn's stream.

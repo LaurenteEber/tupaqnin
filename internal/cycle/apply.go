@@ -637,12 +637,17 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 		}
 		ids[id], labels[id] = obj.ID, obj.Label
 	}
+	var rolesNotApplied []any
 	for _, r := range out.ProposedRoles {
 		if isNew(r.SectionID) {
 			continue
 		}
-		if err := proposeRole(tx, r.SectionID, resolve(r.SectionID), r.Role, turnID); err != nil {
+		applied, err := proposeRole(tx, r.SectionID, resolve(r.SectionID), r.Role, turnID)
+		if err != nil {
 			return nil, err
+		}
+		if !applied {
+			rolesNotApplied = append(rolesNotApplied, map[string]any{"section_id": r.SectionID, "role": r.Role})
 		}
 	}
 
@@ -771,6 +776,9 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 	if len(out.HandledChanges) > 0 && string(out.HandledChanges) != "null" {
 		notApplied["handled_changes"] = out.HandledChanges
 	}
+	if rolesNotApplied != nil {
+		notApplied["proposed_roles"] = rolesNotApplied // P-32
+	}
 	deferred := []any{}
 	var longDeferred []int
 	for i, d := range out.Deferred {
@@ -845,24 +853,28 @@ func (p *project) linkData(tx *store.Tx, out stepOutput, pl *plan, ids map[strin
 	return nil
 }
 
-// proposeRole proposes a role for an existing section, as the
-// understanding does (1.2).
-// [EL DISEÑO NO LO DICE]: whether the agent may propose again a role the
-// person confirmed; like 1.2, the role goes back to proposed.
-func proposeRole(tx *store.Tx, label, id, role, turnID string) error {
+// proposeRole proposes a role for an existing section, in a step or in
+// the understanding. A role the person confirmed is never changed back
+// to proposed (P-32): the proposal is not applied, and the caller keeps
+// it in the step end as not applied, like B-17. It reports whether the
+// proposal was applied.
+func proposeRole(tx *store.Tx, label, id, role, turnID string) (bool, error) {
 	obj, err := tx.Object(id)
 	if err != nil {
-		return err
+		return false, err
 	}
 	b := bodyOf(obj)
+	if current, _ := b["role"].(map[string]any); bodyStr(current, "state") == "confirmed" {
+		return false, nil
+	}
 	b["role"] = map[string]any{"value": role, "state": "proposed"}
 	_, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, obj.State, b,
 		store.EventInput{Type: store.EventRoleChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID,
 			Data: map[string]any{"label": label, "role": role, "state": "proposed"}})
 	if errors.Is(err, store.ErrNoChange) {
-		return nil
+		return true, nil
 	}
-	return err
+	return err == nil, err
 }
 
 // edgeSet creates edges once: an edge of the same type and ends that is

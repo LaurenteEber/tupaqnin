@@ -188,3 +188,37 @@ func TestB12_UnderstandingTurnEndToEndWithRecordedOutput(t *testing.T) {
 		}
 	}
 }
+
+// P-32 in the understanding: a section whose role the person confirmed
+// keeps it; the proposal stays in step_ended as not applied.
+func TestP32_UnderstandingDoesNotChangeAConfirmedRole(t *testing.T) {
+	db := openTemp(t)
+	refs := seedRequest(t, db)
+	if err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{"title": "Síntesis", "text": "",
+			"role": map[string]any{"value": "other", "state": "confirmed"}},
+			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	}); err != nil {
+		t.Fatalf("seed section: %v", err)
+	}
+	out := recordedOutput(t, "understanding-valid.json")
+	var parsed map[string]any
+	_ = json.Unmarshal(out, &parsed)
+	parsed["sections"] = []any{map[string]any{"id": "sec-1", "title": "Síntesis", "role": "conclusion"}}
+	out, _ = json.Marshal(parsed)
+	result, err := cycle.NewGate(db).EndUnderstanding(context.Background(), "p1", "turn-1", 1, out, refs)
+	if err != nil || result.Status != cycle.StatusAccepted {
+		t.Fatalf("EndUnderstanding: %+v, %v", result, err)
+	}
+	sec, _ := db.GetObject(context.Background(), "p1", "sec-1")
+	var b map[string]any
+	_ = json.Unmarshal(sec.Body, &b)
+	if role := b["role"].(map[string]any); role["value"] != "other" || role["state"] != "confirmed" {
+		t.Fatalf("sec-1 role: %v, want other confirmed", role)
+	}
+	ended := eventsOfType(t, db, store.EventStepEnded)
+	if notApplied, _ := eventData(t, ended[0])["not_applied"].(map[string]any); notApplied["proposed_roles"] == nil {
+		t.Fatalf("step_ended not_applied: %v", eventData(t, ended[0]))
+	}
+}

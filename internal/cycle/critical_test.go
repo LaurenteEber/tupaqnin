@@ -103,3 +103,16 @@ func TestK6_DecisionOfASignedSectionThatBecomesCriticalChangesTheSection(t *test
 		t.Fatalf("sec-1 state: %s, want changed_since_signoff", sec.State)
 	}
 }
+
+// The demo's fake recording (P-4 in the browser): the step that fixes
+// the comparison rule leaves its decision critical, with its open card.
+func TestT5_DemoRecordingOpensACard(t *testing.T) {
+	db, runner, _ := newTestRunner(t, loadAppFixture(t, "01b-principal-critical-decision.json"),
+		loadAppFixture(t, "04-principal-no-work.json"))
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe la regla."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	if got := cardsOf(t, db); len(got) != 1 || got["dec-1"] != "open" {
+		t.Fatalf("cards: %v, want dec-1 open", got)
+	}
+}

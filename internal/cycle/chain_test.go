@@ -96,28 +96,3 @@ func TestB17_ChainStopsAtAStepPendingForTheAgent(t *testing.T) {
 		t.Fatalf("output_retry: %d, want 2", n)
 	}
 }
-
-// P-28: the stream carries the parsed triage line, text and note,
-// never the raw JSON.
-func TestP28_StreamShowsTheParsedTextNeverTheRawJSON(t *testing.T) {
-	_, runner, _, pub := newCaptureRunner(t,
-		loadAppFixture(t, "01-principal-valid.json"), loadAppFixture(t, "04-principal-no-work.json"))
-	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe."); err != nil {
-		t.Fatalf("RunTurn: %v", err)
-	}
-	streamed := strings.Join(pub.deltas, "")
-	for _, want := range []string{
-		"Construir: redacto la primera sección del pedido.",
-		"# Alcance\n\nPrimera versión del alcance.",
-		"Intenté una primera sección mínima",
-	} {
-		if !strings.Contains(streamed, want) {
-			t.Fatalf("stream misses %q:\n%s", want, streamed)
-		}
-	}
-	for _, raw := range []string{"{", `"triage_line"`, "section_id", "Confirmar el destinatario"} {
-		if strings.Contains(streamed, raw) {
-			t.Fatalf("stream carries raw JSON %q:\n%s", raw, streamed)
-		}
-	}
-}

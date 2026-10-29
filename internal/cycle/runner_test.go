@@ -16,13 +16,20 @@ import (
 )
 
 type fakePublisher struct {
-	mu     sync.Mutex
-	deltas []string
-	steps  []json.RawMessage
-	errs   []string
+	mu       sync.Mutex
+	deltas   []string
+	segments []cycle.Segment
+	steps    []json.RawMessage
+	errs     []string
 }
 
 func (p *fakePublisher) BeginTurn(string, string) {}
+func (p *fakePublisher) PublishFieldDelta(_, _ string, s cycle.Segment) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.deltas = append(p.deltas, s.Text)
+	p.segments = append(p.segments, s)
+}
 func (p *fakePublisher) PublishDelta(_, _, text string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

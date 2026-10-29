@@ -1,0 +1,11 @@
+{
+  "triage_line": "Construir: propongo un rol.",
+  "closing_risk": "none",
+  "note": "Paso de prueba.",
+  "proposed_roles": [
+    {
+      "section_id": "sec-1",
+      "role": "conclusion"
+    }
+  ]
+}

@@ -88,8 +88,10 @@ func writeStreamEvent(w http.ResponseWriter, ev StreamEvent) bool {
 		}{Code: ev.Code, Message: ev.Message})
 	default: // delta
 		data, err = json.Marshal(struct {
-			Text string `json:"text"`
-		}{Text: ev.Text})
+			Text  string `json:"text"`
+			Field string `json:"field,omitempty"`
+			Start bool   `json:"start,omitempty"`
+		}{Text: ev.Text, Field: ev.Field, Start: ev.Start})
 	}
 	if err != nil {
 		return false

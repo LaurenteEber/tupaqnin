@@ -103,6 +103,7 @@ func (g *Gate) EndUnderstanding(ctx context.Context, projectID, turnID string, a
 	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		// Proposing a role can make a decision critical (T-5).
 		return TrackCriticality(ctx, tx, turnID, func() error {
+			var rolesNotApplied []any
 			ev := store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID}
 			byLabel := make(map[string]CriterionRef, len(criteria))
 			for _, c := range criteria {
@@ -142,18 +143,21 @@ func (g *Gate) EndUnderstanding(ctx context.Context, projectID, turnID string, a
 				if err != nil {
 					return err
 				}
-				body := map[string]any{}
-				_ = json.Unmarshal(obj.Body, &body)
-				body["role"] = map[string]any{"value": sec.Role, "state": "proposed"}
-				if _, err := tx.UpdateObject(obj.ID, obj.CurrentVersion, obj.State, body,
-					store.EventInput{Type: store.EventRoleChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID,
-						Data: map[string]any{"label": sec.ID, "role": sec.Role, "state": "proposed"}}); err != nil && !errors.Is(err, store.ErrNoChange) {
+				applied, err := proposeRole(tx, sec.ID, obj.ID, sec.Role, turnID)
+				if err != nil {
 					return err
 				}
+				if !applied { // P-32: a confirmed role stays
+					rolesNotApplied = append(rolesNotApplied, map[string]any{"section_id": sec.ID, "role": sec.Role})
+				}
+			}
+			data := map[string]any{"turn_kind": "understanding", "understood": parsed.Understood}
+			if rolesNotApplied != nil {
+				data["not_applied"] = map[string]any{"proposed_roles": rolesNotApplied}
 			}
 			_, err := tx.AppendEvent(store.EventInput{
 				Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal", TurnID: turnID,
-				Data: map[string]any{"turn_kind": "understanding", "understood": parsed.Understood},
+				Data: data,
 			})
 			return err
 		})

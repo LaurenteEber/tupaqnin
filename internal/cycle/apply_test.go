@@ -293,3 +293,27 @@ func TestB18_NewSectionWithoutTitleIsRejected(t *testing.T) {
 	out := strings.Replace(string(stepFile(t, "two-edits")), `"title": "Conclusiones"`, `"title": ""`, 1)
 	requireRejected(t, applyRecorded(t, db, json.RawMessage(out)), "a new section needs its title")
 }
+
+// P-32: the agent never turns a confirmed role back to proposed; the
+// proposal stays in step_ended as not applied (like B-17).
+func TestP32_AgentProposalDoesNotChangeAConfirmedRole(t *testing.T) {
+	db := seedStepProject(t)
+	applied := applyRecorded(t, db, stepFile(t, "role-on-confirmed"))
+	if !applied.Applied {
+		t.Fatalf("not applied: %v", applied.Errors)
+	}
+	sec, b := object(t, db, "sec-1")
+	role := b["role"].(map[string]any)
+	if role["value"] != "other" || role["state"] != "confirmed" || sec.CurrentVersion != 1 {
+		t.Fatalf("sec-1 role: %v (version %d), want other confirmed, unchanged", role, sec.CurrentVersion)
+	}
+	if n := len(eventsOfType(t, db, store.EventRoleChanged)); n != 0 {
+		t.Fatalf("role_changed events: %d, want 0", n)
+	}
+	ended := eventsOfType(t, db, store.EventStepEnded)
+	notApplied, _ := eventData(t, ended[len(ended)-1])["not_applied"].(map[string]any)
+	roles, _ := notApplied["proposed_roles"].([]any)
+	if len(roles) != 1 || roles[0].(map[string]any)["section_id"] != "sec-1" || roles[0].(map[string]any)["role"] != "conclusion" {
+		t.Fatalf("not_applied: %v", notApplied)
+	}
+}

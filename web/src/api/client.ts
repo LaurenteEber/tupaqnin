@@ -201,8 +201,18 @@ export interface StepPayload {
   next_turn_id?: string;
 }
 
+// StreamDelta is one streamed piece (P-28): Go sends only the parsed
+// triage line, text, note or understanding, each with its field; a
+// development build (-tags=devroutes) also sends the raw model text as
+// field "raw".
+export interface StreamDelta {
+  text: string;
+  field?: string;
+  start?: boolean;
+}
+
 export interface TurnEvents {
-  onDelta: (text: string) => void;
+  onDelta: (delta: StreamDelta) => void;
   onStep: (step: StepPayload) => void;
   onError: (code: string) => void;
 }
@@ -218,8 +228,8 @@ export function subscribeTurn(
     `/api/projects/${projectID}/turns/${turnID}/stream`,
   );
   source.addEventListener("delta", (e) => {
-    const data = JSON.parse((e as MessageEvent).data) as { text?: string };
-    if (data.text) events.onDelta(data.text);
+    const data = JSON.parse((e as MessageEvent).data) as StreamDelta;
+    if (data.text) events.onDelta(data);
   });
   source.addEventListener("step", (e) => {
     events.onStep(JSON.parse((e as MessageEvent).data) as StepPayload);
