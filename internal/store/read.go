@@ -236,3 +236,36 @@ func allObjects(ctx context.Context, q queryer, projectID string) ([]Object, err
 	}
 	return out, nil
 }
+
+// Version is one stored version of an object.
+type Version struct {
+	Version   int             `json:"version"`
+	Body      json.RawMessage `json:"body"`
+	CreatedAt string          `json:"created_at"`
+}
+
+// Versions returns every version of an object, oldest first. History
+// only grows (specification §1): what was replaced stays here.
+func (db *DB) Versions(ctx context.Context, projectID, objectID string) ([]Version, error) {
+	rows, err := db.Reader.QueryContext(ctx,
+		`SELECT version, body, created_at FROM version
+		 WHERE project_id = ? AND object_id = ? ORDER BY version`, projectID, objectID)
+	if err != nil {
+		return nil, fmt.Errorf("list versions: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []Version
+	for rows.Next() {
+		var v Version
+		var body string
+		if err := rows.Scan(&v.Version, &body, &v.CreatedAt); err != nil {
+			return nil, fmt.Errorf("list versions: %w", err)
+		}
+		v.Body = json.RawMessage(body)
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list versions: %w", err)
+	}
+	return out, nil
+}

@@ -211,6 +211,7 @@ type edit struct {
 	index      int
 	start, end int // byte range of the base text it replaces (empty for an insert)
 	text       string
+	anchor     string
 }
 
 // sectionPlan is the text a step writes in one section.
@@ -417,7 +418,7 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 			fail(path, "a new section is written with base_version 0, an empty anchor and insert_after")
 			continue
 		}
-		e := edit{index: i, text: item.Text}
+		e := edit{index: i, text: item.Text, anchor: item.Anchor}
 		if item.Anchor == "" {
 			if item.Operation != "insert_after" {
 				fail(path+"/anchor", "an empty anchor is only valid with insert_after")
@@ -591,13 +592,29 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 	resultText := map[string]string{}
 
 	for _, sp := range pl.sections {
+		// The step's texts and anchors go in its event, so the history by
+		// block finds the step (B-10).
+		// [EL DISEÑO NO LO DICE]: the edit event records base and new
+		// version only; texts and anchors are added to its data.
+		texts, anchors := []string{}, []string{}
+		for _, e := range sp.edits {
+			texts = append(texts, e.text)
+			if e.anchor != "" {
+				anchors = append(anchors, e.anchor)
+			}
+		}
+		stepEvent := func(t store.EventType) store.EventInput {
+			ev := agent(t)
+			ev.Data = map[string]any{"texts": texts, "anchors": anchors}
+			return ev
+		}
 		if isNew(sp.ref) {
 			role := pl.newRoles[sp.ref]
 			obj, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{
 				"title": role.Title, "text": sp.result,
 				"role":         map[string]any{"value": role.Role, "state": "proposed"},
 				"open_changes": []any{},
-			}, agent(store.EventStateChanged))
+			}, stepEvent(store.EventStateChanged))
 			if err != nil {
 				return nil, err
 			}
@@ -610,7 +627,7 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 		b["text"] = sp.result
 		// [EL DISEÑO NO LO DICE]: the event of the agent's text change is
 		// not named; edit with actor agent, like the human's (estados §8).
-		_, err := tx.UpdateObject(obj.ID, sp.baseVersion, obj.State, b, agent(store.EventEdit))
+		_, err := tx.UpdateObject(obj.ID, sp.baseVersion, obj.State, b, stepEvent(store.EventEdit))
 		if errors.Is(err, store.ErrVersionConflict) {
 			return nil, errStale{label: sp.ref} // B-11: changed after the step was read
 		}

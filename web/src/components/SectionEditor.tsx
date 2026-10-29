@@ -25,6 +25,7 @@ export function SectionEditor({
   label,
   name,
   readOnly,
+  onBlock,
   version,
   text,
   onSaved,
@@ -35,6 +36,7 @@ export function SectionEditor({
   label: string;
   name: string;
   readOnly: boolean;
+  onBlock: (block: number) => void;
   version: number;
   text: string;
   onSaved: (label: string, version: number, text: string) => void;
@@ -113,7 +115,18 @@ export function SectionEditor({
         <h2>{name}</h2>
         <SaveStatus lang={lang} register={(fn) => (status.current = fn)} />
       </div>
-      <EditorContent editor={editor} />
+      <EditorContent
+        editor={editor}
+        onClick={(ev) => {
+          // A click on a paragraph opens its history (P5). Each paragraph of
+          // the editor is one block of the section (B-10).
+          // [EL DISEÑO NO LO DICE]: the minimal editor has paragraphs only;
+          // paragraph n is block n.
+          const p = (ev.target as HTMLElement).closest("p");
+          const root = p?.parentElement;
+          if (p && root) onBlock(Array.prototype.indexOf.call(root.children, p) + 1);
+        }}
+      />
     </div>
   );
 }

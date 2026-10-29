@@ -36,3 +36,10 @@ Cada `[EL DISEÑO NO LO DICE]` que el agente resolvió con la elección más chi
 | 1.5 | «Retorno sin la forma fija» no nombra sección: cuenta para todas hasta el siguiente fin de paso válido | `internal/graph/status.go` · `malformedOutputOpen` | Atarlo a las secciones del paso anterior |
 | 1.5 | «Texto con una decisión reemplazada» se llama `superseded_decision_in_text`; para cerrarlo, `step_ended` suma `written_sections` y `used_decisions` | `internal/graph/status.go` · `internal/cycle/apply.go` | Buscar el cierre en las aristas, que la deduplicación no deja rastro |
 | 1.5 | El tope del resumen es `TQ_CAP_PROJECT_USD` (3 USD por omisión) y se pasa al servidor con `WithProjectCap` | `internal/server/server.go` · `cmd/tupaqnin/main.go` | Leer la configuración dentro del servidor |
+| 1.6 | La historia va de lo más nuevo a lo más viejo, como el boceto de P5 | `internal/graph/history.go` · `BlockHistory` | De lo más viejo a lo más nuevo |
+| 1.6 | El evento del paso del agente (`edit`, o `state_changed` si crea la sección) suma en su `data` los textos y las anclas del paso, para encontrarlo por bloque | `internal/cycle/apply.go` · `apply` | Rehacer el paso desde `model_call` |
+| 1.6 | Un texto nuevo que abarca varios bloques también entra en la historia de cada bloque que contiene | `internal/graph/history.go` · `stepInBlock` | Solo si el texto cabe entero en el bloque |
+| 1.6 | Un bloque de menos de 20 caracteres no recibe entradas por edición tuya (la regla de B-10 pide un fragmento nuevo de 20 o más) | `internal/graph/history.go` · `editInBlock` | Contar el bloque entero si es más corto |
+| 1.6 | El «porque» de una decisión del agente en la historia es el de su tarjeta respondida | `internal/graph/history.go` · `cardReasons` | Mostrarlo solo en las decisiones tuyas |
+| 1.6 | En el editor mínimo (solo párrafos), el párrafo n es el bloque n | `web/src/components/SectionEditor.tsx` | Pedir a Go el bloque que contiene la posición del clic |
+| 1.6 | `tygo` genera también los tipos de `internal/graph` (`web/src/api/graph.ts`), que usan las vistas del servidor | `web/tygo.yaml` | Dejarlos como `any` |

@@ -1,6 +1,13 @@
 packages:
+  - path: "github.com/LaurenteEber/tupaqnin/internal/graph"
+    output_path: "src/api/graph.ts"
+    fallback_type: any
   - path: "github.com/LaurenteEber/tupaqnin/internal/server"
     output_path: "src/api/types.ts"
+    frontmatter: |
+      import type { Entry, Pending } from "./graph";
     type_mappings:
       time.Time: "string"
+      graph.Entry: "Entry"
+      graph.Pending: "Pending"
     fallback_type: any

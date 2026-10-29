@@ -1,5 +1,6 @@
 import type {
   AnswerCardResponse,
+  BlockHistoryView,
   CaseView,
   EditorResponse,
   CreateProjectResponse,
@@ -177,6 +178,12 @@ export async function claimEditor(projectID: string): Promise<boolean> {
     }),
   );
   return res.editor;
+}
+
+// P5 (backlog-r1 1.6): the history of one block; opening it records
+// decision_seen (history) in Go.
+export async function getBlockHistory(projectID: string, label: string, block: number): Promise<BlockHistoryView> {
+  return json(await fetch(`/api/projects/${projectID}/sections/${label}/history?block=${block}`));
 }
 
 export async function getSummary(projectID: string): Promise<SummaryView> {

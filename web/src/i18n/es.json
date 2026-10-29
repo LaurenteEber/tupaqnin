@@ -100,5 +100,15 @@
   "section.status.signed": "firmada",
   "section.status.changed_since_signoff": "cambió desde que la firmaste",
   "section.status.stale": "escrita con lo anterior",
-  "section.pendings": "{n} pendientes"
+  "section.pendings": "{n} pendientes",
+  "history.title": "Historia · {section} ¶{block}",
+  "history.close": "Cerrar",
+  "history.empty": "Este párrafo todavía no tiene entradas.",
+  "history.actor.agent": "agente",
+  "history.actor.human": "tú",
+  "history.actor.app": "app",
+  "history.text_change": "cambio de texto",
+  "history.discarded": "descartado",
+  "history.your_reason": "tu porque",
+  "history.figure": "cifra"
 }

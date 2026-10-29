@@ -100,5 +100,15 @@
   "section.status.signed": "signed",
   "section.status.changed_since_signoff": "changed since you signed",
   "section.status.stale": "written with the previous",
-  "section.pendings": "{n} pending"
+  "section.pendings": "{n} pending",
+  "history.title": "History · {section} ¶{block}",
+  "history.close": "Close",
+  "history.empty": "No entries for this paragraph yet.",
+  "history.actor.agent": "agent",
+  "history.actor.human": "you",
+  "history.actor.app": "app",
+  "history.text_change": "text change",
+  "history.discarded": "discarded",
+  "history.your_reason": "your reason",
+  "history.figure": "figure"
 }

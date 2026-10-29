@@ -16,6 +16,7 @@ import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
 import { UnderstandingPanel } from "./components/UnderstandingPanel";
 import { CardPanel } from "./components/CardPanel";
+import { HistoryPanel } from "./components/HistoryPanel";
 import { SectionEditor } from "./components/SectionEditor";
 import { initialLang, translate, type Lang } from "./i18n";
 
@@ -39,6 +40,7 @@ export function App() {
   // lease, renewed every 15 s, or stays read-only.
   const [editor, setEditor] = useState(true);
   const [summary, setSummary] = useState<SummaryView | null>(null);
+  const [historyBlock, setHistoryBlock] = useState(0);
   const [understandingTurn, setUnderstandingTurn] = useState(false);
   const saveRef = useRef<() => Promise<void>>(async () => {});
   const registerSave = useCallback((fn: () => Promise<void>) => {
@@ -267,7 +269,10 @@ export function App() {
                 <button
                   type="button"
                   className={s.label === selected ? "active" : ""}
-                  onClick={() => setSelected(s.label)}
+                  onClick={() => {
+                    setSelected(s.label);
+                    setHistoryBlock(0);
+                  }}
                 >
                   {sectionName(s)} · {t(`section.status.${s.state}`)}
                   {s.pendings > 0 && ` · ${t("section.pendings", { n: String(s.pendings) })}`}
@@ -286,10 +291,22 @@ export function App() {
               label={current.label}
               name={sectionName(current)}
               readOnly={!editor}
+              onBlock={setHistoryBlock}
               version={current.version}
               text={current.text}
               onSaved={onSaved}
               registerSave={registerSave}
+            />
+          )}
+
+          {current && historyBlock > 0 && (
+            <HistoryPanel
+              lang={lang}
+              projectID={projectID}
+              label={current.label}
+              name={sectionName(current)}
+              block={historyBlock}
+              onClose={() => setHistoryBlock(0)}
             />
           )}
 
