@@ -6,13 +6,15 @@ import { translate, type Lang } from "../i18n";
 // The right half of P2 (backlog 1.2): the principal's understanding,
 // its cases and the proposed section roles. The human confirms or
 // corrects; nothing here blocks the work (fichas §2).
-export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRoleChanged }: {
+export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRoleChanged, onChanged }: {
   lang: Lang;
   projectID: string;
   refreshKey: number;
   // The last understanding turn ended as pending for the agent.
   pending: boolean;
   onRoleChanged: () => void;
+  // A case was confirmed or corrected: the frame shows its state.
+  onChanged: () => void;
 }) {
   const t = (key: string) => translate(lang, key);
   const [view, setView] = useState<UnderstandingView | null>(null);
@@ -21,6 +23,10 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRol
   const refresh = useCallback(async () => {
     if (projectID) setView(await getUnderstanding(projectID));
   }, [projectID]);
+  const changed = async () => {
+    await refresh();
+    onChanged();
+  };
 
   useEffect(() => {
     void refresh();
@@ -36,7 +42,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRol
   if (!projectID) return null;
 
   return (
-    <div className="request-panel">
+    <div className="request-panel chat-card" id="understanding">
       <h2>{t("understanding.title")}</h2>
       {!view || (view.cases.length === 0 && view.sections.length === 0) ? (
         <p>{t(pending ? "understanding.pending" : "understanding.empty")}</p>
@@ -52,7 +58,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRol
                     : `${t(c.counts ? "understanding.counts" : "understanding.does_not_count")}: ${c.text}`}
                   {" · "}{c.state}
                 </span>
-                <button type="button" onClick={() => void confirmCase(projectID, c.label).then(refresh)}>
+                <button type="button" onClick={() => void confirmCase(projectID, c.label).then(changed)}>
                   {t("understanding.confirm")}
                 </button>
                 <input
@@ -63,7 +69,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRol
                 <button
                   type="button"
                   disabled={!corrections[c.label]}
-                  onClick={() => void correctCase(projectID, c.label, corrections[c.label]).then(refresh)}
+                  onClick={() => void correctCase(projectID, c.label, corrections[c.label]).then(changed)}
                 >
                   {t("understanding.correct")}
                 </button>

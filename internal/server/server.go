@@ -153,6 +153,8 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("POST /api/projects/{projectID}/editor", s.claimEditor)
 		mux.HandleFunc("GET /api/projects/{projectID}/cards/{label}", s.getCard)
 		mux.HandleFunc("POST /api/projects/{projectID}/cards/{label}/answer", s.answerCard)
+		mux.HandleFunc("GET /api/projects/{projectID}/frame", s.getFrame)
+		mux.HandleFunc("POST /api/projects/{projectID}/frame/decisions/{label}/seen", s.postFrameDecisionSeen)
 	}
 
 	mux.HandleFunc("GET /api/projects/{projectID}/turns/{turnID}/stream", s.streamTurn)

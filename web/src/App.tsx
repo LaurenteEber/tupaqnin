@@ -18,6 +18,7 @@ import { UnderstandingPanel } from "./components/UnderstandingPanel";
 import { CardPanel } from "./components/CardPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { SectionEditor } from "./components/SectionEditor";
+import { FramePanel, type TodoTarget } from "./components/FramePanel";
 import { initialLang, translate, type Lang } from "./i18n";
 
 export function App() {
@@ -42,6 +43,11 @@ export function App() {
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const [historyBlock, setHistoryBlock] = useState(0);
   const [understandingTurn, setUnderstandingTurn] = useState(false);
+  // The frame refetches when the understanding, the cards or the
+  // sections change.
+  const [frameTick, setFrameTick] = useState(0);
+  const bumpFrame = useCallback(() => setFrameTick((k) => k + 1), []);
+  const [menuOpen, setMenuOpen] = useState(false);
   const saveRef = useRef<() => Promise<void>>(async () => {});
   const registerSave = useCallback((fn: () => Promise<void>) => {
     saveRef.current = fn;
@@ -50,6 +56,7 @@ export function App() {
   const refreshSections = useCallback(async (project: string) => {
     const list = await listSections(project);
     setSections(list);
+    setFrameTick((k) => k + 1);
     setSelected((prev) => (list.some((s) => s.label === prev) ? prev : (list[0]?.label ?? "")));
   }, []);
 
@@ -84,6 +91,7 @@ export function App() {
     clearStream();
     setStep(null);
     setProjectID(created.project_id);
+    setMenuOpen(false);
     await refreshProjects();
   }
 
@@ -142,6 +150,46 @@ export function App() {
     setSections((prev) =>
       prev.map((s) => (s.label === label ? { ...s, version, text } : s)),
     );
+    bumpFrame(); // the first line may have changed (M-4)
+  }
+
+  function openProject(id: string) {
+    if (id !== projectID) {
+      setSections([]);
+      setSelected("");
+      setHistoryBlock(0);
+      clearStream();
+      setStep(null);
+      setErrorCode("");
+      setProjectID(id);
+    }
+    setMenuOpen(false);
+  }
+
+  // «Te toca» leads to the card, the understanding or the signoff
+  // button; the frame never opens from the signoff (§9).
+  function reach(id: string) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.classList.add("flash");
+    window.setTimeout(() => el.classList.remove("flash"), 900);
+  }
+
+  function onTodo(target: TodoTarget) {
+    if (target.kind === "card") reach(`card-${target.label}`);
+    else if (target.kind === "cases") reach("understanding");
+    else {
+      setSelected(target.section);
+      setHistoryBlock(0);
+      window.setTimeout(() => reach("sign-section"), 0);
+    }
+  }
+
+  function openSection(label: string, block = 0) {
+    setSelected(label);
+    setHistoryBlock(block);
+    window.setTimeout(() => reach(block > 0 ? "history" : "document"), 0);
   }
 
   async function send(text: string) {
@@ -172,185 +220,254 @@ export function App() {
   return (
     <main className="app">
       <header className="app-header">
-        <div>
+        <div className="brand">
           <h1>{t("app.title")}</h1>
-          <p className="tagline">{t("app.tagline")}</p>
+          <span className="tagline">{t("app.tagline")}</span>
         </div>
-        <div className="header-actions">
-          <button type="button" onClick={() => void newProject("case-5")}>
-            {t("project.demo")}
+        <div className="lang-switch" role="group" aria-label="language">
+          <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
+            {t("language.en")}
           </button>
-          <button type="button" onClick={() => void newProject()}>
-            {t("project.blank")}
+          <button type="button" className={lang === "es" ? "active" : ""} onClick={() => setLang("es")}>
+            {t("language.es")}
           </button>
-          <div className="lang-switch" role="group" aria-label="language">
-            <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
-              {t("language.en")}
-            </button>
-            <button type="button" className={lang === "es" ? "active" : ""} onClick={() => setLang("es")}>
-              {t("language.es")}
-            </button>
-          </div>
         </div>
       </header>
 
-      {projectID && (
-        <p className="project-line">
-          {t("project.current")}: {projectName(currentProject)}
-          {summary && (
-            <>
-              {" · "}{t("summary.spent", { spent: summary.spent_usd.toFixed(2), cap: summary.cap_usd.toFixed(2) })}
-              {summary.last_triage && <> · {t("turn.triage")}: {summary.last_triage}</>}
-            </>
-          )}
-        </p>
-      )}
-      {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}
-
-      <section className="projects-panel">
-        <h2>{t("project.list")}</h2>
-        <ul>
-          {projects.map((p) => (
-            <li key={p.project_id}>
-              <button type="button" onClick={() => setProjectID(p.project_id)}>
-                {projectName(p)}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {projectID && (
-        <UnderstandingPanel
-          lang={lang}
-          projectID={projectID}
-          refreshKey={understandingKey}
-          pending={understandingTurn && step?.status === "agent_pending"}
-          onRoleChanged={() => {
-            void refreshSections(projectID);
-            setUnderstandingKey((k) => k + 1); // a role can open a card (K-13)
-          }}
-        />
-      )}
-
-      {projectID && (
-        <CardPanel
-          lang={lang}
-          projectID={projectID}
-          refreshKey={understandingKey}
-          onAnswered={() => void refreshSections(projectID)}
-        />
-      )}
-
-      {projectID && (
-        <RequestPanel
-          key={projectID}
-          lang={lang}
-          projectID={projectID}
-          onSubmitted={(turnID) => {
-            clearStream();
-            setStep(null);
-            setErrorCode("");
-            setUnderstandingTurn(true);
-            watchTurn(turnID);
-          }}
-        />
-      )}
-
-      <div className="layout">
-        <aside className="sections-panel">
-          <button type="button" disabled={!projectID} onClick={() => void newSection()}>
-            {t("section.new")}
-          </button>
-          {projectID && sections.length === 0 && <p>{t("section.empty")}</p>}
-          <ul className="section-list">
-            {sections.map((s) => (
-              <li key={s.label}>
-                <button
-                  type="button"
-                  className={s.label === selected ? "active" : ""}
-                  onClick={() => {
-                    setSelected(s.label);
-                    setHistoryBlock(0);
-                  }}
-                >
-                  {sectionName(s)} · {t(`section.status.${s.state}`)}
-                  {s.pendings > 0 && ` · ${t("section.pendings", { n: String(s.pendings) })}`}
+      <div className={`columns${projectID && sections.length > 0 ? "" : " nodoc"}`}>
+        <aside className="col" aria-label={t("frame.title")}>
+          <div className="hd">
+            <button
+              type="button"
+              className="proj"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {projectID ? projectName(currentProject) : t("project.list")}
+            </button>
+            {menuOpen && (
+              <div className="pmenu">
+                {projects.map((p) => (
+                  <button key={p.project_id} type="button" onClick={() => openProject(p.project_id)}>
+                    {projectName(p)}
+                  </button>
+                ))}
+                <button type="button" className="meta" onClick={() => void newProject("case-5")}>
+                  {t("project.demo")}
                 </button>
-              </li>
-            ))}
-          </ul>
+                <button type="button" className="meta" onClick={() => void newProject()}>
+                  {t("project.blank")}
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="scroll">
+            {projectID ? (
+              <FramePanel
+                lang={lang}
+                projectID={projectID}
+                refreshKey={`${understandingKey}-${frameTick}`}
+                onSection={(label) => openSection(label)}
+                onHistory={(label, block) => openSection(label, block)}
+                onTodo={onTodo}
+              />
+            ) : (
+              <div className="frame-empty">
+                <b>{t("frame.title")}</b>
+                <span>{t("frame.empty")}</span>
+              </div>
+            )}
+            {projectID && (
+              <button type="button" className="small" onClick={() => void newSection()}>
+                {t("section.new")}
+              </button>
+            )}
+          </div>
         </aside>
 
-        <section className="work-panel">
-          {current && (
-            <SectionEditor
-              key={current.label}
-              lang={lang}
-              projectID={projectID}
-              label={current.label}
-              name={sectionName(current)}
-              readOnly={!editor}
-              onBlock={setHistoryBlock}
-              version={current.version}
-              text={current.text}
-              onSaved={onSaved}
-              registerSave={registerSave}
-            />
-          )}
+        <section className="col" aria-label={t("chat.title")}>
+          <div className="hd">
+            <span className="lbl">{t("chat.title")}</span>
+            {summary && (
+              <span className="meta">
+                {t("summary.spent", { spent: summary.spent_usd.toFixed(2), cap: summary.cap_usd.toFixed(2) })}
+              </span>
+            )}
+          </div>
+          <div className="scroll">
+            {!projectID && (
+              <div className="empty">
+                <b>{t("chat.empty_title")}</b>
+                <span>{t("chat.empty")}</span>
+              </div>
+            )}
+            {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}
 
-          {current && historyBlock > 0 && (
-            <HistoryPanel
-              lang={lang}
-              projectID={projectID}
-              label={current.label}
-              name={sectionName(current)}
-              block={historyBlock}
-              onClose={() => setHistoryBlock(0)}
-            />
-          )}
+            {projectID && (
+              <RequestPanel
+                key={projectID}
+                lang={lang}
+                projectID={projectID}
+                onSubmitted={(turnID) => {
+                  clearStream();
+                  setStep(null);
+                  setErrorCode("");
+                  setUnderstandingTurn(true);
+                  watchTurn(turnID);
+                }}
+              />
+            )}
 
-          <MessageInput lang={lang} disabled={!projectID || !editor} onSend={send} />
+            {projectID && (
+              <UnderstandingPanel
+                lang={lang}
+                projectID={projectID}
+                refreshKey={understandingKey}
+                pending={understandingTurn && step?.status === "agent_pending"}
+                onRoleChanged={() => {
+                  void refreshSections(projectID);
+                  setUnderstandingKey((k) => k + 1); // a role can open a card (K-13)
+                }}
+                onChanged={bumpFrame}
+              />
+            )}
 
-          {(working || stream.length > 0 || step || errorCode) && (
-            <div className="turn-panel" aria-live="polite">
-              {working && <p className="working">{t("turn.working")}</p>}
-              {stream.map((piece, i) =>
-                piece.field === "text" ? (
-                  <div key={i} className="stream-text">{piece.text}</div>
-                ) : piece.field === "triage_line" ? (
-                  <p key={i}><strong>{t("turn.triage")}:</strong> {piece.text}</p>
-                ) : piece.field === "note" ? (
-                  <p key={i}><strong>{t("turn.note")}:</strong> {piece.text}</p>
-                ) : (
-                  <p key={i}>{piece.text}</p>
-                ),
+            {(working || stream.length > 0 || step || errorCode) && (
+              <div className="turn-panel" aria-live="polite">
+                {working && <p className="working">{t("turn.working")}</p>}
+                {stream.map((piece, i) =>
+                  piece.field === "text" ? (
+                    <div key={i} className="stream-text">{piece.text}</div>
+                  ) : piece.field === "triage_line" ? (
+                    <p key={i} className="triage">{piece.text}</p>
+                  ) : piece.field === "note" ? (
+                    <details key={i} className="note">
+                      <summary>{t("turn.note")}</summary>
+                      <p className="meta">{piece.text}</p>
+                    </details>
+                  ) : (
+                    <p key={i}>{piece.text}</p>
+                  ),
+                )}
+                {rawStream && (
+                  <details>
+                    <summary>{t("turn.raw")}</summary>
+                    <pre>{rawStream}</pre>
+                  </details>
+                )}
+                {step && (
+                  <div className="step-result">
+                    <p className="meta">{t(`turn.status.${step.status}`)}</p>
+                    {stream.length === 0 && step.triage_line && <p className="triage">{step.triage_line}</p>}
+                    {stream.length === 0 && step.note && (
+                      <details className="note">
+                        <summary>{t("turn.note")}</summary>
+                        <p className="meta">{step.note}</p>
+                      </details>
+                    )}
+                  </div>
+                )}
+                {errorCode && <p className="turn-error">{t(`stream.error.${errorCode}`)}</p>}
+              </div>
+            )}
+
+            {projectID && (
+              <CardPanel
+                lang={lang}
+                projectID={projectID}
+                refreshKey={understandingKey}
+                onAnswered={() => void refreshSections(projectID)}
+              />
+            )}
+          </div>
+          <div className="composer">
+            <MessageInput lang={lang} disabled={!projectID || !editor} onSend={send} />
+            <span className="hint">{t("chat.decisions_hint")}</span>
+          </div>
+        </section>
+
+        {projectID && sections.length > 0 && (
+          <section className="col doc" aria-label={t("doc.title")} id="document">
+            <div className="hd">
+              <span className="lbl">{t("doc.title")}</span>
+              {/* Signing is piece 1.7: the button is in place, without a flow. */}
+              <button
+                type="button"
+                id="sign-section"
+                className="primary small"
+                disabled
+                title={t("doc.sign_unavailable")}
+              >
+                {t("doc.sign")}
+              </button>
+            </div>
+            <div className="scroll">
+              <ul className="section-tabs">
+                {sections.map((s) => (
+                  <li key={s.label}>
+                    <button
+                      type="button"
+                      className={s.label === selected ? "active" : ""}
+                      onClick={() => {
+                        setSelected(s.label);
+                        setHistoryBlock(0);
+                      }}
+                    >
+                      {sectionName(s)} · {t(`section.status.${s.state}`)}
+                      {s.pendings > 0 && ` · ${t("section.pendings", { n: String(s.pendings) })}`}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              {current && (
+                <SectionEditor
+                  key={current.label}
+                  lang={lang}
+                  projectID={projectID}
+                  label={current.label}
+                  name={sectionName(current)}
+                  readOnly={!editor}
+                  onBlock={setHistoryBlock}
+                  version={current.version}
+                  text={current.text}
+                  onSaved={onSaved}
+                  registerSave={registerSave}
+                />
               )}
-              {rawStream && (
-                <details>
-                  <summary>{t("turn.raw")}</summary>
-                  <pre>{rawStream}</pre>
-                </details>
-              )}
-              {step && (
-                <div className="step-result">
-                  <p>{t(`turn.status.${step.status}`)}</p>
-                  {stream.length === 0 && step.triage_line && (
-                    <p>
-                      <strong>{t("turn.triage")}:</strong> {step.triage_line}
-                    </p>
-                  )}
-                  {stream.length === 0 && step.note && (
-                    <p>
-                      <strong>{t("turn.note")}:</strong> {step.note}
-                    </p>
-                  )}
+              <p className="hint">{t("doc.paragraph_hint")}</p>
+
+              {current && historyBlock > 0 && (
+                <div id="history">
+                  <HistoryPanel
+                    lang={lang}
+                    projectID={projectID}
+                    label={current.label}
+                    name={sectionName(current)}
+                    block={historyBlock}
+                    onClose={() => setHistoryBlock(0)}
+                  />
                 </div>
               )}
-              {errorCode && <p className="turn-error">{t(`stream.error.${errorCode}`)}</p>}
+
+              <details className="trace">
+                <summary>{t("doc.trace")}</summary>
+                <dl>
+                  <dt>{t("doc.trace.last_triage")}</dt>
+                  <dd>{summary?.last_triage || t("doc.trace.none")}</dd>
+                  {summary && (
+                    <>
+                      <dt>{t("doc.trace.spent")}</dt>
+                      <dd>
+                        {t("summary.spent", { spent: summary.spent_usd.toFixed(2), cap: summary.cap_usd.toFixed(2) })}
+                      </dd>
+                    </>
+                  )}
+                </dl>
+              </details>
             </div>
-          )}
-        </section>
+          </section>
+        )}
       </div>
     </main>
   );

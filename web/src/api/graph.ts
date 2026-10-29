@@ -19,6 +19,144 @@ export const ReasonTwoOrMoreSections: Reason = "two_or_more_sections";
 export const ReasonHumanMarked: Reason = "human_marked";
 
 //////////
+// source: frame.go
+
+/**
+ * FramePurpose is «Para qué»: the request, its audience and the premise,
+ * in literal (layer 1).
+ */
+export interface FramePurpose {
+  request_text: string;
+  audience: string;
+  premise_text: string;
+  premise_exploratory: boolean;
+}
+/**
+ * FrameCase is a case of a criterion: one that counts or one that does
+ * not, in literal.
+ */
+export interface FrameCase {
+  label: string;
+  text: string;
+  counts: boolean;
+  state: string;
+}
+/**
+ * FrameCriterion is «Cómo se juzga»: a criterion with its cases.
+ */
+export interface FrameCriterion {
+  label: string;
+  text: string;
+  cases: FrameCase[];
+}
+/**
+ * FrameLayers is what the frame takes from layers 1 and 2 of the
+ * working state (memory.WorkingState, specification §9). The memory
+ * package imports this one, so the caller computes the working state and
+ * passes it here.
+ * [EL DISEÑO NO LO DICE]: the backlog's Frame(ctx, projectID) has no
+ * way to reach the working state without an import cycle; the layers and
+ * the reader are passed in, as Critical takes its q.
+ */
+export interface FrameLayers {
+  purpose: FramePurpose;
+  criteria: FrameCriterion[];
+  unconfirmed_cases: string[];
+  stop_report_unseen: boolean;
+}
+/**
+ * FrameDecision is a current critical decision under a section: the
+ * item and what its card shows when expanded (§9).
+ */
+export interface FrameDecision {
+  label: string;
+  statement: string;
+  instead_of: string;
+  would_choose_if: string;
+  /**
+   * Reason is your «porque»: the one of its answered card, or the one
+   * you wrote when you chose the other option.
+   */
+  reason?: string;
+  /**
+   * SignoffExplanation is your current signoff explanation.
+   * [EL DISEÑO NO LO DICE]: signing arrives in 1.7 and the signoff's
+   * fields are not named yet; until then it is always empty.
+   */
+  signoff_explanation?: string;
+  /**
+   * Icon is the first criticality reason it meets, in the order
+   * figure · conclusion or recommendation · several sections · marked
+   * by you.
+   */
+  icon: Reason;
+  /**
+   * Sections are the labels of the sections that use it, in document
+   * order.
+   */
+  sections: string[];
+  /**
+   * Card is its open card, if any: «Te toca» leads there.
+   */
+  card?: string;
+  /**
+   * Block is the block of this section where a figure it covers
+   * appears, for the link to that paragraph's history (D7); 0 when no
+   * figure of it is in the text.
+   * [EL DISEÑO NO LO DICE]: which paragraph a decision without a
+   * figure opens; none, the link goes to the text only.
+   */
+  block: number /* int */;
+  /**
+   * Seen: a decision_seen event exists for it.
+   * [EL DISEÑO NO LO DICE]: the exact «sin ver» is slice 2; here, seen
+   * once ever, through any view.
+   */
+  seen: boolean;
+}
+/**
+ * FrameSection is a section of the skeleton: its state, its first line
+ * (M-4) and its current critical decisions.
+ */
+export interface FrameSection {
+  label: string;
+  title: string;
+  status: Status;
+  pendings: number /* int */;
+  first_line: string;
+  decisions: FrameDecision[];
+}
+/**
+ * FrameCard is an open card in «Lo que te toca».
+ */
+export interface FrameCard {
+  label: string;
+  decision: string;
+  statement: string;
+}
+/**
+ * FrameTodo is «Lo que te toca»: your pendings (layer 1).
+ * [EL DISEÑO NO LO DICE]: the sections ready to sign count as yours to
+ * do, as in the sketch («Firmar «Síntesis»»).
+ */
+export interface FrameTodo {
+  cards: FrameCard[];
+  unconfirmed_cases: number /* int */;
+  ready_to_sign: string[];
+  stop_report_unseen: boolean;
+}
+/**
+ * Frame is the project's frame (M-1, specification §9), in its order:
+ * what it is for, how it is judged, its skeleton and what is yours to do.
+ */
+export interface Frame {
+  purpose: FramePurpose;
+  criteria: FrameCriterion[];
+  sections: FrameSection[];
+  todo: FrameTodo;
+}
+
+//////////
 // source: history.go
 
 /**

@@ -46,10 +46,10 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
   if (cards.length === 0) return null;
 
   return (
-    <div className="request-panel">
+    <div className="request-panel cards">
       <h2>{t("card.todo")}</h2>
       {cards.map((card) => (
-        <div key={card.label} className="card">
+        <div key={card.label} id={`card-${card.label}`} className="card chat-card todo">
           <h3>
             {t("card.title", { label: card.decision })} · {t("card.critical")}:{" "}
             {card.reasons.map((r) => t(`card.reason.${r}`)).join(", ")}

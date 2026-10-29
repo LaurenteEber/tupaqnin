@@ -15,6 +15,7 @@ import type {
   TodoView,
   UnderstandingView,
 } from "./types";
+import type { Frame } from "./graph";
 
 // Thin API client. It only transports what Go computes (AGENTS.md
 // rule 5): no state, fingerprint or validity is decided here.
@@ -184,6 +185,17 @@ export async function claimEditor(projectID: string): Promise<boolean> {
 // decision_seen (history) in Go.
 export async function getBlockHistory(projectID: string, label: string, block: number): Promise<BlockHistoryView> {
   return json(await fetch(`/api/projects/${projectID}/sections/${label}/history?block=${block}`));
+}
+
+// The frame (backlog-r1 1.5b, specification §9): computed in Go, read
+// only. Expanding a decision records decision_seen (frame) in Go.
+export async function getFrame(projectID: string): Promise<Frame> {
+  return json(await fetch(`/api/projects/${projectID}/frame`));
+}
+
+export async function markDecisionSeen(projectID: string, label: string): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/frame/decisions/${label}/seen`, { method: "POST" });
+  if (!res.ok) throw new Error(`http_${res.status}`);
 }
 
 export async function getSummary(projectID: string): Promise<SummaryView> {
