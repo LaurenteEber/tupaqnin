@@ -6,10 +6,13 @@ import { translate, type Lang } from "../i18n";
 // The right half of P2 (backlog 1.2): the principal's understanding,
 // its cases and the proposed section roles. The human confirms or
 // corrects; nothing here blocks the work (fichas §2).
-export function UnderstandingPanel({ lang, projectID, refreshKey }: {
+export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRoleChanged }: {
   lang: Lang;
   projectID: string;
   refreshKey: number;
+  // The last understanding turn ended as pending for the agent.
+  pending: boolean;
+  onRoleChanged: () => void;
 }) {
   const t = (key: string) => translate(lang, key);
   const [view, setView] = useState<UnderstandingView | null>(null);
@@ -23,13 +26,20 @@ export function UnderstandingPanel({ lang, projectID, refreshKey }: {
     void refresh();
   }, [refresh, refreshKey]);
 
+  // Changing or confirming a role makes a new section version (P-27).
+  async function setRole(label: string, role: string) {
+    await putSectionRole(projectID, label, role);
+    await refresh();
+    onRoleChanged();
+  }
+
   if (!projectID) return null;
 
   return (
     <div className="request-panel">
       <h2>{t("understanding.title")}</h2>
       {!view || (view.cases.length === 0 && view.sections.length === 0) ? (
-        <p>{t("understanding.empty")}</p>
+        <p>{t(pending ? "understanding.pending" : "understanding.empty")}</p>
       ) : (
         <>
           {view.understood && <p>{view.understood}</p>}
@@ -66,13 +76,18 @@ export function UnderstandingPanel({ lang, projectID, refreshKey }: {
                 {s.title || s.label} · {t("understanding.role")}:{" "}
                 <select
                   value={s.role}
-                  onChange={(e) => void putSectionRole(projectID, s.label, e.target.value).then(refresh)}
+                  onChange={(e) => void setRole(s.label, e.target.value)}
                 >
                   {["conclusion", "recommendation", "other"].map((role) => (
                     <option key={role} value={role}>{t(`understanding.role.${role}`)}</option>
                   ))}
                 </select>
-                {" · "}{s.role_state}
+                {s.role_state === "proposed" && (
+                  <button type="button" onClick={() => void setRole(s.label, s.role)}>
+                    {t("understanding.confirm_role")}
+                  </button>
+                )}
+                {" · "}{t(`understanding.role_state.${s.role_state}`)}
               </li>
             ))}
           </ul>

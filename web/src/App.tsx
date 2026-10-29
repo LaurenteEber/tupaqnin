@@ -28,6 +28,7 @@ export function App() {
   const [step, setStep] = useState<StepPayload | null>(null);
   const [errorCode, setErrorCode] = useState("");
   const [working, setWorking] = useState(false);
+  const [understandingTurn, setUnderstandingTurn] = useState(false);
   const saveRef = useRef<() => Promise<void>>(async () => {});
   const registerSave = useCallback((fn: () => Promise<void>) => {
     saveRef.current = fn;
@@ -68,7 +69,10 @@ export function App() {
       onStep: (payload) => {
         setStep(payload);
         setWorking(false);
+        // Any turn (submit or message) can create cases and sections:
+        // refetch both when its stream ends (P-26).
         setUnderstandingKey((k) => k + 1);
+        void refreshSections(projectID);
       },
       onError: (code) => {
         setErrorCode(code);
@@ -93,6 +97,7 @@ export function App() {
   async function send(text: string) {
     if (!projectID) return;
     await saveRef.current(); // always save before sending (§2)
+    setUnderstandingTurn(false);
     setStreamText("");
     setStep(null);
     setErrorCode("");
@@ -109,6 +114,10 @@ export function App() {
   }
 
   const current = sections.find((s) => s.label === selected);
+  const currentProject = projects.find((p) => p.project_id === projectID);
+  // Never an internal id on screen (P-30): the name, or the catalog's.
+  const projectName = (p?: ProjectView) => p?.name || t("project.untitled");
+  const sectionName = (s: SectionView) => s.title || t("section.label", { label: s.label });
 
   return (
     <main className="app">
@@ -137,7 +146,7 @@ export function App() {
 
       {projectID && (
         <p className="project-line">
-          {t("project.current")}: <code>{projectID}</code>
+          {t("project.current")}: {projectName(currentProject)}
         </p>
       )}
 
@@ -147,7 +156,7 @@ export function App() {
           {projects.map((p) => (
             <li key={p.project_id}>
               <button type="button" onClick={() => setProjectID(p.project_id)}>
-                {p.name || p.project_id}
+                {projectName(p)}
               </button>
             </li>
           ))}
@@ -155,7 +164,13 @@ export function App() {
       </section>
 
       {projectID && (
-        <UnderstandingPanel lang={lang} projectID={projectID} refreshKey={understandingKey} />
+        <UnderstandingPanel
+          lang={lang}
+          projectID={projectID}
+          refreshKey={understandingKey}
+          pending={understandingTurn && step?.status === "agent_pending"}
+          onRoleChanged={() => void refreshSections(projectID)}
+        />
       )}
 
       {projectID && (
@@ -167,6 +182,7 @@ export function App() {
             setStreamText("");
             setStep(null);
             setErrorCode("");
+            setUnderstandingTurn(true);
             watchTurn(turnID);
           }}
         />
@@ -186,7 +202,7 @@ export function App() {
                   className={s.label === selected ? "active" : ""}
                   onClick={() => setSelected(s.label)}
                 >
-                  {t("section.label", { label: s.label })} · v{s.version}
+                  {sectionName(s)} · v{s.version}
                 </button>
               </li>
             ))}
@@ -200,6 +216,7 @@ export function App() {
               lang={lang}
               projectID={projectID}
               label={current.label}
+              name={sectionName(current)}
               version={current.version}
               text={current.text}
               onSaved={onSaved}

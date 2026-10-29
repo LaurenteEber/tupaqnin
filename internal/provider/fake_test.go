@@ -160,3 +160,58 @@ func providerResponseText(t *testing.T, fx provider.Fixture) string {
 	}
 	return resp.Text
 }
+
+func TestP29_FakePicksTheRecordingByTurnKind(t *testing.T) {
+	step1 := messageFixture("step-1", "s1", 0)
+	step1.TurnKind = provider.TurnStep
+	understanding := messageFixture("understanding", "u", 0)
+	understanding.TurnKind = provider.TurnUnderstanding
+	step2 := messageFixture("step-2", "s2", 0)
+	step2.TurnKind = provider.TurnStep
+	f := provider.NewFake(step1, understanding, step2)
+
+	respond := func(kind provider.TurnKind) string {
+		t.Helper()
+		resp, err := f.Respond(context.Background(), provider.Request{Model: provider.PrincipalModel, TurnKind: kind}, nil)
+		if err != nil {
+			t.Fatalf("Respond(%s): %v", kind, err)
+		}
+		return resp.Text
+	}
+	// The understanding comes first even though a step recording is
+	// first in order; then a message turn gets a step recording, never
+	// the understanding one; each kind cycles over its own recordings.
+	for i, c := range []struct {
+		kind provider.TurnKind
+		want string
+	}{
+		{provider.TurnUnderstanding, "u"},
+		{provider.TurnStep, "s1"},
+		{provider.TurnStep, "s2"},
+		{provider.TurnStep, "s1"},
+		{provider.TurnUnderstanding, "u"},
+	} {
+		if got := respond(c.kind); got != c.want {
+			t.Fatalf("call %d (%s): got %q, want %q", i, c.kind, got, c.want)
+		}
+	}
+	if _, err := f.Respond(context.Background(), provider.Request{Model: provider.PrincipalModel, TurnKind: provider.TurnSignoff}, nil); err == nil {
+		t.Fatal("signoff turn without a signoff recording: want an error, got a recording of another kind")
+	}
+}
+
+func TestP29_AppFixturesDeclareTheirTurnKind(t *testing.T) {
+	app, err := provider.AppFixtures()
+	if err != nil {
+		t.Fatalf("AppFixtures: %v", err)
+	}
+	want := map[string]provider.TurnKind{
+		"01-principal-valid": provider.TurnStep, "02-principal-invalid": provider.TurnStep,
+		"03-understanding-valid": provider.TurnUnderstanding,
+	}
+	for _, fx := range app {
+		if fx.TurnKind != want[fx.Name] {
+			t.Fatalf("%s: turn_kind %q, want %q", fx.Name, fx.TurnKind, want[fx.Name])
+		}
+	}
+}

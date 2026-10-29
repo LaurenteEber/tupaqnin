@@ -20,6 +20,17 @@ const (
 	RoleContraster AgentRole = "contraster"
 )
 
+// TurnKind is the kind of turn a call belongs to: the understanding
+// (1.2), an agent step, or a signoff with Wonder (B-13). The fake
+// picks its recording by it (P-29); Meta ignores it.
+type TurnKind string
+
+const (
+	TurnUnderstanding TurnKind = "understanding"
+	TurnStep          TurnKind = "step"
+	TurnSignoff       TurnKind = "signoff"
+)
+
 // Provider is one model backend. onDelta may be nil; when set, it is
 // called with each text delta as it arrives.
 type Provider interface {
@@ -33,6 +44,7 @@ type Request struct {
 	TurnID       string
 	InstanceID   string
 	Role         AgentRole
+	TurnKind     TurnKind
 	Model        string
 	Effort       string
 	Instructions string
@@ -135,7 +147,10 @@ func fillUsage(model string, u *Usage) {
 
 // Fixture is one recorded call the fake provider replays (T-11).
 type Fixture struct {
-	Name       string            `json:"name"`
+	Name string `json:"name"`
+	// TurnKind is the kind of turn the recording answers (P-29);
+	// empty serves any kind.
+	TurnKind   TurnKind          `json:"turn_kind,omitempty"`
 	Deltas     []string          `json:"deltas"`
 	Items      []json.RawMessage `json:"items"`
 	Usage      Usage             `json:"usage"`
@@ -149,26 +164,46 @@ func LoadFixture(path string) (Fixture, error) {
 
 // Fake replays fixtures in order, one per call, and starts again at
 // the first when they run out (backlog 0.5, for the app fixtures).
+// A call of a given turn kind only gets the fixtures of that kind
+// (or without one), each kind with its own order (P-29).
 type Fake struct {
 	Recorder CallRecorder
 
 	fixtures []Fixture
-	next     int
+	next     map[TurnKind]int
 }
 
 // NewFake returns a fake that replays the fixtures in the given order.
-func NewFake(fixtures ...Fixture) *Fake { return &Fake{fixtures: fixtures} }
+func NewFake(fixtures ...Fixture) *Fake {
+	return &Fake{fixtures: fixtures, next: make(map[TurnKind]int)}
+}
+
+// pick returns the next fixture for the turn kind, or false when no
+// fixture serves it.
+func (f *Fake) pick(kind TurnKind) (Fixture, bool) {
+	var matching []Fixture
+	for _, fx := range f.fixtures {
+		if kind == "" || fx.TurnKind == "" || fx.TurnKind == kind {
+			matching = append(matching, fx)
+		}
+	}
+	if len(matching) == 0 {
+		return Fixture{}, false
+	}
+	fx := matching[f.next[kind]%len(matching)]
+	f.next[kind]++
+	return fx, true
+}
 
 var _ Provider = (*Fake)(nil)
 
 // Respond emits the next fixture's deltas at its DeltaDelay rhythm
 // and returns its recorded items byte-for-byte.
 func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (Response, error) {
-	if len(f.fixtures) == 0 {
+	fx, ok := f.pick(req.TurnKind)
+	if !ok {
 		return Response{}, &ProviderError{Code: "no_fixtures", Type: "fake"}
 	}
-	fx := f.fixtures[f.next%len(f.fixtures)]
-	f.next++
 	for _, d := range fx.Deltas {
 		if fx.DeltaDelay > 0 {
 			timer := time.NewTimer(fx.DeltaDelay)

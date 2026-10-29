@@ -68,5 +68,10 @@
   "understanding.role.conclusion": "Conclusión",
   "understanding.role.recommendation": "Recomendación",
   "understanding.role.other": "Otro",
-  "understanding.empty": "El agente todavía no envió su «Entendí»."
+  "understanding.empty": "El agente todavía no envió su «Entendí».",
+  "project.untitled": "Proyecto sin título",
+  "understanding.confirm_role": "Confirmar rol",
+  "understanding.role_state.proposed": "propuesto",
+  "understanding.role_state.confirmed": "confirmado",
+  "understanding.pending": "El agente no pudo terminar su «Entendí»; queda pendiente del agente."
 }

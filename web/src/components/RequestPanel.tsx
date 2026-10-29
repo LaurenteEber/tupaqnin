@@ -107,7 +107,8 @@ export function RequestPanel({
       <ul>
         {view?.sources.map((s) => (
           <li key={s.label}>
-            {s.filename} · {s.label} · <code>{s.fingerprint.slice(0, 12)}</code>
+            {s.filename}
+            {s.kind === "calculation" && <> · <strong>{t("source.kind.calculation")}</strong></>}
           </li>
         ))}
       </ul>

@@ -68,5 +68,10 @@
   "understanding.role.conclusion": "Conclusion",
   "understanding.role.recommendation": "Recommendation",
   "understanding.role.other": "Other",
-  "understanding.empty": "The agent has not sent its understanding yet."
+  "understanding.empty": "The agent has not sent its understanding yet.",
+  "project.untitled": "Untitled project",
+  "understanding.confirm_role": "Confirm role",
+  "understanding.role_state.proposed": "proposed",
+  "understanding.role_state.confirmed": "confirmed",
+  "understanding.pending": "The agent could not finish its understanding; it stays pending for the agent."
 }

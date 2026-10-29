@@ -31,6 +31,7 @@ type SectionResponse struct {
 
 type SectionView struct {
 	Label   string `json:"label"`
+	Title   string `json:"title"`
 	Version int    `json:"version"`
 	State   string `json:"state"`
 	Text    string `json:"text"`
@@ -118,8 +119,8 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 	}
 	views := make([]SectionView, 0, len(objects))
 	for _, obj := range objects {
-		views = append(views, SectionView{Label: obj.Label, Version: obj.CurrentVersion,
-			State: obj.State, Text: sectionText(obj)})
+		views = append(views, SectionView{Label: obj.Label, Title: str(bodyMap(obj), "title"),
+			Version: obj.CurrentVersion, State: obj.State, Text: sectionText(obj)})
 	}
 	writeJSON(w, http.StatusOK, views)
 }

@@ -22,6 +22,7 @@ export interface SectionResponse {
 }
 export interface SectionView {
   label: string;
+  title: string;
   version: number /* int */;
   state: string;
   text: string;

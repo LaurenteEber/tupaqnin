@@ -87,3 +87,70 @@ func TestB12_ConfirmingRoleLeavesItConfirmedWithItsEvent(t *testing.T) {
 		t.Fatalf("invalid role: got %d, want 400", rec.Code)
 	}
 }
+
+// P-27: the role lives in the section's body, so changing it makes a
+// new version (every change is a version, specification §1.1). The
+// editor takes that version when the text is unchanged: an edit after
+// the role change, with the version the section list reports, saves.
+func TestP27_ChangeRoleThenEditSavesTheTypedText(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	seedUnderstanding(t, db, projectID)
+	base := "/api/projects/" + projectID
+
+	before := decode[[]server.SectionView](t, do(t, h, http.MethodGet, base+"/sections", nil))[0]
+	if rec := do(t, h, http.MethodPut, base+"/sections/sec-1/role", map[string]any{"role": "other"}); rec.Code != http.StatusOK {
+		t.Fatalf("put role: got %d (%s)", rec.Code, rec.Body.String())
+	}
+	after := decode[[]server.SectionView](t, do(t, h, http.MethodGet, base+"/sections", nil))[0]
+	if after.Text != before.Text {
+		t.Fatalf("role change touched the text: %q → %q", before.Text, after.Text)
+	}
+
+	rec := do(t, h, http.MethodPut, base+"/sections/sec-1",
+		map[string]any{"base_version": after.Version, "text": "Texto tecleado."})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("edit after role change: got %d (%s), want 200", rec.Code, rec.Body.String())
+	}
+	saved := decode[[]server.SectionView](t, do(t, h, http.MethodGet, base+"/sections", nil))[0]
+	if saved.Text != "Texto tecleado." {
+		t.Fatalf("edit after role change: text %q not saved", saved.Text)
+	}
+}
+
+// P-31: confirming a proposed role without changing it leaves the same
+// value confirmed, with its role_changed event.
+func TestP31_ConfirmProposedRoleKeepsItsValue(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	seedUnderstanding(t, db, projectID)
+	base := "/api/projects/" + projectID
+
+	rec := do(t, h, http.MethodPut, base+"/sections/sec-1/role", map[string]any{"role": "conclusion"})
+	got := decode[server.SectionRoleView](t, rec)
+	if got.Role != "conclusion" || got.RoleState != "confirmed" {
+		t.Fatalf("confirm proposed role: %+v", got)
+	}
+	events, err := db.EventsSince(context.Background(), projectID, 0)
+	if err != nil {
+		t.Fatalf("events: %v", err)
+	}
+	for _, ev := range events {
+		if ev.Type == store.EventRoleChanged {
+			return
+		}
+	}
+	t.Fatal("no role_changed event recorded")
+}
+
+// P-30: sections are named by their title (B-18), never by an id.
+func TestP30_SectionListCarriesTheTitle(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	seedUnderstanding(t, db, projectID)
+
+	list := decode[[]server.SectionView](t, do(t, h, http.MethodGet, "/api/projects/"+projectID+"/sections", nil))
+	if len(list) != 1 || list[0].Title != "Síntesis" {
+		t.Fatalf("section list: %+v, want the title Síntesis", list)
+	}
+}

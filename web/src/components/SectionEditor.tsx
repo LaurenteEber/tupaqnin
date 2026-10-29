@@ -15,10 +15,15 @@ import { translate, type Lang } from "../i18n";
 // hidden and before sending a message (the parent calls saveNow).
 // The client does not send if the text has not changed; Go still
 // decides no-change (204), a new version (200) or a conflict (409).
+//
+// A change outside the editor that leaves the text as it was last
+// saved (the role, P-27) still makes a new version: the editor takes
+// it, so the next save is not a 409. A change of text does not.
 export function SectionEditor({
   lang,
   projectID,
   label,
+  name,
   version,
   text,
   onSaved,
@@ -27,6 +32,7 @@ export function SectionEditor({
   lang: Lang;
   projectID: string;
   label: string;
+  name: string;
   version: number;
   text: string;
   onSaved: (label: string, version: number, text: string) => void;
@@ -34,6 +40,12 @@ export function SectionEditor({
 }) {
   const base = useRef({ version, savedText: text });
   const status = useRef<((kind: string) => void) | null>(null);
+
+  useEffect(() => {
+    if (version > base.current.version && text === base.current.savedText) {
+      base.current = { version, savedText: text };
+    }
+  }, [version, text]);
 
   const editor = useEditor({
     extensions: [Document, Paragraph, Text],
@@ -91,7 +103,7 @@ export function SectionEditor({
   return (
     <div className="section-editor" onBlur={() => void saveRef.current()}>
       <div className="section-editor-head">
-        <h2>{translate(lang, "section.label", { label })}</h2>
+        <h2>{name}</h2>
         <SaveStatus lang={lang} register={(fn) => (status.current = fn)} />
       </div>
       <EditorContent editor={editor} />

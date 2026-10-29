@@ -282,7 +282,7 @@ func (r *Runner) call(ctx context.Context, projectID, turnID, instanceID string,
 	}
 	return r.prov.Respond(ctx, provider.Request{
 		ProjectID: projectID, TurnID: turnID, InstanceID: instanceID,
-		Role: provider.RolePrincipal, Model: provider.PrincipalModel,
+		Role: provider.RolePrincipal, TurnKind: provider.TurnStep, Model: provider.PrincipalModel,
 		Effort: provider.PrincipalEffort, Instructions: principalInstructions,
 		Input: input, Schema: schema, SchemaStrict: true,
 	}, func(d provider.Delta) {
@@ -387,7 +387,7 @@ func (r *Runner) callUnderstanding(ctx context.Context, projectID, turnID, insta
 	}
 	return r.prov.Respond(ctx, provider.Request{
 		ProjectID: projectID, TurnID: turnID, InstanceID: instanceID,
-		Role: provider.RolePrincipal, Model: provider.PrincipalModel,
+		Role: provider.RolePrincipal, TurnKind: provider.TurnUnderstanding, Model: provider.PrincipalModel,
 		Effort: provider.EffortHigh, Instructions: understandingInstructions,
 		Input: input, Schema: schema, SchemaStrict: true,
 	}, func(d provider.Delta) {

@@ -1,5 +1,6 @@
 {
   "name": "02-principal-invalid",
+  "turn_kind": "step",
   "deltas": [
     "{\"triage_line\": \"Constru",
     "ir: sigo.\", \"closing_ris",

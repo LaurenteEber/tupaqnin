@@ -268,3 +268,16 @@ func pad10(n int) string {
 	}
 	return s
 }
+
+// P-31: sources are listed by their number (src-2 before src-10).
+func TestP31_SourcesAreSortedByNumber(t *testing.T) {
+	h, _, _ := newAPI(t)
+	projectID := newProject(t, h, map[string]any{"template": "case-5"})
+
+	got := decode[server.RequestView](t, do(t, h, http.MethodGet, "/api/projects/"+projectID+"/request", nil))
+	for i, src := range got.Sources {
+		if want := "src-" + itoa(i+1); src.Label != want {
+			t.Fatalf("source %d: got %s, want %s (order %v)", i, src.Label, want, got.Sources)
+		}
+	}
+}

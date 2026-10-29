@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/LaurenteEber/tupaqnin/internal/demo/case5"
@@ -159,7 +161,17 @@ func (s *Server) requestView(r *http.Request, projectID string) (RequestView, bo
 		view.Sources = append(view.Sources, SourceView{Label: src.Label, Version: src.CurrentVersion,
 			Kind: b.Kind, Filename: b.Filename, MediaType: b.MediaType, Fingerprint: b.Fingerprint})
 	}
+	// P-31: by number (src-2 before src-10), not by label text.
+	sort.SliceStable(view.Sources, func(i, j int) bool {
+		return labelNumber(view.Sources[i].Label) < labelNumber(view.Sources[j].Label)
+	})
 	return view, true
+}
+
+// labelNumber is the number of a short label such as src-12.
+func labelNumber(label string) int {
+	n, _ := strconv.Atoi(label[strings.LastIndex(label, "-")+1:])
+	return n
 }
 
 // POST /api/projects with {name, template}
