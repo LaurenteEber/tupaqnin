@@ -96,9 +96,9 @@ func TestT11_AppFixturesLoadInOrderAndStream90sHas90Deltas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AppFixtures: %v", err)
 	}
-	if len(app) != 3 || app[0].Name != "01-principal-valid" || app[1].Name != "02-principal-invalid" ||
-		app[2].Name != "03-understanding-valid" {
-		t.Fatalf("AppFixtures: got %+v, want the valid, invalid and understanding fixtures", app)
+	if len(app) != 4 || app[0].Name != "01-principal-valid" || app[1].Name != "02-principal-invalid" ||
+		app[2].Name != "03-understanding-valid" || app[3].Name != "04-principal-no-work" {
+		t.Fatalf("AppFixtures: got %d fixtures, want the valid, invalid, understanding and no-work ones", len(app))
 	}
 	if text := providerResponseText(t, app[2]); !strings.Contains(text, `"understood"`) {
 		t.Fatalf("understanding fixture is not an understanding output: %s", text)
@@ -207,7 +207,7 @@ func TestP29_AppFixturesDeclareTheirTurnKind(t *testing.T) {
 	}
 	want := map[string]provider.TurnKind{
 		"01-principal-valid": provider.TurnStep, "02-principal-invalid": provider.TurnStep,
-		"03-understanding-valid": provider.TurnUnderstanding,
+		"03-understanding-valid": provider.TurnUnderstanding, "04-principal-no-work": provider.TurnStep,
 	}
 	for _, fx := range app {
 		if fx.TurnKind != want[fx.Name] {

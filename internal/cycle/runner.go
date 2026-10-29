@@ -275,7 +275,7 @@ func (r *Runner) transportSchema() (json.RawMessage, error) {
 	return schema, nil
 }
 
-func (r *Runner) call(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage) (provider.Response, error) {
+func (r *Runner) call(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter) (provider.Response, error) {
 	schema, err := r.transportSchema()
 	if err != nil {
 		return provider.Response{}, err
@@ -285,11 +285,21 @@ func (r *Runner) call(ctx context.Context, projectID, turnID, instanceID string,
 		Role: provider.RolePrincipal, TurnKind: provider.TurnStep, Model: provider.PrincipalModel,
 		Effort: provider.PrincipalEffort, Instructions: principalInstructions,
 		Input: input, Schema: schema, SchemaStrict: true,
-	}, func(d provider.Delta) {
-		if r.pub != nil {
-			r.pub.PublishDelta(projectID, turnID, d.Text)
+	}, r.filtered(projectID, turnID, f))
+}
+
+// filtered streams only what the person reads of the model's raw JSON
+// (P-28).
+func (r *Runner) filtered(projectID, turnID string, f *fieldFilter) func(provider.Delta) {
+	f.reset()
+	return func(d provider.Delta) {
+		if r.pub == nil {
+			return
 		}
-	})
+		if text := f.feed(d.Text); text != "" {
+			r.pub.PublishDelta(projectID, turnID, text)
+		}
+	}
 }
 
 type stepPayload struct {
@@ -380,7 +390,7 @@ func (r *Runner) requestText(ctx context.Context, projectID string) (string, err
 	return b.Text, nil
 }
 
-func (r *Runner) callUnderstanding(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage) (provider.Response, error) {
+func (r *Runner) callUnderstanding(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter) (provider.Response, error) {
 	schema, err := provider.TransportSchema(understandingSchema)
 	if err != nil {
 		return provider.Response{}, err
@@ -390,11 +400,7 @@ func (r *Runner) callUnderstanding(ctx context.Context, projectID, turnID, insta
 		Role: provider.RolePrincipal, TurnKind: provider.TurnUnderstanding, Model: provider.PrincipalModel,
 		Effort: provider.EffortHigh, Instructions: understandingInstructions,
 		Input: input, Schema: schema, SchemaStrict: true,
-	}, func(d provider.Delta) {
-		if r.pub != nil {
-			r.pub.PublishDelta(projectID, turnID, d.Text)
-		}
-	})
+	}, r.filtered(projectID, turnID, f))
 }
 
 // runUnderstandingTurn is the «Entendí» turn (backlog 1.2): startup
@@ -449,7 +455,8 @@ func (r *Runner) runUnderstandingTurn(ctx context.Context, projectID, turnID str
 		return err
 	}
 
-	resp, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, input)
+	filter := newFieldFilter(understandingStreamKeys)
+	resp, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, input, filter)
 	if err != nil {
 		r.fail(projectID, turnID, "provider_error")
 		return nil
@@ -462,7 +469,7 @@ func (r *Runner) runUnderstandingTurn(ctx context.Context, projectID, turnID str
 	if result.Status == StatusRetry {
 		retryInput := append(append([]json.RawMessage{}, input...), resp.RawItems...)
 		retryInput = append(retryInput, userItem(RetryMessage(result.Errors)))
-		resp2, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, retryInput)
+		resp2, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, retryInput, filter)
 		if err != nil {
 			r.fail(projectID, turnID, "provider_error")
 			return nil
@@ -475,15 +482,34 @@ func (r *Runner) runUnderstandingTurn(ctx context.Context, projectID, turnID str
 		resp = resp2
 	}
 	_ = resp
+	// B-17: the chain starts on its own when the understanding ends,
+	// without waiting for the cases to be confirmed. It runs as the next
+	// turn, whose id the understanding's step carries so the page can
+	// follow it.
+	// [EL DISEÑO NO LO DICE]: how the page learns of the chain; the
+	// smallest choice is next_turn_id in the understanding's step.
+	var chainID string
+	if result.Status == StatusAccepted {
+		if chainID, err = newTurnID(); err != nil {
+			return err
+		}
+		if r.pub != nil {
+			r.pub.BeginTurn(projectID, chainID)
+		}
+	}
 	if r.pub != nil {
-		raw, err := json.Marshal(map[string]any{
-			"status": result.Status, "understood": result.Output.Understood,
-		})
-		if err == nil {
+		step := map[string]any{"status": result.Status, "understood": result.Output.Understood}
+		if chainID != "" {
+			step["next_turn_id"] = chainID
+		}
+		if raw, err := json.Marshal(step); err == nil {
 			r.pub.PublishStep(projectID, turnID, raw)
 		}
 	}
-	return nil
+	if chainID == "" {
+		return nil
+	}
+	return r.runChain(ctx, projectID, chainID, "", false)
 }
 
 // RunTurn runs one turn synchronously. StartTurn wraps it in a
@@ -508,60 +534,120 @@ func (r *Runner) runTurn(ctx context.Context, projectID, turnID, text string) er
 	if err != nil {
 		return err
 	}
+	return r.runChain(ctx, projectID, turnID, text, true)
+}
 
-	instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
-	if err != nil {
-		r.fail(projectID, turnID, "turn_failed")
-		return err
-	}
+// MaxChainSteps is how many steps the agent chains after the confirmed
+// understanding and after each message of the person (B-17 [inicial]).
+const MaxChainSteps = 5
 
-	var input []json.RawMessage
-	if started {
-		// The startup already carries this message as the current
-		// task (block 2 §3), so it is not appended again.
-		input = startupInput
-	} else {
-		conversation, err := r.conversation(ctx, projectID, instanceID)
+// ContinueMessage is the fixed app message of a chained step without a
+// message of the person: in English, with nothing of the person's
+// (B-17).
+const ContinueMessage = "Continue with the next step of the task."
+
+// runChain runs up to MaxChainSteps steps in one turn (B-17). The first
+// step gets the person's message when there is one; the others get
+// ContinueMessage. The chain stops at a step without new text or new
+// decisions, at a step left pending for the agent, or at the limit.
+func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, human bool) error {
+	filter := newFieldFilter(stepStreamKeys)
+	var last StepResult
+	var lastText string
+	for n := 1; n <= MaxChainSteps; n++ {
+		message := ContinueMessage
+		if n == 1 && human {
+			message = text
+		}
+		instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
 			return err
 		}
-		changes, err := r.changeItems(ctx, projectID, instanceID)
-		if err != nil {
-			r.fail(projectID, turnID, "turn_failed")
-			return err
+		var input []json.RawMessage
+		switch {
+		case started && n == 1 && human:
+			// The startup already carries this message as the current
+			// task (block 2 §3), so it is not appended again.
+			input = startupInput
+		case started:
+			input = append(startupInput, userItem(message))
+		default:
+			conversation, err := r.conversation(ctx, projectID, instanceID)
+			if err != nil {
+				r.fail(projectID, turnID, "turn_failed")
+				return err
+			}
+			changes, err := r.changeItems(ctx, projectID, instanceID)
+			if err != nil {
+				r.fail(projectID, turnID, "turn_failed")
+				return err
+			}
+			input = append(conversation, changes...)
+			input = append(input, userItem(message))
 		}
-		input = append(conversation, changes...)
-		input = append(input, userItem(text))
-	}
-
-	resp, err := r.call(ctx, projectID, turnID, instanceID, input)
-	if err != nil {
-		r.fail(projectID, turnID, "provider_error")
-		return nil
-	}
-	result, err := r.gate.EndStep(ctx, projectID, turnID, 1, json.RawMessage(resp.Text))
-	if err != nil {
-		r.fail(projectID, turnID, "turn_failed")
-		return err
-	}
-	if result.Status == StatusRetry {
-		retryInput := append(append([]json.RawMessage{}, input...), resp.RawItems...)
-		retryInput = append(retryInput, userItem(RetryMessage(result.Errors)))
-		resp2, err := r.call(ctx, projectID, turnID, instanceID, retryInput)
-		if err != nil {
+		result, applied, outText, err := r.runStep(ctx, projectID, turnID, instanceID, input, filter)
+		if errors.Is(err, errProvider) {
 			r.fail(projectID, turnID, "provider_error")
 			return nil
 		}
-		result, err = r.gate.EndStep(ctx, projectID, turnID, 2, json.RawMessage(resp2.Text))
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
 			return err
 		}
-		resp = resp2
+		last, lastText = result, outText
+		if result.Status != StatusAccepted || !applied.Work {
+			break
+		}
 	}
-	r.publishStep(projectID, turnID, result, resp.Text)
+	r.publishStep(projectID, turnID, last, lastText)
 	return nil
+}
+
+var errProvider = errors.New("cycle: provider call failed")
+
+// runStep runs one step: the call, EndStep (the fixed shape) and
+// ApplyStep (rules 2 to 6). A rejection by either counts as the retry
+// (specification §3); the retry carries what changed since it was
+// delivered, so a section that changed reaches the agent with its
+// current text (B-11).
+func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter) (StepResult, ApplyResult, string, error) {
+	var result StepResult
+	var applied ApplyResult
+	for attempt := 1; attempt <= 2; attempt++ {
+		resp, err := r.call(ctx, projectID, turnID, instanceID, input, f)
+		if err != nil {
+			return StepResult{}, ApplyResult{}, "", errProvider
+		}
+		result, err = r.gate.EndStep(ctx, projectID, turnID, attempt, json.RawMessage(resp.Text))
+		if err != nil {
+			return StepResult{}, ApplyResult{}, "", err
+		}
+		message := RetryMessage(result.Errors)
+		if result.Status == StatusAccepted {
+			applied, err = r.gate.ApplyStep(ctx, projectID, turnID, json.RawMessage(resp.Text))
+			if err != nil {
+				return StepResult{}, ApplyResult{}, "", err
+			}
+			if applied.Applied {
+				return result, applied, resp.Text, nil
+			}
+			if result, err = r.gate.Reject(ctx, projectID, turnID, attempt, applied.Errors); err != nil {
+				return StepResult{}, ApplyResult{}, "", err
+			}
+			message = RejectionMessage(applied.Errors)
+		}
+		if result.Status != StatusRetry {
+			return result, applied, resp.Text, nil
+		}
+		changes, err := r.changeItems(ctx, projectID, instanceID)
+		if err != nil {
+			return StepResult{}, ApplyResult{}, "", err
+		}
+		input = append(append(append([]json.RawMessage{}, input...), resp.RawItems...), changes...)
+		input = append(input, userItem(message))
+	}
+	return result, applied, "", nil
 }
 
 func (r *Runner) fail(projectID, turnID, code string) {

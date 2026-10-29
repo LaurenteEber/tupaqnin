@@ -82,17 +82,25 @@ func TestB2_EmbeddedSchemaIsIdenticalToTheDesignSchema(t *testing.T) {
 	}
 }
 
+// EndStep checks only the shape and writes nothing; ApplyStep writes
+// step_ended with the step (backlog-r1 1.3).
 func TestB2_ValidRecordedOutputEndsTheStep(t *testing.T) {
 	db := openTemp(t)
 	gate := cycle.NewGate(db)
+	output := recordedOutput(t, filepath.Join("app", "01-principal-valid.json"))
 
-	res, err := gate.EndStep(context.Background(), "p1", "turn-1", 1,
-		recordedOutput(t, filepath.Join("app", "01-principal-valid.json")))
+	res, err := gate.EndStep(context.Background(), "p1", "turn-1", 1, output)
 	if err != nil {
 		t.Fatalf("EndStep: %v", err)
 	}
 	if res.Status != cycle.StatusAccepted || len(res.Errors) != 0 {
 		t.Fatalf("result: got %+v, want accepted without errors", res)
+	}
+	if ended := eventsOfType(t, db, store.EventStepEnded); len(ended) != 0 {
+		t.Fatalf("EndStep wrote %d step_ended, want 0 (ApplyStep writes it)", len(ended))
+	}
+	if applied, err := gate.ApplyStep(context.Background(), "p1", "turn-1", output); err != nil || !applied.Applied {
+		t.Fatalf("ApplyStep: %+v, %v", applied, err)
 	}
 	ended := eventsOfType(t, db, store.EventStepEnded)
 	if len(ended) != 1 {
@@ -207,6 +215,9 @@ func TestT6_NoteOf500WordsIsNotRejectedAndIsKeptComplete(t *testing.T) {
 	}
 	if res.Status != cycle.StatusAccepted {
 		t.Fatalf("result: got %+v, want accepted", res)
+	}
+	if applied, err := gate.ApplyStep(context.Background(), "p1", "turn-1", output); err != nil || !applied.Applied {
+		t.Fatalf("ApplyStep: %+v, %v", applied, err)
 	}
 	ended := eventsOfType(t, db, store.EventStepEnded)
 	if len(ended) != 1 {

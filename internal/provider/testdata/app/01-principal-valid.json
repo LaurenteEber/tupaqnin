@@ -14,15 +14,16 @@
     "imera versión del alcanc",
     "e.\"}], \"proposed_roles\":",
     " [{\"section_id\": \"new-1\"",
-    ", \"role\": \"other\"}], \"de",
-    "ferred\": [{\"what\": \"Conf",
-    "irmar el destinatario\", ",
-    "\"why\": \"Todavía no está ",
-    "en el pedido\"}], \"note\":",
-    " \"Intenté una primera se",
-    "cción mínima; descarté d",
-    "ecisiones nuevas hasta c",
-    "onocer el pedido.\"}"
+    ", \"role\": \"other\", \"titl",
+    "e\": \"Alcance\"}], \"deferr",
+    "ed\": [{\"what\": \"Confirma",
+    "r el destinatario\", \"why",
+    "\": \"Todavía no está en e",
+    "l pedido\"}], \"note\": \"In",
+    "tenté una primera secció",
+    "n mínima; descarté decis",
+    "iones nuevas hasta conoc",
+    "er el pedido.\"}"
   ],
   "items": [
     {
@@ -37,7 +38,7 @@
       "content": [
         {
           "type": "output_text",
-          "text": "{\"triage_line\": \"Construir: redacto la primera sección del pedido.\", \"closing_risk\": \"none\", \"new_text\": [{\"section_id\": \"new-1\", \"base_version\": 0, \"anchor\": \"\", \"operation\": \"insert_after\", \"text\": \"# Alcance\\n\\nPrimera versión del alcance.\"}], \"proposed_roles\": [{\"section_id\": \"new-1\", \"role\": \"other\"}], \"deferred\": [{\"what\": \"Confirmar el destinatario\", \"why\": \"Todavía no está en el pedido\"}], \"note\": \"Intenté una primera sección mínima; descarté decisiones nuevas hasta conocer el pedido.\"}"
+          "text": "{\"triage_line\": \"Construir: redacto la primera sección del pedido.\", \"closing_risk\": \"none\", \"new_text\": [{\"section_id\": \"new-1\", \"base_version\": 0, \"anchor\": \"\", \"operation\": \"insert_after\", \"text\": \"# Alcance\\n\\nPrimera versión del alcance.\"}], \"proposed_roles\": [{\"section_id\": \"new-1\", \"role\": \"other\", \"title\": \"Alcance\"}], \"deferred\": [{\"what\": \"Confirmar el destinatario\", \"why\": \"Todavía no está en el pedido\"}], \"note\": \"Intenté una primera sección mínima; descarté decisiones nuevas hasta conocer el pedido.\"}"
         }
       ]
     }

@@ -1,0 +1,35 @@
+{
+  "triage_line": "Construir: un paso.",
+  "closing_risk": "none",
+  "note": "Paso de prueba.",
+  "new_decisions": [
+    {
+      "id": "new-1",
+      "statement": "Comparar por veces.",
+      "instead_of": "Comparar por conteos crudos.",
+      "would_choose_if": "Los estudios usaran el mismo filtro.",
+      "assumption": false,
+      "used_in_sections": [
+        "sec-1"
+      ]
+    }
+  ],
+  "new_text": [
+    {
+      "section_id": "sec-1",
+      "base_version": 1,
+      "anchor": "Cierre.",
+      "operation": "insert_after",
+      "text": " La comparación da 60 veces en 2023 y deja 7 casos."
+    }
+  ],
+  "figure_links": [
+    {
+      "figure_anchor": "60 veces",
+      "decision_id": "new-1"
+    }
+  ],
+  "used_sources": [
+    "src-1"
+  ]
+}

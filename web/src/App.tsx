@@ -69,6 +69,14 @@ export function App() {
       onStep: (payload) => {
         setStep(payload);
         setWorking(false);
+        if (payload.next_turn_id) {
+          // The agent's chain starts on its own after the understanding.
+          setUnderstandingKey((k) => k + 1);
+          setUnderstandingTurn(false);
+          setStreamText("");
+          watchTurn(payload.next_turn_id);
+          return;
+        }
         // Any turn (submit or message) can create cases and sections:
         // refetch both when its stream ends (P-26).
         setUnderstandingKey((k) => k + 1);

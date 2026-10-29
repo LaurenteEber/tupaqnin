@@ -223,6 +223,10 @@ func (tx *Tx) CreateObject(t ObjectType, state string, body any, ev EventInput) 
 	return obj, nil
 }
 
+// Object returns the current version of an object inside the
+// transaction.
+func (tx *Tx) Object(id string) (Object, error) { return tx.getObject(id) }
+
 func (tx *Tx) getObject(id string) (Object, error) {
 	var obj Object
 	var state sql.NullString
@@ -310,7 +314,28 @@ func (tx *Tx) UpdateObject(id string, expectedVersion int, state string, body an
 	return cur, nil
 }
 
-// AddEdge creates a current edge at version 1 and appends ev.
+// edgeEvent fills the edge event's data with the operation, and the
+// edge's id, type, ends and version, so the history rebuilds the graph
+// (B-8). Data the caller already set is kept.
+func edgeEvent(ev EventInput, kind string, e Edge) EventInput {
+	data := map[string]any{}
+	if m, ok := ev.Data.(map[string]any); ok {
+		for k, v := range m {
+			data[k] = v
+		}
+	}
+	data["kind"] = kind
+	data["id"], data["type"], data["version"] = e.ID, string(e.Type), e.Version
+	data["from_id"], data["to_id"] = e.FromID, e.ToID
+	if e.Anchor != "" {
+		data["anchor"] = e.Anchor
+	}
+	ev.Data = data
+	return ev
+}
+
+// AddEdge creates a current edge at version 1 and appends its edge
+// event (created).
 func (tx *Tx) AddEdge(t EdgeType, fromID, toID, anchor string, ev EventInput) (Edge, error) {
 	if !t.Valid() {
 		return Edge{}, fmt.Errorf("%w: edge type %q", ErrInvalidType, t)
@@ -332,50 +357,73 @@ func (tx *Tx) AddEdge(t EdgeType, fromID, toID, anchor string, ev EventInput) (E
 		tx.projectID, id, string(t), fromID, toID, nullStr(anchor)); err != nil {
 		return Edge{}, fmt.Errorf("create edge: %w", err)
 	}
-	if _, err := tx.AppendEvent(ev); err != nil {
+	if _, err := tx.AppendEvent(edgeEvent(ev, "created", edge)); err != nil {
 		return Edge{}, err
 	}
 	return edge, nil
 }
 
-// SupersedeEdge marks the edge not current and creates its next
-// version (a new row with the same type, ends and anchor), and
-// appends ev. The superseded row stays in the table.
-// [EL DISEÑO NO LO DICE]: the design says a new version is created
-// without naming its row identity; a new row is the smallest choice
-// because (project_id, id) is the edge key.
-func (tx *Tx) SupersedeEdge(edgeID string, ev EventInput) (Edge, error) {
-	var old Edge
+// currentEdge returns the current version of an edge, or ErrNotFound.
+func (tx *Tx) currentEdge(edgeID string) (Edge, error) {
+	e := Edge{ProjectID: tx.projectID, Current: true}
 	var anchor sql.NullString
 	err := tx.tx.QueryRowContext(tx.ctx,
 		`SELECT id, type, from_id, to_id, anchor, version FROM edge
 		 WHERE project_id = ? AND id = ? AND current = 1`, tx.projectID, edgeID).
-		Scan(&old.ID, &old.Type, &old.FromID, &old.ToID, &anchor, &old.Version)
+		Scan(&e.ID, &e.Type, &e.FromID, &e.ToID, &anchor, &e.Version)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Edge{}, ErrNotFound
 	}
 	if err != nil {
 		return Edge{}, fmt.Errorf("get edge: %w", err)
 	}
-	if _, err := tx.tx.ExecContext(tx.ctx,
-		`UPDATE edge SET current = 0 WHERE project_id = ? AND id = ?`,
-		tx.projectID, edgeID); err != nil {
-		return Edge{}, fmt.Errorf("supersede edge: %w", err)
-	}
-	id, err := newID()
+	e.Anchor = anchor.String
+	return e, nil
+}
+
+// ChangeEdge gives the edge a new end and anchor in its next version,
+// with the same id (B-8), and appends its edge event (changed). The
+// previous version stays in the table, not current.
+func (tx *Tx) ChangeEdge(edgeID, toID, anchor string, ev EventInput) (Edge, error) {
+	old, err := tx.currentEdge(edgeID)
 	if err != nil {
 		return Edge{}, err
 	}
-	next := Edge{ProjectID: tx.projectID, ID: id, Type: old.Type, FromID: old.FromID,
-		ToID: old.ToID, Anchor: anchor.String, Version: old.Version + 1, Current: true}
+	if _, err := tx.getObject(toID); err != nil {
+		return Edge{}, err
+	}
+	if _, err := tx.tx.ExecContext(tx.ctx,
+		`UPDATE edge SET current = 0 WHERE project_id = ? AND id = ? AND version = ?`,
+		tx.projectID, edgeID, old.Version); err != nil {
+		return Edge{}, fmt.Errorf("change edge: %w", err)
+	}
+	next := old
+	next.ToID, next.Anchor, next.Version = toID, anchor, old.Version+1
 	if _, err := tx.tx.ExecContext(tx.ctx,
 		`INSERT INTO edge (project_id, id, type, from_id, to_id, version, anchor, current)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-		tx.projectID, id, string(next.Type), next.FromID, next.ToID, next.Version, anchor); err != nil {
-		return Edge{}, fmt.Errorf("create edge version: %w", err)
+		tx.projectID, next.ID, string(next.Type), next.FromID, next.ToID, next.Version,
+		nullStr(anchor)); err != nil {
+		return Edge{}, fmt.Errorf("change edge: %w", err)
 	}
-	if _, err := tx.AppendEvent(ev); err != nil {
+	if _, err := tx.AppendEvent(edgeEvent(ev, "changed", next)); err != nil {
 		return Edge{}, err
 	}
 	return next, nil
+}
+
+// EndEdge leaves the edge without a current version and creates no copy
+// (B-8), and appends its edge event (superseded).
+func (tx *Tx) EndEdge(edgeID string, ev EventInput) error {
+	old, err := tx.currentEdge(edgeID)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.tx.ExecContext(tx.ctx,
+		`UPDATE edge SET current = 0 WHERE project_id = ? AND id = ? AND version = ?`,
+		tx.projectID, edgeID, old.Version); err != nil {
+		return fmt.Errorf("end edge: %w", err)
+	}
+	_, err = tx.AppendEvent(edgeEvent(ev, "superseded", old))
+	return err
 }

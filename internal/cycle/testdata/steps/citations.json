@@ -1,0 +1,29 @@
+{
+  "triage_line": "Construir: un paso.",
+  "closing_risk": "none",
+  "note": "Paso de prueba.",
+  "new_text": [
+    {
+      "section_id": "sec-1",
+      "base_version": 1,
+      "anchor": "Cierre.",
+      "operation": "replace",
+      "text": "Cierre final."
+    }
+  ],
+  "used_sources": [
+    "src-1"
+  ],
+  "citations": [
+    {
+      "claim_anchor": "Los estudios usan filtros.",
+      "source_id": "src-1",
+      "passage": "Los filtros finos retienen más partículas."
+    },
+    {
+      "claim_anchor": "La síntesis compara estudios.",
+      "source_id": "src-1",
+      "passage": "Una frase que la fuente no tiene."
+    }
+  ]
+}

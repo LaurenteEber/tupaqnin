@@ -40,13 +40,20 @@ func (p *fakePublisher) PublishError(_, _, code string) {
 }
 func (p *fakePublisher) step(t *testing.T) map[string]any {
 	t.Helper()
+	return p.stepAt(t, 0, 1)
+}
+
+// stepAt returns the i-th published step, after checking that n were
+// published.
+func (p *fakePublisher) stepAt(t *testing.T, i, n int) map[string]any {
+	t.Helper()
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if len(p.steps) != 1 {
-		t.Fatalf("published steps: got %d, want 1 (errors %v)", len(p.steps), p.errs)
+	if len(p.steps) != n {
+		t.Fatalf("published steps: got %d, want %d (errors %v)", len(p.steps), n, p.errs)
 	}
 	var out map[string]any
-	if err := json.Unmarshal(p.steps[0], &out); err != nil {
+	if err := json.Unmarshal(p.steps[i], &out); err != nil {
 		t.Fatalf("step payload: %v", err)
 	}
 	return out
@@ -97,13 +104,17 @@ func eventTypes(t *testing.T, db *store.DB) []store.EventType {
 }
 
 func TestB7_TurnEndToEndWithTheFakeLeavesTheHistoryInOrder(t *testing.T) {
-	db, runner, pub := newTestRunner(t, loadAppFixture(t, "01-principal-valid.json"))
+	db, runner, pub := newTestRunner(t, loadAppFixture(t, "01-principal-valid.json"),
+		loadAppFixture(t, "04-principal-no-work.json"))
 
 	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe la primera sección."); err != nil {
 		t.Fatalf("RunTurn: %v", err)
 	}
 	got := eventTypes(t, db)
-	want := []store.EventType{store.EventHumanMessage, store.EventStartup, store.EventStepEnded}
+	// The chain (B-17): the first step writes a new section, the second
+	// leaves no work and stops it.
+	want := []store.EventType{store.EventHumanMessage, store.EventStartup,
+		store.EventStateChanged, store.EventStepEnded, store.EventStepEnded}
 	if len(got) != len(want) {
 		t.Fatalf("history: got %v, want %v", got, want)
 	}
@@ -150,8 +161,9 @@ func TestB7_TurnEndToEndWithTheFakeLeavesTheHistoryInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ModelCalls: %v", err)
 	}
-	if len(calls) != 2 {
-		t.Fatalf("model calls of the instance: got %d, want 2", len(calls))
+	// Two turns, each a chain of two steps (B-17): one instance, 4 calls.
+	if len(calls) != 4 {
+		t.Fatalf("model calls of the instance: got %d, want 4", len(calls))
 	}
 	if !strings.Contains(string(calls[1].InputItems), "fixture-encrypted-content") {
 		t.Fatal("second call did not resend the first call's raw items byte-for-byte")
@@ -198,7 +210,7 @@ func TestB7_ConversationRebuildsFromLastCallOnlyWithThreeMessages(t *testing.T) 
 		`INSERT INTO project (id, created_at) VALUES ('p1', '2026-10-28T00:00:00.000Z')`); err != nil {
 		t.Fatalf("seed project: %v", err)
 	}
-	fake := provider.NewFake(loadAppFixture(t, "01-principal-valid.json"))
+	fake := provider.NewFake(loadAppFixture(t, "04-principal-no-work.json"))
 	fake.Recorder = db
 	cap := &captureProvider{inner: fake}
 	count := func(ctx context.Context, input []json.RawMessage) (int, error) {
@@ -327,8 +339,8 @@ func TestB2_InvalidRecordedOutputRetriesOnceThenAgentPending(t *testing.T) {
 
 func TestB2_InvalidThenValidOutputIsAcceptedAfterRetry(t *testing.T) {
 	invalid := loadAppFixture(t, "02-principal-invalid.json")
-	valid := loadAppFixture(t, "01-principal-valid.json")
-	db, runner, pub := newTestRunner(t, invalid, valid)
+	noWork := loadAppFixture(t, "04-principal-no-work.json")
+	db, runner, pub := newTestRunner(t, invalid, noWork)
 
 	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe algo."); err != nil {
 		t.Fatalf("RunTurn: %v", err)

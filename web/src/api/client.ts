@@ -173,6 +173,9 @@ export interface StepPayload {
   closing_risk?: string;
   note?: string;
   deferred?: { what: string; why: string }[];
+  // The understanding's step names the chain that starts after it (B-17).
+  understood?: string;
+  next_turn_id?: string;
 }
 
 export interface TurnEvents {

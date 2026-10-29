@@ -46,6 +46,13 @@ type Gate struct {
 // NewGate returns a Gate over db.
 func NewGate(db *store.DB) *Gate { return &Gate{db: db} }
 
+// RejectionMessage is the message the turn runner sends when rules 2
+// to 6 rejected a step that had the fixed shape (specification §3).
+func RejectionMessage(errs []string) string {
+	return "Your step was not applied: " + strings.Join(errs, "; ") +
+		". Return the complete output again, corrected."
+}
+
 // RetryMessage is the message the turn runner sends when it calls the
 // principal once more after a retry (backlog 0.7, verbatim shape).
 func RetryMessage(errs []string) string {
@@ -62,45 +69,29 @@ type principalOutput struct {
 }
 
 // EndStep validates output against the full principal schema in Go
-// (B-2). It never calls the model. A valid output appends step_ended
-// with the triage line, the closing risk, the complete note (T-6) and
-// the deferred items. An invalid one appends output_retry: at
-// attempt 1 the result is retry; at attempt 2 it is agent_pending
-// (fichas §7). Rules 2 to 7 of §3 are slice 1 and not done here.
+// (B-2; specification §3, rule 1). It never calls the model and writes
+// nothing for a valid output: ApplyStep checks rules 2 to 6 and writes
+// step_ended with the step (backlog-r1 1.3). An invalid one appends
+// output_retry: at attempt 1 the result is retry; at attempt 2 it is
+// agent_pending (fichas §7).
 func (g *Gate) EndStep(ctx context.Context, projectID, turnID string, attempt int, output json.RawMessage) (StepResult, error) {
 	if attempt < 1 {
 		return StepResult{}, fmt.Errorf("cycle: attempt must be 1 or more, got %d", attempt)
 	}
-	errs, parsed, err := validateOutput(output)
+	errs, _, err := validateOutput(output)
 	if err != nil {
 		return StepResult{}, err
 	}
 	if len(errs) == 0 {
-		var deferred any = []any{}
-		if len(parsed.Deferred) > 0 {
-			var decoded any
-			if err := json.Unmarshal(parsed.Deferred, &decoded); err != nil {
-				return StepResult{}, fmt.Errorf("cycle: decode deferred: %w", err)
-			}
-			if decoded != nil {
-				deferred = decoded
-			}
-		}
-		err := g.append(ctx, projectID, store.EventInput{
-			Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal", TurnID: turnID,
-			Data: map[string]any{
-				"triage_line":  parsed.TriageLine,
-				"closing_risk": parsed.ClosingRisk,
-				"note":         parsed.Note,
-				"deferred":     deferred,
-			},
-		})
-		if err != nil {
-			return StepResult{}, err
-		}
 		return StepResult{Status: StatusAccepted}, nil
 	}
+	return g.Reject(ctx, projectID, turnID, attempt, errs)
+}
 
+// Reject records an output that did not pass (the fixed shape, or rules
+// 2 to 6, which count as the retry): output_retry, then retry at
+// attempt 1 and agent_pending at attempt 2 (fichas §7).
+func (g *Gate) Reject(ctx context.Context, projectID, turnID string, attempt int, errs []string) (StepResult, error) {
 	status := StatusRetry
 	data := map[string]any{"attempt": attempt, "errors": errs}
 	if attempt >= 2 {
@@ -114,6 +105,27 @@ func (g *Gate) EndStep(ctx context.Context, projectID, turnID string, attempt in
 		return StepResult{}, err
 	}
 	return StepResult{Status: status, Errors: errs}, nil
+}
+
+// cleanOutput is output without the nulls of optional properties (the
+// transport schema sends them, B-2), re-encoded.
+func cleanOutput(output json.RawMessage) (json.RawMessage, error) {
+	inst, err := jsonschema.UnmarshalJSON(bytes.NewReader(output))
+	if err != nil {
+		return nil, fmt.Errorf("cycle: parse output: %w", err)
+	}
+	_, doc, err := compiledSchema()
+	if err != nil {
+		return nil, err
+	}
+	if obj, ok := inst.(map[string]any); ok {
+		stripOptionalNulls(obj, doc, doc)
+	}
+	raw, err := json.Marshal(inst)
+	if err != nil {
+		return nil, fmt.Errorf("cycle: re-encode output: %w", err)
+	}
+	return raw, nil
 }
 
 func (g *Gate) append(ctx context.Context, projectID string, ev store.EventInput) error {

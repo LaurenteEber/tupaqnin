@@ -1,0 +1,14 @@
+{
+  "triage_line": "Construir: un paso.",
+  "closing_risk": "none",
+  "note": "Paso de prueba.",
+  "new_text": [
+    {
+      "section_id": "sec-1",
+      "base_version": 1,
+      "anchor": "estudios",
+      "operation": "replace",
+      "text": "trabajos"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "triage_line": "Construir: un paso.",
+  "closing_risk": "none",
+  "note": "Paso de prueba.",
+  "new_text": [
+    {
+      "section_id": "sec-1",
+      "base_version": 1,
+      "anchor": "La síntesis",
+      "operation": "replace",
+      "text": "El resumen"
+    },
+    {
+      "section_id": "sec-1",
+      "base_version": 1,
+      "anchor": "Cierre.",
+      "operation": "replace",
+      "text": "Fin."
+    }
+  ],
+  "proposed_roles": [
+    {
+      "section_id": "new-1",
+      "role": "conclusion",
+      "title": "Conclusiones"
+    }
+  ],
+  "new_decisions": [
+    {
+      "id": "new-2",
+      "statement": "Comparar por veces.",
+      "instead_of": "Comparar por conteos crudos.",
+      "would_choose_if": "Los estudios usaran el mismo filtro.",
+      "assumption": false,
+      "used_in_sections": [
+        "new-1"
+      ]
+    }
+  ],
+  "proposed_open_questions": [
+    {
+      "id": "new-3",
+      "question": "¿Qué destinatario?",
+      "options": [
+        {
+          "option": "Comité",
+          "contrast": "a",
+          "consequence": "b",
+          "risk": "c"
+        },
+        {
+          "option": "Público",
+          "contrast": "a",
+          "consequence": "b",
+          "risk": "c"
+        }
+      ],
+      "depends_on": [
+        "sec-1"
+      ]
+    }
+  ]
+}

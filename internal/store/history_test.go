@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -226,7 +227,7 @@ func TestT7_SeqGrowsWithoutGapsPerProject(t *testing.T) {
 	}
 }
 
-func TestT2_EdgesAreCreatedAndSupersededWithTheirEvents(t *testing.T) {
+func TestT2_EdgesAreCreatedWithTheirEvents(t *testing.T) {
 	db := openTemp(t)
 	ctx := context.Background()
 	seedProject(t, db, "p1")
@@ -255,27 +256,123 @@ func TestT2_EdgesAreCreatedAndSupersededWithTheirEvents(t *testing.T) {
 		t.Fatalf("EdgesFrom: got %+v, %v; want the new edge", from, err)
 	}
 
-	var next store.Edge
-	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
-		var err error
-		next, err = tx.SupersedeEdge(edge.ID,
-			store.EventInput{Type: store.EventEdge, Actor: "agent", Data: map[string]any{"kind": "superseded"}})
-		return err
-	}); err != nil {
-		t.Fatalf("SupersedeEdge: %v", err)
-	}
-	if next.Version != 2 || !next.Current || next.ID == edge.ID {
-		t.Fatalf("SupersedeEdge: got %+v, want a new current edge at version 2", next)
-	}
-	to, err := db.EdgesTo(ctx, "p1", sec.ID)
-	if err != nil || len(to) != 1 || to[0].ID != next.ID {
-		t.Fatalf("EdgesTo after supersede: got %+v, %v; want only the new version", to, err)
-	}
 	edges, err := db.EdgesFrom(ctx, "p2", dec.ID)
 	if err != nil {
 		t.Fatalf("EdgesFrom other project: %v", err)
 	}
 	if len(edges) != 0 {
 		t.Fatalf("EdgesFrom other project: got %d, want 0", len(edges))
+	}
+}
+
+// edgeFixture creates a decision, two sections and a used_in edge from
+// the decision to the first section.
+func edgeFixture(t *testing.T, db *store.DB) (dec, sec1, sec2 store.Object, edge store.Edge) {
+	t.Helper()
+	ctx := context.Background()
+	seedProject(t, db, "p1")
+	dec = createDecision(t, db, "p1")
+	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		var err error
+		if sec1, err = tx.CreateObject(store.ObjectSection, "draft", map[string]any{"text": "a"}, humanEvent()); err != nil {
+			return err
+		}
+		if sec2, err = tx.CreateObject(store.ObjectSection, "draft", map[string]any{"text": "b"}, humanEvent()); err != nil {
+			return err
+		}
+		edge, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec1.ID, "",
+			store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		return err
+	}); err != nil {
+		t.Fatalf("edge fixture: %v", err)
+	}
+	return dec, sec1, sec2, edge
+}
+
+func lastEdgeEvent(t *testing.T, db *store.DB) map[string]any {
+	t.Helper()
+	events, err := db.EventsSince(context.Background(), "p1", 0)
+	if err != nil {
+		t.Fatalf("events: %v", err)
+	}
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].Type == store.EventEdge {
+			var data map[string]any
+			if err := json.Unmarshal(events[i].Data, &data); err != nil {
+				t.Fatalf("edge event data: %v", err)
+			}
+			return data
+		}
+	}
+	t.Fatal("no edge event")
+	return nil
+}
+
+func TestB8_ChangeEdgeKeepsItsIdAndMakesTheNextVersion(t *testing.T) {
+	db := openTemp(t)
+	ctx := context.Background()
+	dec, sec1, sec2, edge := edgeFixture(t, db)
+
+	var changed store.Edge
+	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		var err error
+		changed, err = tx.ChangeEdge(edge.ID, sec2.ID, "anchor",
+			store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		return err
+	}); err != nil {
+		t.Fatalf("ChangeEdge: %v", err)
+	}
+	if changed.ID != edge.ID || changed.Version != 2 || changed.ToID != sec2.ID || changed.Anchor != "anchor" || !changed.Current {
+		t.Fatalf("ChangeEdge: got %+v, want the same id at version 2 pointing to the second section", changed)
+	}
+	if to, _ := db.EdgesTo(ctx, "p1", sec1.ID); len(to) != 0 {
+		t.Fatalf("old end still has a current edge: %+v", to)
+	}
+	from, err := db.EdgesFrom(ctx, "p1", dec.ID)
+	if err != nil || len(from) != 1 || from[0].ID != edge.ID || from[0].Version != 2 {
+		t.Fatalf("EdgesFrom after change: got %+v, %v; want only version 2", from, err)
+	}
+	data := lastEdgeEvent(t, db)
+	if data["kind"] != "changed" || data["id"] != edge.ID || data["type"] != "used_in" ||
+		data["from_id"] != dec.ID || data["to_id"] != sec2.ID || data["version"] != float64(2) {
+		t.Fatalf("changed event data: %+v", data)
+	}
+}
+
+func TestB8_EndEdgeLeavesNoCurrentVersionAndNoCopy(t *testing.T) {
+	db := openTemp(t)
+	ctx := context.Background()
+	dec, _, _, edge := edgeFixture(t, db)
+
+	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		return tx.EndEdge(edge.ID, store.EventInput{Type: store.EventEdge, Actor: "agent"})
+	}); err != nil {
+		t.Fatalf("EndEdge: %v", err)
+	}
+	if from, _ := db.EdgesFrom(ctx, "p1", dec.ID); len(from) != 0 {
+		t.Fatalf("EdgesFrom after end: got %+v, want none", from)
+	}
+	var rows int
+	if err := db.Reader.QueryRowContext(ctx, `SELECT COUNT(*) FROM edge WHERE project_id = 'p1'`).Scan(&rows); err != nil || rows != 1 {
+		t.Fatalf("edge rows after end: %d, %v; want 1 (no copy)", rows, err)
+	}
+	data := lastEdgeEvent(t, db)
+	if data["kind"] != "superseded" || data["id"] != edge.ID || data["version"] != float64(1) {
+		t.Fatalf("superseded event data: %+v", data)
+	}
+	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		return tx.EndEdge(edge.ID, store.EventInput{Type: store.EventEdge, Actor: "agent"})
+	}); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("ending an ended edge: got %v, want ErrNotFound", err)
+	}
+}
+
+func TestB8_AddEdgeEventCarriesIdTypeEndsAndVersion(t *testing.T) {
+	db := openTemp(t)
+	dec, sec1, _, edge := edgeFixture(t, db)
+	data := lastEdgeEvent(t, db)
+	if data["kind"] != "created" || data["id"] != edge.ID || data["type"] != "used_in" ||
+		data["from_id"] != dec.ID || data["to_id"] != sec1.ID || data["version"] != float64(1) {
+		t.Fatalf("created event data: %+v", data)
 	}
 }

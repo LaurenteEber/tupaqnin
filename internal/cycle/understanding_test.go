@@ -150,7 +150,8 @@ func TestB12_UnderstandingTurnEndToEndWithRecordedOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFixture: %v", err)
 	}
-	db, runner, pub := newTestRunner(t, fx)
+	fx.TurnKind = provider.TurnUnderstanding
+	db, runner, pub := newTestRunner(t, fx, loadAppFixture(t, "04-principal-no-work.json"))
 	seedRequest(t, db)
 	// The runner starts its own instance via startup, which reads
 	// the request from the seeded project "p1".
@@ -161,8 +162,10 @@ func TestB12_UnderstandingTurnEndToEndWithRecordedOutput(t *testing.T) {
 	if len(cases) != 5 {
 		t.Fatalf("cases after turn: got %d, want 5", len(cases))
 	}
-	step := pub.step(t)
-	if step["status"] != "accepted" || step["understood"] == "" {
+	// The understanding's step, then the chain's (B-17), which starts on
+	// its own as the turn the understanding's step names.
+	step := pub.stepAt(t, 0, 2)
+	if step["status"] != "accepted" || step["understood"] == "" || step["next_turn_id"] == "" {
 		t.Fatalf("published step: %v", step)
 	}
 	calls, err := db.ModelCalls(context.Background(), "p1", "")
@@ -170,7 +173,7 @@ func TestB12_UnderstandingTurnEndToEndWithRecordedOutput(t *testing.T) {
 	_ = err
 	// The call went at effort high (fichas §1).
 	rows, err := db.Reader.QueryContext(context.Background(),
-		`SELECT DISTINCT model_and_effort FROM model_call WHERE project_id = 'p1'`)
+		`SELECT DISTINCT model_and_effort FROM model_call WHERE project_id = 'p1' AND turn_id = 'turn-u'`)
 	if err != nil {
 		t.Fatalf("model_call: %v", err)
 	}
