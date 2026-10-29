@@ -74,11 +74,20 @@ func requestLog(logger *slog.Logger, next http.Handler) http.Handler {
 // Server is the HTTP surface: its routes, and the hub that turns
 // publish their stream events to (backlog 0.6).
 type Server struct {
-	hub     *Hub
-	logger  *slog.Logger
-	db      *store.DB
-	starter TurnStarter
+	hub        *Hub
+	logger     *slog.Logger
+	db         *store.DB
+	starter    TurnStarter
+	editors    *editors
+	projectCap float64
 }
+
+// Option configures the API server.
+type Option func(*Server)
+
+// WithProjectCap sets the project's spending cap shown in the summary
+// (B3-20; TQ_CAP_PROJECT_USD).
+func WithProjectCap(usd float64) Option { return func(s *Server) { s.projectCap = usd } }
 
 // Hub returns the hub turn runners publish stream events to.
 func (s *Server) Hub() *Hub { return s.hub }
@@ -98,18 +107,21 @@ func NewWithHub(logger *slog.Logger, hub *Hub) http.Handler {
 // NewWithAPI is NewWithHub plus the slice-0 API (backlog 0.10):
 // projects, sections and messages over db, with turns started by
 // starter.
-func NewWithAPI(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStarter) http.Handler {
-	return buildHandler(logger, hub, db, starter)
+func NewWithAPI(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStarter, opts ...Option) http.Handler {
+	return buildHandler(logger, hub, db, starter, opts...)
 }
 
-func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStarter) http.Handler {
+func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStarter, opts ...Option) http.Handler {
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
 	if hub == nil {
 		hub = NewHub()
 	}
-	s := &Server{hub: hub, logger: logger, db: db, starter: starter}
+	s := &Server{hub: hub, logger: logger, db: db, starter: starter, editors: newEditors(), projectCap: 3}
+	for _, opt := range opts {
+		opt(s)
+	}
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -135,6 +147,9 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}", s.putSection)
 		mux.HandleFunc("POST /api/projects/{projectID}/messages", s.postMessage)
 		mux.HandleFunc("GET /api/projects/{projectID}/todo", s.getTodo)
+		mux.HandleFunc("GET /api/projects/{projectID}/sections/{label}", s.getSection)
+		mux.HandleFunc("GET /api/projects/{projectID}/summary", s.getSummary)
+		mux.HandleFunc("POST /api/projects/{projectID}/editor", s.claimEditor)
 		mux.HandleFunc("GET /api/projects/{projectID}/cards/{label}", s.getCard)
 		mux.HandleFunc("POST /api/projects/{projectID}/cards/{label}/answer", s.answerCard)
 	}

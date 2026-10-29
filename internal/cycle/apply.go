@@ -787,9 +787,23 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 			longDeferred = append(longDeferred, i)
 		}
 	}
+	// The sections the step wrote and the decisions it declared, so the
+	// pending «texto con una decisión reemplazada» can close (B-15).
+	// [EL DISEÑO NO LO DICE]: step_ended does not list them; they are
+	// added to its data.
+	writtenLabels := []string{}
+	for _, sp := range pl.sections {
+		if l, ok := labels[sp.ref]; ok {
+			writtenLabels = append(writtenLabels, l)
+		} else {
+			writtenLabels = append(writtenLabels, sp.ref)
+		}
+	}
+	usedDecisions := append([]string{}, out.UsedDecisions...)
 	data := map[string]any{
 		"turn_kind": "step", "triage_line": out.TriageLine, "closing_risk": out.ClosingRisk,
 		"note": out.Note, "deferred": deferred, "labels": labels, "not_applied": notApplied,
+		"written_sections": writtenLabels, "used_decisions": usedDecisions,
 	}
 	if longDeferred != nil {
 		data["long_deferred"] = longDeferred

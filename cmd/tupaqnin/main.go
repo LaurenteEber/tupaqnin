@@ -80,7 +80,7 @@ func main() {
 	// for a long time and set their own pacing and heartbeat.
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           server.NewWithAPI(logger, hub, db, runner),
+		Handler:           server.NewWithAPI(logger, hub, db, runner, server.WithProjectCap(cfg.SpendCapProjectUSD)),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 20,

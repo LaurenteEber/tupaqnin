@@ -92,5 +92,13 @@
   "card.error.invalid_reason": "Escribe un «porque»: «ok» no cuenta.",
   "card.error.card_closed": "Esta tarjeta se cerró: su decisión cambió.",
   "card.error.failed": "No se pudo guardar la respuesta. Intenta de nuevo.",
-  "turn.raw": "Salida cruda del modelo (desarrollo)"
+  "turn.raw": "Salida cruda del modelo (desarrollo)",
+  "summary.spent": "gastado {spent}/{cap} USD",
+  "tab.read_only": "Esta pestaña es de solo lectura: el proyecto está abierto para editar en otra pestaña.",
+  "section.status.draft": "borrador",
+  "section.status.ready": "lista",
+  "section.status.signed": "firmada",
+  "section.status.changed_since_signoff": "cambió desde que la firmaste",
+  "section.status.stale": "escrita con lo anterior",
+  "section.pendings": "{n} pendientes"
 }

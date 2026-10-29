@@ -92,5 +92,13 @@
   "card.error.invalid_reason": "Write a reason: «ok» does not count.",
   "card.error.card_closed": "This card is closed: its decision changed.",
   "card.error.failed": "The answer could not be saved. Try again.",
-  "turn.raw": "Raw model output (development)"
+  "turn.raw": "Raw model output (development)",
+  "summary.spent": "spent {spent}/{cap} USD",
+  "tab.read_only": "This tab is read-only: the project is open for editing in another tab.",
+  "section.status.draft": "draft",
+  "section.status.ready": "ready",
+  "section.status.signed": "signed",
+  "section.status.changed_since_signoff": "changed since you signed",
+  "section.status.stale": "written with the previous",
+  "section.pendings": "{n} pending"
 }

@@ -4,8 +4,10 @@ go 1.27
 
 require (
 	github.com/dlclark/regexp2 v1.11.0
+	github.com/gowebpki/jcs v1.0.2
 	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+	github.com/yuin/goldmark v1.8.6
 	golang.org/x/text v0.43.0
 	modernc.org/sqlite v1.61.0
 )

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  claimEditor,
   createProject,
+  getSummary,
   createSection,
   listProjects,
   listSections,
@@ -9,7 +11,7 @@ import {
   type StepPayload,
   type StreamDelta,
 } from "./api/client";
-import type { ProjectView, SectionView } from "./api/types";
+import type { ProjectView, SectionView, SummaryView } from "./api/types";
 import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
 import { UnderstandingPanel } from "./components/UnderstandingPanel";
@@ -33,6 +35,10 @@ export function App() {
   const [step, setStep] = useState<StepPayload | null>(null);
   const [errorCode, setErrorCode] = useState("");
   const [working, setWorking] = useState(false);
+  // Only one tab edits (backlog-r1 1.5): this tab holds the editor
+  // lease, renewed every 15 s, or stays read-only.
+  const [editor, setEditor] = useState(true);
+  const [summary, setSummary] = useState<SummaryView | null>(null);
   const [understandingTurn, setUnderstandingTurn] = useState(false);
   const saveRef = useRef<() => Promise<void>>(async () => {});
   const registerSave = useCallback((fn: () => Promise<void>) => {
@@ -48,6 +54,18 @@ export function App() {
   useEffect(() => {
     if (projectID) void refreshSections(projectID);
   }, [projectID, refreshSections]);
+
+  useEffect(() => {
+    if (!projectID) return;
+    const renew = () => void claimEditor(projectID).then(setEditor, () => setEditor(false));
+    renew();
+    const timer = window.setInterval(renew, 15_000);
+    return () => window.clearInterval(timer);
+  }, [projectID]);
+
+  useEffect(() => {
+    if (projectID) void getSummary(projectID).then(setSummary);
+  }, [projectID, understandingKey]);
 
   const refreshProjects = useCallback(async () => {
     setProjects(await listProjects());
@@ -177,8 +195,15 @@ export function App() {
       {projectID && (
         <p className="project-line">
           {t("project.current")}: {projectName(currentProject)}
+          {summary && (
+            <>
+              {" · "}{t("summary.spent", { spent: summary.spent_usd.toFixed(2), cap: summary.cap_usd.toFixed(2) })}
+              {summary.last_triage && <> · {t("turn.triage")}: {summary.last_triage}</>}
+            </>
+          )}
         </p>
       )}
+      {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}
 
       <section className="projects-panel">
         <h2>{t("project.list")}</h2>
@@ -244,7 +269,8 @@ export function App() {
                   className={s.label === selected ? "active" : ""}
                   onClick={() => setSelected(s.label)}
                 >
-                  {sectionName(s)} · v{s.version}
+                  {sectionName(s)} · {t(`section.status.${s.state}`)}
+                  {s.pendings > 0 && ` · ${t("section.pendings", { n: String(s.pendings) })}`}
                 </button>
               </li>
             ))}
@@ -259,6 +285,7 @@ export function App() {
               projectID={projectID}
               label={current.label}
               name={sectionName(current)}
+              readOnly={!editor}
               version={current.version}
               text={current.text}
               onSaved={onSaved}
@@ -266,7 +293,7 @@ export function App() {
             />
           )}
 
-          <MessageInput lang={lang} disabled={!projectID} onSend={send} />
+          <MessageInput lang={lang} disabled={!projectID || !editor} onSend={send} />
 
           {(working || stream.length > 0 || step || errorCode) && (
             <div className="turn-panel" aria-live="polite">

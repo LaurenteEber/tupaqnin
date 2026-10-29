@@ -1,6 +1,7 @@
 import type {
   AnswerCardResponse,
   CaseView,
+  EditorResponse,
   CreateProjectResponse,
   PostMessageResponse,
   ProjectView,
@@ -9,6 +10,7 @@ import type {
   SectionRoleView,
   SectionView,
   SourceView,
+  SummaryView,
   TodoView,
   UnderstandingView,
 } from "./types";
@@ -157,6 +159,30 @@ export type SaveResult =
 
 // PUT one section text. 200 → new version, 204 → no change (B-3),
 // 409 → the base version is stale (specification §2).
+// TAB_ID names this tab for the editor lease: only one tab edits
+// (specification §2, backlog-r1 1.5).
+export const TAB_ID =
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
+
+// claimEditor claims or renews this tab's editor lease; false means the
+// tab is read-only.
+export async function claimEditor(projectID: string): Promise<boolean> {
+  const res = await json<EditorResponse>(
+    await fetch(`/api/projects/${projectID}/editor`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tab_id: TAB_ID }),
+    }),
+  );
+  return res.editor;
+}
+
+export async function getSummary(projectID: string): Promise<SummaryView> {
+  return json(await fetch(`/api/projects/${projectID}/summary`));
+}
+
 export async function saveSection(
   projectID: string,
   label: string,
@@ -166,7 +192,7 @@ export async function saveSection(
   const res = await fetch(`/api/projects/${projectID}/sections/${label}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ base_version: baseVersion, text }),
+    body: JSON.stringify({ tab_id: TAB_ID, base_version: baseVersion, text }),
   });
   if (res.status === 204) return { kind: "unchanged" };
   if (res.status === 409) return { kind: "conflict" };

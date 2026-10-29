@@ -82,3 +82,14 @@ func nullRaw(r json.RawMessage) any {
 	}
 	return string(r)
 }
+
+// ProjectSpend is what the project's model calls cost, in USD (B3-20,
+// P3: the sum of model_call.cost).
+func (db *DB) ProjectSpend(ctx context.Context, projectID string) (float64, error) {
+	var spent sql.NullFloat64
+	if err := db.Reader.QueryRowContext(ctx,
+		`SELECT SUM(cost) FROM model_call WHERE project_id = ?`, projectID).Scan(&spent); err != nil {
+		return 0, fmt.Errorf("project spend: %w", err)
+	}
+	return spent.Float64, nil
+}

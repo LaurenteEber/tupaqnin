@@ -24,10 +24,16 @@ export interface SectionView {
   label: string;
   title: string;
   version: number /* int */;
+  /**
+   * State is the section's status from graph.SectionStatus, the one
+   * function every view uses (ready included, computed).
+   */
   state: string;
+  pendings: number /* int */;
   text: string;
 }
 export interface PutSectionRequest {
+  tab_id: string;
   base_version: number /* int */;
   text: string;
 }
@@ -98,6 +104,8 @@ export const EventError = "error";
 export interface StreamEvent {
   Type: string;
   Text: string;
+  Field: string; // delta: triage_line · text · note · understood · raw (P-28)
+  Start: boolean; // delta: first piece of a new value
   Step: any /* json.RawMessage */;
   Code: string;
   Message: string;
@@ -155,6 +163,51 @@ export interface SourceView {
 }
 
 //////////
+// source: sections.go
+
+export interface EditorRequest {
+  tab_id: string;
+}
+export interface EditorResponse {
+  editor: boolean;
+}
+/**
+ * SectionDetail is P3's editor: the text, the state and pendings from
+ * the one status function, and the linked figures and citations.
+ */
+export interface SectionDetail {
+  label: string;
+  title: string;
+  version: number /* int */;
+  status: string;
+  text: string;
+  role: string;
+  role_state: string;
+  pendings: any /* graph.Pending */[];
+  figures: LinkedAnchor[];
+  citations: LinkedAnchor[];
+}
+/**
+ * LinkedAnchor is a figure (to its decision) or a citation (to its
+ * source); Linked is false for a citation its source does not support.
+ */
+export interface LinkedAnchor {
+  label: string;
+  anchor: string;
+  target: string;
+  linked: boolean;
+}
+/**
+ * SummaryView is P3's bar: what was spent against the project's cap
+ * (B3-20) and the last triage line.
+ */
+export interface SummaryView {
+  spent_usd: number /* float64 */;
+  cap_usd: number /* float64 */;
+  last_triage: string;
+}
+
+//////////
 // source: server.go
 /*
 Package server implements HTTP, streaming and access for tupaqnin
@@ -169,6 +222,10 @@ arrive in slice 0 and the delivery slice.
  */
 export interface Server {
 }
+/**
+ * Option configures the API server.
+ */
+export type Option = any;
 
 //////////
 // source: understanding.go

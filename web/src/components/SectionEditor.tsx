@@ -24,6 +24,7 @@ export function SectionEditor({
   projectID,
   label,
   name,
+  readOnly,
   version,
   text,
   onSaved,
@@ -33,6 +34,7 @@ export function SectionEditor({
   projectID: string;
   label: string;
   name: string;
+  readOnly: boolean;
   version: number;
   text: string;
   onSaved: (label: string, version: number, text: string) => void;
@@ -48,6 +50,7 @@ export function SectionEditor({
   }, [version, text]);
 
   const editor = useEditor({
+    editable: !readOnly,
     extensions: [Document, Paragraph, Text],
     content: text
       .split(/\n{2,}/)
@@ -61,8 +64,12 @@ export function SectionEditor({
   const currentText = () =>
     editor ? editor.getText({ blockSeparator: "\n\n" }) : text;
 
+  useEffect(() => {
+    editor?.setEditable(!readOnly);
+  }, [editor, readOnly]);
+
   async function saveNow() {
-    if (!editor) return;
+    if (!editor || readOnly) return;
     const value = currentText();
     if (value === base.current.savedText) return; // the client does not send an unchanged document
     status.current?.("saving");

@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/fingerprint"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -33,11 +35,15 @@ type SectionView struct {
 	Label   string `json:"label"`
 	Title   string `json:"title"`
 	Version int    `json:"version"`
-	State   string `json:"state"`
-	Text    string `json:"text"`
+	// State is the section's status from graph.SectionStatus, the one
+	// function every view uses (ready included, computed).
+	State    string `json:"state"`
+	Pendings int    `json:"pendings"`
+	Text     string `json:"text"`
 }
 
 type PutSectionRequest struct {
+	TabID       string `json:"tab_id"`
 	BaseVersion int    `json:"base_version"`
 	Text        string `json:"text"`
 }
@@ -119,8 +125,13 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 	}
 	views := make([]SectionView, 0, len(objects))
 	for _, obj := range objects {
+		status, pendings, err := graph.SectionStatus(r.Context(), s.db, projectID, obj.Label)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
 		views = append(views, SectionView{Label: obj.Label, Title: str(bodyMap(obj), "title"),
-			Version: obj.CurrentVersion, State: obj.State, Text: sectionText(obj)})
+			Version: obj.CurrentVersion, State: string(status), Pendings: len(pendings), Text: sectionText(obj)})
 	}
 	writeJSON(w, http.StatusOK, views)
 }
@@ -144,17 +155,36 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "section_not_found")
 		return
 	}
+	// Only one tab edits (specification §2): a save from another tab is
+	// refused.
+	if !s.editors.claim(projectID, req.TabID) {
+		writeError(w, http.StatusConflict, "read_only_tab")
+		return
+	}
 	var body map[string]any
 	_ = json.Unmarshal(current.Body, &body)
 	if body == nil {
 		body = make(map[string]any)
 	}
+	// The section fingerprint replaces B-3's comparison (specification
+	// §4): the same content, whatever its formatting, is no change.
+	if req.BaseVersion == current.CurrentVersion &&
+		fingerprint.Section(req.Text) == fingerprint.Section(str(body, "text")) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	body["text"] = req.Text
+	// Your edit on a signed section moves it to changed_since_signoff
+	// (estados §1: your edit rules).
+	state := current.State
+	if state == "signed" {
+		state = "changed_since_signoff"
+	}
 
 	var updated store.Object
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		var err error
-		updated, err = tx.UpdateObject(current.ID, req.BaseVersion, current.State, body,
+		updated, err = tx.UpdateObject(current.ID, req.BaseVersion, state, body,
 			store.EventInput{Type: store.EventEdit, Actor: "human"})
 		return err
 	})
