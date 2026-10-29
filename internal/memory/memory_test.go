@@ -379,3 +379,214 @@ func TestB2_ReadRegistersDeliveryAndClearsTheChange(t *testing.T) {
 		t.Fatal("Read of an unknown label: want an error")
 	}
 }
+
+func appendEvent(t *testing.T, db *store.DB, ev store.EventInput) {
+	t.Helper()
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(ev)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("append %s: %v", ev.Type, err)
+	}
+}
+
+// (1) Every unanswered human message enters the core verbatim,
+// not only the first one.
+func TestB2_CoreRendersAllUnansweredMessagesVerbatim(t *testing.T) {
+	db, seeded := seeded(t)
+	mem := memory.New(db)
+	ctx := context.Background()
+
+	const second = "Segunda pregunta sin respuesta: ¿cuánto cuesta mantenerlo?"
+	appendEvent(t, db, store.EventInput{
+		Type: store.EventHumanMessage, Actor: "human",
+		Data: map[string]any{"text": second},
+	})
+
+	brief, err := mem.Startup(ctx, "p1", memory.StartupNewSession, 1048576, fakeCount)
+	if err != nil {
+		t.Fatalf("Startup: %v", err)
+	}
+	if len(brief.Input) == 0 {
+		t.Fatal("brief has no input items")
+	}
+	core := string(brief.Input[0]) // the first item is the core (§3 order)
+	for _, want := range []string{seeded.UnansweredMessage, second} {
+		if !strings.Contains(core, want) {
+			t.Fatalf("core does not render unanswered message verbatim: %q", want)
+		}
+	}
+}
+
+// (2) The compact form of a decision carries its reason (B2-1:
+// statement · reason · instead of · edges). The reason is the
+// «porque» recorded in the history for that decision.
+func TestB2_DecisionCompactFormCarriesTheReason(t *testing.T) {
+	db, seeded := seeded(t)
+	mem := memory.New(db)
+	ctx := context.Background()
+
+	dec, err := db.GetObject(ctx, "p1", seeded.DecisionLabels[0])
+	if err != nil {
+		t.Fatalf("GetObject: %v", err)
+	}
+	appendEvent(t, db, store.EventInput{
+		Type: store.EventStateChanged, Actor: "human", ObjectID: dec.ID,
+		Reason: "Porque la junta lo pidió así, con el caudal de marzo.",
+	})
+
+	state, err := mem.WorkingState(ctx, "p1")
+	if err != nil {
+		t.Fatalf("WorkingState: %v", err)
+	}
+	var found *memory.Decision
+	for i, d := range state.Essentials.Decisions {
+		if d.Label == seeded.DecisionLabels[0] {
+			found = &state.Essentials.Decisions[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("decision %s not in essentials", seeded.DecisionLabels[0])
+	}
+	if found.Reason != "Porque la junta lo pidió así, con el caudal de marzo." {
+		t.Fatalf("decision reason: got %q", found.Reason)
+	}
+	brief, err := mem.Startup(ctx, "p1", memory.StartupNewSession, 1048576, fakeCount)
+	if err != nil {
+		t.Fatalf("Startup: %v", err)
+	}
+	if text := briefText(brief); !strings.Contains(text, found.Reason) {
+		t.Fatal("brief compact form does not carry the decision reason")
+	}
+}
+
+// (3) The startup renders what WorkingState already computes:
+// mode message, current step, open changes per section, premise
+// exploratory, open audience questions, signoff paused and an
+// unseen stop report.
+func TestB2_StartupRendersWhatWorkingStateComputes(t *testing.T) {
+	db, seeded := seeded(t)
+	mem := memory.New(db)
+	ctx := context.Background()
+
+	appendEvent(t, db, store.EventInput{
+		Type: store.EventModeSet, Actor: "human",
+		Data: map[string]any{"mode": "run_to_completion", "message": "Sigue hasta terminar, sin parar."},
+	})
+	appendEvent(t, db, store.EventInput{Type: store.EventSignoffPaused, Actor: "app"})
+	appendEvent(t, db, store.EventInput{
+		Type: store.EventStopReport, Actor: "agent", AgentRole: "principal",
+		Data: map[string]any{"seen": false},
+	})
+	appendEvent(t, db, store.EventInput{
+		Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal", TurnID: "turn-9",
+		Data: map[string]any{"triage_line": "Build.", "closing_risk": "none", "note": "nota", "deferred": []any{}},
+	})
+
+	err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectAudienceQuestion, "open",
+			map[string]any{"question": "¿Cuánto cuesta regar de noche?", "section_id": ""},
+			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("create audience question: %v", err)
+	}
+	prem, err := db.GetObject(ctx, "p1", "prem-1")
+	if err != nil {
+		t.Fatalf("GetObject prem-1: %v", err)
+	}
+	err = db.Write(ctx, "p1", func(tx *store.Tx) error {
+		_, err := tx.UpdateObject(prem.ID, prem.CurrentVersion, "current",
+			map[string]any{"text": seeded.PremiseText, "request_id": "", "exploratory": true},
+			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("update premise: %v", err)
+	}
+	sec, err := db.GetObject(ctx, "p1", seeded.SectionLabels[0])
+	if err != nil {
+		t.Fatalf("GetObject section: %v", err)
+	}
+	err = db.Write(ctx, "p1", func(tx *store.Tx) error {
+		_, err := tx.UpdateObject(sec.ID, sec.CurrentVersion, "draft",
+			map[string]any{
+				"text":         "# Alcance\n\nPrimera línea.",
+				"role":         map[string]any{"value": "conclusion", "state": "proposed"},
+				"open_changes": []any{map[string]any{"label": "chg-1"}},
+			},
+			store.EventInput{Type: store.EventEdit, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("update section: %v", err)
+	}
+
+	brief, err := mem.Startup(ctx, "p1", memory.StartupNewSession, 1048576, fakeCount)
+	if err != nil {
+		t.Fatalf("Startup: %v", err)
+	}
+	core := string(brief.Input[0])
+	lower := strings.ToLower(core)
+	for _, want := range []string{
+		"Sigue hasta terminar, sin parar.", // mode message, verbatim
+		"turn-9",                           // current step
+		"chg-1",                            // open changes per section
+		"aq-1",                             // open audience question
+	} {
+		if !strings.Contains(core, want) {
+			t.Fatalf("core does not render %q", want)
+		}
+	}
+	for _, want := range []string{"exploratory", "paused", "unseen"} {
+		if !strings.Contains(lower, want) {
+			t.Fatalf("core does not render %q", want)
+		}
+	}
+}
+
+// (4) Startup records the deliveries with the versions used to
+// build the brief, in the same transaction as the startup event.
+func TestB2_StartupDeliveriesMatchTheBriefVersions(t *testing.T) {
+	db, seeded := seeded(t)
+	mem := memory.New(db)
+	ctx := context.Background()
+
+	sec, err := db.GetObject(ctx, "p1", seeded.SectionLabels[0])
+	if err != nil {
+		t.Fatalf("GetObject: %v", err)
+	}
+	err = db.Write(ctx, "p1", func(tx *store.Tx) error {
+		_, err := tx.UpdateObject(sec.ID, sec.CurrentVersion, "draft",
+			map[string]any{"text": "# Alcance\n\nVersión dos.", "role": map[string]any{"value": "other", "state": "proposed"}, "open_changes": []any{}},
+			store.EventInput{Type: store.EventEdit, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("UpdateObject: %v", err)
+	}
+
+	brief, err := mem.Startup(ctx, "p1", memory.StartupNewSession, 1048576, fakeCount)
+	if err != nil {
+		t.Fatalf("Startup: %v", err)
+	}
+	if brief.InstanceID == "" {
+		t.Fatal("empty instance")
+	}
+	delivered, err := db.LatestDeliveries(ctx, "p1")
+	if err != nil {
+		t.Fatalf("LatestDeliveries: %v", err)
+	}
+	if delivered[sec.ID] != 2 {
+		t.Fatalf("delivered version of the edited section: got %d, want 2 (the version in the brief)", delivered[sec.ID])
+	}
+	changes, err := mem.ChangesSinceDelivery(ctx, "p1")
+	if err != nil {
+		t.Fatalf("ChangesSinceDelivery: %v", err)
+	}
+	if len(changes) != 0 {
+		t.Fatalf("changes after startup: got %v, want none", changes)
+	}
+}

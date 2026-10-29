@@ -35,6 +35,18 @@ func (db *DB) RecordDelivery(ctx context.Context, d Delivery) error {
 	return nil
 }
 
+// RecordDelivery appends one delivery row inside this write
+// transaction, so a startup and its deliveries commit together.
+func (tx *Tx) RecordDelivery(d Delivery) error {
+	if _, err := tx.tx.ExecContext(tx.ctx,
+		`INSERT INTO delivery (project_id, instance_id, turn, via, object_id, version, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		tx.projectID, nullStr(d.InstanceID), nullInt(d.Turn), d.Via, d.ObjectID, d.Version, nowText()); err != nil {
+		return fmt.Errorf("record delivery: %w", err)
+	}
+	return nil
+}
+
 // LatestDeliveries returns, per object id, the highest version ever
 // delivered to any principal instance (B2-2: whatever the instance).
 func (db *DB) LatestDeliveries(ctx context.Context, projectID string) (map[string]int, error) {

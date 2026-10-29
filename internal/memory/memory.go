@@ -73,12 +73,14 @@ type SectionRole struct {
 }
 
 // Decision is the compact form of a decision (B2-1): label and
-// version, statement, instead of, would choose if, and its edges by
-// label. Criticality is computed, never stored (§1.5).
+// version, statement, reason (the human's «porque», from the
+// history), instead of, would choose if, and its edges by label.
+// Criticality is computed, never stored (§1.5).
 type Decision struct {
 	Label         string   `json:"label"`
 	Version       int      `json:"version"`
 	Statement     string   `json:"statement"`
+	Reason        string   `json:"reason"`
 	InsteadOf     string   `json:"instead_of"`
 	WouldChooseIf string   `json:"would_choose_if"`
 	Assumption    bool     `json:"assumption"`
@@ -202,17 +204,25 @@ func isCritical(obj store.Object, b body, edgesFrom []store.Edge, edgesTo []stor
 // WorkingState computes the three layers from the graph and the
 // history. Nothing is cached as a source (specification §5).
 func (m *Memory) WorkingState(ctx context.Context, projectID string) (State, error) {
+	st, _, _, err := m.snapshot(ctx, projectID)
+	return st, err
+}
+
+// snapshot is WorkingState plus the exact objects and events it was
+// computed from, so a startup records deliveries for the versions
+// that actually went into its brief (and no later ones).
+func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store.Object, []store.Event, error) {
 	objects, err := m.db.AllObjects(ctx, projectID)
 	if err != nil {
-		return State{}, err
+		return State{}, nil, nil, err
 	}
 	labeler, err := graph.NewLabeler(ctx, m.db, projectID)
 	if err != nil {
-		return State{}, err
+		return State{}, nil, nil, err
 	}
 	events, err := m.db.EventsSince(ctx, projectID, 0)
 	if err != nil {
-		return State{}, err
+		return State{}, nil, nil, err
 	}
 
 	byType := make(map[store.ObjectType][]store.Object)
@@ -228,7 +238,7 @@ func (m *Memory) WorkingState(ctx context.Context, projectID string) (State, err
 	for _, obj := range objects {
 		from, err := m.db.EdgesFrom(ctx, projectID, obj.ID)
 		if err != nil {
-			return State{}, err
+			return State{}, nil, nil, err
 		}
 		edgesFrom[obj.ID] = from
 		for _, e := range from {
@@ -273,6 +283,15 @@ func (m *Memory) WorkingState(ctx context.Context, projectID string) (State, err
 		}
 	}
 
+	// The «porque» of a decision is the last reason the history
+	// records for it, in literal (event.reason, specification §1).
+	lastReason := make(map[string]string)
+	for _, ev := range events {
+		if ev.ObjectID != "" && ev.Reason != "" {
+			lastReason[ev.ObjectID] = ev.Reason
+		}
+	}
+
 	critical := make(map[string]bool)
 	for _, dec := range byType[store.ObjectDecision] {
 		critical[dec.ID] = isCritical(dec, decodeBody(dec), edgesFrom[dec.ID], edgesTo[dec.ID], sections)
@@ -285,6 +304,7 @@ func (m *Memory) WorkingState(ctx context.Context, projectID string) (State, err
 		}
 		d := Decision{
 			Label: dec.Label, Version: dec.CurrentVersion, Statement: b.str("statement"),
+			Reason:    lastReason[dec.ID],
 			InsteadOf: b.str("instead_of"), WouldChooseIf: b.str("would_choose_if"),
 			Assumption: b.boolean("assumption"), Origin: b.str("origin"), State: dec.State,
 			Critical: critical[dec.ID],
@@ -427,7 +447,7 @@ func (m *Memory) WorkingState(ctx context.Context, projectID string) (State, err
 			st.InFlight.AgentPending = data.Errors
 		}
 	}
-	return st, nil
+	return st, objects, events, nil
 }
 
 type humanMessage struct {

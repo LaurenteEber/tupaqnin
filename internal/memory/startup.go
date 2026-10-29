@@ -101,7 +101,11 @@ func (m *Memory) renderCore(st State) string {
 		}
 	}
 	if st.Essentials.PremiseText != "" {
-		fmt.Fprintf(&sb, "Premise: %s\n", st.Essentials.PremiseText)
+		mark := ""
+		if st.Essentials.PremiseExploratory {
+			mark = " [exploratory]"
+		}
+		fmt.Fprintf(&sb, "Premise%s: %s\n", mark, st.Essentials.PremiseText)
 	}
 	for _, r := range st.Essentials.SectionRoles {
 		fmt.Fprintf(&sb, "Section %s role: %s (%s)\n", r.Label, r.Role, r.State)
@@ -124,12 +128,40 @@ func (m *Memory) renderCore(st State) string {
 	if len(st.Essentials.UnconfirmedCases) > 0 {
 		fmt.Fprintf(&sb, "Unconfirmed cases: %s\n", strings.Join(st.Essentials.UnconfirmedCases, ", "))
 	}
+	if len(st.Essentials.OpenAudienceQuestion) > 0 {
+		fmt.Fprintf(&sb, "Open audience questions: %s\n", strings.Join(st.Essentials.OpenAudienceQuestion, ", "))
+	}
+	if st.Essentials.SignoffPaused {
+		sb.WriteString("Signoff paused: yes\n")
+	}
+	if st.Essentials.StopReportUnseen {
+		sb.WriteString("Stop report: unseen\n")
+	}
+	// Every unanswered human message, verbatim (B2-1: what you
+	// said is never summarized). The first one is also the task.
+	for _, msg := range st.Essentials.UnansweredMessages {
+		fmt.Fprintf(&sb, "Your unanswered message: %s\n", msg)
+	}
 	// In flight (layer 3), complete; the agent note enters as its
 	// first 80 words, marked truncated (T-6).
 	f := st.InFlight
 	fmt.Fprintf(&sb, "Mode: %s\n", f.Mode)
+	if f.ModeMessage != "" {
+		fmt.Fprintf(&sb, "Mode message: %s\n", f.ModeMessage)
+	}
+	if f.CurrentStep != "" {
+		fmt.Fprintf(&sb, "Current step: %s\n", f.CurrentStep)
+	}
 	if f.LastTriage != "" {
 		fmt.Fprintf(&sb, "Last triage: %s\n", f.LastTriage)
+	}
+	secLabels := make([]string, 0, len(f.OpenChanges))
+	for label := range f.OpenChanges {
+		secLabels = append(secLabels, label)
+	}
+	sort.Strings(secLabels)
+	for _, label := range secLabels {
+		fmt.Fprintf(&sb, "Open changes %s: %s\n", label, strings.Join(f.OpenChanges[label], ", "))
 	}
 	for _, p := range f.AgentPending {
 		fmt.Fprintf(&sb, "Agent pending: %s\n", p)
@@ -153,12 +185,16 @@ func (m *Memory) renderCore(st State) string {
 }
 
 func compactDecision(d Decision) string {
+	reason := ""
+	if d.Reason != "" {
+		reason = " · reason: " + d.Reason
+	}
 	edges := ""
 	if len(d.Edges) > 0 {
 		edges = " · " + strings.Join(d.Edges, ", ")
 	}
-	return fmt.Sprintf("%s v%d: %s · instead of: %s · would choose if: %s%s",
-		d.Label, d.Version, d.Statement, d.InsteadOf, d.WouldChooseIf, edges)
+	return fmt.Sprintf("%s v%d: %s%s · instead of: %s · would choose if: %s%s",
+		d.Label, d.Version, d.Statement, reason, d.InsteadOf, d.WouldChooseIf, edges)
 }
 
 func (m *Memory) renderTask(st State) string {
@@ -247,11 +283,9 @@ func (m *Memory) Startup(ctx context.Context, projectID string, reason StartupRe
 	if count == nil {
 		return Brief{}, fmt.Errorf("memory: a token counter is required")
 	}
-	st, err := m.WorkingState(ctx, projectID)
-	if err != nil {
-		return Brief{}, err
-	}
-	events, err := m.db.EventsSince(ctx, projectID, 0)
+	// One snapshot: the brief, its token count and the deliveries
+	// below all come from these exact object versions.
+	st, objects, events, err := m.snapshot(ctx, projectID)
 	if err != nil {
 		return Brief{}, err
 	}
@@ -259,10 +293,11 @@ func (m *Memory) Startup(ctx context.Context, projectID string, reason StartupRe
 	if len(answered) > 10 {
 		answered = answered[len(answered)-10:]
 	}
-	changes, err := m.ChangesSinceDelivery(ctx, projectID)
+	deliveredBefore, err := m.db.LatestDeliveries(ctx, projectID)
 	if err != nil {
 		return Brief{}, err
 	}
+	changes := changesSince(objects, deliveredBefore)
 
 	core := m.renderCore(st)
 	task := m.renderTask(st)
@@ -310,7 +345,10 @@ func (m *Memory) Startup(ctx context.Context, projectID string, reason StartupRe
 	if err != nil {
 		return Brief{}, err
 	}
-	var startupSeq int
+	// The startup event and its delivery rows commit in the same
+	// transaction, with the versions of the snapshot that built
+	// the brief: a version created afterwards is a new change,
+	// never something silently marked as delivered.
 	err = m.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		ev, err := tx.AppendEvent(store.EventInput{
 			Type: store.EventStartup, Actor: "app",
@@ -319,23 +357,18 @@ func (m *Memory) Startup(ctx context.Context, projectID string, reason StartupRe
 		if err != nil {
 			return err
 		}
-		startupSeq = ev.Seq
+		for _, obj := range objects {
+			if err := tx.RecordDelivery(store.Delivery{
+				InstanceID: instanceID, Turn: ev.Seq,
+				Via: store.ViaStartup, ObjectID: obj.ID, Version: obj.CurrentVersion,
+			}); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {
 		return Brief{}, err
-	}
-	objects, err := m.db.AllObjects(ctx, projectID)
-	if err != nil {
-		return Brief{}, err
-	}
-	for _, obj := range objects {
-		if err := m.db.RecordDelivery(ctx, store.Delivery{
-			ProjectID: projectID, InstanceID: instanceID, Turn: startupSeq,
-			Via: store.ViaStartup, ObjectID: obj.ID, Version: obj.CurrentVersion,
-		}); err != nil {
-			return Brief{}, err
-		}
 	}
 	return Brief{
 		InstanceID: instanceID, Reason: reason, Input: items,
@@ -354,6 +387,12 @@ func (m *Memory) ChangesSinceDelivery(ctx context.Context, projectID string) ([]
 	if err != nil {
 		return nil, err
 	}
+	return changesSince(objects, delivered), nil
+}
+
+// changesSince compares a snapshot of objects against the last
+// delivered version of each.
+func changesSince(objects []store.Object, delivered map[string]int) []Change {
 	var out []Change
 	for _, obj := range objects {
 		if v, ok := delivered[obj.ID]; ok && v == obj.CurrentVersion {
@@ -367,7 +406,7 @@ func (m *Memory) ChangesSinceDelivery(ctx context.Context, projectID string) ([]
 		out = append(out, Change{Label: obj.Label, Type: string(obj.Type),
 			Version: obj.CurrentVersion, State: obj.State, FirstLine: firstLine(text)})
 	}
-	return out, nil
+	return out
 }
 
 // Read returns the current text of one object by label, with its
