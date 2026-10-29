@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,9 @@ import (
 	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/config"
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/memory"
+	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -34,11 +38,41 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 
+	// The model provider (B-6) and the token counter bound to the
+	// principal's model (B-5). With the fake, the app fixtures are
+	// replayed in filename order and no API key is needed.
+	var prov provider.Provider
+	var countTokens memory.TokenCounter
+	switch cfg.Provider {
+	case config.ProviderFake:
+		fixtures, err := provider.AppFixtures()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "provider: %v\n", err)
+			os.Exit(1)
+		}
+		fake := provider.NewFake(fixtures...)
+		fake.Recorder = db
+		prov = fake
+		countTokens = func(ctx context.Context, input []json.RawMessage) (int, error) {
+			return fake.CountTokens(ctx, provider.PrincipalModel, input)
+		}
+	default:
+		meta := provider.NewMeta(cfg.MetaAPIKey, db, logger)
+		prov = meta
+		countTokens = func(ctx context.Context, input []json.RawMessage) (int, error) {
+			return meta.CountTokens(ctx, provider.PrincipalModel, input)
+		}
+	}
+
+	hub := server.NewHub()
+	runner := cycle.NewRunner(db, prov, countTokens, hub)
+	runner.Logger = logger
+
 	// No global WriteTimeout: streaming routes (specification §6) write
 	// for a long time and set their own pacing and heartbeat.
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           server.New(logger),
+		Handler:           server.NewWithAPI(logger, hub, db, runner),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 20,

@@ -12,6 +12,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
 //go:embed static
@@ -72,8 +74,10 @@ func requestLog(logger *slog.Logger, next http.Handler) http.Handler {
 // Server is the HTTP surface: its routes, and the hub that turns
 // publish their stream events to (backlog 0.6).
 type Server struct {
-	hub    *Hub
-	logger *slog.Logger
+	hub     *Hub
+	logger  *slog.Logger
+	db      *store.DB
+	starter TurnStarter
 }
 
 // Hub returns the hub turn runners publish stream events to.
@@ -88,13 +92,24 @@ func New(logger *slog.Logger) http.Handler {
 // NewWithHub is New with a caller-provided hub, so the turn runner
 // (and tests) publish to the same hub the streams read from.
 func NewWithHub(logger *slog.Logger, hub *Hub) http.Handler {
+	return buildHandler(logger, hub, nil, nil)
+}
+
+// NewWithAPI is NewWithHub plus the slice-0 API (backlog 0.10):
+// projects, sections and messages over db, with turns started by
+// starter.
+func NewWithAPI(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStarter) http.Handler {
+	return buildHandler(logger, hub, db, starter)
+}
+
+func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStarter) http.Handler {
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
 	if hub == nil {
 		hub = NewHub()
 	}
-	s := &Server{hub: hub, logger: logger}
+	s := &Server{hub: hub, logger: logger, db: db, starter: starter}
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +117,14 @@ func NewWithHub(logger *slog.Logger, hub *Hub) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
+
+	if db != nil && starter != nil {
+		mux.HandleFunc("POST /api/projects", s.createProject)
+		mux.HandleFunc("POST /api/projects/{projectID}/sections", s.createSection)
+		mux.HandleFunc("GET /api/projects/{projectID}/sections", s.listSections)
+		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}", s.putSection)
+		mux.HandleFunc("POST /api/projects/{projectID}/messages", s.postMessage)
+	}
 
 	mux.HandleFunc("GET /api/projects/{projectID}/turns/{turnID}/stream", s.streamTurn)
 	registerDevRoutes(mux, s)

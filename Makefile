@@ -1,4 +1,4 @@
-.PHONY: run test vet build microtest
+.PHONY: run test vet build microtest web web-types
 
 run:
 	go run ./cmd/tupaqnin
@@ -12,6 +12,16 @@ vet:
 build:
 	mkdir -p bin
 	CGO_ENABLED=0 go build -o bin/tupaqnin ./cmd/tupaqnin
+
+# The web app (backlog 0.10): installs dependencies and builds the
+# React+Vite+TipTap frontend into internal/server/static, which the
+# Go binary embeds. Run once before `make run` for the browser UI.
+web:
+	cd web && npm install && npm run build
+
+# Regenerates web/src/api/types.ts from the Go API shapes with tygo.
+web-types:
+	cd web && go run github.com/gzuidhof/tygo@latest generate
 
 # Micro-test 0.8 against real Meta (backlog). The API key comes from
 # the macOS keychain, never from a file or the repo. Eber runs this.

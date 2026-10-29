@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 )
@@ -21,6 +22,42 @@ type ModelCall struct {
 	InputItems     json.RawMessage
 	RawItems       json.RawMessage
 	CostUSD        float64
+	CreatedAt      string
+}
+
+// ModelCalls returns every recorded call of one principal instance,
+// in the order they were made. The conversation of a live instance
+// is rebuilt from these rows (B-7).
+func (db *DB) ModelCalls(ctx context.Context, projectID, instanceID string) ([]ModelCall, error) {
+	rows, err := db.Reader.QueryContext(ctx,
+		`SELECT instance_id, turn_id, role, model_and_effort, input_tokens,
+			output_tokens, context_window, input_items, raw_items, cost, created_at
+		 FROM model_call WHERE project_id = ? AND instance_id = ? ORDER BY rowid`,
+		projectID, instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("model calls: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []ModelCall
+	for rows.Next() {
+		var c ModelCall
+		var input, raw []byte
+		var turn, role, model sql.NullString
+		c.ProjectID = projectID
+		if err := rows.Scan(&c.InstanceID, &turn, &role, &model,
+			&c.InputTokens, &c.OutputTokens, &c.ContextWindow, &input, &raw,
+			&c.CostUSD, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("model calls: %w", err)
+		}
+		c.TurnID, c.Role, c.ModelAndEffort = turn.String, role.String, model.String
+		c.InputItems = input
+		c.RawItems = raw
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("model calls: %w", err)
+	}
+	return out, nil
 }
 
 // RecordModelCall appends one model_call row. Content is stored here

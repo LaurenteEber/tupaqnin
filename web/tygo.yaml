@@ -1,0 +1,6 @@
+packages:
+  - path: "github.com/LaurenteEber/tupaqnin/internal/server"
+    output_path: "src/api/types.ts"
+    type_mappings:
+      time.Time: "string"
+    fallback_type: any
