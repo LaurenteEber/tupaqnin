@@ -1,11 +1,14 @@
 import type {
+  CaseView,
   CreateProjectResponse,
   PostMessageResponse,
   ProjectView,
   RequestView,
   SectionResponse,
+  SectionRoleView,
   SectionView,
   SourceView,
+  UnderstandingView,
 } from "./types";
 
 // Thin API client. It only transports what Go computes (AGENTS.md
@@ -64,6 +67,44 @@ export async function uploadSource(
     throw new Error(body.error ?? "internal");
   }
   return (await res.json()) as SourceView;
+}
+
+export async function getUnderstanding(projectID: string): Promise<UnderstandingView> {
+  return json(await fetch(`/api/projects/${projectID}/understanding`));
+}
+
+export async function confirmCase(projectID: string, label: string): Promise<CaseView> {
+  return json(
+    await fetch(`/api/projects/${projectID}/cases/${label}/confirm`, { method: "POST" }),
+  );
+}
+
+export async function correctCase(
+  projectID: string,
+  label: string,
+  text: string,
+): Promise<CaseView> {
+  return json(
+    await fetch(`/api/projects/${projectID}/cases/${label}/correct`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    }),
+  );
+}
+
+export async function putSectionRole(
+  projectID: string,
+  label: string,
+  role: string,
+): Promise<SectionRoleView> {
+  return json(
+    await fetch(`/api/projects/${projectID}/sections/${label}/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    }),
+  );
 }
 
 export async function submitRequest(projectID: string): Promise<PostMessageResponse> {

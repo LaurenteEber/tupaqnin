@@ -156,4 +156,83 @@ func TestB9_HangingExtractionIsKilledAndRejected(t *testing.T) {
 	}
 }
 
+func TestP22_SecondExtractionWhileOneRunsIsBusy(t *testing.T) {
+	useHelper(t, "hang")
+	done := make(chan error, 1)
+	go func() {
+		_, err := extract(context.Background(), makePDF(t, 1, true), 800*time.Millisecond)
+		done <- err
+	}()
+	// Give the first extraction time to take the slot.
+	time.Sleep(150 * time.Millisecond)
+	_, err := Extract(context.Background(), makePDF(t, 1, true))
+	if !errors.Is(err, ErrBusy) {
+		t.Fatalf("second Extract: got %v, want ErrBusy", err)
+	}
+	if code := Code(err); code != "source_pdf_busy" {
+		t.Fatalf("Code: got %q, want source_pdf_busy", code)
+	}
+	if err := <-done; !errors.Is(err, ErrTimeout) {
+		t.Fatalf("first Extract: got %v, want ErrTimeout", err)
+	}
+}
+
+func TestP22_ChildStdoutOver2MBIsRejected(t *testing.T) {
+	useHelper(t, "child")
+	// One page whose content stream prints ~3 MB of text.
+	line := "(" + strings.Repeat("a", 1000) + ") Tj "
+	content := "BT /F1 24 Tf 100 700 Td " + strings.Repeat(line, 3000) + "ET"
+	pdf := makePDFContent(t, content)
+	if len(pdf) > MaxInput {
+		t.Fatalf("fixture too big: %d bytes", len(pdf))
+	}
+	_, err := Extract(context.Background(), pdf)
+	if !errors.Is(err, ErrTooLarge) {
+		t.Fatalf("Extract(big text): got %v, want ErrTooLarge", err)
+	}
+	if code := Code(err); code != "source_pdf_too_large" {
+		t.Fatalf("Code: got %q, want source_pdf_too_large", code)
+	}
+}
+
+func TestP23_ChildGetsOnlyGoMemLimitEnvironment(t *testing.T) {
+	t.Setenv("META_API_KEY", "test-secret")
+	cmd, err := ChildCommand(context.Background())
+	if err != nil {
+		t.Fatalf("ChildCommand: %v", err)
+	}
+	if len(cmd.Env) != 1 || cmd.Env[0] != "GOMEMLIMIT=256MiB" {
+		t.Fatalf("child env: got %v, want only GOMEMLIMIT=256MiB", cmd.Env)
+	}
+	if strings.Contains(strings.Join(cmd.Env, " "), "test-secret") {
+		t.Fatal("child env leaks META_API_KEY")
+	}
+}
+
+// makePDFContent builds a one-page PDF with the given content stream.
+func makePDFContent(t *testing.T, content string) []byte {
+	t.Helper()
+	objs := []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [4 0 R] /Count 1 >>",
+		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> >> >>",
+		fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(content), content),
+	}
+	var b strings.Builder
+	b.WriteString("%PDF-1.4\n")
+	offsets := make([]int, len(objs)+1)
+	for i, body := range objs {
+		offsets[i+1] = b.Len()
+		fmt.Fprintf(&b, "%d 0 obj\n%s\nendobj\n", i+1, body)
+	}
+	xref := b.Len()
+	fmt.Fprintf(&b, "xref\n0 %d\n0000000000 65535 f \n", len(objs)+1)
+	for i := 1; i <= len(objs); i++ {
+		fmt.Fprintf(&b, "%010d 00000 n \n", offsets[i])
+	}
+	fmt.Fprintf(&b, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", len(objs)+1, xref)
+	return []byte(b.String())
+}
+
 var _ io.Reader = strings.NewReader("")

@@ -11,6 +11,7 @@ import {
 import type { ProjectView, SectionView } from "./api/types";
 import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
+import { UnderstandingPanel } from "./components/UnderstandingPanel";
 import { SectionEditor } from "./components/SectionEditor";
 import { initialLang, translate, type Lang } from "./i18n";
 
@@ -19,6 +20,7 @@ export function App() {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
 
   const [projects, setProjects] = useState<ProjectView[]>([]);
+  const [understandingKey, setUnderstandingKey] = useState(0);
   const [projectID, setProjectID] = useState("");
   const [sections, setSections] = useState<SectionView[]>([]);
   const [selected, setSelected] = useState("");
@@ -66,6 +68,7 @@ export function App() {
       onStep: (payload) => {
         setStep(payload);
         setWorking(false);
+        setUnderstandingKey((k) => k + 1);
       },
       onError: (code) => {
         setErrorCode(code);
@@ -150,6 +153,10 @@ export function App() {
           ))}
         </ul>
       </section>
+
+      {projectID && (
+        <UnderstandingPanel lang={lang} projectID={projectID} refreshKey={understandingKey} />
+      )}
 
       {projectID && (
         <RequestPanel

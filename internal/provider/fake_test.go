@@ -96,8 +96,12 @@ func TestT11_AppFixturesLoadInOrderAndStream90sHas90Deltas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AppFixtures: %v", err)
 	}
-	if len(app) != 2 || app[0].Name != "01-principal-valid" || app[1].Name != "02-principal-invalid" {
-		t.Fatalf("AppFixtures: got %+v, want the valid then the invalid fixture", app)
+	if len(app) != 3 || app[0].Name != "01-principal-valid" || app[1].Name != "02-principal-invalid" ||
+		app[2].Name != "03-understanding-valid" {
+		t.Fatalf("AppFixtures: got %+v, want the valid, invalid and understanding fixtures", app)
+	}
+	if text := providerResponseText(t, app[2]); !strings.Contains(text, `"understood"`) {
+		t.Fatalf("understanding fixture is not an understanding output: %s", text)
 	}
 	valid := providerResponseText(t, app[0])
 	if !strings.Contains(valid, `"note"`) || !strings.Contains(valid, `"triage_line"`) {

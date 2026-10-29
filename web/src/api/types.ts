@@ -134,3 +134,36 @@ arrive in slice 0 and the delivery slice.
  */
 export interface Server {
 }
+
+//////////
+// source: understanding.go
+
+/**
+ * Shapes for the right half of P2 (backlog 1.2). Cases and roles are
+ * proposed by the principal and confirmed or corrected by the human;
+ * nothing here blocks the work (fichas §2).
+ */
+export interface CaseView {
+  label: string;
+  text: string;
+  counts?: boolean;
+  criterion_label?: string;
+  state: string;
+}
+export interface UnderstandingView {
+  understood: string;
+  cases: CaseView[];
+  sections: SectionRoleView[];
+}
+export interface SectionRoleView {
+  label: string;
+  title: string;
+  role: string;
+  role_state: string;
+}
+export interface CorrectCaseRequest {
+  text: string;
+}
+export interface PutRoleRequest {
+  role: string;
+}

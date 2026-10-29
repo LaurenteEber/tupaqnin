@@ -26,6 +26,14 @@ func (s *stubStarter) StartTurn(projectID, text string) (string, error) {
 	return "turn-1", nil
 }
 
+func (s *stubStarter) StartUnderstandingTurn(projectID string) (string, error) {
+	s.projectID, s.text = projectID, "understanding"
+	if s.err != nil {
+		return "", s.err
+	}
+	return "turn-1", nil
+}
+
 func newAPI(t *testing.T) (http.Handler, *store.DB, *stubStarter) {
 	t.Helper()
 	db, err := store.Open(context.Background(), t.TempDir())

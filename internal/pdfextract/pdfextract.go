@@ -38,20 +38,35 @@ const Timeout = 10 * time.Second
 // larger sources before this (specification §6: source ≤ 5 MB).
 const MaxInput = 5 << 20
 
+// MaxOutput caps the child's stdout (P-22, [inicial]): over it the
+// extraction is rejected as source_pdf_too_large.
+const MaxOutput = 2 << 20
+
+// childGoMemLimit is the child's whole environment (P-22, P-23):
+// GOMEMLIMIT caps its memory, and a minimal environment means the
+// child never sees META_API_KEY or any other secret (rule 9).
+const childGoMemLimit = "GOMEMLIMIT=256MiB"
+
 // Error codes. Each one is a catalog key suffix: the API returns the
 // code and the web catalog (T-1) renders source.error.<code>. The raw
 // parser error never leaves the child (AGENTS.md rule 9).
 var (
-	ErrInvalid = errors.New("pdfextract: invalid PDF")
-	ErrNoText  = errors.New("pdfextract: PDF has no text")
-	ErrTooMany = errors.New("pdfextract: PDF has too many pages")
-	ErrTimeout = errors.New("pdfextract: extraction timed out")
-	ErrFailed  = errors.New("pdfextract: extraction failed")
+	ErrInvalid  = errors.New("pdfextract: invalid PDF")
+	ErrNoText   = errors.New("pdfextract: PDF has no text")
+	ErrTooMany  = errors.New("pdfextract: PDF has too many pages")
+	ErrTimeout  = errors.New("pdfextract: extraction timed out")
+	ErrBusy     = errors.New("pdfextract: another extraction is running")
+	ErrTooLarge = errors.New("pdfextract: extracted text too large")
+	ErrFailed   = errors.New("pdfextract: extraction failed")
 )
 
 // Code returns the catalog code for an extraction error.
 func Code(err error) string {
 	switch {
+	case errors.Is(err, ErrBusy):
+		return "source_pdf_busy"
+	case errors.Is(err, ErrTooLarge):
+		return "source_pdf_too_large"
 	case errors.Is(err, ErrNoText):
 		return "source_pdf_no_text"
 	case errors.Is(err, ErrTooMany):
@@ -73,7 +88,36 @@ var ChildCommand = func(ctx context.Context) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
-	return exec.CommandContext(ctx, exe, Subcommand), nil
+	cmd := exec.CommandContext(ctx, exe, Subcommand)
+	// Minimal environment (P-23): only the memory limit. The child
+	// never inherits META_API_KEY or anything else from the server.
+	cmd.Env = []string{childGoMemLimit}
+	return cmd, nil
+}
+
+// slot admits one extraction at a time per server process (P-22);
+// the rest are rejected at once instead of queueing behind a
+// hostile PDF.
+var slot = make(chan struct{}, 1)
+
+// capWriter stores at most limit bytes and reports overflow, so a
+// child flooding stdout cannot grow the parent's memory (P-22).
+type capWriter struct {
+	buf      bytes.Buffer
+	limit    int
+	overflow bool
+}
+
+func (w *capWriter) Write(p []byte) (int, error) {
+	if w.buf.Len()+len(p) > w.limit {
+		keep := w.limit - w.buf.Len()
+		if keep > 0 {
+			w.buf.Write(p[:keep])
+		}
+		w.overflow = true
+		return len(p), nil
+	}
+	return w.buf.Write(p)
 }
 
 // Extract returns the plain text of the PDF in data. It runs the
@@ -83,6 +127,13 @@ func Extract(ctx context.Context, data []byte) (string, error) {
 }
 
 func extract(ctx context.Context, data []byte, timeout time.Duration) (string, error) {
+	select {
+	case slot <- struct{}{}:
+		defer func() { <-slot }()
+	default:
+		return "", ErrBusy
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -91,14 +142,18 @@ func extract(ctx context.Context, data []byte, timeout time.Duration) (string, e
 		return "", fmt.Errorf("%w: %v", ErrFailed, err)
 	}
 	cmd.Stdin = bytes.NewReader(data)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
+	stdout := &capWriter{limit: MaxOutput}
+	var stderr bytes.Buffer
+	cmd.Stdout = stdout
 	cmd.Stderr = &stderr
 
 	runErr := cmd.Run()
 	if ctx.Err() != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		// The deadline passed: CommandContext has killed the child.
 		return "", ErrTimeout
+	}
+	if stdout.overflow {
+		return "", ErrTooLarge
 	}
 	if runErr != nil {
 		switch strings.TrimSpace(stderr.String()) {
@@ -112,7 +167,7 @@ func extract(ctx context.Context, data []byte, timeout time.Duration) (string, e
 			return "", fmt.Errorf("%w: %v", ErrFailed, runErr)
 		}
 	}
-	return stdout.String(), nil
+	return stdout.buf.String(), nil
 }
 
 // RunChild is the child side: it reads the PDF from stdin, counts its

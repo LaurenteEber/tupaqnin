@@ -14,6 +14,7 @@ import (
 // once (B-1). *cycle.Runner satisfies it.
 type TurnStarter interface {
 	StartTurn(projectID, text string) (string, error)
+	StartUnderstandingTurn(projectID string) (string, error)
 }
 
 // API request and response shapes (backlog 0.10). TypeScript types

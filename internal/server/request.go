@@ -74,85 +74,38 @@ func str(b map[string]any, key string) string {
 	return s
 }
 
-// saveRequest writes the request, its criteria and its premise in
-// one transaction (specification table 1.1). Everything the human
-// wrote is kept literal (fichas §2). It returns a catalog code on
-// failure ("") on success.
-// [EL DISEÑO NO LO DICE] re-saving with fewer criteria than before:
-// criteria are updated by position and new ones are created; a
-// removed criterion is not deleted (history only grows), so it
-// stays current. The minimum provisional choice.
+// requestBody is what the request object keeps until submit
+// (P-24): text, audience, criteria and premise, all literal.
+type requestBody struct {
+	Text        string   `json:"text"`
+	Audience    string   `json:"audience"`
+	Criteria    []string `json:"criteria"`
+	Premise     string   `json:"premise"`
+	Exploratory bool     `json:"exploratory"`
+}
+
+// saveRequest writes only the request object, in one transaction.
+// Until submit, the criteria and the premise live only in its body
+// (P-24, fichas §2): editing them creates no criterion or premise
+// object, so a criterion removed before sending never existed and
+// cannot stay current. Submit creates those objects.
 func (s *Server) saveRequest(r *http.Request, projectID string, in PutRequestRequest) string {
+	body := requestBody{Text: in.Text, Audience: in.Audience, Criteria: in.Criteria,
+		Premise: in.Premise, Exploratory: in.Exploratory}
+	if body.Criteria == nil {
+		body.Criteria = []string{}
+	}
 	err := s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		ev := store.EventInput{Type: store.EventStateChanged, Actor: "human"}
-		requests, err := s.objectsInTx(r, projectID, store.ObjectRequest)
+		requests, err := s.db.ListObjects(r.Context(), projectID, store.ObjectRequest)
 		if err != nil {
 			return err
 		}
-		var reqObj store.Object
 		if len(requests) == 0 {
-			reqObj, err = tx.CreateObject(store.ObjectRequest, "",
-				map[string]any{"text": in.Text, "audience": in.Audience}, ev)
-			if err != nil {
-				return err
-			}
-		} else {
-			reqObj = requests[0]
-			updated, uerr := tx.UpdateObject(reqObj.ID, reqObj.CurrentVersion, "",
-				map[string]any{"text": in.Text, "audience": in.Audience}, ev)
-			if errors.Is(uerr, store.ErrNoChange) {
-				uerr = nil
-			}
-			if uerr != nil {
-				return uerr
-			}
-			if updated.ID != "" {
-				reqObj = updated
-			}
-		}
-
-		criteria, err := s.objectsInTx(r, projectID, store.ObjectCriterion)
-		if err != nil {
+			_, err = tx.CreateObject(store.ObjectRequest, "", body, ev)
 			return err
 		}
-		mine := criteria[:0]
-		for _, c := range criteria {
-			if str(bodyMap(c), "request_id") == reqObj.ID {
-				mine = append(mine, c)
-			}
-		}
-		for i, text := range in.Criteria {
-			body := map[string]any{"text": text, "request_id": reqObj.ID}
-			if i < len(mine) {
-				_, uerr := tx.UpdateObject(mine[i].ID, mine[i].CurrentVersion, "current", body, ev)
-				if errors.Is(uerr, store.ErrNoChange) {
-					uerr = nil
-				}
-				if uerr != nil {
-					return uerr
-				}
-			} else if _, err := tx.CreateObject(store.ObjectCriterion, "current", body, ev); err != nil {
-				return err
-			}
-		}
-
-		premises, err := s.objectsInTx(r, projectID, store.ObjectPremise)
-		if err != nil {
-			return err
-		}
-		pbody := map[string]any{"text": in.Premise, "request_id": reqObj.ID, "exploratory": in.Exploratory}
-		var prem *store.Object
-		for i := range premises {
-			if str(bodyMap(premises[i]), "request_id") == reqObj.ID {
-				prem = &premises[i]
-				break
-			}
-		}
-		if prem == nil {
-			_, err = tx.CreateObject(store.ObjectPremise, "current", pbody, ev)
-			return err
-		}
-		_, uerr := tx.UpdateObject(prem.ID, prem.CurrentVersion, "current", pbody, ev)
+		_, uerr := tx.UpdateObject(requests[0].ID, requests[0].CurrentVersion, "", body, ev)
 		if errors.Is(uerr, store.ErrNoChange) {
 			uerr = nil
 		}
@@ -164,15 +117,6 @@ func (s *Server) saveRequest(r *http.Request, projectID string, in PutRequestReq
 	return ""
 }
 
-// objectsInTx lists objects through the reader pool. It is only
-// called with no write of this request committed yet in other flows,
-// and inside saveRequest for rows this same transaction has not
-// touched except the request itself (read-your-own criteria set is
-// stable within one PUT).
-func (s *Server) objectsInTx(r *http.Request, projectID string, t store.ObjectType) ([]store.Object, error) {
-	return s.db.ListObjects(r.Context(), projectID, t)
-}
-
 func (s *Server) requestView(r *http.Request, projectID string) (RequestView, bool) {
 	view := RequestView{Criteria: []string{}, Sources: []SourceView{}}
 	requests, err := s.db.ListObjects(r.Context(), projectID, store.ObjectRequest)
@@ -180,20 +124,31 @@ func (s *Server) requestView(r *http.Request, projectID string) (RequestView, bo
 		return view, false
 	}
 	if len(requests) > 0 {
-		b := bodyMap(requests[0])
-		view.Text, view.Audience = str(b, "text"), str(b, "audience")
+		var b requestBody
+		_ = json.Unmarshal(requests[0].Body, &b)
+		view.Text, view.Audience = b.Text, b.Audience
+		view.Criteria, view.Premise, view.Exploratory = b.Criteria, b.Premise, b.Exploratory
+		if view.Criteria == nil {
+			view.Criteria = []string{}
+		}
+		// After submit the criterion and premise objects exist and
+		// are the source; before it, only the body carries them.
 		criteria, _ := s.db.ListObjects(r.Context(), projectID, store.ObjectCriterion)
+		var texts []string
 		for _, c := range criteria {
 			if str(bodyMap(c), "request_id") == requests[0].ID {
-				view.Criteria = append(view.Criteria, str(bodyMap(c), "text"))
+				texts = append(texts, str(bodyMap(c), "text"))
 			}
 		}
+		if texts != nil {
+			view.Criteria = texts
+		}
 		premises, _ := s.db.ListObjects(r.Context(), projectID, store.ObjectPremise)
-		for _, p := range premises {
-			b := bodyMap(p)
-			if str(b, "request_id") == requests[0].ID {
-				view.Premise, _ = b["text"].(string)
-				view.Exploratory, _ = b["exploratory"].(bool)
+		for _, prem := range premises {
+			pb := bodyMap(prem)
+			if str(pb, "request_id") == requests[0].ID {
+				view.Premise, _ = pb["text"].(string)
+				view.Exploratory, _ = pb["exploratory"].(bool)
 			}
 		}
 	}
@@ -391,8 +346,11 @@ func (s *Server) uploadSource(w http.ResponseWriter, r *http.Request) {
 		if code == "internal" {
 			status = http.StatusInternalServerError
 		}
-		if code == "source_too_large" {
+		if code == "source_too_large" || code == "source_pdf_too_large" {
 			status = http.StatusRequestEntityTooLarge
+		}
+		if code == "source_pdf_busy" {
+			status = http.StatusConflict
 		}
 		writeError(w, status, code)
 		return
@@ -419,10 +377,11 @@ func (s *Server) downloadSource(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, b.Text)
 }
 
-// POST /api/projects/{projectID}/request/submit → {turn_id}: it
-// records the human message and opens the understanding turn
-// (1.2 will give that turn its own type; in 1.1 it runs through
-// the same starter as a message with the request text).
+// POST /api/projects/{projectID}/request/submit → {turn_id}: at
+// submit, the criteria and the premise leave the request body and
+// are born as their own objects, confirmed as the human wrote them
+// (P-24, fichas §2: what you write is born confirmed). Only then it
+// records the human message and opens the understanding turn (1.2).
 func (s *Server) submitRequest(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {
@@ -433,10 +392,53 @@ func (s *Server) submitRequest(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "request_missing")
 		return
 	}
-	turnID, err := s.starter.StartTurn(projectID, view.Text)
+	if code := s.materializeCriteriaAndPremise(r, projectID); code != "" {
+		writeError(w, http.StatusInternalServerError, code)
+		return
+	}
+	turnID, err := s.starter.StartUnderstandingTurn(projectID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
 	writeJSON(w, http.StatusAccepted, PostMessageResponse{TurnID: turnID})
+}
+
+// materializeCriteriaAndPremise creates the criterion and premise
+// objects from the request body, once, in one transaction. A second
+// submit creates nothing new.
+func (s *Server) materializeCriteriaAndPremise(r *http.Request, projectID string) string {
+	requests, err := s.db.ListObjects(r.Context(), projectID, store.ObjectRequest)
+	if err != nil || len(requests) == 0 {
+		return "internal"
+	}
+	reqObj := requests[0]
+	var b requestBody
+	_ = json.Unmarshal(reqObj.Body, &b)
+
+	existing, err := s.db.ListObjects(r.Context(), projectID, store.ObjectCriterion)
+	if err != nil {
+		return "internal"
+	}
+	for _, c := range existing {
+		if str(bodyMap(c), "request_id") == reqObj.ID {
+			return "" // already submitted
+		}
+	}
+	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
+		ev := store.EventInput{Type: store.EventStateChanged, Actor: "human"}
+		for _, text := range b.Criteria {
+			if _, err := tx.CreateObject(store.ObjectCriterion, "current",
+				map[string]any{"text": text, "request_id": reqObj.ID}, ev); err != nil {
+				return err
+			}
+		}
+		_, err := tx.CreateObject(store.ObjectPremise, "current",
+			map[string]any{"text": b.Premise, "request_id": reqObj.ID, "exploratory": b.Exploratory}, ev)
+		return err
+	})
+	if err != nil {
+		return "internal"
+	}
+	return ""
 }

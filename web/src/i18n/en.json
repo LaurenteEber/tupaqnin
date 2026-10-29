@@ -55,5 +55,18 @@
   "source.error.source_invalid_kind": "Choose whether the source is a file or a calculation.",
   "source.error.request_missing": "Write the request before sending it.",
   "source.error.template_unknown": "That template is not available.",
-  "source.error.internal": "Something failed. Try again."
+  "source.error.internal": "Something failed. Try again.",
+  "source.error.source_pdf_busy": "Another PDF is being read right now. Wait a moment and upload it again.",
+  "source.error.source_pdf_too_large": "The text of that PDF is larger than 2 MB. Split it and upload it in parts.",
+  "understanding.title": "What I understood",
+  "understanding.counts": "Counts",
+  "understanding.does_not_count": "Does not count",
+  "understanding.confirm": "Confirm",
+  "understanding.correct": "Correct",
+  "understanding.corrected": "Corrected text",
+  "understanding.role": "Role",
+  "understanding.role.conclusion": "Conclusion",
+  "understanding.role.recommendation": "Recommendation",
+  "understanding.role.other": "Other",
+  "understanding.empty": "The agent has not sent its understanding yet."
 }

@@ -324,6 +324,168 @@ func (r *Runner) publishStep(projectID, turnID string, result StepResult, output
 	r.pub.PublishStep(projectID, turnID, raw)
 }
 
+// StartUnderstandingTurn registers an understanding turn (1.2) and
+// runs it in the background, returning its id at once (B-1).
+func (r *Runner) StartUnderstandingTurn(projectID string) (string, error) {
+	if !r.tryAcquireTurn(projectID) {
+		return "", ErrTurnRunning
+	}
+	turnID, err := newTurnID()
+	if err != nil {
+		r.releaseTurn(projectID)
+		return "", err
+	}
+	if r.pub != nil {
+		r.pub.BeginTurn(projectID, turnID)
+	}
+	go func() {
+		defer r.releaseTurn(projectID)
+		if err := r.runUnderstandingTurn(context.Background(), projectID, turnID); err != nil && r.Logger != nil {
+			r.Logger.Error("understanding turn failed", "error", err.Error())
+		}
+	}()
+	return turnID, nil
+}
+
+// RunUnderstandingTurn runs one understanding turn synchronously.
+func (r *Runner) RunUnderstandingTurn(ctx context.Context, projectID, turnID string) error {
+	if !r.tryAcquireTurn(projectID) {
+		return ErrTurnRunning
+	}
+	defer r.releaseTurn(projectID)
+	return r.runUnderstandingTurn(ctx, projectID, turnID)
+}
+
+func (r *Runner) criteriaRefs(ctx context.Context, projectID string) ([]CriterionRef, error) {
+	objects, err := r.db.ListObjects(ctx, projectID, store.ObjectCriterion)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CriterionRef, 0, len(objects))
+	for _, o := range objects {
+		out = append(out, CriterionRef{Label: o.Label, ID: o.ID})
+	}
+	return out, nil
+}
+
+func (r *Runner) requestText(ctx context.Context, projectID string) (string, error) {
+	objects, err := r.db.ListObjects(ctx, projectID, store.ObjectRequest)
+	if err != nil || len(objects) == 0 {
+		return "", err
+	}
+	var b struct {
+		Text string `json:"text"`
+	}
+	_ = json.Unmarshal(objects[0].Body, &b)
+	return b.Text, nil
+}
+
+func (r *Runner) callUnderstanding(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage) (provider.Response, error) {
+	schema, err := provider.TransportSchema(understandingSchema)
+	if err != nil {
+		return provider.Response{}, err
+	}
+	return r.prov.Respond(ctx, provider.Request{
+		ProjectID: projectID, TurnID: turnID, InstanceID: instanceID,
+		Role: provider.RolePrincipal, Model: provider.PrincipalModel,
+		Effort: provider.EffortHigh, Instructions: understandingInstructions,
+		Input: input, Schema: schema, SchemaStrict: true,
+	}, func(d provider.Delta) {
+		if r.pub != nil {
+			r.pub.PublishDelta(projectID, turnID, d.Text)
+		}
+	})
+}
+
+// runUnderstandingTurn is the «Entendí» turn (backlog 1.2): startup
+// (0.9), one call at effort high with the understanding schema, and
+// EndUnderstanding applying it; one retry, then agent_pending
+// (fichas §7). The chain of steps (B-17) arrives when a principal
+// step can be applied (1.3); here the turn ends with the
+// understanding, and nothing waits for the human to confirm.
+func (r *Runner) runUnderstandingTurn(ctx context.Context, projectID, turnID string) error {
+	text, err := r.requestText(ctx, projectID)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
+	}
+	err = r.db.Write(ctx, projectID, func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{
+			Type: store.EventHumanMessage, Actor: "human", TurnID: turnID,
+			Data: map[string]any{"text": text},
+		})
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
+	}
+	var input []json.RawMessage
+	if started {
+		input = startupInput
+	} else {
+		conversation, err := r.conversation(ctx, projectID, instanceID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+		changes, err := r.changeItems(ctx, projectID, instanceID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+		input = append(conversation, changes...)
+		input = append(input, userItem(text))
+	}
+
+	criteria, err := r.criteriaRefs(ctx, projectID)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
+	}
+
+	resp, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, input)
+	if err != nil {
+		r.fail(projectID, turnID, "provider_error")
+		return nil
+	}
+	result, err := r.gate.EndUnderstanding(ctx, projectID, turnID, 1, json.RawMessage(resp.Text), criteria)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
+	}
+	if result.Status == StatusRetry {
+		retryInput := append(append([]json.RawMessage{}, input...), resp.RawItems...)
+		retryInput = append(retryInput, userItem(RetryMessage(result.Errors)))
+		resp2, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, retryInput)
+		if err != nil {
+			r.fail(projectID, turnID, "provider_error")
+			return nil
+		}
+		result, err = r.gate.EndUnderstanding(ctx, projectID, turnID, 2, json.RawMessage(resp2.Text), criteria)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+		resp = resp2
+	}
+	_ = resp
+	if r.pub != nil {
+		raw, err := json.Marshal(map[string]any{
+			"status": result.Status, "understood": result.Output.Understood,
+		})
+		if err == nil {
+			r.pub.PublishStep(projectID, turnID, raw)
+		}
+	}
+	return nil
+}
+
 // RunTurn runs one turn synchronously. StartTurn wraps it in a
 // goroutine; tests call it directly. It takes the project's turn
 // slot, like StartTurn.

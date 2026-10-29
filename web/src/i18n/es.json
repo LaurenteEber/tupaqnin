@@ -55,5 +55,18 @@
   "source.error.source_invalid_kind": "Elige si la fuente es un archivo o un cálculo.",
   "source.error.request_missing": "Escribe el pedido antes de enviarlo.",
   "source.error.template_unknown": "Esa plantilla no está disponible.",
-  "source.error.internal": "Algo falló. Inténtalo de nuevo."
+  "source.error.internal": "Algo falló. Inténtalo de nuevo.",
+  "source.error.source_pdf_busy": "Ahora mismo se está leyendo otro PDF. Espera un momento y súbelo de nuevo.",
+  "source.error.source_pdf_too_large": "El texto de ese PDF es mayor de 2 MB. Divídelo y súbelo por partes.",
+  "understanding.title": "Lo que entendí",
+  "understanding.counts": "Cuenta",
+  "understanding.does_not_count": "No cuenta",
+  "understanding.confirm": "Confirmar",
+  "understanding.correct": "Corregir",
+  "understanding.corrected": "Texto corregido",
+  "understanding.role": "Rol",
+  "understanding.role.conclusion": "Conclusión",
+  "understanding.role.recommendation": "Recomendación",
+  "understanding.role.other": "Otro",
+  "understanding.empty": "El agente todavía no envió su «Entendí»."
 }

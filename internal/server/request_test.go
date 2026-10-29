@@ -145,16 +145,80 @@ func TestB9_PDFSourceStoresExtractedTextAndItsFingerprint(t *testing.T) {
 }
 
 func TestB12_ProjectFromTemplateBringsRequestCriteriaAndSources(t *testing.T) {
-	h, _, _ := newAPI(t)
-	base := "/api/projects/" + newProject(t, h, map[string]any{"template": "case-5"})
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, map[string]any{"template": "case-5"})
+	base := "/api/projects/" + projectID
 
 	rec := do(t, h, http.MethodGet, base+"/request", nil)
 	got := decode[server.RequestView](t, rec)
-	if got.Text == "" || len(got.Criteria) != 1 || len(got.Sources) != 2 {
-		t.Fatalf("template request: %+v", got)
+	if got.Text == "" || len(got.Criteria) != 2 || len(got.Sources) != 15 {
+		t.Fatalf("template request: criteria=%d sources=%d text=%q", len(got.Criteria), len(got.Sources), got.Text)
 	}
-	if got.Sources[1].Kind != "calculation" {
-		t.Fatalf("template calculation source: %+v", got.Sources[1])
+	calculations := 0
+	for _, src := range got.Sources {
+		if src.Kind == "calculation" {
+			calculations++
+		}
+	}
+	if calculations != 1 {
+		t.Fatalf("template calculation sources: got %d, want 1", calculations)
+	}
+	// P-24: before submit, no criterion or premise object exists yet.
+	for _, typ := range []store.ObjectType{store.ObjectCriterion, store.ObjectPremise} {
+		objs, err := db.ListObjects(context.Background(), projectID, typ)
+		if err != nil || len(objs) != 0 {
+			t.Fatalf("before submit: %s objects = %d, %v; want 0", typ, len(objs), err)
+		}
+	}
+}
+
+func TestP24_RemovedCriterionNeverBecomesAnObjectAndSubmitCreatesThem(t *testing.T) {
+	h, db, starter := newAPI(t)
+	projectID := newProject(t, h, nil)
+	base := "/api/projects/" + projectID
+
+	put := func(criteria []string) {
+		rec := do(t, h, http.MethodPut, base+"/request", map[string]any{
+			"text": "Pedido.", "audience": "Comité", "criteria": criteria,
+			"premise": "Una idea.", "exploratory": false,
+		})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("put request: got %d (%s)", rec.Code, rec.Body.String())
+		}
+	}
+	put([]string{"Criterio uno.", "Criterio que se quita."})
+	put([]string{"Criterio uno."}) // the second one is removed before submit
+
+	rec := do(t, h, http.MethodPost, base+"/request/submit", nil)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("submit: got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if starter.text != "understanding" {
+		t.Fatalf("submit did not open an understanding turn: got %q", starter.text)
+	}
+	criteria, err := db.ListObjects(context.Background(), projectID, store.ObjectCriterion)
+	if err != nil || len(criteria) != 1 {
+		t.Fatalf("criteria after submit: %d, %v; want exactly the kept one", len(criteria), err)
+	}
+	if got := decode[server.RequestView](t, do(t, h, http.MethodGet, base+"/request", nil)); len(got.Criteria) != 1 || got.Criteria[0] != "Criterio uno." {
+		t.Fatalf("view after submit: %+v", got)
+	}
+	premises, err := db.ListObjects(context.Background(), projectID, store.ObjectPremise)
+	if err != nil || len(premises) != 1 || premises[0].State != "current" {
+		t.Fatalf("premise after submit: %+v, %v", premises, err)
+	}
+	if criteria[0].State != "current" {
+		t.Fatalf("criterion state: got %q, want current (born confirmed)", criteria[0].State)
+	}
+
+	// A second submit creates nothing new.
+	rec = do(t, h, http.MethodPost, base+"/request/submit", nil)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("second submit: got %d", rec.Code)
+	}
+	criteria, _ = db.ListObjects(context.Background(), projectID, store.ObjectCriterion)
+	if len(criteria) != 1 {
+		t.Fatalf("criteria after second submit: got %d, want 1", len(criteria))
 	}
 }
 
