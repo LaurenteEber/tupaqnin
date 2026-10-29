@@ -1,12 +1,12 @@
 ---
 titulo: Backlog de construcción · rebanada 1 (ciclo mínimo)
-estado: v0.9 · 29-oct · B-9: librería de PDF aprobada, extracción en proceso hijo · v0.8 · 29-oct · plantilla del caso 5 lista (B-12) · v0.7 · 29-oct · B-19 con pnpm 12.16.1, Node 24.22.2 y versiones adoptadas en versiones-seguras.md · v0.6 · 29-oct · precisiones de la validación como implementador (B-10, B-12, B-14, B-16, B-17, B-18; 1.1, 1.3, 1.7) · v0.5 · 29-oct · B-8 a B-20 adoptadas y propagadas (B-9 con PDF); pieza 1.0 · v0.4 · 29-oct · precisión de B-9 por el PDF, B-19 (seguridad de la cadena de dependencias, pieza 1.0) y B-20 (valores iniciales) · v0.3 · 28-oct · tras la reverificación: la cita sin pasaje es un pendiente, la huella de una fuente va en B-9, la cancelación de la firma en B-14, el pendiente de B-16 en B-15 y la regla 4 en el «Entendí» y Wonder · v0.2 · 28-oct · corregido tras la revisión de un agente frío (10 hallazgos y 5 elecciones sin marcar): B-13 a B-18 nuevas, firma sobre lo firmado, huella antes, nombres del glosario · v0.1 · 28-oct · borrador
+estado: v0.10 · 29-oct · pieza 1.5b (tres columnas y marco mínimo, B3-9 precisada) · v0.9 · 29-oct · B-9: librería de PDF aprobada, extracción en proceso hijo · v0.8 · 29-oct · plantilla del caso 5 lista (B-12) · v0.7 · 29-oct · B-19 con pnpm 12.16.1, Node 24.22.2 y versiones adoptadas en versiones-seguras.md · v0.6 · 29-oct · precisiones de la validación como implementador (B-10, B-12, B-14, B-16, B-17, B-18; 1.1, 1.3, 1.7) · v0.5 · 29-oct · B-8 a B-20 adoptadas y propagadas (B-9 con PDF); pieza 1.0 · v0.4 · 29-oct · precisión de B-9 por el PDF, B-19 (seguridad de la cadena de dependencias, pieza 1.0) y B-20 (valores iniciales) · v0.3 · 28-oct · tras la reverificación: la cita sin pasaje es un pendiente, la huella de una fuente va en B-9, la cancelación de la firma en B-14, el pendiente de B-16 en B-15 y la regla 4 en el «Entendí» y Wonder · v0.2 · 28-oct · corregido tras la revisión de un agente frío (10 hallazgos y 5 elecciones sin marcar): B-13 a B-18 nuevas, firma sobre lo firmado, huella antes, nombres del glosario · v0.1 · 28-oct · borrador
 relacion: aplica _plan-hackathon.md §1 (rebanada 1, con lo que suma H-3) y H-1 (caso 5); implementa bloque-1-estados.md, bloque-1-fichas.md §2, §3 y §7, bloque-1-flujos.md §3, bloque-3-especificacion.md §2 a §4, los esquemas de salida y pantallas.md. Mismo formato y mismo «Retorno» que backlog.md (rebanada 0). Las reglas para el agente siguen en ../../AGENTS.md
 ---
 
 # Backlog · rebanada 1
 
-**Respuesta:** 9 piezas: la 1.0 cierra la cadena de dependencias y las 1.1 a 1.8 construyen el ciclo. Al terminar, **el tramo del caso 5 que toca a la rebanada 1 pasa de punta a punta sin intervención manual** (plan §1, H-1): creas el proyecto de demo, envías el pedido, confirmas el «Entendí», el agente escribe con una decisión crítica y su cifra, respondes la tarjeta, ves la historia del párrafo y firmas después de que Wonder te pide lo que faltaba. Quedan para la 2 las comprobaciones completas, el «por aclarar», la parada y el marco.
+**Respuesta:** 10 piezas: la 1.0 cierra la cadena de dependencias, las 1.1 a 1.8 construyen el ciclo y la 1.5b pone la interfaz en tres columnas con el marco mínimo. Al terminar, **el tramo del caso 5 que toca a la rebanada 1 pasa de punta a punta sin intervención manual** (plan §1, H-1): creas el proyecto de demo, envías el pedido, confirmas el «Entendí», el agente escribe con una decisión crítica y su cifra, respondes la tarjeta, ves la historia del párrafo y firmas después de que Wonder te pide lo que faltaba. Quedan para la 2 las comprobaciones completas, el «por aclarar», la parada y el marco.
 
 **Decisiones:** B-8 (aristas, en `backlog.md`) y B-9 a B-20 (abajo) están adoptadas; B-9, con PDF. **Listo de nuestro lado:** la plantilla del caso 5 (B-12) y la versión de pnpm (B-19).
 
@@ -71,7 +71,9 @@ flowchart LR
   P3 --> P4["1.4 Criticidad y tarjetas"]
   P3 --> P6["1.6 Historia por bloque"]
   P4 --> P5["1.5 Estado, pendientes y huella"]
-  P5 --> P7["1.7 Firma"]
+  P5 --> P5b["1.5b Tres columnas y marco"]
+  P6 --> P5b
+  P5b --> P7["1.7 Firma"]
   P6 --> P7
   P7 --> P8["1.8 El caso 5 de punta a punta"]
 ```
@@ -156,6 +158,19 @@ flowchart LR
 | **No hacer** | «Escrita con lo anterior» y la lista de cambios (rebanada 2, E-4 y A-1). Volver a «firmada» al deshacer (rebanada 4, G-1) |
 | **Si algo no está** | Cómo se reconoce la pestaña editora: el mínimo, con `[EL DISEÑO NO LO DICE]` |
 
+### 1.5b · Interfaz en tres columnas y marco mínimo
+
+| Campo | Contenido |
+|---|---|
+| **Qué** | La app pasa de una página apilada a tres columnas: el marco a la izquierda, la conversación al centro y el documento a la derecha. El marco te deja ver para qué es el documento, cómo se juzga, su esqueleto con las decisiones críticas y lo que te toca |
+| **Implementa** | B3-9 (precisión del 29-oct) · espec. §9 (el marco), sin la línea de vuelta ni el «sin ver» exacto · `pantallas.md` («Disposición general») · P-28 si la 1.3 no lo cerró |
+| **Leer** | `docs/diseno/bloque-3/pantallas.md` («Disposición general» y P4, P5) · `docs/diseno/bloque-3/boceto-ui.html` (disposición, textos y comportamiento de referencia; sus datos son de ejemplo) · espec. §9 · fichas §2 («El marco») |
+| **Interfaz** | `internal/graph`: `Frame(ctx, projectID) (Frame, error)`, sin modelo y de solo lectura; reutiliza el estado de trabajo, `Critical` (1.4) y los pendientes (1.5); suma el «porque» de cada tarjeta respondida y la explicación de firma vigente; excluye lo reemplazado y lo revocado · `GET /api/projects/{projectID}/frame` · desplegar una decisión registra `decision_seen` con `seen_via: frame` · web: tres columnas; selector de proyectos arriba del marco; el pedido con «Qué quieres» y las fuentes, y «Afinar» plegado (para quién, criterios, tu idea, exploratorio); el «Entendí» y las tarjetas como tarjetas dentro de la conversación; el documento aparece cuando hay secciones; «Firmar sección» junto al documento; la traza plegada; «Te toca» del marco lleva a la tarjeta o a la firma · todo texto de pantalla desde `en.json`/`es.json` · en pantallas angostas, columnas apiladas |
+| **Listo cuando** | Prueba: `Frame` del caso 5 trae el pedido literal, los criterios con sus casos, las secciones con su primera línea y la decisión crítica bajo «Síntesis» y «Conclusiones» con el mismo id · prueba: una decisión reemplazada no aparece · prueba: desplegarla registra `decision_seen` (`frame`) · prueba: ≤ 300 ms con el caso 5 · en el navegador (lo prueba Eber): el recorrido del boceto, etapas 1 a 4, con el proveedor falso |
+| **Depende de** | 1.4 · 1.5 · 1.6 (la historia que abre el marco) |
+| **No hacer** | La línea de vuelta y el «sin ver» exacto (rebanada 2). Que un modelo resuma el marco. Mostrar ids internos. Abrir el marco desde la firma |
+| **Si algo no está** | `[EL DISEÑO NO LO DICE]` y una línea en `elecciones-agente.md` |
+
 ### 1.6 · Historia por bloque
 
 | Campo | Contenido |
@@ -197,7 +212,7 @@ flowchart LR
 
 ## Horas `[inferencia]`
 
-1.0: 1–2 · 1.1: 2–3 (+ ≈ 3 h por el PDF, B-9) · 1.2: 3–4 · 1.3: 5–7 · 1.4: 3–4 · 1.5: 3–4 · 1.6: 2–3 · 1.7: 5–7 · 1.8: 2–3. **Total: 29–40 h** con la 1.0 y el PDF. El plan le da a la rebanada 1 dos días (29 y 30-oct). No cabe sin recortes ni sin agentes en paralelo: es lo primero que debe resolver la reconciliación de horas.
+1.0: 1–2 · 1.1: 2–3 (+ ≈ 3 h por el PDF, B-9) · 1.2: 3–4 · 1.3: 5–7 · 1.4: 3–4 · 1.5: 3–4 · 1.5b: 5–8 · 1.6: 2–3 · 1.7: 5–7 · 1.8: 2–3. **Total: 34–48 h** con la 1.0, el PDF y la 1.5b. El plan le da a la rebanada 1 dos días (29 y 30-oct). No cabe sin recortes ni sin agentes en paralelo: es lo primero que debe resolver la reconciliación de horas.
 
 ## Retorno de cada pieza
 

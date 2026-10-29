@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Pantallas (bocetos)
-estado: v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
+estado: v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
 relacion: dibuja funcionalidades.md (v1.0) sobre bloque-3.md §4. Usa fichas §2 y §8.2, flujos §3 (firma), especificación §9 (el marco) y las decisiones B3-9 y B3-18 a B3-21. No decide reglas: solo dónde va cada cosa y qué datos pide cada vista. Es la entrada de la arquitectura
 ---
 
@@ -54,7 +54,36 @@ flowchart LR
 
 **En la rebanada 1:** solo los dos botones y la lista. Hasta «Entrega» no hay cuentas, así que la lista no filtra por dueño `[inferencia]`.
 
-## P2 · Pedido y «Entendí» [1]
+## Disposición general (29-oct, B3-9 precisada)
+
+**Tres columnas, como un chat con su documento al lado.** El boceto navegable con el caso de demo está en `boceto-ui.html` (misma carpeta): manda sobre los dibujos de abajo en lo que es disposición; los datos que lee cada zona siguen siendo los de estas tablas.
+
+```
+┌ Izquierda · el marco ─┬ Centro · conversación ────────────┬ Derecha · el documento ─────────┐
+│ [Proyecto ▾]          │ Pedido: «Qué quieres» + fuentes;  │ (aparece cuando hay secciones)  │
+│ Línea de vuelta [2]   │  «Afinar ▸» para quién,           │ Síntesis · 1 te toca            │
+│ Para qué (literal)    │  criterios, tu idea               │ …texto… [1,5 veces]             │
+│ Cómo se juzga         │ «Entendí» como tarjeta            │  clic en un párrafo → historia  │
+│ Esqueleto: secciones, │ El agente: texto, triaje, nota ▸  │ Traza ▸ (plegada)               │
+│  1.ª línea, decisiones│ Tarjeta crítica: opción + porque  │ [ Firmar sección ]              │
+│  críticas ▸           │ [ Dile al agente qué hacer… ]     │                                 │
+│ Lo que te toca (n)    │                                   │                                 │
+└───────────────────────┴───────────────────────────────────┴─────────────────────────────────┘
+```
+
+| Zona | Haces | Lee |
+|---|---|---|
+| Izquierda · el marco | cambiar de proyecto · desplegar una decisión (registra `decision_seen`, `frame`) · ir a la historia o a la tarjeta · ir a lo que te toca · filtro «solo lo que no viste» | `frame(project)` (espec. §9): pedido, destinatario y premisa en literal; criterios y sus casos; secciones con estado, primera línea y decisiones críticas; pendientes del humano. La línea de vuelta y el «sin ver» exacto, en la rebanada 2 |
+| Centro · conversación | 2a escribir el pedido · 2b subir fuentes · 2d y 2e confirmar o corregir el «Entendí» · 3a enviar un mensaje · 3d leer la nota · 4d responder tarjetas | stream del turno (texto parseado, triaje, nota; nunca el JSON crudo, P-28), el «Entendí», las tarjetas abiertas |
+| Derecha · documento | 4a editar · 6a clic en un párrafo · pedir firmar | texto vigente, cifras y citas vinculadas, avisos, historia del bloque (P5), lo gastado y el último triaje (traza) |
+
+**Reglas que se mantienen:** el chat no confirma nada (una tarjeta solo se cierra con opción y «porque»); nada bloquea; la firma va a pantalla completa y oculta el marco y el texto (P7); ningún id interno a la vista (regla 7). En pantallas angostas, las tres columnas se apilan.
+
+## P2 y P3 · versión del 28-oct (reemplazada por la disposición general)
+
+*Se conserva para ver qué lee cada zona; la disposición vigente es la de arriba.*
+
+### P2 · Pedido y «Entendí» [1]
 
 ```
 ┌─ Pedido ─────────────────────────┬─ «Entendí» (lo escribe el agente) ───┐
@@ -75,7 +104,7 @@ flowchart LR
 
 No bloquea: si no respondes, el trabajo sigue y los casos quedan sin confirmar (fichas §2).
 
-## P3 · Proyecto trabajando [0 editor · 1 lo demás]
+### P3 · Proyecto trabajando [0 editor · 1 lo demás]
 
 ```
 ┌ Barra: triaje «Tramo · Riesgo · si delega, por qué» · modo [4] · gastado 0,42/3 USD · [ Firmar sección ] ┐

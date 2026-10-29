@@ -61,9 +61,9 @@ Bloques: 1 Núcleo (flujo humano-agentes) · 2 Memoria del orquestador · 3 Plat
     - El chat verifica unos 30 s después de escribir que su cambio sigue ahí; si no, lo dice de inmediato.
     - Si Eber responde en un archivo, lo avisa en el chat; si responde en el chat, lo escribe el chat.
     - Commit antes de cada tanda larga de cambios del chat.
-12. **Dos carpetas: en una se escribe y en la otra solo se mira (28-oct).** Pedido de Eber, en literal: «solo trabajamos en la carpeta tupaqnin_desing y en al carpeta tupaqnin no realizamos ningún cambio solo supervisamos lo que el agente de muse code está avanzando».
+12. **Dos carpetas: en una se escribe y en la otra solo se mira (28-oct).** Pedido de Eber, en literal: «solo trabajamos en la carpeta tupaqnin_desing y en al carpeta tupaqnin no realizamos ningún cambio solo supervisamos lo que el agente de muse code está avanzando» (desde el 29-oct, el agente es Claude Code).
     - **`SideProjects/tupaqnin_design/`:** aquí escribe el chat (diseño, backlog, decisiones), con la regla 11.
-    - **`SideProjects/tupaqnin/`:** es la carpeta del agente de código (Muse Code). El chat solo lee: lista, lee y usa `git --no-optional-locks` para `status`, `log` y `diff`.
+    - **`SideProjects/tupaqnin/`:** es la carpeta del agente de código (Claude Code desde el 29-oct; antes, Muse Code). El chat solo lee: lista, lee y usa `git --no-optional-locks` para `status`, `log` y `diff`.
     - En `tupaqnin/` el chat no crea, edita, mueve ni borra nada: ni `CLAUDE.md`, ni notas, ni temporales. Tampoco corre builds, pruebas ni instalaciones, ni toca el `.env`. Si hace falta correr algo, copia los archivos a su espacio en la nube y lo corre allá.
     - Lo que el chat encuentra al supervisar va a Eber, y si es una decisión, como fila con contraste. Al agente le habla Eber, no el chat.
     - Comprobación: `git status` en `tupaqnin/` muestra lo mismo antes y después de cada supervisión.

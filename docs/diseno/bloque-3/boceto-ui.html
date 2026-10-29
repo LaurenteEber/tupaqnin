@@ -1,0 +1,352 @@
+<title>tupaqnin · boceto</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: tres columnas (el marco · la conversación · el documento). El documento usa tipografía de libro porque es lo que se firma */
+:root{
+  --bg:#f6f7f5; --panel:#ffffff; --sunk:#eef0ec; --line:#d9ddd6;
+  --fg:#1d2420; --muted:#5f6a63; --accent:#1f5f4e; --accent-soft:#e1ede8;
+  --todo:#9a5a12; --todo-soft:#f6ead9; --ok:#2f6b3a; --ok-soft:#e3efe2;
+  --ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --doc:"Newsreader",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141816; --panel:#1b201d; --sunk:#222825; --line:#323a35;
+  --fg:#e5ebe7; --muted:#9aa69f; --accent:#7cc4ad; --accent-soft:#1f3a32;
+  --todo:#e0a85a; --todo-soft:#3a2c18; --ok:#8fcf98; --ok-soft:#1e3322; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141816; --panel:#1b201d; --sunk:#222825; --line:#323a35;
+  --fg:#e5ebe7; --muted:#9aa69f; --accent:#7cc4ad; --accent-soft:#1f3a32;
+  --todo:#e0a85a; --todo-soft:#3a2c18; --ok:#8fcf98; --ok-soft:#1e3322; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--ui);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.brand{font-weight:600;font-size:16px;letter-spacing:.01em}
+.brand small{font-weight:400;color:var(--muted);margin-left:8px}
+.stages{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.stages span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-right:4px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.app{display:grid;grid-template-columns:300px minmax(0,1fr) minmax(0,1.05fr);gap:12px;height:calc(100% - 52px);min-height:600px}
+.app.nodoc{grid-template-columns:300px minmax(0,1fr) 0}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.nodoc .doc{display:none}
+.hd{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500}
+.scroll{overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:14px;flex:1}
+.meta{font-size:12px;color:var(--muted);font-weight:400}
+.st{font-size:11px;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.st.draft{background:var(--sunk);color:var(--muted)}
+.st.todo{background:var(--todo-soft);color:var(--todo)}
+.st.signed{background:var(--ok-soft);color:var(--ok)}
+/* selector de proyectos */
+.proj{border:0;background:none;font-weight:600;display:flex;gap:6px;align-items:center;padding:2px 0;text-align:left}
+.proj::after{content:"▾";color:var(--muted);font-weight:400}
+.pmenu{position:absolute;left:10px;right:10px;top:100%;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.pmenu button{border:0;background:none;text-align:left;padding:6px 8px;border-radius:6px;display:flex;justify-content:space-between}
+.pmenu button:hover{background:var(--sunk)}
+/* el marco */
+.fsec{display:flex;flex-direction:column;gap:6px}
+.fsec h4{margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;display:flex;justify-content:space-between}
+.lit{margin:0;font-size:13px}
+.lit q{quotes:"«" "»"}
+.crit{font-size:13px;border-left:2px solid var(--line);padding-left:8px;display:flex;flex-direction:column;gap:2px}
+.yes{color:var(--ok);font-weight:500}.no{color:var(--todo);font-weight:500}
+.skel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.sec{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.sec.on{border-color:var(--accent)}
+.sec .t{display:flex;justify-content:space-between;gap:6px;align-items:center;font-weight:500;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+.first{margin:0;font-size:12.5px;color:var(--muted);font-family:var(--doc);font-size:14px;line-height:1.4}
+.dec{border-top:1px dashed var(--line);padding-top:6px}
+.dec summary{cursor:pointer;font-size:13px;display:flex;gap:6px;align-items:baseline;list-style:none}
+.dec summary::-webkit-details-marker{display:none}
+.ico{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--todo);flex:none;align-self:center}
+.decbody{font-size:12.5px;display:flex;flex-direction:column;gap:4px;margin-top:6px;padding-left:4px}
+.decbody b{font-weight:500}
+.link{border:0;background:none;color:var(--accent);padding:0;text-decoration:underline;text-underline-offset:2px;font-size:12.5px;text-align:left}
+.back{background:var(--accent-soft);border-radius:8px;padding:8px 10px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+.back b{font-weight:600}
+.tlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.tlist button{width:100%;text-align:left;border:0;background:none;padding:6px 8px;border-radius:6px;display:flex;justify-content:space-between;gap:6px;align-items:center}
+.tlist button:hover{background:var(--sunk)}
+.filter{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+/* centro */
+.msg{max-width:62ch}
+.msg.me{align-self:flex-end;background:var(--sunk);padding:8px 12px;border-radius:10px 10px 2px 10px}
+.msg.agent{display:flex;flex-direction:column;gap:6px}
+.triage{font-family:var(--mono);font-size:12px;color:var(--muted);border-left:2px solid var(--line);padding-left:8px}
+.note summary{cursor:pointer;color:var(--muted);font-size:13px}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-width:64ch}
+.card.todo{border-color:var(--todo);background:linear-gradient(var(--todo-soft),var(--todo-soft)) top/100% 3px no-repeat}
+.card h3{margin:0;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{font-size:11px;font-weight:500;color:var(--todo);text-transform:uppercase;letter-spacing:.06em}
+.case{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line)}
+.case:first-of-type{border-top:0}
+.case p{margin:0;flex:1 1 220px;min-width:0}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:5px 11px;font-size:13px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.btn.small{padding:3px 9px;font-size:12px}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.opt input{margin-top:4px}
+.contrast{font-size:13px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--muted)}
+.field input,.field textarea{border:1px solid var(--line);border-radius:7px;background:var(--panel);padding:7px 9px;width:100%}
+.hint{font-size:12px;color:var(--muted)}
+.hint.warn{color:var(--todo)}
+.composer{border-top:1px solid var(--line);padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.composer textarea{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:9px 10px;width:100%;resize:vertical;min-height:44px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.files{display:flex;gap:6px;flex-wrap:wrap}
+.file{font-size:12px;background:var(--sunk);border-radius:6px;padding:2px 8px}
+.file.calc{background:var(--accent-soft);color:var(--accent)}
+details.afinar{border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+details.afinar summary{cursor:pointer;font-size:13px;color:var(--muted)}
+details.afinar[open]{display:flex;flex-direction:column;gap:8px}
+.empty{color:var(--muted);text-align:center;margin:auto;max-width:40ch;display:flex;flex-direction:column;gap:6px}
+.empty b{color:var(--fg);font-size:18px;font-weight:500}
+/* derecha: documento */
+.doctitle{font-family:var(--doc);font-size:20px;margin:0;font-weight:500;text-wrap:balance}
+.paper{font-family:var(--doc);font-size:17px;line-height:1.6;max-width:62ch}
+.paper p{margin:0 0 12px;padding:2px 6px;margin-left:-6px;border-radius:5px;cursor:pointer}
+.paper p:hover{background:var(--sunk)}
+.paper p.sel{background:var(--accent-soft)}
+.fig{border-bottom:2px solid var(--todo);font-variant-numeric:tabular-nums;padding:0 1px}
+.fig.ok{border-color:var(--accent)}
+.hist{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.hist ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.hist .who{font-weight:500}
+.trace summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.trace dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:8px 0 0;font-size:13px}
+.trace dt{color:var(--muted)}
+.trace dd{margin:0;font-variant-numeric:tabular-nums}
+.bar{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:14%}
+/* firma */
+.sign{position:fixed;inset:0;background:var(--bg);z-index:20;display:flex;justify-content:center;
+  padding:max(24px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));overflow:auto}
+.sign .box{max-width:680px;width:100%;display:flex;flex-direction:column;gap:14px}
+.sign h2{font-family:var(--doc);font-weight:500;font-size:26px;margin:0}
+.sign textarea{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:10px;min-height:120px;width:100%}
+.wonder{border-left:3px solid var(--todo);background:var(--panel);padding:10px 14px;border-radius:0 8px 8px 0}
+.note-mock{font-size:12px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
+@media (max-width:980px){
+  .app,.app.nodoc{grid-template-columns:1fr;height:auto}
+  .nodoc .doc{display:none}
+}
+@media (prefers-reduced-motion:no-preference){.chip,.btn,.tlist button{transition:background .15s}}
+</style>
+
+<header class="top">
+  <div class="brand">tupaqnin <small>boceto de interfaz · datos del caso de demo</small></div>
+  <div class="stages" role="group" aria-label="Etapa del recorrido">
+    <span>Ver etapa</span>
+    <button class="chip" data-stage="pedido" aria-pressed="true">1 · Pedido</button>
+    <button class="chip" data-stage="entendi" aria-pressed="false">2 · «Entendí»</button>
+    <button class="chip" data-stage="trabajo" aria-pressed="false">3 · Trabajando</button>
+    <button class="chip" data-stage="firma" aria-pressed="false">4 · Firma</button>
+    <button class="chip" data-stage="vuelta" aria-pressed="false">5 · Vuelves 10 días después</button>
+  </div>
+</header>
+
+<main class="app nodoc" id="app">
+  <aside class="col" aria-label="El marco del proyecto">
+    <div class="hd">
+      <button class="proj" id="projBtn" aria-expanded="false">Microplásticos en agua potable</button>
+      <div class="pmenu" id="pmenu" hidden>
+        <button>Microplásticos en agua potable <span class="meta">hoy</span></button>
+        <button>Evaluación de impacto <span class="meta">ayer</span></button>
+        <button class="meta">+ Proyecto nuevo</button>
+      </div>
+    </div>
+    <div class="scroll" id="frame"></div>
+  </aside>
+
+  <section class="col" aria-label="Conversación con el agente">
+    <div class="hd"><span class="lbl">Conversación</span><span class="meta" id="spent">gastado 0,00 de 3 USD</span></div>
+    <div class="scroll" id="chat"></div>
+    <div class="composer" id="composer"></div>
+  </section>
+
+  <section class="col doc" aria-label="Documento">
+    <div class="hd"><span class="lbl">Documento · lo que firmas</span><button class="btn primary small" id="signBtn">Firmar sección</button></div>
+    <div class="scroll" id="doc"></div>
+  </section>
+</main>
+
+<div class="sign" id="sign" hidden>
+  <div class="box">
+    <div class="row"><span class="lbl">Firma · Síntesis · el marco y el texto quedan ocultos</span><button class="btn small" id="leave">Dejar para después</button></div>
+    <h2>Explica con tus palabras, sin mirar el texto</h2>
+    <p class="hint">Qué dice la sección y por qué la comparación se hace como se hace.</p>
+    <div class="field"><label for="expl">Tu explicación</label>
+      <textarea id="expl">La embotellada trae más partículas que la de grifo, unas 1,5 veces, comparando los estudios que usan el mismo filtro.</textarea></div>
+    <div class="wonder">
+      <div class="tag">Falta en tu explicación</div>
+      <p style="margin:6px 0">Dices el resultado, pero no por qué no se usan los conteos de todos los estudios. Caso nuevo: un estudio con filtro de 1 micra encuentra 900 partículas por litro en agua de grifo. ¿Entra en la comparación?</p>
+    </div>
+    <div class="field"><label for="caseAns">Tu respuesta al caso</label>
+      <textarea id="caseAns" style="min-height:70px">No: con 1 micra se cuentan partículas que los filtros de 20 no ven. Solo se comparan estudios con el mismo tamaño mínimo.</textarea></div>
+    <div class="row"><span class="hint">El modelo que contrasta: Muse Wonder</span><button class="btn primary" id="doSign">Firmar</button></div>
+  </div>
+</div>
+
+<script>
+const S={stage:"pedido",card:"open",selP:1,signed:false,seen:false,unseenOnly:false};
+const $=s=>document.querySelector(s);
+const files=["t1-quispe-morales-2016.md","t2-haller-brandt-2018.md","… 12 más","calculo-comparacion.md"];
+const working=()=>["trabajo","firma","vuelta"].includes(S.stage);
+
+/* ---------- el marco (izquierda) ---------- */
+function frame(){
+  const f=$("#frame");
+  if(S.stage==="pedido"){f.innerHTML=`<div class="empty" style="margin-top:20px"><b style="font-size:15px">El marco</b><span>Cuando envíes tu pedido, aquí verás para qué es el documento, cómo se juzga, su esqueleto con las decisiones que importan y lo que te toca. Lo calcula la app, sin resumir con un modelo.</span></div>`;return}
+  const caseSt=S.stage==="entendi"?'<span class="st todo">sin confirmar</span>':'<span class="st signed">confirmado</span>';
+  const decOk=S.card==="done";
+  const dec=(where)=>`<details class="dec" ${S.openDec===where?"open":""} data-dec="${where}">
+     <summary>${(!S.seen&&!decOk)?'<span class="dot" title="sin ver"></span>':''}<span class="ico" title="crítica por: cifra">cifra</span><span>Comparar solo con el mismo filtro (20 micras)</span></summary>
+     <div class="decbody">
+       <div><b>En vez de:</b> comparar los conteos de los 12 estudios (60 veces).</div>
+       <div><b>Elegiría la otra si:</b> todos usaran el mismo filtro.</div>
+       <div><b>Tu porque:</b> ${decOk?"«si no, comparo filtros y no aguas»":'<span class="no">todavía no respondes</span>'}</div>
+       ${S.signed?'<div><b>Tu explicación de firma:</b> «con 1 micra se cuentan partículas que los filtros de 20 no ven».</div>':''}
+       <div><b>La usan:</b> Síntesis · Conclusiones</div>
+       <div class="row" style="justify-content:flex-start"><button class="link" data-hist="1">Ver la historia del párrafo</button>${decOk?'':'<button class="link" data-todo="card">Responder</button>'}</div>
+     </div></details>`;
+  const secs=[
+    {n:"Estudios incluidos",st:'<span class="st draft">borrador</span>',first:"Se incluyen 12 estudios de campo publicados entre 2015 y 2026; se excluye uno de laboratorio.",decs:""},
+    {n:"Síntesis",st:S.signed?'<span class="st signed">firmada</span>':decOk?'<span class="st draft">lista</span>':'<span class="st todo">1 te toca</span>',first:"Los estudios de campo coinciden en que el agua embotellada trae más partículas que la de grifo…",decs:dec("s"),on:true},
+    {n:"Conclusiones",st:'<span class="st draft">borrador</span>',first:"Con el mismo filtro, la diferencia es de 1,5 veces, menor de lo que sugieren los conteos crudos.",decs:dec("c")}
+  ];
+  const todos=[];
+  if(S.stage==="entendi")todos.push(['entendi','Confirmar lo que entendí','3 casos']);
+  if(working()&&!decOk)todos.push(['card','Responder la tarjeta de «Comparar solo con el mismo filtro»','crítica']);
+  if(working()&&decOk&&!S.signed)todos.push(['sign','Firmar «Síntesis»','lista']);
+  f.innerHTML=`
+   ${S.stage==="vuelta"?`<div class="back"><b>Volviste después de 10 días</b><span>Dónde quedaste: firmaste «Síntesis».</span><span>Qué cambió: 3 pasos del agente en «Conclusiones» · <button class="link">ver la historia</button></span><span>Qué te toca: 0</span></div>`:""}
+   <div class="fsec"><h4>Para qué</h4>
+     <p class="lit"><q>El estado del arte sobre microplásticos en agua potable: compara conteos y métodos entre grifo y embotellada.</q></p>
+     <p class="lit meta">Para: tu comité de tesis · Tu idea: <q>la embotellada trae más partículas que la del grifo</q></p></div>
+   <div class="fsec"><h4>Cómo se juzga</h4>
+     <div class="crit"><span><q>Solo estudios de campo, no de laboratorio.</q></span>
+       <span><span class="yes">Cuenta:</span> muestreo de grifos reales ${caseSt}</span>
+       <span><span class="no">No cuenta:</span> botellas agitadas en laboratorio ${caseSt}</span></div></div>
+   ${S.stage==="entendi"?`<div class="fsec"><h4>Esqueleto</h4><p class="meta">Propuesto: Estudios incluidos · Síntesis · Conclusiones. Aparece con el texto.</p></div>`:`
+   <div class="fsec"><h4>Esqueleto <label class="filter"><input type="checkbox" id="uo" ${S.unseenOnly?"checked":""}> solo lo que no viste</label></h4>
+     <ul class="skel">${secs.filter(s=>!S.unseenOnly||(s.decs&&!S.seen&&!decOk)).map(s=>`<li class="sec ${s.on?"on":""}"><button class="t">${s.n} ${s.st}</button><p class="first">${s.first}</p>${s.decs}</li>`).join("")||'<li class="meta">Ya viste todo.</li>'}</ul></div>`}
+   <div class="fsec"><h4>Lo que te toca <span>${todos.length||""}</span></h4>
+     <ul class="tlist">${todos.length?todos.map(([k,t,m])=>`<li><button data-todo="${k}">${t} <span class="st ${k==='sign'?'signed':'todo'}">${m}</span></button></li>`).join(''):'<li class="meta" style="padding:4px 8px">Nada por ahora.</li>'}</ul></div>`;
+}
+
+/* ---------- conversación (centro) ---------- */
+function chips(){return `<div class="files">${files.map(f=>`<span class="file${f.startsWith("calculo")?" calc":""}">${f}${f.startsWith("calculo")?" · cálculo":""}</span>`).join("")}</div>`}
+const pedidoMsg=`<div class="msg me">Escribe conmigo el capítulo 2 de mi tesis: el estado del arte sobre microplásticos en agua potable. Compara conteos y métodos entre grifo y embotellada.
+  <div class="meta" style="margin-top:4px">Para: mi comité de tesis · 2 criterios · tu idea: la embotellada trae más · 15 fuentes</div></div>`;
+const entendi=(done)=>`<div class="card ${done?"":"todo"}"><h3>Lo que entendí ${done?'<span class="st signed">confirmado</span>':'<span class="tag">Te toca · no bloquea</span>'}</h3>
+  <p style="margin:0">Escribo el estado del arte comparando conteos y métodos, sin evaluar salud. Propongo tres secciones: Estudios incluidos, Síntesis (conclusión) y Conclusiones (conclusión).</p>
+  <div><div class="lbl">Criterio «solo estudios de campo»</div>
+  <div class="case"><p><span class="yes">Cuenta:</span> un muestreo de grifos reales en 30 viviendas.</p>${done?'<span class="st signed">confirmado</span>':'<button class="btn small">Confirmar</button><button class="btn small">Corregir</button>'}</div>
+  <div class="case"><p><span class="no">No cuenta:</span> botellas llenadas y agitadas en el laboratorio.</p>${done?'<span class="st signed">confirmado</span>':'<button class="btn small">Confirmar</button><button class="btn small">Corregir</button>'}</div></div>
+  <div><div class="lbl">Lo que leí de tu material</div><div class="case"><p>Tu cálculo da 60 veces con conteos crudos y 1,5 veces con el mismo filtro.</p>${done?'':'<button class="btn small">Confirmar</button>'}</div></div>
+  ${done?'':'<div class="row"><span class="hint">Si no respondes, sigo trabajando y estos casos quedan sin confirmar.</span><button class="btn primary small" data-go="trabajo">Confirmar todo</button></div>'}</div>`;
+const agentStep=`<div class="msg agent"><div class="triage">Construir · riesgo medio: la comparación decide la conclusión</div>
+  <div>Escribí «Síntesis» y «Conclusiones». La comparación usa solo los 5 estudios con filtro de 20 micras: la embotellada trae 1,5 veces más partículas.</div>
+  <details class="note"><summary>Nota del agente</summary><p class="hint">Descarté los conteos crudos (60 veces): mezclan filtros de 1, 20 y 100 micras. Siguiente: «Estudios incluidos».</p></details></div>`;
+function tarjeta(){
+  if(S.card==="done") return `<div class="card"><h3>Decisión crítica <span class="st signed">respondida</span></h3><p style="margin:0">Mantener: comparar solo con el mismo tamaño mínimo. <span class="meta">Tu porque: «si no, comparo filtros y no aguas».</span></p></div>`;
+  return `<div class="card todo" id="card"><h3>Decisión crítica: comparar solo con el mismo filtro <span class="tag">Te toca</span></h3>
+  <p style="margin:0">La usan «Síntesis» y «Conclusiones», y de ella sale la cifra 1,5.</p>
+  <div class="opts">
+   <label class="opt"><input type="radio" name="o" checked><span><b>Mantener:</b> comparar solo estudios con el mismo tamaño mínimo de filtro (20 micras, 5 estudios) → 1,5 veces.</span></label>
+   <label class="opt"><input type="radio" name="o"><span><b>La otra:</b> comparar los conteos de los 12 estudios de campo → 60 veces.</span></label>
+  </div>
+  <p class="contrast">Elegiría la otra si todos los estudios usaran el mismo filtro.</p>
+  <div class="field"><label for="why">Tu «porque» (obligatorio; «ok» no cuenta)</label><input id="why" value="si no, comparo filtros y no aguas"></div>
+  <div class="row"><span class="hint" id="whyHint">Responder aquí cierra la tarjeta; escribirle «ok» al agente no.</span><button class="btn primary small" id="answer">Responder</button></div></div>`}
+function chat(){
+  const c=$("#chat");
+  if(S.stage==="pedido"){c.innerHTML=`<div class="empty"><b>¿Qué quieres construir?</b><span>Escríbelo en una o dos líneas y adjunta tu material. Lo demás se puede afinar después.</span></div>`;return}
+  let h=pedidoMsg+entendi(S.stage!=="entendi");
+  if(working()) h+=agentStep+tarjeta();
+  if(S.stage==="vuelta") h+=`<div class="msg agent"><div class="triage">Construir · riesgo bajo</div><div>Avancé «Conclusiones» con la misma regla de comparación. No hay decisiones nuevas que te toquen.</div></div>`;
+  c.innerHTML=h; c.scrollTop=c.scrollHeight;
+}
+function composer(){
+  const k=$("#composer");
+  if(S.stage==="pedido"){k.innerHTML=`
+   <div class="field"><label for="q">Qué quieres</label><textarea id="q" rows="3">Escribe conmigo el capítulo 2 de mi tesis: el estado del arte sobre microplásticos en agua potable. Compara conteos y métodos entre grifo y embotellada.</textarea></div>
+   ${chips()}
+   <details class="afinar"><summary>Afinar (opcional): para quién, criterios, tu idea</summary>
+    <div class="field"><label for="aud">Para quién</label><input id="aud" value="Mi comité de tesis: tres profesores de ingeniería ambiental"></div>
+    <div class="field"><label for="cri">Criterios (uno por línea)</label><textarea id="cri" rows="2">Solo estudios de campo, no de laboratorio.
+No evalúa efectos en la salud.</textarea></div>
+    <div class="field"><label for="idea">Tu idea</label><input id="idea" value="El agua embotellada trae más partículas que la del grifo."></div>
+    <label class="hint"><input type="checkbox" id="expl0"> Exploratorio (todavía sin idea)</label>
+   </details>
+   <div class="row"><button class="btn small">Adjuntar fuentes</button><button class="btn primary" data-go="entendi">Enviar</button></div>`;return}
+  k.innerHTML=`<textarea id="msg" placeholder="Dile al agente qué hacer…" aria-label="Mensaje al agente"></textarea>
+   <div class="row"><span class="hint">Las decisiones se toman en sus tarjetas, no en el chat.</span><button class="btn primary small">Enviar</button></div>`;
+}
+
+/* ---------- documento (derecha) ---------- */
+const paras=[
+ `Los estudios de campo coinciden en que el agua embotellada trae más partículas que la de grifo, pero la diferencia depende del filtro con que se cuenta.`,
+ `Con los conteos crudos de los 12 estudios, la embotellada trae <span class="fig">60 veces</span> más partículas. Esa cifra mezcla filtros de 1, 20 y 100 micras.`,
+ `Entre los 5 estudios que usan el mismo tamaño mínimo, 20 micras, la embotellada trae <span class="fig ok">1,5 veces</span> más partículas por litro.`];
+function doc(){
+  const d=$("#doc");
+  if(!working()){$("#app").classList.add("nodoc");return}
+  $("#app").classList.remove("nodoc");
+  const decOk=S.card==="done";
+  const hist=S.selP===null?"":`<div class="hist"><div class="lbl">Cómo se llegó a este párrafo</div><ol>
+   <li><span class="who">Agente</span> · 16:42 · escribió el párrafo en el paso 3.</li>
+   <li><span class="who">Decisión crítica</span> · comparar solo con el mismo filtro, en vez de los conteos crudos. ${decOk?'<span class="st signed">tú: mantener</span> «si no, comparo filtros y no aguas»':'<span class="st todo">sin responder</span>'}</li>
+   <li><span class="who">Cifra 1,5</span> · copiada de <span class="file calc">calculo-comparacion.md · cálculo</span></li>
+   <li class="meta">Descartado: 60 veces (conteos crudos).</li></ol></div>`;
+  d.innerHTML=`${S.signed?'<div class="card" style="border-color:var(--ok)"><h3>Síntesis firmada <span class="st signed">firmada</span></h3><p class="hint" style="margin:0">Guarda tu explicación, el caso y la versión exacta del texto.</p></div>':''}
+   <div class="row"><h2 class="doctitle">Síntesis</h2>${S.signed?'<span class="st signed">firmada</span>':decOk?'<span class="st draft">lista para firmar</span>':'<span class="st todo">1 te toca</span>'}</div>
+   <div class="paper">${paras.map((p,i)=>`<p data-i="${i}" class="${S.selP===i?"sel":""}">${p}</p>`).join("")}</div>
+   <p class="hint">Haz clic en un párrafo para ver su historia.</p>${hist}
+   <details class="trace"><summary>Traza del proyecto</summary><dl>
+    <dt>Último paso</dt><dd>Construir · riesgo medio</dd><dt>Gastado</dt><dd>0,42 de 3 USD</dd>
+    <dt></dt><dd><div class="bar"><i></i></div></dd><dt>Pasos del agente</dt><dd>3</dd></dl></details>`;
+}
+
+function render(){
+  document.querySelectorAll(".chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.stage===S.stage));
+  $("#sign").hidden=S.stage!=="firma";
+  $("#spent").textContent=S.stage==="pedido"?"gastado 0,00 de 3 USD":S.stage==="entendi"?"gastado 0,03 de 3 USD":S.stage==="vuelta"?"gastado 0,71 de 3 USD":"gastado 0,42 de 3 USD";
+  frame();chat();composer();doc();
+}
+function flash(el){if(!el)return;el.scrollIntoView({block:"center",behavior:"smooth"});el.animate&&el.animate([{boxShadow:"0 0 0 3px var(--todo)"},{boxShadow:"0 0 0 0 transparent"}],{duration:900})}
+document.addEventListener("toggle",e=>{const d=e.target;if(d.matches&&d.matches("details.dec")){if(d.open){S.openDec=d.dataset.dec;if(!S.seen){S.seen=true;setTimeout(frame,0)}}else if(S.openDec===d.dataset.dec){S.openDec=null}}},true);
+document.addEventListener("change",e=>{if(e.target.id==="uo"){S.unseenOnly=e.target.checked;frame()}});
+document.addEventListener("click",e=>{
+  if(e.target.id==="projBtn"){const m=$("#pmenu");m.hidden=!m.hidden;e.target.setAttribute("aria-expanded",!m.hidden);return}
+  if(!e.target.closest("#pmenu")) $("#pmenu").hidden=true;
+  const st=e.target.closest(".chip");if(st){S.stage=st.dataset.stage;S.seen=false;S.openDec=null;
+    S.card=["firma","vuelta"].includes(S.stage)?"done":"open";S.signed=S.stage==="vuelta";render();return}
+  const td=e.target.closest("[data-todo]");if(td){const k=td.dataset.todo;
+    if(k==="sign"){S.stage="firma";render();return}
+    flash(k==="card"?$("#card"):$("#chat .card.todo"));return}
+  if(e.target.closest("[data-hist]")){S.selP=2;doc();flash($(".hist"));return}
+  const go=e.target.closest("[data-go]");if(go){S.stage=go.dataset.go;render();return}
+  const p=e.target.closest(".paper p");if(p){S.selP=+p.dataset.i;doc();return}
+  if(e.target.id==="answer"){const w=$("#why").value.trim().toLowerCase();
+    if(!w||["ok","okay","sí","si","yes","sure","dale","listo"].includes(w)){$("#whyHint").textContent="Escribe un porque con tus palabras: «"+(w||"vacío")+"» no cuenta.";$("#whyHint").className="hint warn";return}
+    S.card="done";render();return}
+  if(e.target.id==="signBtn"){if(S.card!=="done"){S.selP=2;doc();flash($("#card"));return}S.stage="firma";render();return}
+  if(e.target.id==="leave"){S.stage="trabajo";render();return}
+  if(e.target.id==="doSign"){S.stage="trabajo";S.signed=true;render();return}
+});
+render();
+</script>
