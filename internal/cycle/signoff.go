@@ -31,8 +31,11 @@ var contrasterInstructions string
 
 // Errors of the signoff routes.
 var (
-	ErrSectionNotFound        = errors.New("cycle: section not found")
-	ErrSectionSigned          = errors.New("cycle: the section is already signed")
+	ErrSectionNotFound = errors.New("cycle: section not found")
+	ErrSectionSigned   = errors.New("cycle: the section is already signed")
+	// ErrSectionEmpty: a section without text is not offered for signing
+	// (B-21).
+	ErrSectionEmpty           = errors.New("cycle: the section has no text")
 	ErrSignoffNotFound        = errors.New("cycle: signoff not found")
 	ErrSignoffNotInProgress   = errors.New("cycle: the signoff is not in progress")
 	ErrEmptyAnswer            = errors.New("cycle: empty explanation or answer")
@@ -139,6 +142,9 @@ func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel strin
 	}
 	if section.State == "signed" {
 		return SignoffOpen{}, ErrSectionSigned
+	}
+	if strings.TrimSpace(bodyStr(bodyOf(section), "text")) == "" {
+		return SignoffOpen{}, ErrSectionEmpty
 	}
 	_, pendings, err := graph.SectionStatus(ctx, g.db, projectID, sectionLabel)
 	if err != nil {

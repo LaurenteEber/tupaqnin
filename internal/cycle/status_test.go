@@ -3,6 +3,7 @@ package cycle_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -108,4 +109,44 @@ func TestB15_MalformedOutputIsPendingUntilTheNextValidStep(t *testing.T) {
 func itoa(n int) string {
 	b, _ := json.Marshal(n)
 	return string(b)
+}
+
+// B-21: a section with no text stays draft, never ready, even with no
+// pendings, so it is not offered for signing.
+func TestB21_SectionWithoutTextStaysDraft(t *testing.T) {
+	db := seedStepProject(t)
+	ctx := context.Background()
+	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{"title": "Vacía", "text": "  \n",
+			"role": map[string]any{"value": "other", "state": "confirmed"}},
+			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if st, pendings := status(t, db, "sec-2"); st != graph.StatusDraft || len(pendings) != 0 {
+		t.Fatalf("empty section: %s %v, want draft with no pendings", st, pendings)
+	}
+	if st, _ := status(t, db, "sec-1"); st != graph.StatusReady {
+		t.Fatalf("section with text and no pendings: %s, want ready (previous behaviour)", st)
+	}
+}
+
+// B-21: asking to sign a section without text opens nothing.
+func TestB21_AskingToSignAnEmptySectionIsRefused(t *testing.T) {
+	db := seedStepProject(t)
+	ctx := context.Background()
+	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{"title": "Vacía", "text": ""},
+			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if _, err := cycle.NewGate(db).RequestSignoff(ctx, "p1", "sec-2"); !errors.Is(err, cycle.ErrSectionEmpty) {
+		t.Fatalf("RequestSignoff on an empty section: %v, want ErrSectionEmpty", err)
+	}
+	if signs, _ := db.ListObjects(ctx, "p1", store.ObjectSignoff); len(signs) != 0 {
+		t.Fatalf("signoffs: %d, want none", len(signs))
+	}
 }

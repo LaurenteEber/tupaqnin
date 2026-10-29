@@ -242,3 +242,10 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* P-39: the start buttons in the center of the empty start. */
+.empty-actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+
+/* P-37: your sent request, a read-only message of yours (as in the mockup). */
+.msg.me { align-self: flex-end; max-width: 85%; background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; }
+.msg.me .msg-meta { color: var(--muted); font-size: 12px; margin-top: 6px; }

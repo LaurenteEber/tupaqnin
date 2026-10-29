@@ -35,6 +35,9 @@ type RequestView struct {
 	Premise     string       `json:"premise"`
 	Exploratory bool         `json:"exploratory"`
 	Sources     []SourceView `json:"sources"`
+	// Submitted: the request was sent (its criteria and premise exist);
+	// the page shows it as your read-only message (P-37).
+	Submitted bool `json:"submitted"`
 }
 
 type PutRequestRequest struct {
@@ -149,6 +152,7 @@ func (s *Server) requestView(r *http.Request, projectID string) (RequestView, bo
 		for _, prem := range premises {
 			pb := bodyMap(prem)
 			if str(pb, "request_id") == requests[0].ID {
+				view.Submitted = true
 				view.Premise, _ = pb["text"].(string)
 				view.Exploratory, _ = pb["exploratory"].(bool)
 			}

@@ -333,6 +333,15 @@ export function App() {
               <div className="empty">
                 <b>{t("chat.empty_title")}</b>
                 <span>{t("chat.empty")}</span>
+                {/* P-39: the two ways to start, in the center of the empty start. */}
+                <div className="empty-actions">
+                  <button type="button" onClick={() => void newProject("case-5")}>
+                    {t("project.demo")}
+                  </button>
+                  <button type="button" onClick={() => void newProject()}>
+                    {t("project.blank")}
+                  </button>
+                </div>
               </div>
             )}
             {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}

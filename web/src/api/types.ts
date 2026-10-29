@@ -166,6 +166,11 @@ export interface RequestView {
   premise: string;
   exploratory: boolean;
   sources: SourceView[];
+  /**
+   * Submitted: the request was sent (its criteria and premise exist);
+   * the page shows it as your read-only message (P-37).
+   */
+  submitted: boolean;
 }
 export interface PutRequestRequest {
   text: string;
@@ -261,6 +266,7 @@ export type SignoffStarter = any;
  * SignoffBlocked is the answer to asking to sign when the signoff cannot
  * open or sign: the error code and, for pendings, the list (7a, flujos
  * §3 «la app te muestra qué falta»).
+ * [EL DISEÑO NO LO DICE]: the status; 409 with error "pendings".
  */
 export interface SignoffBlocked {
   error: string;

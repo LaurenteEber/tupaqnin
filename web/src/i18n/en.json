@@ -219,5 +219,11 @@
   "pending.source_not_supporting": "A source that does not support what is claimed",
   "pending.malformed_output": "An agent return without the fixed shape",
   "pending.superseded_decision_in_text": "Text written with a replaced decision",
-  "pending.missing_in_text": "Missing in the text (from the signoff)"
+  "pending.missing_in_text": "Missing in the text (from the signoff)",
+  "history.text_change.agent": "the agent wrote in this paragraph",
+  "history.text_change.human": "you edited this paragraph",
+  "history.text_change.app": "the app changed this paragraph",
+  "history.decision.agent": "the agent's decision",
+  "history.decision.human": "your decision",
+  "signoff.error.section_empty": "This section has no text yet: write it before signing."
 }

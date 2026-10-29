@@ -219,5 +219,11 @@
   "pending.source_not_supporting": "Una fuente que no sostiene lo afirmado",
   "pending.malformed_output": "Un retorno del agente sin la forma fija",
   "pending.superseded_decision_in_text": "Texto escrito con una decisión reemplazada",
-  "pending.missing_in_text": "Falta en el texto (de la firma)"
+  "pending.missing_in_text": "Falta en el texto (de la firma)",
+  "history.text_change.agent": "el agente escribió en este párrafo",
+  "history.text_change.human": "editaste este párrafo",
+  "history.text_change.app": "la app cambió este párrafo",
+  "history.decision.agent": "decisión del agente",
+  "history.decision.human": "tu decisión",
+  "signoff.error.section_empty": "Esta sección todavía no tiene texto: escríbelo antes de firmar."
 }

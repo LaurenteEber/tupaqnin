@@ -281,3 +281,20 @@ func TestP31_SourcesAreSortedByNumber(t *testing.T) {
 		}
 	}
 }
+
+// P-37: after submitting, the request is marked submitted, so the page
+// shows it as your read-only message.
+func TestP37_SubmittedRequestIsMarkedSubmitted(t *testing.T) {
+	h, _, _ := newAPI(t)
+	projectID := newProject(t, h, map[string]any{"template": "case-5"})
+	base := "/api/projects/" + projectID
+	if got := decode[server.RequestView](t, do(t, h, http.MethodGet, base+"/request", nil)); got.Submitted {
+		t.Fatal("request marked submitted before submit")
+	}
+	if rec := do(t, h, http.MethodPost, base+"/request/submit", nil); rec.Code != http.StatusAccepted {
+		t.Fatalf("submit: %d %s", rec.Code, rec.Body.String())
+	}
+	if got := decode[server.RequestView](t, do(t, h, http.MethodGet, base+"/request", nil)); !got.Submitted || got.Text == "" {
+		t.Fatalf("after submit: %+v, want submitted with its literal text", got)
+	}
+}

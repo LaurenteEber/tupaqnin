@@ -57,6 +57,8 @@ func signoffError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "signoff_not_found")
 	case errors.Is(err, cycle.ErrSectionSigned):
 		writeError(w, http.StatusConflict, "already_signed")
+	case errors.Is(err, cycle.ErrSectionEmpty):
+		writeError(w, http.StatusConflict, "section_empty")
 	case errors.Is(err, cycle.ErrSignoffNotInProgress):
 		writeError(w, http.StatusConflict, "signoff_not_in_progress")
 	case errors.Is(err, cycle.ErrExplanationGiven):

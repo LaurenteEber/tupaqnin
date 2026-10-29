@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -104,8 +105,10 @@ func SectionStatus(ctx context.Context, db *store.DB, projectID, label string) (
 		pendings = append(pendings, Pending{Kind: PendingMissingInText, About: passage})
 	}
 
+	// Ready = text and no pendings (B-21): a section without text stays
+	// draft and is not offered for signing.
 	status := Status(section.State)
-	if status == StatusDraft && len(pendings) == 0 {
+	if status == StatusDraft && len(pendings) == 0 && strings.TrimSpace(bodyString(section, "text")) != "" {
 		status = StatusReady
 	}
 	return status, pendings, nil

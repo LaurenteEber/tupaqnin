@@ -39,13 +39,14 @@ export function HistoryPanel({ lang, projectID, label, name, block, onClose }: {
           <li key={i}>
             {e.kind === "text_change" ? (
               <span>
-                v{e.version} · {t(`history.actor.${e.actor}`)} · {e.at} · {t("history.text_change")}
+                {localTime(e.at, lang)} · {t(`history.text_change.${e.actor}`)}
               </span>
             ) : (
               e.decision && (
                 <span>
                   {e.decision.discarded && <strong>{t("history.discarded")}: </strong>}
-                  {t(`history.actor.${e.actor}`)} · {e.at} · {e.decision.label} «{e.decision.statement}»
+                  {localTime(e.at, lang)} · {t(e.decision.origin === "human" ? "history.decision.human" : "history.decision.agent")}{" "}
+                  «{e.decision.statement}»
                   {" · "}{t("card.instead_of")} «{e.decision.instead_of}»
                   {e.decision.would_choose_if && <> · {t("card.would_choose_if")} «{e.decision.would_choose_if}»</>}
                   {e.decision.reason && <> · {t("history.your_reason")}: «{e.decision.reason}»</>}
@@ -58,4 +59,10 @@ export function HistoryPanel({ lang, projectID, label, name, block, onClose }: {
       </ul>
     </div>
   );
+}
+
+// localTime shows a stored UTC time in the browser's time zone (T-7).
+function localTime(at: string, lang: Lang): string {
+  const d = new Date(at);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(lang, { dateStyle: "medium", timeStyle: "short" });
 }

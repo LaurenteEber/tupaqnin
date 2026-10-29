@@ -14,12 +14,12 @@ import (
 // Shapes for P4 (backlog-r1 1.4): a card reads its decision, why it is
 // critical and the sections that use it (pantallas.md, P4).
 type CardView struct {
-	Label         string   `json:"label"`
-	State         string   `json:"state"`
-	Decision      string   `json:"decision"`
-	Statement     string   `json:"statement"`
-	InsteadOf     string   `json:"instead_of"`
-	WouldChooseIf string   `json:"would_choose_if"`
+	Label         string       `json:"label"`
+	State         string       `json:"state"`
+	Decision      string       `json:"decision"`
+	Statement     string       `json:"statement"`
+	InsteadOf     string       `json:"instead_of"`
+	WouldChooseIf string       `json:"would_choose_if"`
 	Reasons       []string     `json:"reasons"`
 	Sections      []SectionRef `json:"sections"`
 }

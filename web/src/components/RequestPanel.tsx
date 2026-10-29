@@ -66,6 +66,7 @@ export function RequestPanel({
     try {
       await save();
       const { turn_id } = await submitRequest(projectID);
+      setView(await getRequest(projectID)); // now your read-only message (P-37)
       onSubmitted(turn_id);
     } catch (e) {
       setErrorCode(e instanceof Error ? e.message : "internal");
@@ -73,6 +74,21 @@ export function RequestPanel({
   }
 
   if (!projectID) return null;
+
+  // Once sent, the request is your message in the conversation, read
+  // only (P-37); Go says whether it was sent.
+  if (view?.submitted) {
+    return (
+      <div className="msg me">
+        <div className="msg-text">{view.text}</div>
+        {view.sources.length > 0 && (
+          <div className="msg-meta">
+            {t("source.title")}: {view.sources.map((s) => s.filename).join(" · ")}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="request-panel chat-card">
