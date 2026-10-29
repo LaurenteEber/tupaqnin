@@ -3,10 +3,12 @@ package cycle_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
@@ -153,6 +155,148 @@ func TestB7_TurnEndToEndWithTheFakeLeavesTheHistoryInOrder(t *testing.T) {
 	}
 	if !strings.Contains(string(calls[1].InputItems), "fixture-encrypted-content") {
 		t.Fatal("second call did not resend the first call's raw items byte-for-byte")
+	}
+}
+
+// captureProvider records what was actually sent to the provider
+// and what it answered, so tests compare against the real calls.
+type captureProvider struct {
+	inner provider.Provider
+	mu    sync.Mutex
+	sent  [][]json.RawMessage
+	got   []provider.Response
+}
+
+func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
+	c.mu.Lock()
+	c.sent = append(c.sent, append([]json.RawMessage{}, req.Input...))
+	c.mu.Unlock()
+	resp, err := c.inner.Respond(ctx, req, onDelta)
+	if err == nil {
+		c.mu.Lock()
+		c.got = append(c.got, resp)
+		c.mu.Unlock()
+	}
+	return resp, err
+}
+
+func userItemForTest(text string) json.RawMessage {
+	raw, _ := json.Marshal(map[string]any{
+		"type": "message", "role": "user",
+		"content": []map[string]string{{"type": "input_text", "text": text}},
+	})
+	return raw
+}
+
+func TestB7_ConversationRebuildsFromLastCallOnlyWithThreeMessages(t *testing.T) {
+	db, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.Writer.ExecContext(context.Background(),
+		`INSERT INTO project (id, created_at) VALUES ('p1', '2026-10-28T00:00:00.000Z')`); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+	fake := provider.NewFake(loadAppFixture(t, "01-principal-valid.json"))
+	fake.Recorder = db
+	cap := &captureProvider{inner: fake}
+	count := func(ctx context.Context, input []json.RawMessage) (int, error) {
+		return fake.CountTokens(ctx, provider.PrincipalModel, input)
+	}
+	runner := cycle.NewRunner(db, cap, count, &fakePublisher{})
+
+	for i, msg := range []string{"first message", "second message", "third message"} {
+		turn := "turn-" + string(rune('1'+i))
+		if err := runner.RunTurn(context.Background(), "p1", turn, msg); err != nil {
+			t.Fatalf("RunTurn %d: %v", i+1, err)
+		}
+	}
+	if len(cap.sent) != 3 {
+		t.Fatalf("provider calls: got %d, want 3", len(cap.sent))
+	}
+	// What the third call must send: exactly what the second call
+	// sent, plus what it answered, plus the new message. Nothing
+	// from the first call may appear twice.
+	want := append([]json.RawMessage{}, cap.sent[1]...)
+	want = append(want, cap.got[1].RawItems...)
+	want = append(want, userItemForTest("third message"))
+	got := cap.sent[2]
+	if len(got) != len(want) {
+		t.Fatalf("third call items: got %d, want %d\ngot:  %s\nwant: %s",
+			len(got), len(want), cap.sent[2], want)
+	}
+	for i := range want {
+		if string(got[i]) != string(want[i]) {
+			t.Fatalf("third call item %d:\ngot:  %s\nwant: %s", i, got[i], want[i])
+		}
+	}
+}
+
+// blockingProvider holds the first call until released, then
+// delegates to the fake.
+type blockingProvider struct {
+	inner   provider.Provider
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
+	b.once.Do(func() {
+		close(b.entered)
+		<-b.release
+	})
+	return b.inner.Respond(ctx, req, onDelta)
+}
+
+func TestB7_SecondTurnWhileOneRunsIsRejectedPerProject(t *testing.T) {
+	db, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.Writer.ExecContext(context.Background(),
+		`INSERT INTO project (id, created_at) VALUES ('p1', '2026-10-28T00:00:00.000Z')`); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+	fake := provider.NewFake(loadAppFixture(t, "01-principal-valid.json"))
+	fake.Recorder = db
+	blocking := &blockingProvider{inner: fake, entered: make(chan struct{}), release: make(chan struct{})}
+	count := func(ctx context.Context, input []json.RawMessage) (int, error) {
+		return fake.CountTokens(ctx, provider.PrincipalModel, input)
+	}
+	runner := cycle.NewRunner(db, blocking, count, &fakePublisher{})
+
+	if _, err := runner.StartTurn("p1", "first"); err != nil {
+		t.Fatalf("StartTurn 1: %v", err)
+	}
+	select {
+	case <-blocking.entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first turn never reached the provider")
+	}
+	// [EL DISEÑO NO LO DICE] one turn per project: the second is
+	// rejected instead of running at the same time.
+	if _, err := runner.StartTurn("p1", "second"); !errors.Is(err, cycle.ErrTurnRunning) {
+		t.Fatalf("StartTurn 2: got %v, want ErrTurnRunning", err)
+	}
+	if err := runner.RunTurn(context.Background(), "p1", "turn-x", "second"); !errors.Is(err, cycle.ErrTurnRunning) {
+		t.Fatalf("RunTurn while busy: got %v, want ErrTurnRunning", err)
+	}
+	close(blocking.release)
+	// After the first turn ends, the lock is free again. Poll the
+	// synchronous path until it accepts a turn.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		err := runner.RunTurn(context.Background(), "p1", "turn-3", "third")
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, cycle.ErrTurnRunning) || time.Now().After(deadline) {
+			t.Fatalf("RunTurn after release: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

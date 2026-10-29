@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Especificación (va a código y pruebas)
-estado: v2.10 · 28-oct · el vencimiento de §6 sigue a B3-18 · v2.9 · 28-oct · links, cuentas y sesiones (§1.7, B3-18), seguridad mínima (§6, B3-22), topes por link y saldo de la firma (§6, B3-20), horas de «Entrega» (§8) · v2.8 · 28-oct · `model_call` guarda también lo enviado y la instancia (la conversación del principal se rehace desde ahí) · v2.7 · 28-oct · reverificación: tarjeta solo para decisiones del agente (T-5); cómo se declara un `new-n` (T-3) · v2.6 · 28-oct · defaults técnicos validados aplicados: etiquetas cortas e ids provisionales (T-2, T-3), operación y reglas del ancla (T-4), criticidad al escribir y marca tuya (T-5), nota sin rechazo por largo (T-6); §9 en inglés (T-1) · v2.5 · 28-oct · nombres de tablas, campos y valores en inglés con el glosario (T-1) · v2.4 · 28-oct · §1 modelo de datos al día con fichas §9, estados y bloque 2 (nodos, 11 aristas, eventos, lo entregado y el uso de contexto) · v2.3 · 28-oct · referencias a las decisiones reorganizadas (B3-3, B3-9, B3-14 a B3-17, K-16); aristas según fichas §9; la caché de la memoria no es fuente · v2.2 · 27-oct · propuesta; alineada con el bloque 1 v4.5 (A-1 a A-5) y, en §9, con el marco del bloque 1 v4.7 (M-1 a M-4)
+estado: v2.13 · 29-oct · §7 con pnpm 12 y Node 24.22.1 o más (B-19) · v2.12 · 29-oct · `project.name`, `filename` y `media_type` de la fuente, `title` en `proposed_roles` y `step_ended` escrito al aplicar (backlog-r1, validación) · v2.11 · 29-oct · desde backlog-r1: título de la sección (B-18), «porque» de tu decisión (B-16), texto y huella de una fuente con PDF (B-9), cadena de dependencias con pnpm (B-19) · v2.10 · 28-oct · el vencimiento de §6 sigue a B3-18 · v2.9 · 28-oct · links, cuentas y sesiones (§1.7, B3-18), seguridad mínima (§6, B3-22), topes por link y saldo de la firma (§6, B3-20), horas de «Entrega» (§8) · v2.8 · 28-oct · `model_call` guarda también lo enviado y la instancia (la conversación del principal se rehace desde ahí) · v2.7 · 28-oct · reverificación: tarjeta solo para decisiones del agente (T-5); cómo se declara un `new-n` (T-3) · v2.6 · 28-oct · defaults técnicos validados aplicados: etiquetas cortas e ids provisionales (T-2, T-3), operación y reglas del ancla (T-4), criticidad al escribir y marca tuya (T-5), nota sin rechazo por largo (T-6); §9 en inglés (T-1) · v2.5 · 28-oct · nombres de tablas, campos y valores en inglés con el glosario (T-1) · v2.4 · 28-oct · §1 modelo de datos al día con fichas §9, estados y bloque 2 (nodos, 11 aristas, eventos, lo entregado y el uso de contexto) · v2.3 · 28-oct · referencias a las decisiones reorganizadas (B3-3, B3-9, B3-14 a B3-17, K-16); aristas según fichas §9; la caché de la memoria no es fuente · v2.2 · 27-oct · propuesta; alineada con el bloque 1 v4.5 (A-1 a A-5) y, en §9, con el marco del bloque 1 v4.7 (M-1 a M-4)
 relacion: detalla bloque-3.md. Toma del bloque 3 anterior lo que sigue valiendo (marcado «se toma») y lo alinea con bloque-1-estados.md, bloque-1-fichas.md §7 y bloque-2.md. Lo marcado `[inicial]` se calibra construyendo
 ---
 
@@ -24,6 +24,7 @@ erDiagram
   project ||--o{ label_counter : "un contador por prefijo"
   project {
     string id "aleatorio, 128 bits"
+    string name "B-18"
     string invitation_id "B3-3"
     datetime expires_at
   }
@@ -103,12 +104,12 @@ erDiagram
 | criterio · `criterion` | `current` (cada cambio es una versión nueva, solo tuya) | `text` en literal · `request_id` | Estados §6 |
 | caso del «Entendí» · `understanding_case` | `unconfirmed` · `confirmed` · `corrected` | `text` · `counts`: true · false · `criterion_id` | Estados §6 · C1 |
 | premisa · `premise` | `current` · `contradicted` (se mantiene o cambia por «por aclarar») | `text` en literal · `request_id` · `exploratory`: true · false | Estados §6 · P4 · K-5 |
-| sección · `section` | `draft` · `signed` · `changed_since_signoff` · `stale`. **`ready` («lista») no se guarda: se calcula** cuando no quedan pendientes (estados §1) | `text` Markdown · `role` {`value`: `conclusion` · `recommendation` · `other`, `state`: `proposed` · `confirmed`} · `open_changes` (cada uno con su etiqueta `chg-n`) | Estados §1 y §6 · K-2 · K-13 · A-1 |
-| decisión · `decision` | `agent` · `human` · `confirmed` · `in_open_question` · `superseded` · `revoked` | `statement` · `instead_of` · `would_choose_if` · `assumption`: true · false · `origin`: `agent` · `human` · `human_marked_critical`: true · false. La criticidad no se guarda: la calcula una función de la app (fichas §3, T-5; ver 1.5) | Estados §2 · fichas §7 · D9 |
+| sección · `section` | `draft` · `signed` · `changed_since_signoff` · `stale`. **`ready` («lista») no se guarda: se calcula** cuando no quedan pendientes (estados §1) | `title` (B-18) · `text` Markdown · `role` {`value`: `conclusion` · `recommendation` · `other`, `state`: `proposed` · `confirmed`} · `open_changes` (cada uno con su etiqueta `chg-n`) | Estados §1 y §6 · K-2 · K-13 · A-1 |
+| decisión · `decision` | `agent` · `human` · `confirmed` · `in_open_question` · `superseded` · `revoked` | `statement` · `instead_of` · `would_choose_if` · `assumption`: true · false · `origin`: `agent` · `human` · `human_marked_critical`: true · false · `reason`: tu «porque», en una decisión tuya (B-16). La criticidad no se guarda: la calcula una función de la app (fichas §3, T-5; ver 1.5) | Estados §2 · fichas §7 · D9 |
 | cifra · `figure` | — | `section_id` · `anchor` · `value` | Fichas §9 · A-3 |
 | dato · `datum` | — | `section_id` · `anchor` · `value` (literal de una fuente) | A-3 |
 | cita · `citation` | — | `section_id` · `anchor` · `passage` literal | A-2 |
-| fuente · `source` | — (cada reemplazo es una versión nueva) | `kind`: `file` · `web` · `calculation` · `url` · `replaces` (id) | A-1 · F-1 · F-2 |
+| fuente · `source` | — (cada reemplazo es una versión nueva) | `kind`: `file` · `web` · `calculation` · `url` · `filename` · `media_type` · `text` (en un PDF, el extraído) · `fingerprint` (§4, B-9) · `replaces` (id) | A-1 · F-1 · F-2 |
 | «por aclarar» · `open_question` | `open` · `resolved` | `question` · `options` {`contrast`, `consequence`, `risk`} · `depends_on` · `variants` rotuladas | Estados §4 · P5 · D21 |
 | tarjeta · `card` | `open` · `answered` · `obsolete` | `decision_id` · `chosen_option` · `reason` | Estados §3 · P2 · R4 |
 | propuesta · `proposal` | `open` · `accepted` · `discarded` | `section_id` · `base_version` · `anchor` · `operation`: `replace` · `insert_after` · `text` · `contrast` (T-4) | Estados §5 · D11 · C3 |
@@ -141,7 +142,7 @@ erDiagram
 | Tipo | Qué registra (en `data`) | Fuente |
 |---|---|---|
 | `state_changed` | objeto, estado anterior y nuevo, quién y por qué | Estados §8 |
-| `step_ended` | línea de triaje · riesgo al cerrar · **nota del agente**, completa · **lo diferido** · las etiquetas que la app asignó a cada `new-n` | Fichas §2 y §7 · B2-6 · T-3 · T-6 |
+| `step_ended` | línea de triaje · riesgo al cerrar · **nota del agente**, completa · **lo diferido** · las etiquetas que la app asignó a cada `new-n` (lo escribe la app al aplicar el paso, en su misma transacción) | Fichas §2 y §7 · B2-6 · T-3 · T-6 |
 | `mode_set` | modo («normal» · «continúa hasta terminar») y tu mensaje en literal | Estados §8 · B2-1 |
 | `human_message` | tu mensaje en literal y, después, su respuesta | Estados §8 · B2-2 |
 | `stop_report` | el informe y si lo viste | Estados §8 · D19 |
@@ -232,6 +233,8 @@ Lo que pasa la validación se aplica; luego corren las comprobaciones (flujo §1
 
 - **Huella `tq-md/1` (se toma):** SHA-256 de un JSON canónico (JCS) del árbol de goldmark con GFM: tipo de nodo, texto en NFC, niveles, celdas, destino de enlaces, contenido literal de bloques de código y Mermaid. Ignora marcadores de lista, carácter de énfasis, relleno y escapes.
 - **Estado de la sección:** una sola función en Go que usan todas las vistas, con los 5 estados y los pendientes de bloque-1-estados §1.
+- **Huella de una fuente (B-9):** SHA-256 de su texto en NFC con los finales de línea normalizados; en un PDF, del texto extraído. Volver a subir una fuente idéntica no crea versión.
+
 - **«Cambió desde que la firmaste»** compara por componentes: la huella de la sección, la versión de cada decisión crítica firmada y la huella de cada fuente que la sección usa (A-1).
 - **Firma (K-16, propuesta en el bloque 1):** al pedir firmar, la sección entra en firma; los pasos del agente sobre ella llegan como propuesta. Tu edición cancela la firma en curso.
 - **Lo que guarda la firma:** sección (versión y huella) · decisiones críticas y criterios aplicados (id y versión) · fuentes usadas (id y huella) · tarjetas respondidas · tu explicación · pregunta de origen y tu respuesta (o «no aplica», A-4) · casos de aplicación y su resultado · modelo que contrastó (Wonder o Spark `xhigh`). El resultado de Wonder va al lado, no dentro del compromiso.
@@ -251,14 +254,14 @@ Lo que pasa la validación se aplica; luego corren las comprobaciones (flujo §1
 - **Streaming (se toma):** sin límite de escritura en esas rutas, latido cada 15 s, un escritor por conexión, `idle_timeout` fijado.
 - **Acceso (B3-3, B3-18):** cada persona ve solo sus proyectos. Con el link creas y descargas tu primer proyecto sin cuenta; para conservarlo o crear otro, te registras con usuario y clave (§1.7). Al entrar, el token del link se canjea por una cookie y la app redirige a una dirección sin token; el registro de esa ruta no lo guarda. Solo un POST crea proyecto.
 - **Topes (B3-20, B3-22):** 3 USD por proyecto · el saldo de cada link (§1.7) · 10 USD al día para los links que no son del jurado · 60 USD en total `[inicial]` · reserva del máximo antes de cada llamada · del tope del proyecto se aparta un saldo para la firma (≈ el costo de 2 contrastes `[inicial]`). Al 80 % del tope del proyecto, un aviso de una línea; al tope, el agente se detiene con su informe y tu trabajo sigue intacto.
-- **Tamaño (se toma):** sección ≤ 200 KB, fuente ≤ 5 MB, 25 MB por proyecto; al 80 % del disco no se aceptan proyectos nuevos, salvo del jurado.
+- **Tamaño (se toma):** sección ≤ 200 KB, fuente ≤ 5 MB (un PDF, además, ≤ 100 páginas y ≤ 10 s de extracción, sin OCR `[inicial]`, B-9), 25 MB por proyecto; al 80 % del disco no se aceptan proyectos nuevos, salvo del jurado.
 - **Seguridad (se toma):** Mermaid ≥ 11.15 sin HTML crudo; CSP sin scripts en línea; cookies `__Host-`; `http.CrossOriginProtection`; el streaming nunca reenvía errores crudos del proveedor; una prueba recorre todas las rutas con la cookie de otro visitante y con otra cuenta.
 - **Seguridad mínima de la demo pública (B3-22),** cada punto con su prueba: límite de intentos de entrada por IP (tomada solo de `Fly-Client-IP`) y espera creciente por cuenta, sin bloqueo total · un solo control de dueño en toda ruta con `{projectID}`; las herramientas del agente usan el proyecto del turno · fuentes de una lista cerrada de tipos (PDF, CSV, XLSX, MD y TXT `[inicial]`), servidas como descarga · markdown sin HTML crudo (goldmark sin `WithUnsafe`) ni enlaces `javascript:`, y React sin `innerHTML` para el texto · al comprobar una URL, solo `http` y `https`, sin IP privadas, locales ni de enlace (también tras una redirección), con 5 s y 5 MB como máximo · tope de cuerpo en toda petición · `Strict-Transport-Security` · copia diaria en almacenamiento privado.
 - **Vencimiento (B3-18):** un proyecto sin cuenta vence 7 días `[inicial]` después de tu última actividad, y el aviso lo dice. Con cuenta, el proyecto se conserva.
 
 ## 7. Pila (se toma)
 
-React + Vite (editor TipTap 3; tipos generados desde Go con `tygo`) · Go en un binario que embebe la página · `modernc.org/sqlite` en WAL, un `*sql.DB` de escritura con `SetMaxOpenConns(1)` y otro de lectura · goldmark v1 + GFM, `x/text/unicode/norm`, `gowebpki/jcs` · cliente de la Responses API de Meta que guarda cada ítem de salida crudo y lo reenvía byte a byte, con `store: false` e `include: ["reasoning.encrypted_content"]`.
+React + Vite (editor TipTap 3; tipos generados desde Go con `tygo`) · Go en un binario que embebe la página · `modernc.org/sqlite` en WAL, un `*sql.DB` de escritura con `SetMaxOpenConns(1)` y otro de lectura · goldmark v1 + GFM, `x/text/unicode/norm`, `gowebpki/jcs` · cliente de la Responses API de Meta que guarda cada ítem de salida crudo y lo reenvía byte a byte, con `store: false` e `include: ["reasoning.encrypted_content"]` · **cadena de dependencias (B-19):** la web se instala con pnpm 12.16.1 y Node ≥ 24.22.1 (versión fija en `packageManager`, `--frozen-lockfile`, 7 días de espera por versión, scripts de instalación solo con `allowBuilds`); `tygo` con versión fija en `go.mod`; ninguna dependencia ni versión mayor sin preguntar · extracción de texto de PDF con la librería que apruebe Eber (B-9).
 
 ## 8. Horas por rebanada `[inferencia]`
 

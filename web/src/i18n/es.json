@@ -22,6 +22,7 @@
   "stream.error.provider_error": "La llamada al modelo falló. Inténtalo de nuevo.",
   "stream.error.agent_pending": "El agente no pudo terminar este paso.",
   "stream.error.turn_failed": "El turno falló. Inténtalo de nuevo.",
+  "stream.error.turn_running": "Ya hay un turno en curso. Espera a que termine y envía de nuevo.",
   "language.en": "English",
   "language.es": "Español"
 }

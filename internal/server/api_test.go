@@ -8,16 +8,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
 type stubStarter struct {
 	projectID, text string
+	err             error
 }
 
 func (s *stubStarter) StartTurn(projectID, text string) (string, error) {
 	s.projectID, s.text = projectID, text
+	if s.err != nil {
+		return "", s.err
+	}
 	return "turn-1", nil
 }
 
@@ -140,5 +145,28 @@ func TestAPI_ProjectSectionSaveAndMessageFlow(t *testing.T) {
 	rec = do(t, h, http.MethodGet, "/api/projects/nope/sections", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("unknown project: got %d, want 404", rec.Code)
+	}
+}
+
+// [EL DISEÑO NO LO DICE] A second message while a turn runs in the
+// same project is refused with 409 turn_running, not queued.
+func TestAPI_SecondMessageWhileTurnRunningIs409(t *testing.T) {
+	h, _, starter := newAPI(t)
+	rec := do(t, h, http.MethodPost, "/api/projects", nil)
+	project := decode[struct {
+		ProjectID string `json:"project_id"`
+	}](t, rec)
+	starter.err = cycle.ErrTurnRunning
+
+	rec = do(t, h, http.MethodPost, "/api/projects/"+project.ProjectID+"/messages",
+		map[string]any{"text": "another"})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("message while turn running: got %d (%s), want 409", rec.Code, rec.Body.String())
+	}
+	body := decode[struct {
+		Error string `json:"error"`
+	}](t, rec)
+	if body.Error != "turn_running" {
+		t.Fatalf("message while turn running: got error %q, want turn_running", body.Error)
 	}
 }

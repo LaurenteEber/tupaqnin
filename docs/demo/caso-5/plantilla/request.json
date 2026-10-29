@@ -1,0 +1,73 @@
+{
+  "name": "Microplásticos en agua potable",
+  "text": "Escribe conmigo el capítulo 2 de mi tesis doctoral: el estado del arte sobre microplásticos en agua potable. El capítulo compara los conteos y los métodos de los estudios publicados entre el agua de grifo y la embotellada. Tiene tres secciones: «Estudios incluidos», «Síntesis» y «Conclusiones». No evalúa efectos en la salud ni recomienda qué agua tomar. Usa los artículos y mi cálculo de la comparación que subí como fuentes.",
+  "audience": "Mi comité de tesis: tres profesores de ingeniería ambiental que revisan cómo se eligieron los estudios y si las comparaciones son válidas.",
+  "criteria": [
+    "Solo estudios de campo, no de laboratorio.",
+    "El capítulo compara conteos y métodos; no evalúa efectos en la salud ni recomienda qué agua tomar."
+  ],
+  "premise": "El agua embotellada trae más partículas que la del grifo.",
+  "exploratory": false,
+  "sources": [
+    {
+      "filename": "t1-quispe-morales-2016.md",
+      "kind": "file"
+    },
+    {
+      "filename": "t2-haller-brandt-2018.md",
+      "kind": "file"
+    },
+    {
+      "filename": "t3-nakamura-2020.md",
+      "kind": "file"
+    },
+    {
+      "filename": "t4-okafor-lind-2022.md",
+      "kind": "file"
+    },
+    {
+      "filename": "t5-salinas-pereyra-2024.md",
+      "kind": "file"
+    },
+    {
+      "filename": "t6-duarte-kim-2025.md",
+      "kind": "file"
+    },
+    {
+      "filename": "b1-ferreira-costa-2015.md",
+      "kind": "file"
+    },
+    {
+      "filename": "b2-lindqvist-2017.md",
+      "kind": "file"
+    },
+    {
+      "filename": "b3-mendoza-ruiz-2019.md",
+      "kind": "file"
+    },
+    {
+      "filename": "b4-arce-toledo-2023.md",
+      "kind": "file"
+    },
+    {
+      "filename": "b5-benitez-rao-2024.md",
+      "kind": "file"
+    },
+    {
+      "filename": "b6-correa-vidal-2026.md",
+      "kind": "file"
+    },
+    {
+      "filename": "l1-ishikawa-weber-2021.md",
+      "kind": "file"
+    },
+    {
+      "filename": "d1-paredes-nunez-2023.md",
+      "kind": "file"
+    },
+    {
+      "filename": "calculo-comparacion.md",
+      "kind": "calculation"
+    }
+  ]
+}

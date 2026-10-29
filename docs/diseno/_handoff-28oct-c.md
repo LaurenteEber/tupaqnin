@@ -1,6 +1,7 @@
 ---
 titulo: Handoff · 28-oct (c) · del diseño a la construcción
 estado: 28-oct, tarde · para continuar en un chat nuevo
+reemplazado por: _handoff-28oct-d.md (este queda como historia)
 relacion: sigue a _handoff-28oct-b.md. Reglas de trabajo: _reglas-de-trabajo.md (sobre todo 3, 7, 9 y 11)
 ---
 

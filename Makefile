@@ -16,12 +16,14 @@ build:
 # The web app (backlog 0.10): installs dependencies and builds the
 # React+Vite+TipTap frontend into internal/server/static, which the
 # Go binary embeds. Run once before `make run` for the browser UI.
+# pnpm with the frozen lockfile and pinned versions only (B-19).
 web:
-	cd web && npm install && npm run build
+	cd web && pnpm install --frozen-lockfile && pnpm run build
 
-# Regenerates web/src/api/types.ts from the Go API shapes with tygo.
+# Regenerates web/src/api/types.ts from the Go API shapes with tygo
+# (pinned as a go.mod tool directive, B-19).
 web-types:
-	cd web && go run github.com/gzuidhof/tygo@latest generate
+	cd web && go tool tygo generate
 
 # Micro-test 0.8 against real Meta (backlog). The API key comes from
 # the macOS keychain, never from a file or the repo. Eber runs this.

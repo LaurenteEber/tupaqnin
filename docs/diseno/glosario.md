@@ -1,6 +1,6 @@
 ---
 titulo: Glosario · del diseño (español) al código (inglés)
-estado: v1.4 · 28-oct · suma los campos de las salidas del «Entendí» y de Wonder · v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
+estado: v1.6 · 29-oct · `name` del proyecto, `filename` y `media_type` de la fuente, `keep` · `other` de la tarjeta · v1.5 · 29-oct · `signoff_cancelled` (B-14) · v1.4 · 28-oct · suma los campos de las salidas del «Entendí» y de Wonder · v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
 relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, el backlog y AGENTS.md
 ---
 
@@ -17,6 +17,8 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 | link de invitación · cuenta · sesión (B3-18, B3-22; espec. §1.7) | `invitation` · `account` · `session` |
 | saldo del link · lo gastado · máximo de cuentas · máximo de proyectos sin cuenta · link revocado | `budget_usd` · `spent_usd` · `max_accounts` · `max_anon_projects` · `revoked_at` |
 | dueño del proyecto: la cuenta, o la sesión si es sin cuenta | `account_id` · `anon_session_hash` (campos de `project`) |
+| nombre del proyecto · nombre de archivo y tipo de una fuente | `name` (de `project`) · `filename` · `media_type` (de `source`) |
+| respuesta de una tarjeta: mantener · la otra opción | `keep` · `other` |
 
 ## 2. Nodos del grafo y sus estados
 
@@ -62,7 +64,7 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 | cambio de estado · fin de paso · modo activado · tu mensaje · informe de parada | `state_changed` · `step_ended` · `mode_set` · `human_message` · `stop_report` |
 | decisión vista (informe · tarjeta · historia · marco) | `decision_seen` (`report` · `card` · `history` · `frame`) |
 | edición · edición deshecha · alerta de edición sospechosa | `edit` · `edit_undone` · `suspicious_edit_alert` |
-| caso de aplicación de la firma · pausa de la firma · firma breve | `signoff_case` · `signoff_paused` · `brief_signoff` |
+| caso de aplicación de la firma · pausa de la firma · cancelación de la firma (motivo: la dejaste · la editaste · falta en el texto; B-14) · firma breve | `signoff_case` · `signoff_paused` · `signoff_cancelled` (`left` · `edited` · `missing_in_text`) · `brief_signoff` |
 | pregunta del destinatario respondida «no» | `audience_question_declined` |
 | cambio en lo que usa (entra · actualizado · revisado sin cambio) | `usage_change` (`entered` · `updated` · `reviewed_unchanged`) |
 | nueva versión de una fuente · cambio de rol · cambio de destinatario | `source_new_version` · `role_changed` · `audience_changed` |

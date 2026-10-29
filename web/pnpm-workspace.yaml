@@ -1,0 +1,9 @@
+# Supply-chain policy (B-19): only versions published at least
+# 7 days ago, no install scripts without explicit permission,
+# no exotic sub-dependencies.
+minimumReleaseAge: 10080
+strictDepBuilds: true
+blockExoticSubdeps: true
+allowBuilds:
+  esbuild: true
+  fsevents: false

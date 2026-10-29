@@ -7,9 +7,11 @@ import (
 	_ "embed"
 	"encoding/base32"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/memory"
@@ -33,6 +35,12 @@ type TurnPublisher interface {
 	PublishError(projectID, turnID, code string)
 }
 
+// ErrTurnRunning reports a message sent while a turn of the same
+// project is still running. [EL DISEÑO NO LO DICE] one turn per
+// project: the second message is refused (the API answers
+// 409 turn_running) instead of running two turns at once or waiting.
+var ErrTurnRunning = errors.New("cycle: a turn is already running for this project")
+
 // Runner runs one human turn end to end (backlog 0.10): it records
 // the human message, reuses the live principal conversation or
 // starts a new instance, calls the principal, closes the step with
@@ -52,13 +60,37 @@ type Runner struct {
 	memory   *memory.Memory
 	schema   json.RawMessage
 	schemaOK bool
+
+	// One turn per project ([EL DISEÑO NO LO DICE], see
+	// ErrTurnRunning): running holds the projects with a turn in
+	// flight, guarded by mu.
+	mu      sync.Mutex
+	running map[string]bool
 }
 
 // NewRunner wires a runner. count is the token counter already bound
 // to the principal's model (B-5).
 func NewRunner(db *store.DB, prov provider.Provider, count memory.TokenCounter, pub TurnPublisher) *Runner {
 	return &Runner{db: db, prov: prov, count: count, pub: pub,
-		gate: NewGate(db), memory: memory.New(db)}
+		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{}}
+}
+
+// tryAcquireTurn takes the project's turn slot, or reports false
+// when a turn of that project is already running.
+func (r *Runner) tryAcquireTurn(projectID string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.running[projectID] {
+		return false
+	}
+	r.running[projectID] = true
+	return true
+}
+
+func (r *Runner) releaseTurn(projectID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.running, projectID)
 }
 
 func (r *Runner) now() time.Time {
@@ -78,16 +110,23 @@ func newTurnID() (string, error) {
 
 // StartTurn registers a turn and runs it in the background,
 // returning its id at once (B-1). It is the server's TurnStarter.
+// A second turn for the same project is refused with
+// ErrTurnRunning while one is in flight.
 func (r *Runner) StartTurn(projectID, text string) (string, error) {
+	if !r.tryAcquireTurn(projectID) {
+		return "", ErrTurnRunning
+	}
 	turnID, err := newTurnID()
 	if err != nil {
+		r.releaseTurn(projectID)
 		return "", err
 	}
 	if r.pub != nil {
 		r.pub.BeginTurn(projectID, turnID)
 	}
 	go func() {
-		if err := r.RunTurn(context.Background(), projectID, turnID, text); err != nil && r.Logger != nil {
+		defer r.releaseTurn(projectID)
+		if err := r.runTurn(context.Background(), projectID, turnID, text); err != nil && r.Logger != nil {
 			r.Logger.Error("turn failed", "error", err.Error())
 		}
 	}()
@@ -180,27 +219,28 @@ func (r *Runner) ensureInstance(ctx context.Context, projectID string) (instance
 }
 
 // conversation rebuilds the live instance's conversation from its
-// model_call rows: what was sent and what it answered, in order,
-// byte-for-byte (B-7).
+// model_call rows, byte-for-byte (B-7). Each row already stores the
+// full input that was sent, so the conversation is the last row
+// only: its input plus what it answered. Joining every row would
+// repeat the earlier calls once per later call.
 func (r *Runner) conversation(ctx context.Context, projectID, instanceID string) ([]json.RawMessage, error) {
 	calls, err := r.db.ModelCalls(ctx, projectID, instanceID)
 	if err != nil {
 		return nil, err
 	}
-	var out []json.RawMessage
-	for _, call := range calls {
-		sent, err := splitItems(call.InputItems)
-		if err != nil {
-			return nil, err
-		}
-		answered, err := splitItems(call.RawItems)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, sent...)
-		out = append(out, answered...)
+	if len(calls) == 0 {
+		return nil, nil
 	}
-	return out, nil
+	last := calls[len(calls)-1]
+	sent, err := splitItems(last.InputItems)
+	if err != nil {
+		return nil, err
+	}
+	answered, err := splitItems(last.RawItems)
+	if err != nil {
+		return nil, err
+	}
+	return append(sent, answered...), nil
 }
 
 // changeItems renders what changed since the last delivery, in
@@ -285,8 +325,17 @@ func (r *Runner) publishStep(projectID, turnID string, result StepResult, output
 }
 
 // RunTurn runs one turn synchronously. StartTurn wraps it in a
-// goroutine; tests call it directly.
+// goroutine; tests call it directly. It takes the project's turn
+// slot, like StartTurn.
 func (r *Runner) RunTurn(ctx context.Context, projectID, turnID, text string) error {
+	if !r.tryAcquireTurn(projectID) {
+		return ErrTurnRunning
+	}
+	defer r.releaseTurn(projectID)
+	return r.runTurn(ctx, projectID, turnID, text)
+}
+
+func (r *Runner) runTurn(ctx context.Context, projectID, turnID, text string) error {
 	err := r.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		_, err := tx.AppendEvent(store.EventInput{
 			Type: store.EventHumanMessage, Actor: "human", TurnID: turnID,

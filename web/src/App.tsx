@@ -66,7 +66,15 @@ export function App() {
     setStreamText("");
     setStep(null);
     setErrorCode("");
-    const { turn_id } = await postMessage(projectID, text);
+    let turn_id: string;
+    try {
+      ({ turn_id } = await postMessage(projectID, text));
+    } catch (e) {
+      // [EL DISEÑO NO LO DICE] 409 turn_running: a turn of this
+      // project is already running; the message was not sent.
+      setErrorCode(e instanceof Error && e.message === "http_409" ? "turn_running" : "turn_failed");
+      return;
+    }
     setWorking(true);
     subscribeTurn(projectID, turn_id, {
       onDelta: (delta) => setStreamText((prev) => prev + delta),

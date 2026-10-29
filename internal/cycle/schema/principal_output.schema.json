@@ -188,6 +188,10 @@
               "recommendation",
               "other"
             ]
+          },
+          "title": {
+            "description": "Título de la sección (B-18). Obligatorio si section_id es un «new-n»; lo valida Go. Omitido para una sección existente.",
+            "type": "string"
           }
         }
       }

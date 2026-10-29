@@ -22,6 +22,7 @@
   "stream.error.provider_error": "The model call failed. Please try again.",
   "stream.error.agent_pending": "The agent could not finish this step.",
   "stream.error.turn_failed": "The turn failed. Please try again.",
+  "stream.error.turn_running": "A turn is already running. Wait for it to finish and send again.",
   "language.en": "English",
   "language.es": "Español"
 }

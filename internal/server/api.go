@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -194,6 +195,12 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	turnID, err := s.starter.StartTurn(projectID, req.Text)
+	// [EL DISEÑO NO LO DICE] One turn per project: a message sent
+	// while a turn runs is refused with 409 turn_running.
+	if errors.Is(err, cycle.ErrTurnRunning) {
+		writeError(w, http.StatusConflict, "turn_running")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
