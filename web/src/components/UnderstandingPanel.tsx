@@ -159,7 +159,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
                 ) : (
                   <span>
                     {s.title || t("section.untitled")}
-                    {marked(s) && <span className="st mark">{t("understanding.concludes")}</span>}
+                    {marked(s) && <>{" "}<span className="st mark">{t("understanding.concludes")}</span></>}
                   </span>
                 )}
                 {s.role_state === "proposed" && <span className="meta"> · {t("understanding.role_state.proposed")}</span>}

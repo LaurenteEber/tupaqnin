@@ -29,14 +29,25 @@ type DecisionEntry struct {
 	Figure        string `json:"figure,omitempty"` // the anchor of the figure it covers in this block
 }
 
+// DatumEntry is a datum copied from a source in a block (A-3, P-60):
+// its value, the source's title and the source passage that holds it,
+// literal (rule 8).
+type DatumEntry struct {
+	Value   string `json:"value"`
+	Source  string `json:"source"`
+	Passage string `json:"passage"`
+}
+
 // Entry is one entry of a block's history: a text change (a step or an
-// edit, with the section version it made) or a decision.
+// edit, with the section version it made), a decision or a copied
+// datum.
 type Entry struct {
-	Kind     string         `json:"kind"` // text_change · decision
+	Kind     string         `json:"kind"` // text_change · decision · datum
 	Version  int            `json:"version,omitempty"`
 	Actor    string         `json:"actor"`
 	At       string         `json:"at"`
 	Decision *DecisionEntry `json:"decision,omitempty"`
+	Datum    *DatumEntry    `json:"datum,omitempty"`
 	seq      int
 }
 
@@ -44,14 +55,17 @@ type Entry struct {
 const (
 	EntryTextChange = "text_change"
 	EntryDecision   = "decision"
+	EntryDatum      = "datum"
 )
 
 // BlockHistory is how a block of a section's current text came to be
 // (D7, fichas §8.1, B-10), from the history and the graph, without a
 // model: the steps whose new text or anchor is in the block, the
 // person's edits that brought a new fragment of 20 characters or more
-// into it, and the decisions linked to its figures, with the ones they
-// replaced as discarded. Newest first, as P5 shows it.
+// into it, the decisions linked to its figures and, for each step in
+// it, the decisions that step declared for the section (P-60), with the
+// ones they replaced as discarded; and the data copied from a source
+// into it (A-3). Newest first, as P5 shows it.
 // [EL DISEÑO NO LO DICE]: the order; newest first, like the P5 sketch.
 func BlockHistory(ctx context.Context, db *store.DB, projectID, sectionLabel string, block int) ([]Entry, error) {
 	section, err := db.GetObject(ctx, projectID, sectionLabel)
@@ -81,6 +95,7 @@ func BlockHistory(ctx context.Context, db *store.DB, projectID, sectionLabel str
 	}
 
 	var out []Entry
+	var steps []string
 	for _, ev := range events {
 		if ev.ObjectID != section.ID || ev.NewVersion == 0 {
 			continue
@@ -96,14 +111,22 @@ func BlockHistory(ctx context.Context, db *store.DB, projectID, sectionLabel str
 		}
 		if in {
 			out = append(out, Entry{Kind: EntryTextChange, Version: ev.NewVersion, Actor: ev.Actor, At: ev.CreatedAt, seq: ev.Seq})
+			if ev.Actor == "agent" && ev.TurnID != "" {
+				steps = append(steps, ev.TurnID)
+			}
 		}
 	}
 
-	decisions, err := blockDecisions(ctx, db, projectID, section.ID, b, events)
+	decisions, err := blockDecisions(ctx, db, projectID, section.ID, b, events, steps)
 	if err != nil {
 		return nil, err
 	}
 	out = append(out, decisions...)
+	data, err := blockData(ctx, db, projectID, section.ID, b, events)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, data...)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].seq > out[j].seq })
 	return out, nil
 }
@@ -146,9 +169,11 @@ func editInBlock(block, prev, next string) bool {
 	return false
 }
 
-// blockDecisions are the decisions covering the block's figures, each
+// blockDecisions are the decisions covering the block's figures and
+// the decisions the block's steps declared for the section (P-60), each
 // at its birth, and the decisions they replaced, discarded (fichas §9).
-func blockDecisions(ctx context.Context, db *store.DB, projectID, sectionID string, b Compared, events []store.Event) ([]Entry, error) {
+func blockDecisions(ctx context.Context, db *store.DB, projectID, sectionID string, b Compared, events []store.Event,
+	steps []string) ([]Entry, error) {
 	add, out, err := decisionAdder(ctx, db, projectID, events)
 	if err != nil {
 		return nil, err
@@ -174,7 +199,165 @@ func blockDecisions(ctx context.Context, db *store.DB, projectID, sectionID stri
 			}
 		}
 	}
+	// After the figures, so a decision that covers one keeps its anchor.
+	declared, err := stepDecisions(ctx, db, projectID, sectionID, events, steps)
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range declared {
+		if err := add(id, "", false); err != nil {
+			return nil, err
+		}
+	}
 	return *out, nil
+}
+
+// stepDecisions are the decisions the given steps declared for the
+// section (P-60, pantallas P5): new in the step or in its
+// used_decisions, and with a used_in edge to the section (the app adds
+// it for used_in_sections, for each used decision and section written,
+// and for a figure link).
+// [EL DISEÑO NO LO DICE]: «declared for the section» is read as
+// declared by the step and used in the section; in the order the
+// steps declared them.
+func stepDecisions(ctx context.Context, db *store.DB, projectID, sectionID string, events []store.Event,
+	steps []string) ([]string, error) {
+	inBlock := map[string]bool{}
+	for _, t := range steps {
+		inBlock[t] = true
+	}
+	var candidates []string
+	seen := map[string]bool{}
+	note := func(idOrLabel string) {
+		dec, err := db.GetObject(ctx, projectID, idOrLabel)
+		if err != nil || dec.Type != store.ObjectDecision || seen[dec.ID] {
+			return
+		}
+		seen[dec.ID] = true
+		candidates = append(candidates, dec.ID)
+	}
+	born := map[string]bool{}
+	for _, ev := range events {
+		first := ev.ObjectID != "" && !born[ev.ObjectID]
+		if ev.ObjectID != "" {
+			born[ev.ObjectID] = true
+		}
+		if !inBlock[ev.TurnID] {
+			continue
+		}
+		if first {
+			note(ev.ObjectID)
+		}
+		if ev.Type == store.EventStepEnded {
+			used, _ := eventData(ev)["used_decisions"].([]any)
+			for _, u := range used {
+				if l, ok := u.(string); ok {
+					note(l)
+				}
+			}
+		}
+	}
+	var out []string
+	for _, id := range candidates {
+		edges, err := db.EdgesFrom(ctx, projectID, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range edges {
+			if e.Type == store.EdgeUsedIn && e.ToID == sectionID {
+				out = append(out, id)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+// blockData are the data copied from a source into the block (A-3,
+// P-60), each at its birth, with the source's title and the passage of
+// the source that holds the value.
+func blockData(ctx context.Context, db *store.DB, projectID, sectionID string, b Compared, events []store.Event) ([]Entry, error) {
+	born := map[string]store.Event{}
+	for _, ev := range events {
+		if _, ok := born[ev.ObjectID]; !ok && ev.ObjectID != "" {
+			born[ev.ObjectID] = ev
+		}
+	}
+	data, err := db.ListObjects(ctx, projectID, store.ObjectDatum)
+	if err != nil {
+		return nil, err
+	}
+	var out []Entry
+	for _, d := range data {
+		value := bodyString(d, "value")
+		if bodyString(d, "section_id") != sectionID || len(b.Find(bodyString(d, "anchor"))) == 0 {
+			continue
+		}
+		edges, err := db.EdgesFrom(ctx, projectID, d.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range edges {
+			if e.Type != store.EdgeComesFrom {
+				continue
+			}
+			src, err := db.GetObject(ctx, projectID, e.ToID)
+			if err != nil {
+				return nil, err
+			}
+			text := bodyString(src, "text")
+			ev := born[d.ID]
+			out = append(out, Entry{Kind: EntryDatum, Actor: ev.Actor, At: ev.CreatedAt, seq: ev.Seq,
+				Datum: &DatumEntry{Value: value, Source: SourceTitle(src), Passage: SourcePassage(text, value)}})
+			break
+		}
+	}
+	return out, nil
+}
+
+// SourceTitle is how a source is named: its file name, or its first
+// line (the index card's title, R-3).
+func SourceTitle(src store.Object) string {
+	if title := bodyString(src, "filename"); title != "" {
+		return title
+	}
+	for _, line := range strings.Split(bodyString(src, "text"), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
+// SourcePassage is the sentence of a source's text that holds a number
+// with the given value, literal.
+// [EL DISEÑO NO LO DICE]: the passage is the sentence (up to «. » or a
+// line break) of the first occurrence of the value, without a list or
+// heading marker.
+func SourcePassage(text, value string) string {
+	want := NormalizeNumber(value)
+	for _, line := range strings.Split(text, "\n") {
+		for _, loc := range numberPattern.FindAllStringIndex(line, -1) {
+			if NormalizeNumber(line[loc[0]:loc[1]]) != want {
+				continue
+			}
+			start := strings.LastIndex(line[:loc[0]], ". ")
+			if start < 0 {
+				start = 0
+			} else {
+				start += 2
+			}
+			end := strings.Index(line[loc[1]:], ". ")
+			if end < 0 {
+				end = len(line)
+			} else {
+				end += loc[1] + 1
+			}
+			// A list or heading marker is not part of the passage.
+			return strings.TrimSpace(strings.TrimLeft(line[start:end], " \t-*+#>"))
+		}
+	}
+	return ""
 }
 
 // DecisionHistory is the history of one decision with no point in the

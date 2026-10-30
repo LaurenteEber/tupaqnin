@@ -89,7 +89,9 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
         <h4>{t("frame.purpose")}</h4>
         <p className="lit">«{frame.purpose.request_text}»</p>
         <p className="lit meta">
-          {frame.purpose.audience && <>{t("frame.for")}: {frame.purpose.audience} · </>}
+          {frame.purpose.audience && <>{t("frame.for")}: {frame.purpose.audience}</>}
+          {/* The separator only between two parts (P-61). */}
+          {frame.purpose.audience && (frame.purpose.premise_exploratory || frame.purpose.premise_text) && " · "}
           {frame.purpose.premise_exploratory
             ? t("frame.exploratory")
             : frame.purpose.premise_text && <>{t("frame.premise")}: «{frame.purpose.premise_text}»</>}

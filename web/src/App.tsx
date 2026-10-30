@@ -213,7 +213,11 @@ export function App() {
 
   function closeSignoff() {
     setSigning("");
-    if (projectID) void refreshSections(projectID);
+    if (projectID) {
+      void refreshSections(projectID);
+      // Wonder's calls count in what was spent (P-61).
+      void getSummary(projectID).then(setSummary);
+    }
   }
 
   function openProject(id: string) {

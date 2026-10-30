@@ -3,6 +3,8 @@ package cycle_test
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
@@ -86,5 +88,55 @@ func TestB10_BlockOutOfRangeIsNotFound(t *testing.T) {
 	db := seedStepProject(t)
 	if _, err := graph.BlockHistory(context.Background(), db, "p1", "sec-1", 9); err == nil {
 		t.Fatal("block 9 of a one-block section: want an error")
+	}
+}
+
+// P-60 (pantallas P5, D7): the case 5 paragraph with «1,5» shows the
+// comparison rule the step declared for its section and the datum 1,5
+// with the calculation source and its passage (A-3).
+func TestP60_Case5ParagraphShowsTheRuleAndTheCalculationSource(t *testing.T) {
+	db := seedStepProject(t)
+	calc, err := os.ReadFile(filepath.Join("..", "demo", "case5", "template", "sources", "calculo-comparacion.md"))
+	if err != nil {
+		t.Fatalf("read the case 5 calculation: %v", err)
+	}
+	ctx := context.Background()
+	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		src, err := tx.CreateObject(store.ObjectSource, "", map[string]any{
+			"kind": "file", "filename": "calculo-comparacion.md", "text": string(calc),
+		}, store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		if err != nil {
+			return err
+		}
+		return tx.RecordDelivery(store.Delivery{Via: store.ViaRead, ObjectID: src.ID, Version: src.CurrentVersion})
+	}); err != nil {
+		t.Fatalf("seed source: %v", err)
+	}
+	step := json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
+		"new_decisions":[{"id":"new-1","statement":"Comparar los conteos desde el mismo tamaño mínimo de partícula.",
+			"instead_of":"Comparar los conteos crudos.","would_choose_if":"Todos los estudios usaran el mismo filtro.",
+			"assumption":false,"used_in_sections":["sec-1"]}],
+		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","operation":"insert_after",
+			"text":" La embotellada trae 1,5 veces más partículas que la de grifo."}],
+		"used_sources":["src-2"]}`)
+	applied := applyRecorded(t, db, step)
+	if !applied.Applied {
+		t.Fatalf("step: %v", applied.Errors)
+	}
+	entries := history(t, db, 1)
+	rule := decisionEntries(entries)[applied.Labels["new-1"]]
+	if rule == nil || rule.Statement != "Comparar los conteos desde el mismo tamaño mínimo de partícula." ||
+		rule.InsteadOf != "Comparar los conteos crudos." {
+		t.Fatalf("the rule is not in the paragraph's history: %+v", entries)
+	}
+	var datum *graph.DatumEntry
+	for _, e := range entries {
+		if e.Kind == graph.EntryDatum {
+			datum = e.Datum
+		}
+	}
+	if datum == nil || datum.Value != "1,5" || datum.Source != "calculo-comparacion.md" ||
+		datum.Passage != "Embotellada frente a grifo: 1,5 veces." {
+		t.Fatalf("datum entry: %+v, want 1,5 from calculo-comparacion.md with its passage", datum)
 	}
 }

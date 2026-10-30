@@ -223,7 +223,8 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
             <ul className="signoff-verdicts">
               {view.verdicts.map((v) => (
                 <li key={v.decision}>
-                  {v.decision} · {t(`signoff.verdict.${v.verdict}`)}
+                  {/* By its number, never its label nor its statement (P-59). */}
+                  {t("signoff.decision_number", { n: String(v.number) })} · {t(`signoff.verdict.${v.verdict}`)}
                   {v.missing && <> · {v.missing}</>}
                   {v.passage && <> · «{v.passage}»</>}
                   {/* P-41 corrected (30-oct, flujos §3): Go says when the history
@@ -232,6 +233,8 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
                       your first explanation. Without a point in the text (block 0)
                       it opens the decision's own history. */}
                   {v.history_offered && (
+                    <>
+                    {" "}
                     <button
                       type="button"
                       className="small"
@@ -242,6 +245,7 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
                     >
                       {t("signoff.history")}
                     </button>
+                    </>
                   )}
                 </li>
               ))}

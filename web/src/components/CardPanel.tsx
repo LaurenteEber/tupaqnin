@@ -51,10 +51,10 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
       {cards.map((card) => (
         <div key={card.label} id={`card-${card.label}`} className="card chat-card todo">
           <h3>
-            {t("card.title", { label: card.decision })} · {t("card.critical")}:{" "}
+            {/* The decision by its statement, never its label (rule 7, P-59). */}
+            {t("card.title", { statement: card.statement })} · {t("card.critical")}:{" "}
             {card.reasons.map((r) => t(`card.reason.${r}`)).join(", ")}
           </h3>
-          <p>{card.statement}</p>
           <p>{t("card.instead_of")}: {card.instead_of}</p>
           {card.would_choose_if && <p>{t("card.would_choose_if")}: {card.would_choose_if}</p>}
           <p>{t("card.sections")}: {card.sections.map((s) => s.title || t("section.untitled")).join(", ")}</p>

@@ -33,6 +33,11 @@ read in this project: copy the passage exactly as the tool returned
 it. Re-reading a source you no longer remember is cheap; writing a
 figure you did not read leaves it pending.
 
+In the text, name a study as its readers know it: by its authors and
+year («Mason et al., 2018»), as the source states them. Never by its
+file name or a code from it (`T5`, `B4`): the reader does not know
+those.
+
 ## Answering the human
 
 When the human's message asks something («on what did you base

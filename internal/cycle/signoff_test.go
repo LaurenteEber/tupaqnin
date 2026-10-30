@@ -756,3 +756,45 @@ func TestP41_DecisionWithoutAPointOffersItsOwnHistory(t *testing.T) {
 		t.Fatalf("decision entry: %+v", d)
 	}
 }
+
+// P-61: what was spent includes Wonder's calls in the signoff, at
+// Wonder's price.
+func TestP61_SpentIncludesWondersCalls(t *testing.T) {
+	db := openTemp(t)
+	seedSignable(t, db, true)
+	fx := signoffFixture(t, "round1-all-match")
+	fx.Usage = provider.Usage{InputTokens: 10_000, OutputTokens: 1_000}
+	fake := provider.NewFake(fx)
+	fake.Recorder = db
+	r := cycle.NewRunner(db, fake, nil, nil)
+	g := cycle.NewGate(db)
+	sign := openSignoff(t, g)
+	if err := g.RecordExplanation(context.Background(), "p1", sign, "Comparo solo estudios con el mismo tamaño."); err != nil {
+		t.Fatalf("RecordExplanation: %v", err)
+	}
+	if err := r.RunSignoffRound(context.Background(), "p1", "turn-w", sign); err != nil {
+		t.Fatalf("RunSignoffRound: %v", err)
+	}
+	spent, err := db.ProjectSpend(context.Background(), "p1")
+	want := provider.CostUSD(provider.ContrasterModel, 10_000, 1_000)
+	if err != nil || want == 0 || spent != want {
+		t.Fatalf("spent: got %v (%v), want Wonder's call at %v USD", spent, err, want)
+	}
+}
+
+// P-59 (rule 7): a verdict names its decision by its place among the
+// critical decisions, never by its label nor by its statement.
+func TestP59_VerdictNamesTheDecisionByItsNumber(t *testing.T) {
+	db := openTemp(t)
+	seedSignable(t, db, true)
+	g := cycle.NewGate(db)
+	sign := openSignoff(t, g)
+	if err := g.RecordExplanation(context.Background(), "p1", sign, "Comparo los estudios entre sí."); err != nil {
+		t.Fatalf("RecordExplanation: %v", err)
+	}
+	round(t, g, sign, "missing-in-explanation")
+	v := view(t, db, sign)
+	if len(v.Verdicts) != 1 || len(v.CriticalDecisions) != 1 || v.Verdicts[0].Number != 1 {
+		t.Fatalf("verdicts: %+v of critical %v, want the decision as number 1", v.Verdicts, v.CriticalDecisions)
+	}
+}

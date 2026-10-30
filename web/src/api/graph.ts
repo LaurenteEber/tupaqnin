@@ -175,15 +175,27 @@ export interface DecisionEntry {
   figure?: string; // the anchor of the figure it covers in this block
 }
 /**
+ * DatumEntry is a datum copied from a source in a block (A-3, P-60):
+ * its value, the source's title and the source passage that holds it,
+ * literal (rule 8).
+ */
+export interface DatumEntry {
+  value: string;
+  source: string;
+  passage: string;
+}
+/**
  * Entry is one entry of a block's history: a text change (a step or an
- * edit, with the section version it made) or a decision.
+ * edit, with the section version it made), a decision or a copied
+ * datum.
  */
 export interface Entry {
-  kind: string; // text_change · decision
+  kind: string; // text_change · decision · datum
   version?: number /* int */;
   actor: string;
   at: string;
   decision?: DecisionEntry;
+  datum?: DatumEntry;
 }
 /**
  * Entry kinds.
@@ -193,6 +205,10 @@ export const EntryTextChange = "text_change";
  * Entry kinds.
  */
 export const EntryDecision = "decision";
+/**
+ * Entry kinds.
+ */
+export const EntryDatum = "datum";
 
 //////////
 // source: labeler.go
@@ -374,6 +390,12 @@ export interface SignoffRound {
  */
 export interface WonderVerdict {
   decision: string;
+  /**
+   * Number names the decision on screen: its place among the critical
+   * decisions, from 1. Never its label (rule 7) nor its statement,
+   * which is the answer (fichas §2 Firma: «sin la respuesta»; P-59).
+   */
+  number: number /* int */;
   verdict: string;
   missing?: string;
   passage?: string;

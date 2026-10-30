@@ -415,10 +415,14 @@ func missingInText(section store.Object, events []store.Event) []string {
 // historia de ese punto»).
 type WonderVerdict struct {
 	Decision string `json:"decision"`
-	Verdict  string `json:"verdict"`
-	Missing  string `json:"missing,omitempty"`
-	Passage  string `json:"passage,omitempty"`
-	Block    int    `json:"block"`
+	// Number names the decision on screen: its place among the critical
+	// decisions, from 1. Never its label (rule 7) nor its statement,
+	// which is the answer (fichas §2 Firma: «sin la respuesta»; P-59).
+	Number  int    `json:"number"`
+	Verdict string `json:"verdict"`
+	Missing string `json:"missing,omitempty"`
+	Passage string `json:"passage,omitempty"`
+	Block   int    `json:"block"`
 	// HistoryOffered: P7 offers «Ver la historia de ese punto» (P-41,
 	// corrected 30-oct, flujos §3): after Wonder names what is missing
 	// in your explanation, or once the signoff is no longer in
@@ -539,6 +543,11 @@ func SignoffDetail(ctx context.Context, db *store.DB, projectID, signLabel strin
 		}
 		for _, d := range out.Decisions {
 			w := WonderVerdict{Decision: d.Decision, Verdict: d.Verdict, Block: blockOf(blocks, anchors[d.Decision])}
+			for i, l := range v.CriticalDecisions {
+				if l == d.Decision {
+					w.Number = i + 1
+				}
+			}
 			if d.Missing != nil {
 				w.Missing = *d.Missing
 			}

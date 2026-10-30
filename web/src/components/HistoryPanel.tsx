@@ -4,7 +4,8 @@ import type { Entry } from "../api/graph";
 import { translate, type Lang } from "../i18n";
 
 // P5 (backlog-r1 1.6): how a block came to be, newest first: who, when,
-// the decision with its contrast, your «porque» and what was discarded.
+// the decisions that hold it with their contrast, your «porque» and
+// what was discarded, and each datum copied from a source (P-60).
 // Go computes it from the history and the graph; no model narrates it.
 // With decision set (P-41, 30-oct), it is that decision's own history:
 // the signoff opens it for a decision with no point in the text.
@@ -49,6 +50,15 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
               <span>
                 {localTime(e.at, lang)} · {t(`history.text_change.${e.actor}`)}
               </span>
+            ) : e.kind === "datum" ? (
+              e.datum && (
+                <span>
+                  {/* A datum copied from a source (A-3, P-60): its source and
+                      the passage that holds it, literal. */}
+                  {t("history.datum")} {e.datum.value} · {t("history.source")}: {e.datum.source}
+                  {e.datum.passage && <> · «{e.datum.passage}»</>}
+                </span>
+              )
             ) : (
               e.decision && (
                 <span>
