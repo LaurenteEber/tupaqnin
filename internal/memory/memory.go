@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -432,6 +433,14 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 			st.InFlight.AgentPending = data.Errors
 		}
 	}
+	// Every computed pending of the agent (estados §1, B-15), with its
+	// section and passage, from the one function every view uses
+	// (graph.SectionStatus), in document order (P-51, bloque-2 §2).
+	computed, err := m.agentPendings(ctx, projectID, byType[store.ObjectSection])
+	if err != nil {
+		return State{}, nil, nil, err
+	}
+	st.InFlight.AgentPending = append(st.InFlight.AgentPending, computed...)
 	return st, objects, events, nil
 }
 
@@ -491,4 +500,49 @@ func sectionsInOrder(objects []store.Object) []store.Object {
 		out[i] = sections[k]
 	}
 	return out
+}
+
+// agentPendings renders the agent's computed pendings of each section:
+// all of graph.SectionStatus except the open cards, which are yours,
+// and the malformed output, which the output_retry errors above carry.
+func (m *Memory) agentPendings(ctx context.Context, projectID string, sections []store.Object) ([]string, error) {
+	var out []string
+	for _, sec := range sections {
+		_, pendings, err := graph.SectionStatus(ctx, m.db, projectID, sec.Label)
+		if err != nil {
+			return nil, err
+		}
+		b := decodeBody(sec)
+		for _, p := range pendings {
+			if p.Kind == graph.PendingOpenCard || p.Kind == graph.PendingMalformedOutput {
+				continue
+			}
+			line := fmt.Sprintf("%s «%s» · %s", sec.Label, b.str("title"), p.Kind)
+			if p.About != "" {
+				line += ": " + p.About
+			}
+			if passage := pendingPassage(b.str("text"), p); passage != "" {
+				line += " · passage: «" + passage + "»"
+			}
+			out = append(out, line)
+		}
+	}
+	return out, nil
+}
+
+// pendingPassage is the block of the section's text where a figure
+// without decision appears, so the agent can quote it as an anchor.
+// The other kinds already name their passage or their label.
+func pendingPassage(text string, p graph.Pending) string {
+	if p.Kind != graph.PendingFigureWithoutDecision {
+		return ""
+	}
+	for _, block := range graph.Blocks(text) {
+		for _, n := range graph.Numbers(block) {
+			if n.Raw == p.About || n.Value == p.About {
+				return strings.TrimSpace(block)
+			}
+		}
+	}
+	return ""
 }

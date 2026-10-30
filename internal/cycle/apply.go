@@ -527,15 +527,27 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 		sp.result = applyEdits(sp.base, sp.edits)
 	}
 
-	// Figure and citation anchors are found in the text the step
-	// writes (T-4 (3)).
-	// [EL DISEÑO NO LO DICE]: they name no section; each must appear
-	// once across all the sections the step writes.
-	// An anchor found only in a text rejected by B-14 is skipped with it.
+	// Figure and citation anchors are found in the text that results
+	// from the step, in any section (P-52: the schema's «pasaje literal
+	// de la cifra en el texto que resulta del paso»; B-15 closes «cifra
+	// sin decisión» «al vincularla»), so a step can link what an earlier
+	// step wrote. They name no section: each must appear once in the
+	// project. An anchor found only in a text rejected by B-14 is skipped
+	// with it.
+	after := p.textsAfter(pl)
 	written := func(path, anchor string) (skip bool) {
-		n := 0
-		for _, sp := range pl.sections {
-			n += len(graph.Compare(sp.result).Find(anchor))
+		n, locked := 0, false
+		for key, text := range after {
+			found := len(graph.Compare(text).Find(anchor))
+			n += found
+			locked = locked || found > 0 && p.locked(key)
+		}
+		// B-14: linking into a section in signoff or signed touches it;
+		// the link is not applied, like a text there.
+		// [EL DISEÑO NO LO DICE]: P-52 does not say it; the smallest
+		// choice follows B-14.
+		if n == 1 && locked {
+			return true
 		}
 		if n == 0 {
 			for _, r := range pl.rejected {
@@ -545,7 +557,7 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 			}
 		}
 		if n != 1 {
-			fail(path, "the anchor appears %d times in the text this step writes; give a longer anchor that appears once", n)
+			fail(path, "the anchor appears %d times in the document after this step; give a longer anchor that appears once", n)
 		}
 		return false
 	}
@@ -609,6 +621,32 @@ func (p *project) checkSupersedes(path string, old store.Object, label string, f
 }
 
 func isNew(s string) bool { return strings.HasPrefix(s, "new-") }
+
+// locked reports whether a section (by id) rejects the agent's steps
+// (B-14, P-40).
+func (p *project) locked(id string) bool {
+	obj, ok := p.byID[id]
+	return ok && (p.inSignoff[id] || obj.State == "signed" || obj.State == "changed_since_signoff")
+}
+
+// textsAfter is the text of every section after the step: what the
+// step writes, or the current text of a section it does not write.
+func (p *project) textsAfter(pl *plan) map[string]string {
+	out := map[string]string{}
+	for _, sp := range pl.sections {
+		key := sp.ref
+		if obj, ok := p.object(sp.ref); ok && !isNew(sp.ref) {
+			key = obj.ID
+		}
+		out[key] = sp.result
+	}
+	for id, obj := range p.byID {
+		if _, done := out[id]; !done && obj.Type == store.ObjectSection {
+			out[id] = bodyStr(bodyOf(obj), "text")
+		}
+	}
+	return out
+}
 
 func typeNames(types []store.ObjectType) string {
 	names := make([]string, len(types))
@@ -860,10 +898,18 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 
 	// Figures (covers, and used_in to the section where the figure is),
 	// citations (comes_from when the passage is literal in its source).
+	// The anchor is in a section the step wrote or, already, in any
+	// other (P-52).
 	inSection := func(anchor string) string {
 		for _, sec := range sectionIDs {
 			if len(graph.Compare(resultText[sec]).Find(anchor)) > 0 {
 				return sec
+			}
+		}
+		for id, obj := range p.byID {
+			if _, done := resultText[id]; !done && obj.Type == store.ObjectSection &&
+				len(graph.Compare(bodyStr(bodyOf(obj), "text")).Find(anchor)) > 0 {
+				return id
 			}
 		}
 		return ""
@@ -939,6 +985,10 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 			texts = append(texts, map[string]any{"section_id": r.section, "text": r.text, "message": r.message})
 		}
 		notApplied["new_text"] = texts
+	}
+	// Links skipped with a rejected text (B-14) or into a section that
+	// rejects the agent's steps (P-52).
+	{
 		var figures, citations []any
 		for i, f := range out.FigureLinks {
 			if pl.skipFigures[i] {

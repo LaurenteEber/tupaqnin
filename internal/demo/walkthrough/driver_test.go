@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -105,6 +106,7 @@ type walk struct {
 	t       *testing.T
 	h       http.Handler
 	db      *store.DB
+	dir     string
 	starter *syncStarter
 	project string
 	// lastOutput gives the model's last output for the report when a
@@ -116,16 +118,27 @@ type walk struct {
 // Meta provider records its calls in that database).
 func newWalk(t *testing.T, build func(*store.DB) (provider.Provider, memory.TokenCounter), lastOutput func() string) *walk {
 	t.Helper()
-	db, err := store.Open(context.Background(), t.TempDir())
+	// The database stays when the walkthrough fails, so its run can be
+	// inspected (P-50); a passing run removes it.
+	dir, err := os.MkdirTemp("", "tupaqnin-walk-")
+	if err != nil {
+		t.Fatalf("temp dir: %v", err)
+	}
+	db, err := store.Open(context.Background(), dir)
 	if err != nil {
 		t.Fatalf("store.Open: %v", err)
 	}
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(func() {
+		_ = db.Close()
+		if !t.Failed() {
+			_ = os.RemoveAll(dir)
+		}
+	})
 	prov, count := build(db)
 	starter := &syncStarter{runner: cycle.NewRunner(db, prov, count, nil), gate: cycle.NewGate(db), db: db}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	h := server.NewWithAPI(logger, server.NewHub(), db, starter)
-	return &walk{t: t, h: h, db: db, starter: starter, lastOutput: lastOutput}
+	return &walk{t: t, h: h, db: db, dir: dir, starter: starter, lastOutput: lastOutput}
 }
 
 // fail stops the walkthrough naming the step, the turns' errors and
@@ -139,7 +152,46 @@ func (w *walk) fail(step, format string, args ...any) {
 	if w.lastOutput != nil {
 		msg += "\nlast model output: " + w.lastOutput()
 	}
+	msg += w.diagnosis()
 	w.t.Fatalf("walkthrough step %s: %s", step, msg)
+}
+
+// diagnosis is what the report adds on failure (P-50): each section's
+// pendings with their kind and object, what each step_ended did not
+// apply and each output_retry's errors, and the kept database.
+func (w *walk) diagnosis() string {
+	var sb strings.Builder
+	ctx := context.Background()
+	if w.project != "" {
+		sections, _ := graph.OrderedSections(ctx, w.db, w.project)
+		sb.WriteString("\npendings:")
+		for _, sec := range sections {
+			_, pendings, err := graph.SectionStatus(ctx, w.db, w.project, sec.Label)
+			if err != nil {
+				fmt.Fprintf(&sb, "\n  %s: %v", sec.Label, err)
+				continue
+			}
+			fmt.Fprintf(&sb, "\n  %s: %d", sec.Label, len(pendings))
+			for _, p := range pendings {
+				fmt.Fprintf(&sb, "\n    - %s %s", p.Kind, p.About)
+			}
+		}
+		events, _ := w.db.EventsSince(ctx, w.project, 0)
+		sb.WriteString("\nsteps:")
+		for _, ev := range events {
+			d := eventData(ev)
+			switch ev.Type {
+			case store.EventStepEnded:
+				na, _ := json.Marshal(d["not_applied"])
+				fmt.Fprintf(&sb, "\n  step_ended #%d %v: stop_reason=%v not_applied=%s", ev.Seq, d["turn_kind"], d["stop_reason"], na)
+			case store.EventOutputRetry:
+				errs, _ := json.Marshal(d["errors"])
+				fmt.Fprintf(&sb, "\n  output_retry #%d %v: errors=%s", ev.Seq, d["result"], errs)
+			}
+		}
+	}
+	fmt.Fprintf(&sb, "\ndatabase kept in: %s", w.dir)
+	return sb.String()
 }
 
 func (w *walk) do(step, method, path string, body any, want int, out any) {
