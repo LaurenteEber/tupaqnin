@@ -15,6 +15,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
@@ -34,7 +37,22 @@ const (
 	maxRounds    = 4
 	// caseFigure is the datum of case 5: 1,5 times, not 60.
 	caseFigure = "1,5"
+	// ruleWord marks the comparison rule (P-55), compared without case
+	// or accents.
+	ruleWord = "micra"
 )
+
+// hasRuleWord reports whether text names ruleWord, ignoring case and
+// accents.
+func hasRuleWord(text string) bool {
+	var b strings.Builder
+	for _, r := range norm.NFD.String(strings.ToLower(text)) {
+		if !unicode.Is(unicode.Mn, r) {
+			b.WriteRune(r)
+		}
+	}
+	return strings.Contains(b.String(), ruleWord)
+}
 
 // syncStarter runs each turn before the request returns, so every act
 // of the walkthrough sees the state its turn left. It records the
@@ -280,19 +298,26 @@ func (w *walk) run() string {
 	var frame graph.Frame
 	w.do("4 agent works", http.MethodGet, w.api("/frame"), nil, http.StatusOK, &frame)
 	var rule graph.FrameDecision
+	var critical []string
 	for _, s := range frame.Sections {
 		if s.Label != ruleSection.Label {
 			continue
 		}
 		for _, d := range s.Decisions {
-			if d.Card != "" && rule.Label == "" {
+			if d.Card == "" {
+				continue
+			}
+			critical = append(critical, d.Label+": "+d.Statement+" / instead of: "+d.InsteadOf)
+			// The comparison rule of case 5 names the particle size
+			// (P-55): «micra» in its statement or its contrast.
+			if rule.Label == "" && (hasRuleWord(d.Statement) || hasRuleWord(d.InsteadOf)) {
 				rule = d
 			}
 		}
 	}
 	if rule.Label == "" {
-		w.fail("4 agent works", "%s has %q but no critical decision with a card is used in it; frame sections: %+v",
-			ruleSection.Label, caseFigure, frame.Sections)
+		w.fail("4 agent works", "%s has %q but none of its critical decisions with a card is the comparison rule "+
+			"(no %q in its statement or instead_of); critical decisions there: %q", ruleSection.Label, caseFigure, ruleWord, critical)
 	}
 
 	// 5. The card: an option and a «porque»; then the history of the
