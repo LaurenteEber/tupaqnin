@@ -66,6 +66,12 @@ contrast: statement, instead of, would choose if, assumption),
 passage) and `handled_changes` (`reviewed_unchanged` always carries
 its reason).
 
+A figure or a citation already written, in this step or an earlier
+one, can be linked in a later step: send its `figure_links` or
+`citations` entry with an anchor copied from the current text, unique
+in the document, without writing the text again. A figure without a
+decision stays pending until you link it or remove it.
+
 ## Decisions
 
 A decision is a real choice that changes what the document asserts:

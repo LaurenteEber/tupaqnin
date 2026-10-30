@@ -32,6 +32,8 @@ const (
 	originAnswer = "Del supuesto de que el conteo depende del tamaño mínimo que cada estudio puede ver: con filtros distintos no se cuenta lo mismo."
 	caseAnswer   = "Solo los comparo desde el tamaño mínimo que ambos ven; si no, la diferencia sale del filtro y no del agua."
 	maxRounds    = 4
+	// caseFigure is the datum of case 5: 1,5 times, not 60.
+	caseFigure = "1,5"
 )
 
 // syncStarter runs each turn before the request returns, so every act
@@ -256,31 +258,53 @@ func (w *walk) run() string {
 		w.fail("3 understanding", "want a case that counts and one that does not: %+v", und.Cases)
 	}
 
-	// 4. The agent worked: the comparison rule is a critical decision
-	// covering the figure (1,5 times, not 60), with its card.
+	// 4. The agent worked: the comparison rule is a critical decision,
+	// with its card, used in the section whose text has the datum 1,5
+	// copied from the calculation (docs/demo/caso-5: «La cifra 1,5 es un
+	// dato copiado del cálculo (A-3)»; P-53). A copied datum has no
+	// covers edge, so the frame's block is not the way to find it.
+	var sections []server.SectionView
+	w.do("4 agent works", http.MethodGet, w.api("/sections"), nil, http.StatusOK, &sections)
+	var ruleSection server.SectionView
+	block := 0
+	for _, sec := range sections {
+		for i, b := range graph.Blocks(sec.Text) {
+			if strings.Contains(b, caseFigure) && block == 0 {
+				ruleSection, block = sec, i+1
+			}
+		}
+	}
+	if block == 0 {
+		w.fail("4 agent works", "the agent wrote %q in no section (the comparison of case 5 is missing from the text)", caseFigure)
+	}
 	var frame graph.Frame
 	w.do("4 agent works", http.MethodGet, w.api("/frame"), nil, http.StatusOK, &frame)
 	var rule graph.FrameDecision
-	var ruleSection graph.FrameSection
 	for _, s := range frame.Sections {
+		if s.Label != ruleSection.Label {
+			continue
+		}
 		for _, d := range s.Decisions {
-			if d.Card != "" && d.Block > 0 && rule.Label == "" {
-				rule, ruleSection = d, s
+			if d.Card != "" && rule.Label == "" {
+				rule = d
 			}
 		}
 	}
 	if rule.Label == "" {
-		w.fail("4 agent works", "no critical decision with a card and a figure in the text; frame sections: %+v", frame.Sections)
+		w.fail("4 agent works", "%s has %q but no critical decision with a card is used in it; frame sections: %+v",
+			ruleSection.Label, caseFigure, frame.Sections)
 	}
 
-	// 5. The card: an option and a «porque»; then the figure's history.
+	// 5. The card: an option and a «porque»; then the history of the
+	// block with the figure (pantallas, step 5: «hace clic en la cifra y
+	// ve su historia»).
 	w.do("5 card", http.MethodPost, w.api("/cards/"+rule.Card+"/answer"),
 		map[string]any{"option": "keep", "reason": cardReason}, http.StatusOK, nil)
 	var history server.BlockHistoryView
-	w.do("5 history", http.MethodGet, w.api(fmt.Sprintf("/sections/%s/history?block=%d", ruleSection.Label, rule.Block)),
+	w.do("5 history", http.MethodGet, w.api(fmt.Sprintf("/sections/%s/history?block=%d", ruleSection.Label, block)),
 		nil, http.StatusOK, &history)
 	if len(history.Entries) == 0 {
-		w.fail("5 history", "the history of block %d of %s is empty", rule.Block, ruleSection.Label)
+		w.fail("5 history", "the history of block %d of %s is empty", block, ruleSection.Label)
 	}
 
 	// 6. «Firmar sección»: an explanation without the why of the rule;
@@ -356,21 +380,21 @@ func field(key string, want any) func(map[string]any) bool {
 // coincides, and the signed section.
 func stepEvents(signed string) ([]func(store.Event) bool, []string) {
 	return []func(store.Event) bool{
-			is(store.EventHumanMessage, "human", nil),
-			is(store.EventStepEnded, "agent", field("turn_kind", "understanding")),
-			is(store.EventEdit, "agent", nil),
-			is(store.EventStateChanged, "app", field("to", "open")),
-			is(store.EventStepEnded, "agent", func(d map[string]any) bool { return d["stop_reason"] != nil }),
-			is(store.EventDecisionSeen, "human", field("seen_via", "card")),
-			is(store.EventDecisionSeen, "human", field("seen_via", "history")),
-			is(store.EventStateChanged, "human", field("signoff_step", "requested")),
-			is(store.EventSignoffCase, "agent", field("coincides", false)),
-			is(store.EventSignoffCase, "agent", field("coincides", true)),
-			is(store.EventStateChanged, "human", func(d map[string]any) bool { return d["label"] == signed && d["to"] == "signed" }),
-		}, []string{
-			"1-2 request (human_message)", "3 understanding (step_ended)", "4 agent text (edit)", "4 card opened (state_changed)",
-			"4 chain stopped (step_ended with stop_reason)", "5 card answered (decision_seen card)", "5 history (decision_seen history)",
-			"6 signoff requested", "6 Wonder names what is missing (signoff_case, not coinciding)",
-			"6 signoff coincides (signoff_case)", "6 section signed (state_changed)",
-		}
+		is(store.EventHumanMessage, "human", nil),
+		is(store.EventStepEnded, "agent", field("turn_kind", "understanding")),
+		is(store.EventEdit, "agent", nil),
+		is(store.EventStateChanged, "app", field("to", "open")),
+		is(store.EventStepEnded, "agent", func(d map[string]any) bool { return d["stop_reason"] != nil }),
+		is(store.EventDecisionSeen, "human", field("seen_via", "card")),
+		is(store.EventDecisionSeen, "human", field("seen_via", "history")),
+		is(store.EventStateChanged, "human", field("signoff_step", "requested")),
+		is(store.EventSignoffCase, "agent", field("coincides", false)),
+		is(store.EventSignoffCase, "agent", field("coincides", true)),
+		is(store.EventStateChanged, "human", func(d map[string]any) bool { return d["label"] == signed && d["to"] == "signed" }),
+	}, []string{
+		"1-2 request (human_message)", "3 understanding (step_ended)", "4 agent text (edit)", "4 card opened (state_changed)",
+		"4 chain stopped (step_ended with stop_reason)", "5 card answered (decision_seen card)", "5 history (decision_seen history)",
+		"6 signoff requested", "6 Wonder names what is missing (signoff_case, not coinciding)",
+		"6 signoff coincides (signoff_case)", "6 section signed (state_changed)",
+	}
 }

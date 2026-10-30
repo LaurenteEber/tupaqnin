@@ -502,6 +502,17 @@ func sectionsInOrder(objects []store.Object) []store.Object {
 	return out
 }
 
+// AgentPendings are the agent's computed pendings of the project, in
+// document order, as the startup renders them (P-51); the chain's
+// continuation message carries them too (P-54, flujos §1).
+func (m *Memory) AgentPendings(ctx context.Context, projectID string) ([]string, error) {
+	sections, err := graph.OrderedSections(ctx, m.db, projectID)
+	if err != nil {
+		return nil, err
+	}
+	return m.agentPendings(ctx, projectID, sections)
+}
+
 // agentPendings renders the agent's computed pendings of each section:
 // all of graph.SectionStatus except the open cards, which are yours,
 // and the malformed output, which the output_retry errors above carry.

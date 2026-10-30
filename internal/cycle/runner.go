@@ -606,6 +606,18 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		message := ContinueMessage
 		if n == 1 && human {
 			message = text
+		} else {
+			// What the checks find enters the next triage (flujos §1,
+			// P-54): the computed pendings go before the fixed message.
+			pendings, err := r.memory.AgentPendings(ctx, projectID)
+			if err != nil {
+				r.fail(projectID, turnID, "turn_failed")
+				return err
+			}
+			if len(pendings) > 0 {
+				message = "Pendings the app computed (resolve them before new text):\n- " +
+					strings.Join(pendings, "\n- ") + "\n\n" + message
+			}
 		}
 		if notice != "" {
 			message = notice + "\n\n" + message
