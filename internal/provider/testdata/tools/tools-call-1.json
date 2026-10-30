@@ -1,0 +1,53 @@
+{
+  "name": "tools-call-1",
+  "deltas": [
+    "Escribo tu sección de exposición — junto las cifras de las fuentes."
+  ],
+  "items": [
+    {
+      "encrypted_content": "Q-PaDgEdMiR-8NWvy8k3VIkIpKZCcK2jHioM_vQ15jfqKsFu118lnPefD-YR7ZcOBblf6nCQQ8KXkw_d3Cwr9bwNk9q5LQmnzDlntv0-XTjko2z1atmOTg97m-hTecGiySTKVYLoTPoy4vzUwMIOOmDgQ84aNRvEK3QPw9A16GGlJIlOHZiHJ1D8ge6h5QYJqDRAOhKNkEyotxC_qmPC8JahxEJNLkFWC277vtQgYUky8ZAIYeUkAhfUOi5eN8sHJfE57SCgchPKinCHnDvhtF2t_SCZkZkIt2x0QxjfuFKzeAf4QBvd7H1vnrrfyyo4Jmd6Q5Ugpm_4wTQ0Rri-UfZUydtWxBvwBx6L_MIFOnlzXGbsYMvR1ja_pPcdj7yAyRfmOsxwxXH1riqeNYdZucTSb2tdX2fQTaKmCppxMRo5XMvapk3vlIWJ3wu1j1qXxr-BfhBgYCsFKCSWSt9fw3YfDaxfB11fdCSQThdckxpzuIqM71EQQh1JQgJY656-KKbuHKWA_ccfiId7pbfQXWHy9g4DCqXjQ3dVKiGVF-uvcAnBGKD2y0X-LpRcTtY0B7vIoI_rt324BVKdt5MI_0dL2Dy879-wjc8jV1KknaY_DF8vQ9AqWMZZ4_p6HY_SXsKI7-a86pdA27XYynaeF4t0_W1Wm5eiNMrL0nbCUsjrayqDH2pbYiR5JEWgNYRpFWgXzJ9PHDRnKq4ZeLGpqX0-vAxLLGdQLa4K0sKRRRYlo6_vPW6tPQwCGCzNbbfzN6WFD-PH3gODiWIYFnmsWfOzCNyn8KeaCjXO49Dvz4ypxuvhz3Gpy2z_h86Mw_yPVJmpH55TsgO-OE3N_zMwfzrVVnwb9jzVEflFOBKy1CuCqO7IFDIGh-fP0zn3kI6_kvCaIzmlZ45tJapommrnI5o0s-9u04LvFO3SgFl4Dk2Wz_XiQrZihCtclVsOpmB-Opd8s8u_iuGQ3pPtlNg006X1m_JKPrg_fyqPdI8CCKl6O9GkDzG7ZuX4CRMpj0ZWZPW3VXStQYw3-FHnVWa-DiGqEsZYphQy9pEVI-11FDcUfF4IwAml01V2K417rUqTS_p7mhPi5ECK0F947yGkBlhmFd7S2DZOPTyx9jt1cH04OQiSNWfGEj9iJmYHnJigHaFVBUWomwz5r0FBwPUQefS8nLGWcQZKyyBzDI2hLIX32Q-a42Y5zDPXhKF613IO_WWNn2-ZK3uPv-N3M3aSoCxVrPngDjnbyql7Qtqd4hBU2MFODJYv13lN6PrKUC7aTj-ZBASLr24ZAcRuVOaFV0uB3UvsQ9Px75iZNmirLuATXaDxkAIr8P_k0QBVqYJRW51Y6pU9zRdNeF-wNn2rBwkOhRv__27DrVFalUTf0Sw0K4qEOcdwicAhLVKA7jHKhI3UKjbeemV_oetFmA",
+      "id": "rs_6ae4cfd28d68d67519fa4219:rs_01a18dcbcf31760398784711a5eac9e9",
+      "status": "completed",
+      "summary": [],
+      "type": "reasoning"
+    },
+    {
+      "content": [
+        {
+          "annotations": [],
+          "logprobs": [],
+          "text": "Escribo tu sección de exposición — junto las cifras de las fuentes.",
+          "type": "output_text"
+        }
+      ],
+      "id": "rs_01a18dcbd19f77d7bd0b4faf86b539af",
+      "phase": "commentary",
+      "role": "assistant",
+      "status": "completed",
+      "type": "message"
+    },
+    {
+      "arguments": "{\"source\":\"src-1\",\"span\":\"null\"}",
+      "call_id": "call_01a18dcbd289764ebed7f7d27a00a647",
+      "id": "fc_01a18dcbd289764ebed7f7d27a00a647",
+      "name": "read_source",
+      "status": "completed",
+      "type": "function_call"
+    },
+    {
+      "arguments": "{\"source\":\"src-2\",\"span\":\"null\"}",
+      "call_id": "call_01a18dcbd35b74d7926d63001a40e7b4",
+      "id": "fc_01a18dcbd35b74d7926d63001a40e7b4",
+      "name": "read_source",
+      "status": "completed",
+      "type": "function_call"
+    }
+  ],
+  "usage": {
+    "input_tokens": 4125,
+    "output_tokens": 267,
+    "context_window": 0,
+    "cost_usd": 0.006291000000000001
+  },
+  "delta_delay": 0
+}
