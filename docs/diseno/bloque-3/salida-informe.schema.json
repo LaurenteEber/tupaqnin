@@ -2,15 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-informe.schema.json",
   "title": "Salida fija del principal en el informe de parada",
-  "description": "Contrato de fichas §7 (fila «Principal · informe de parada»), en forma de esquema. Primero la respuesta (regla 6). Recibe el estado de trabajo y la lista de decisiones sin ver que calcula la app. Si Eber adopta B-26 de backlog-r2, «verified», «unverified» y «open_items» los arma la app y salen de este esquema.",
+  "description": "Contrato de fichas §7 (fila «Principal · informe de parada»), en forma de esquema. Primero la respuesta (regla 6). Recibe el estado de trabajo y la lista de decisiones sin ver que calcula la app. (30-oct) Verificado, no verificado y por aclarar y tarjetas los arma la app desde el grafo (bloque-3 §2; fichas §7); el principal no los escribe.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "answer",
     "done",
-    "verified",
-    "unverified",
-    "open_items",
     "next",
     "unseen"
   ],
@@ -24,57 +21,6 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/text"
-      }
-    },
-    "verified": {
-      "description": "Lo comprobado: afirmación y las etiquetas que la respaldan (citas, datos, fuentes).",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "statement",
-          "refs"
-        ],
-        "properties": {
-          "statement": {
-            "$ref": "#/$defs/text"
-          },
-          "refs": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/$defs/label"
-            }
-          }
-        }
-      }
-    },
-    "unverified": {
-      "description": "Lo que no se pudo comprobar, con el porqué.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "statement",
-          "why"
-        ],
-        "properties": {
-          "statement": {
-            "$ref": "#/$defs/text"
-          },
-          "why": {
-            "$ref": "#/$defs/text"
-          }
-        }
-      }
-    },
-    "open_items": {
-      "description": "«Por aclarar» y tarjetas abiertas, por etiqueta; la app valida que estén abiertos.",
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/label"
       }
     },
     "next": {

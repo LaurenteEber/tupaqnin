@@ -1,6 +1,6 @@
 ---
 titulo: Glosario · del diseño (español) al código (inglés)
-estado: v1.8 · 30-oct · `focus` y `position` de la sección (K-17) · v1.7 · 30-oct · respuesta en la conversación, motivo de la parada, herramientas de lectura, procedencia y conflicto entre fuentes (propuesta del 30-oct) · v1.6 · 29-oct · `name` del proyecto, `filename` y `media_type` de la fuente, `keep` · `other` de la tarjeta · v1.5 · 29-oct · `signoff_cancelled` (B-14) · v1.4 · 28-oct · suma los campos de las salidas del «Entendí» y de Wonder · v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
+estado: v1.10 · 30-oct · `evidence_required`, `evidence_from`, `plan_confirmed`, `claim_accepted` · v1.9 · 30-oct · motivos de la parada de la rebanada 2 en `stop_reason` · v1.8 · 30-oct · `focus` y `position` de la sección (K-17) · v1.7 · 30-oct · respuesta en la conversación, motivo de la parada, herramientas de lectura, procedencia y conflicto entre fuentes (propuesta del 30-oct) · v1.6 · 29-oct · `name` del proyecto, `filename` y `media_type` de la fuente, `keep` · `other` de la tarjeta · v1.5 · 29-oct · `signoff_cancelled` (B-14) · v1.4 · 28-oct · suma los campos de las salidas del «Entendí» y de Wonder · v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
 relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, el backlog y AGENTS.md
 ---
 
@@ -158,9 +158,12 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 |---|---|
 | respuesta del agente en la conversación (R-5) | `reply` (salida del principal) |
 | título del proyecto que propone el «Entendí» (U-1) | `project_title` (salida del «Entendí») → `name` de `project` |
-| motivo de la parada: sin trabajo · pendiente del agente · tope de pasos (B-24) | `stop_reason`: `no_work` · `agent_pending` · `step_limit` (en `step_ended`) |
+| motivo de la parada: sin trabajo · pendiente del agente · tope de pasos (B-24) · sección sin pendientes · decisiones sin ver · solo queda lo tuyo | `stop_reason`: `no_work` · `agent_pending` · `step_limit` (desde la rebanada 2, el tope de 12) · `section_ready` · `unseen_decisions` · `human_only` (rebanada 2: los motivos de la parada, fichas §2) (en `step_ended`) |
 | herramientas del principal: leer un tramo de una fuente · buscar en tu material (R-3) | `read_source` · `search_sources` |
 | «aquí se concluye» (R-8): la marca de la sección en el plan | `role`: `conclusion` (marcada) · `other` (sin marca); `recommendation` ya no se ofrece |
 | origen de una afirmación: tu material · fuente buscada · conocimiento del modelo (R-1, rebanada 2; búsqueda en la 3) | `claim_origin`: `material` · `external` · `model_knowledge` (no confundir con `origin` de la decisión: `agent` · `human`) |
 | afirmación sin fuente (pendiente, R-1, rebanada 2) | `unsourced_claim` |
 | conflicto entre fuentes (R-9, rebanada 3) | `source_conflict` |
+| ¿el documento pide evidencia? (B-51) | `evidence_required` (en `request`) |
+| de dónde saldrá la evidencia de una sección del plan (B-53) | `evidence_from` (salida del «Entendí») |
+| confirmaste o corregiste el plan · aceptas un párrafo sin fuente (rebanada 2) | `plan_confirmed` · `claim_accepted` (eventos) |

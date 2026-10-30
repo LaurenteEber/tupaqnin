@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-comprobador.schema.json",
   "title": "Salida fija del comprobador en cada paso",
-  "description": "Contrato de fichas §7 (fila «Comprobador»), en forma de esquema. El comprobador no decide: devuelve una marca por sonda y candidatos con los pasajes literales; la app los reparte (flujos §1). En la duda, salta (B2-7). Los campos «question» y «options» de un candidato siguen la elección B-29 de backlog-r2; si Eber la rechaza, se quitan.",
+  "description": "Contrato de fichas §7 (fila «Comprobador»), en forma de esquema. El comprobador no decide: devuelve una marca por sonda y candidatos con los pasajes literales; la app los reparte (flujos §1). En la duda, salta (B2-7). Los campos «question» y «options» de un candidato siguen la elección B-44 de backlog-r2; si Eber la rechaza, se quitan.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -116,7 +116,7 @@
             ]
           },
           "question": {
-            "description": "B-29. En «contradiction», «doubtful_term» y «exceeds_reviewed»: la pregunta para el humano, de una línea. Si no: null.",
+            "description": "B-44. En «contradiction», «doubtful_term» y «exceeds_reviewed»: la pregunta para el humano, de una línea. Si no: null.",
             "anyOf": [
               {
                 "$ref": "#/$defs/text"
@@ -127,7 +127,7 @@
             ]
           },
           "options": {
-            "description": "B-29. Con «question»: dos opciones o más, cada una con su contraste, su consecuencia y su riesgo (estados §4). Si no: null.",
+            "description": "B-44. Con «question»: dos opciones o más, cada una con su contraste, su consecuencia y su riesgo (estados §4). Si no: null.",
             "anyOf": [
               {
                 "type": "array",
