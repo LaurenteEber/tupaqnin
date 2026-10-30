@@ -1,4 +1,4 @@
-.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types
+.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check
 
 run:
 	go run ./cmd/tupaqnin
@@ -42,3 +42,12 @@ microtest-tools:
 # each scenario. Same keychain key as microtest. Eber runs this.
 microtest-signoff:
 	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestWonderSignoff -count=1 -v
+
+# The case 5 walkthrough end to end against real Meta (backlog-r1 1.8):
+# steps 1 to 6 of the jury's walkthrough through the HTTP API, with
+# the scripted acts of the jury. A failing run names the step and the
+# model's last output; a passing run replaces the recorded answers in
+# internal/demo/walkthrough/testdata/recorded/, which the default test
+# replays with the fake. Same keychain key as microtest. Eber runs this.
+demo-check:
+	TQ_PROVIDER=meta META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/demo/walkthrough/ -run TestDemoCheck -count=1 -v -timeout 30m

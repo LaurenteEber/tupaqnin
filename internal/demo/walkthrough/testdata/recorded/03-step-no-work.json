@@ -1,0 +1,26 @@
+{
+  "name": "03-step-no-work",
+  "turn_kind": "step",
+  "deltas": [
+    "{\"triage_line\": \"Construir: reviso lo escrito; no queda trabajo en este paso.\", \"closing_risk\": \"none\", \"note\": \"Revisé el texto vigente; no escribí nada nuevo ni registré decisiones.\"}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"triage_line\": \"Construir: reviso lo escrito; no queda trabajo en este paso.\", \"closing_risk\": \"none\", \"note\": \"Revisé el texto vigente; no escribí nada nuevo ni registré decisiones.\"}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1200,
+    "output_tokens": 220,
+    "context_window": 1048576,
+    "cost_usd": 0.002385
+  },
+  "delta_delay": 0
+}
