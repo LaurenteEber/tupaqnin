@@ -373,7 +373,7 @@ export function App() {
 
             {projectID && (
               <RequestPanel
-                key={projectID}
+                key={`request-${projectID}`}
                 lang={lang}
                 projectID={projectID}
                 onRequest={setRequestText}
@@ -387,7 +387,7 @@ export function App() {
 
             {projectID && (
               <UnderstandingPanel
-                key={projectID}
+                key={`understanding-${projectID}`}
                 lang={lang}
                 projectID={projectID}
                 refreshKey={understandingKey}
