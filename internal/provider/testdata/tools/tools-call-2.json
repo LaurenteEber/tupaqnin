@@ -34,7 +34,7 @@
     " mostrara equivalencia entre ambas",
     " aguas.\"}], \"new_text\": [{\"",
     "anchor\": \"\", \"base_version\": ",
-    "0, \"operation\": \"insert_after",
+    "0, \"claim_origin\": \"material\", \"operation\": \"insert_after",
     "\", \"section_id\": \"sec-",
     "1\", \"text\": \"El agua",
     " embotellada tuvo 1,",
@@ -73,7 +73,7 @@
         {
           "annotations": [],
           "logprobs": [],
-          "text": "{\"citations\": [{\"claim_anchor\": \"El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\", \"passage\": \"El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\", \"source_id\": \"src-1\"}], \"closing_risk\": \"figures_and_calculations\", \"deferred\": null, \"figure_links\": [{\"decision_id\": \"new-1\", \"figure_anchor\": \"1,5 veces más\"}], \"handled_changes\": null, \"new_decisions\": [{\"applies\": null, \"assumption\": false, \"depends_on_assumption\": null, \"id\": \"new-1\", \"instead_of\": \"Tratar el agua embotellada y la de grifo como equivalentes en partículas por litro.\", \"statement\": \"El agua embotellada contiene más partículas por litro que el agua de grifo.\", \"supersedes\": null, \"used_in_sections\": [\"sec-1\"], \"would_choose_if\": \"Si un muestreo comparable mostrara equivalencia entre ambas aguas.\"}], \"new_text\": [{\"anchor\": \"\", \"base_version\": 0, \"operation\": \"insert_after\", \"section_id\": \"sec-1\", \"text\": \"El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\"}], \"note\": \"del agente: leí ambas fuentes y usé solo src-1 para la cifra; descarté src-2 porque no compara aguas; después no queda nada pendiente de esta sección.\", \"proposed_open_questions\": null, \"proposed_roles\": null, \"reply\": null, \"triage_line\": \"Tramo exposicion, riesgo figures_and_calculations, no delega.\", \"used_decisions\": null, \"used_sources\": [\"src-1\"]}",
+          "text": "{\"citations\": [{\"claim_anchor\": \"El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\", \"passage\": \"El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\", \"source_id\": \"src-1\"}], \"closing_risk\": \"figures_and_calculations\", \"deferred\": null, \"figure_links\": [{\"decision_id\": \"new-1\", \"figure_anchor\": \"1,5 veces más\"}], \"handled_changes\": null, \"new_decisions\": [{\"applies\": null, \"assumption\": false, \"depends_on_assumption\": null, \"id\": \"new-1\", \"instead_of\": \"Tratar el agua embotellada y la de grifo como equivalentes en partículas por litro.\", \"statement\": \"El agua embotellada contiene más partículas por litro que el agua de grifo.\", \"supersedes\": null, \"used_in_sections\": [\"sec-1\"], \"would_choose_if\": \"Si un muestreo comparable mostrara equivalencia entre ambas aguas.\"}], \"new_text\": [{\"anchor\": \"\", \"base_version\": 0, \"claim_origin\": \"material\", \"operation\": \"insert_after\", \"section_id\": \"sec-1\", \"text\": \"El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\"}], \"note\": \"del agente: leí ambas fuentes y usé solo src-1 para la cifra; descarté src-2 porque no compara aguas; después no queda nada pendiente de esta sección.\", \"proposed_open_questions\": null, \"proposed_roles\": null, \"reply\": null, \"stretch\": \"build\", \"triage_line\": \"Tramo exposicion, riesgo figures_and_calculations, no delega.\", \"used_decisions\": null, \"used_sources\": [\"src-1\"]}",
           "type": "output_text"
         }
       ],

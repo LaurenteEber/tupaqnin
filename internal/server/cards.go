@@ -22,6 +22,9 @@ type CardView struct {
 	WouldChooseIf string       `json:"would_choose_if"`
 	Reasons       []string     `json:"reasons"`
 	Sections      []SectionRef `json:"sections"`
+	// OwnEdit marks the card of your critical edit (R4, B-49): it asks
+	// only for the «porque», with option null.
+	OwnEdit bool `json:"own_edit"`
 }
 
 // SectionRef names a section on screen by its title (P-36, B-18); the
@@ -38,8 +41,10 @@ type TodoView struct {
 }
 
 type AnswerCardRequest struct {
-	Option string `json:"option"` // keep · other
-	Reason string `json:"reason"`
+	// Option is keep · other, or null on the card of your critical edit
+	// (B-49).
+	Option *string `json:"option"`
+	Reason string  `json:"reason"`
 }
 
 type AnswerCardResponse struct {
@@ -55,6 +60,7 @@ func (s *Server) cardView(r *http.Request, projectID string, card store.Object) 
 	if err != nil {
 		return view, err
 	}
+	view.OwnEdit = str(bodyMap(card), "kind") == cycle.CardOwnEdit
 	b := bodyMap(dec)
 	view.Decision, view.Statement = dec.Label, str(b, "statement")
 	view.InsteadOf, view.WouldChooseIf = str(b, "instead_of"), str(b, "would_choose_if")
@@ -141,7 +147,11 @@ func (s *Server) answerCard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_body")
 		return
 	}
-	answer, err := cycle.NewGate(s.db).AnswerCard(r.Context(), projectID, r.PathValue("label"), req.Option, req.Reason)
+	option := ""
+	if req.Option != nil {
+		option = *req.Option
+	}
+	answer, err := cycle.NewGate(s.db).AnswerCard(r.Context(), projectID, r.PathValue("label"), option, req.Reason)
 	switch {
 	case errors.Is(err, cycle.ErrCardNotFound):
 		writeError(w, http.StatusNotFound, "card_not_found")
@@ -158,5 +168,38 @@ func (s *Server) answerCard(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeJSON(w, http.StatusOK, AnswerCardResponse{Card: answer.Card, Decision: answer.Decision,
 			NewDecision: answer.NewDecision})
+	}
+}
+
+// MarkCriticalRequest marks or unmarks a decision as critical (fichas
+// §2, Tu turno).
+type MarkCriticalRequest struct {
+	Marked bool `json:"marked"`
+}
+
+// PUT /api/projects/{projectID}/decisions/{label}/critical with
+// {marked} → 204; marked_critical in the history (specification §1.5).
+// [EL DISEÑO NO LO DICE]: the status codes; 404 for a label that is not
+// a decision, 409 for a superseded or revoked one.
+func (s *Server) putDecisionCritical(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	var req MarkCriticalRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	err := cycle.MarkCritical(r.Context(), s.db, projectID, r.PathValue("label"), req.Marked)
+	switch {
+	case errors.Is(err, cycle.ErrDecisionNotFound):
+		writeError(w, http.StatusNotFound, "decision_not_found")
+	case errors.Is(err, cycle.ErrDecisionNotCurrent):
+		writeError(w, http.StatusConflict, "decision_not_current")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal")
+	default:
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

@@ -147,8 +147,8 @@ func bodyOfSection(t *testing.T, obj store.Object) string {
 // leaves «cifra sin decisión»; once the source was read (via = read),
 // the same number is linked.
 func TestR3_FigureFromASourceNotReadLeavesFigureWithoutDecision(t *testing.T) {
-	step := `{"triage_line":"Escribo la exposición.","closing_risk":"none","note":"Escribí la cifra.",` +
-		`"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"","operation":"insert_after",` +
+	step := `{"stretch": "build", "triage_line":"Escribo la exposición.","closing_risk":"none","note":"Escribí la cifra.",` +
+		`"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"","claim_origin": "material", "operation":"insert_after",` +
 		`"text":"El agua embotellada tuvo 1,5 veces más partículas."}]}`
 	for _, read := range []bool{false, true} {
 		db, runner, _, _ := newCaptureRunner(t, textFixture(t, step), loadAppFixture(t, "04-principal-no-work.json"))

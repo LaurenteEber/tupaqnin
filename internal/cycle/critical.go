@@ -46,6 +46,9 @@ func reconcileCritical(ctx context.Context, tx *store.Tx, turnID string, before 
 		if card.State != "open" {
 			continue
 		}
+		if bodyStr(bodyOf(card), "kind") == CardOwnEdit {
+			continue // your edit's card does not depend on the decision's state (B-49)
+		}
 		decID := bodyStr(bodyOf(card), "decision_id")
 		dec, err := tx.GetObject(ctx, projectID, decID)
 		if err != nil {

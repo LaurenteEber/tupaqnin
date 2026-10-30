@@ -327,10 +327,10 @@ func TestP32_AgentProposalDoesNotChangeAConfirmedRole(t *testing.T) {
 // lockedStep writes in sec-1 (with a figure in that text) and in a new
 // section, with a new decision used there (B-14).
 const lockedStep = `{
-  "triage_line": "Construir: dos secciones.", "closing_risk": "none", "note": "Paso de prueba.",
+  "stretch": "build", "triage_line": "Construir: dos secciones.", "closing_risk": "none", "note": "Paso de prueba.",
   "new_text": [
-    {"section_id": "sec-1", "base_version": 1, "anchor": "Cierre.", "operation": "replace", "text": "Cierre con 1,5 veces."},
-    {"section_id": "new-1", "base_version": 0, "anchor": "", "operation": "insert_after", "text": "Texto de la otra sección."}
+    {"section_id": "sec-1", "base_version": 1, "anchor": "Cierre.", "claim_origin": "material", "operation": "replace", "text": "Cierre con 1,5 veces."},
+    {"section_id": "new-1", "base_version": 0, "anchor": "", "claim_origin": "material", "operation": "insert_after", "text": "Texto de la otra sección."}
   ],
   "proposed_roles": [{"section_id": "new-1", "role": "other", "title": "Otra"}],
   "new_decisions": [{"id": "new-2", "statement": "Contar por veces.", "instead_of": "Contar crudo.",
@@ -441,10 +441,10 @@ func TestP40_StepOnAChangedSinceSignoffSectionRejectsOnlyThatText(t *testing.T) 
 // glued («…equipos.Se consideran…»).
 func TestP46_InsertedTextIsASeparateParagraph(t *testing.T) {
 	db := seedStepProject(t)
-	applied := applyRecorded(t, db, json.RawMessage(`{"triage_line":"Escribo.","closing_risk":"none","note":"Dos párrafos.",
+	applied := applyRecorded(t, db, json.RawMessage(`{"stretch": "build", "triage_line":"Escribo.","closing_risk":"none","note":"Dos párrafos.",
 		"new_text":[
-		 {"section_id":"sec-1","base_version":1,"anchor":"","operation":"insert_after","text":"Primero el contexto."},
-		 {"section_id":"sec-1","base_version":1,"anchor":"Los estudios usan filtros.","operation":"insert_after","text":"Se consideran dos filtros."}]}`))
+		 {"section_id":"sec-1","base_version":1,"anchor":"","claim_origin": "material", "operation":"insert_after","text":"Primero el contexto."},
+		 {"section_id":"sec-1","base_version":1,"anchor":"Los estudios usan filtros.","claim_origin": "material", "operation":"insert_after","text":"Se consideran dos filtros."}]}`))
 	if !applied.Applied {
 		t.Fatalf("ApplyStep: %+v", applied)
 	}

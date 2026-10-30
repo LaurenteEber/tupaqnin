@@ -586,8 +586,8 @@ func stepFixture(name, text string) provider.Fixture {
 // applied, and the next chained step tells the agent so (the chain of
 // B-17 is unchanged otherwise).
 func TestB14_TheNextChainedStepCarriesTheRejectionForTheAgent(t *testing.T) {
-	onSigning := stepFixture("on-signing", `{"triage_line": "Construir.", "closing_risk": "none", "note": "n",
-	  "new_text": [{"section_id": "sec-1", "base_version": 1, "anchor": "Así la comparación es justa.", "operation": "replace", "text": "Así es justa."}]}`)
+	onSigning := stepFixture("on-signing", `{"stretch": "build", "triage_line": "Construir.", "closing_risk": "none", "note": "n",
+	  "new_text": [{"section_id": "sec-1", "base_version": 1, "anchor": "Así la comparación es justa.", "claim_origin": "material", "operation": "replace", "text": "Así es justa."}]}`)
 	db, runner, cap, _ := newCaptureRunner(t, onSigning, loadAppFixture(t, "04-principal-no-work.json"))
 	seedSignable(t, db, true)
 	sign := openSignoff(t, cycle.NewGate(db))

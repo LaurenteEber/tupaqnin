@@ -271,5 +271,15 @@
   "section.error.version_conflict": "La sección cambió mientras tanto; inténtalo de nuevo.",
   "section.error.internal": "No se pudo guardar.",
   "frame.move_up": "Subir",
-  "frame.move_down": "Bajar"
+  "frame.move_down": "Bajar",
+  "pending.text_without_decision": "Texto escrito sin decisión",
+  "pending.internal_codes": "Códigos internos en el texto",
+  "triage.reclassified": "La app pasó este paso a Construir: toca {what}.",
+  "triage.touches.figure": "una cifra",
+  "triage.touches.citation": "una cita",
+  "triage.touches.conclusion": "una sección donde se concluye",
+  "triage.touches.criterion": "un criterio",
+  "card.own_edit": "Tu edición cambió una cifra de esta decisión crítica. Escribe por qué; la decisión queda como está.",
+  "decision.mark_critical": "Marcar como crítica",
+  "decision.unmark_critical": "Desmarcar como crítica"
 }

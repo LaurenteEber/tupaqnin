@@ -28,6 +28,9 @@ type DecisionEntry struct {
 	Origin        string `json:"origin"`
 	Discarded     bool   `json:"discarded"`
 	Figure        string `json:"figure,omitempty"` // the anchor of the figure it covers in this block
+	// Marked: you marked it critical (the fourth reason, T-5); the page
+	// offers to mark or unmark it from here (backlog-r2 2.1).
+	Marked bool `json:"marked"`
 }
 
 // DatumEntry is a datum copied from a source in a block (A-3, P-60):
@@ -468,7 +471,8 @@ func decisionAdder(ctx context.Context, db *store.DB, projectID string, events [
 			Decision: &DecisionEntry{Label: dec.Label, Statement: bodyString(dec, "statement"),
 				InsteadOf: bodyString(dec, "instead_of"), WouldChooseIf: bodyString(dec, "would_choose_if"),
 				Reason: reason, State: dec.State, Origin: bodyString(dec, "origin"),
-				Discarded: discarded || dec.State == "superseded" || dec.State == "revoked", Figure: figure}})
+				Discarded: discarded || dec.State == "superseded" || dec.State == "revoked", Figure: figure,
+				Marked: bodyValue(dec, "human_marked_critical") == true}})
 		replaced, err := db.EdgesFrom(ctx, projectID, decID)
 		if err != nil {
 			return err

@@ -127,10 +127,11 @@ export async function getTodo(projectID: string): Promise<TodoView> {
   return json(await fetch(`/api/projects/${projectID}/todo`));
 }
 
+// option is null only on the card of your critical edit (R4, B-49).
 export async function answerCard(
   projectID: string,
   label: string,
-  option: "keep" | "other",
+  option: "keep" | "other" | null,
   reason: string,
 ): Promise<AnswerCardResponse> {
   return json(
@@ -254,6 +255,17 @@ export async function getBlockHistory(projectID: string, label: string, block: n
 
 // P-41 (30-oct): the history of a decision with no point in the text,
 // opened from the signoff; it also records decision_seen (history).
+// Marks or unmarks a decision as critical (fichas §2, Tu turno): Go
+// records marked_critical and opens the card of an agent's decision.
+export async function markCritical(projectID: string, label: string, marked: boolean): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/decisions/${label}/critical`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ marked }),
+  });
+  if (!res.ok) throw new Error(`http_${res.status}`);
+}
+
 export async function getDecisionHistory(projectID: string, decision: string): Promise<DecisionHistoryView> {
   return json(await fetch(`/api/projects/${projectID}/decisions/${decision}/history`));
 }
@@ -389,6 +401,10 @@ export interface StepPayload {
   next_turn_id?: string;
   // Why the agent's chain stopped (P-43), computed in Go.
   stop_reason?: "no_work" | "agent_pending" | "step_limit";
+  // The stretch Go settled and why rule 0 moved a direct step to build
+  // (B-43).
+  stretch?: string;
+  reclassified?: string[];
   // A Wonder round of the signoff names its signoff and outcome (1.7).
   signoff?: string;
   outcome?: string;

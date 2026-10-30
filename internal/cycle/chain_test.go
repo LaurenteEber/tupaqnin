@@ -159,7 +159,7 @@ func TestB24_StopReasonIsStoredInTheStepWhereTheChainStops(t *testing.T) {
 // the document and does not count as work, so the chain stops there.
 func TestR5_AQuestionGetsAReplyThatWritesNothingAndIsNotWork(t *testing.T) {
 	db, runner, cap, pub := newCaptureRunner(t, textFixture(t,
-		`{"triage_line":"Respondo tu pregunta.","closing_risk":"none","note":"Solo respondí.",`+
+		`{"stretch": "build", "triage_line":"Respondo tu pregunta.","closing_risk":"none","note":"Solo respondí.",`+
 			`"reply":"Me basé en el material que subiste."}`))
 	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "¿En qué te basaste?"); err != nil {
 		t.Fatalf("RunTurn: %v", err)

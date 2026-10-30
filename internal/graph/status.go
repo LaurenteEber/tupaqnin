@@ -30,6 +30,9 @@ const (
 	// (B-16). [EL DISEÑO NO LO DICE]: the glossary has no code name for
 	// it; this is the smallest English one.
 	PendingSupersededDecision = "superseded_decision_in_text"
+	// Slice 2 (glossary §9, backlog-r2 2.1).
+	PendingTextWithoutDecision = "text_without_decision"
+	PendingInternalCodes       = "internal_codes"
 )
 
 // Pending is one thing a section lacks: its kind and what it is about,
@@ -47,7 +50,7 @@ type Pending struct {
 // state and its pendings (specification §4, estados §1). The pendings of
 // slice 1 are the open cards of the decisions the section uses and the
 // agent's pendings, computed (B-15), «falta en el texto» included.
-func SectionStatus(ctx context.Context, db *store.DB, projectID, label string) (Status, []Pending, error) {
+func SectionStatus(ctx context.Context, db store.Querier, projectID, label string) (Status, []Pending, error) {
 	section, err := db.GetObject(ctx, projectID, label)
 	if err != nil {
 		return "", nil, err
@@ -68,7 +71,9 @@ func SectionStatus(ctx context.Context, db *store.DB, projectID, label string) (
 		if err != nil {
 			return "", nil, err
 		}
-		if used {
+		// The card of your critical edit (R4, B-49) keeps the section it
+		// was opened on pending until you answer it.
+		if used || bodyString(card, "section_id") == section.ID {
 			pendings = append(pendings, Pending{Kind: PendingOpenCard, About: card.Label})
 		}
 	}
@@ -91,6 +96,18 @@ func SectionStatus(ctx context.Context, db *store.DB, projectID, label string) (
 	events, err := db.EventsSince(ctx, projectID, 0)
 	if err != nil {
 		return "", nil, err
+	}
+	// «Escrito sin decisión» (rule 2, B-42) and «códigos internos»
+	// (rule 5), slice 2.
+	if textWithoutDecision(events, section.Label) {
+		pendings = append(pendings, Pending{Kind: PendingTextWithoutDecision})
+	}
+	codes, err := InternalCodes(ctx, db, projectID, section.ID)
+	if err != nil {
+		return "", nil, err
+	}
+	for _, c := range codes {
+		pendings = append(pendings, Pending{Kind: PendingInternalCodes, About: c})
 	}
 	if malformedOutputOpen(events) {
 		pendings = append(pendings, Pending{Kind: PendingMalformedOutput})
@@ -118,7 +135,7 @@ func SectionStatus(ctx context.Context, db *store.DB, projectID, label string) (
 	return status, pendings, nil
 }
 
-func usedIn(ctx context.Context, db *store.DB, projectID, decisionID, sectionID string) (bool, error) {
+func usedIn(ctx context.Context, db store.Querier, projectID, decisionID, sectionID string) (bool, error) {
 	edges, err := db.EdgesFrom(ctx, projectID, decisionID)
 	if err != nil {
 		return false, err
@@ -161,7 +178,7 @@ func malformedOutputOpen(events []store.Event) bool {
 // (B-15, B-16): a decision of the person born from a card's other option
 // and used in the section, until an agent step that touches the section
 // declares it among the decisions it uses.
-func supersededDecisionsInText(ctx context.Context, db *store.DB, projectID string, section store.Object, events []store.Event) ([]string, error) {
+func supersededDecisionsInText(ctx context.Context, db store.Querier, projectID string, section store.Object, events []store.Event) ([]string, error) {
 	born := map[string]int{} // decision id → seq of its birth from a card
 	for _, ev := range events {
 		data := eventData(ev)

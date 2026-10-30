@@ -2,12 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-entendi.schema.json",
   "title": "Salida fija del principal en el «Entendí»",
-  "description": "Contrato de fichas §7 (fila «Principal · «Entendí»»), en forma de esquema. La app lo valida antes de guardarlo; si no cumple, lo reintenta una vez y luego queda como pendiente del agente (fichas §7). Los casos y el rol propuesto no confirman nada: los confirmas tú (fichas §2, K-2).",
+  "description": "Contrato de fichas §7 (fila «Principal · «Entendí»»), en forma de esquema. La app lo valida antes de guardarlo; si no cumple, lo reintenta una vez y luego queda como pendiente del agente (fichas §7). Los casos y el rol propuesto no confirman nada: los confirmas tú (fichas §2, K-2). (30-oct, rebanada 2) Suma `evidence_required` (B-51) y, por sección del plan, `focus` y `evidence_from` (B-53, R-6).",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "understood",
     "project_title",
+    "evidence_required",
     "criteria",
     "material_readings",
     "sections"
@@ -20,6 +21,24 @@
     "project_title": {
       "description": "Título que propone para el proyecto, en el idioma del pedido, de 3 a 8 palabras; el humano lo edita (U-1).",
       "type": "string"
+    },
+    "evidence_required": {
+      "description": "¿El documento pide evidencia? (B-51, R-1, rebanada 2). La app lo guarda en request como «proposed»; el humano lo corrige con «Corregir».",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "why"
+      ],
+      "properties": {
+        "value": {
+          "type": "boolean"
+        },
+        "why": {
+          "description": "Una línea, para el humano: por qué sí o por qué no.",
+          "type": "string"
+        }
+      }
     },
     "criteria": {
       "description": "Una entrada por cada criterio del pedido: cómo lo aplicará, con un caso que cuenta y otro que no. Vacío si el pedido no trae criterios (B-23).",
@@ -74,7 +93,9 @@
         "required": [
           "id",
           "title",
-          "role"
+          "role",
+          "focus",
+          "evidence_from"
         ],
         "properties": {
           "id": {
@@ -92,6 +113,14 @@
               "other"
             ],
             "description": "conclusion si la sección concluye o recomienda («aquí se concluye», R-8); other si no."
+          },
+          "focus": {
+            "description": "Qué concluye o aborda la sección, hasta 60 palabras (validado en Go). Al confirmar o corregir el plan pasa a su «qué debe abordar» (B-53, R-6, rebanada 2).",
+            "type": "string"
+          },
+          "evidence_from": {
+            "description": "De qué fuentes saldrá su evidencia, por nombre de autor y año, o «falta material» (R-6, rebanada 2).",
+            "type": "string"
           }
         }
       }

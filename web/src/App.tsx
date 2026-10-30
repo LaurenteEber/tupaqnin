@@ -443,7 +443,7 @@ export function App() {
               <CardPanel
                 lang={lang}
                 projectID={projectID}
-                refreshKey={understandingKey}
+                refreshKey={`${understandingKey}-${frameTick}`}
                 onAnswered={() => {
                   void refreshSections(projectID);
                   void refreshConversation(projectID); // the answered card (U-5)
@@ -542,6 +542,11 @@ export function App() {
                     name={sectionName(current)}
                     block={historyBlock}
                     onClose={() => setHistoryBlock(0)}
+                    onMarked={() => {
+                      // Marking can open a card and change the frame (T-5).
+                      bumpFrame();
+                      void refreshSections(projectID);
+                    }}
                   />
                 </div>
               )}

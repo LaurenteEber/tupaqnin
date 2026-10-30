@@ -1,5 +1,5 @@
 {
-  "triage_line": "Construir: un paso.",
+  "stretch": "build", "triage_line": "Construir: un paso.",
   "closing_risk": "none",
   "note": "Paso de prueba.",
   "new_decisions": [

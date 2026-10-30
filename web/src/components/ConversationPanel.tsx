@@ -93,6 +93,14 @@ function Entry({ lang, entry }: { lang: Lang; entry: ConversationEntry }) {
           {/* R-5: what the agent answers you, apart from its triage and note. */}
           {entry.reply && <p className="reply">{entry.reply}</p>}
           {entry.triage_line && <p className="triage">{entry.triage_line}</p>}
+          {/* B-43: rule 0 moved a direct step to build; Go says why. */}
+          {entry.reclassified && entry.reclassified.length > 0 && (
+            <p className="triage">
+              {translate(lang, "triage.reclassified", {
+                what: entry.reclassified.map((r) => t(`triage.touches.${r}`)).join(", "),
+              })}
+            </p>
+          )}
           {entry.note && (
             <details className="note">
               <summary>{t("turn.note")}</summary>

@@ -68,7 +68,7 @@ func TestE3_CardOfASupersededDecisionBecomesObsolete(t *testing.T) {
 	if got := cardsOf(t, db); got["dec-2"] != "open" {
 		t.Fatalf("cards after role change: %v, want dec-2 open", got)
 	}
-	out := []byte(`{"triage_line":"Construir.","closing_risk":"none","note":"Reemplazo.",
+	out := []byte(`{"stretch": "build", "triage_line":"Construir.","closing_risk":"none","note":"Reemplazo.",
 		"new_decisions":[{"id":"new-1","statement":"Comparar por veces.","instead_of":"Comparar por promedio.",
 		"would_choose_if":"Hubiera un solo filtro.","assumption":false,"used_in_sections":["sec-1"],"supersedes":"dec-2"}]}`)
 	applyRecorded(t, db, out)

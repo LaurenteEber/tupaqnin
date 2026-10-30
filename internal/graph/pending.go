@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -17,7 +18,7 @@ func bodyString(obj store.Object, key string) string {
 	return s
 }
 
-func hasCurrentEdge(ctx context.Context, db *store.DB, projectID, fromID string, t store.EdgeType) (bool, error) {
+func hasCurrentEdge(ctx context.Context, db store.Querier, projectID, fromID string, t store.EdgeType) (bool, error) {
 	edges, err := db.EdgesFrom(ctx, projectID, fromID)
 	if err != nil {
 		return false, err
@@ -36,7 +37,7 @@ func hasCurrentEdge(ctx context.Context, db *store.DB, projectID, fromID string,
 // covers edge links to a decision, and not a datum linked to its source
 // by comes_from (A-3). It closes when the number is linked or leaves the
 // text.
-func FiguresWithoutDecision(ctx context.Context, db *store.DB, projectID, sectionID string) ([]string, error) {
+func FiguresWithoutDecision(ctx context.Context, db store.Querier, projectID, sectionID string) ([]string, error) {
 	section, err := db.GetObject(ctx, projectID, sectionID)
 	if err != nil {
 		return nil, err
@@ -93,7 +94,7 @@ func FiguresWithoutDecision(ctx context.Context, db *store.DB, projectID, sectio
 // source (fichas §3, glossary §9 «fuente que no sostiene»; B-15), while
 // their claim is still in the text. It closes when the citation is
 // corrected or removed.
-func SourcesNotSupporting(ctx context.Context, db *store.DB, projectID, sectionID string) ([]string, error) {
+func SourcesNotSupporting(ctx context.Context, db store.Querier, projectID, sectionID string) ([]string, error) {
 	section, err := db.GetObject(ctx, projectID, sectionID)
 	if err != nil {
 		return nil, err
@@ -120,4 +121,78 @@ func SourcesNotSupporting(ctx context.Context, db *store.DB, projectID, sectionI
 		}
 	}
 	return out, nil
+}
+
+// projectCodeInText is a token shaped like a short label (glossary §8),
+// after NormalizeLabel: letters, a dash and digits, not glued to a
+// letter or digit before it. Whether it counts is decided against the
+// project's labels, so «Formulario F-40» does not (T-2).
+var projectCodeInText = regexp.MustCompile(`(?:^|[^a-z0-9])([a-z]+-[0-9]+)`)
+
+// InternalCodes returns, in text order and once each, the internal codes
+// in a section's current text (fichas §3 «códigos internos», rule 5 of
+// flujos §1): short labels that exist in this project and any
+// provisional id new-n (T-2, T-3), compared after NormalizeLabel as rule
+// 4 does. It is computed from the current text, so it closes when the
+// code leaves the text (backlog-r2 2.1).
+func InternalCodes(ctx context.Context, q store.Querier, projectID, sectionID string) ([]string, error) {
+	section, err := q.GetObject(ctx, projectID, sectionID)
+	if err != nil {
+		return nil, err
+	}
+	objects, err := q.AllObjects(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	labels := make(map[string]bool, len(objects))
+	for _, obj := range objects {
+		labels[obj.Label] = true
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, m := range projectCodeInText.FindAllStringSubmatch(NormalizeLabel(bodyString(section, "text")), -1) {
+		code := m[1]
+		if seen[code] || !(labels[code] || provisionalID.MatchString(code)) {
+			continue
+		}
+		seen[code] = true
+		out = append(out, code)
+	}
+	return out, nil
+}
+
+var provisionalID = regexp.MustCompile(`^new-[1-9][0-9]*$`)
+
+// TextWithoutDecision reports «escrito sin decisión» found by the app
+// (rule 2, B-42) on a section: an agent step left it in its step_ended,
+// and no later agent step that wrote the section declared a decision
+// used_in it (backlog-r2 2.1, how it closes). The step records both
+// lists, text_without_decision and decided_sections, by label.
+func TextWithoutDecision(ctx context.Context, q store.Querier, projectID, sectionID string) (bool, error) {
+	section, err := q.GetObject(ctx, projectID, sectionID)
+	if err != nil {
+		return false, err
+	}
+	events, err := q.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		return false, err
+	}
+	return textWithoutDecision(events, section.Label), nil
+}
+
+func textWithoutDecision(events []store.Event, sectionLabel string) bool {
+	open := false
+	for _, ev := range events {
+		if ev.Type != store.EventStepEnded {
+			continue
+		}
+		data := eventData(ev)
+		switch {
+		case contains(data["text_without_decision"], sectionLabel):
+			open = true
+		case contains(data["decided_sections"], sectionLabel):
+			open = false
+		}
+	}
+	return open
 }

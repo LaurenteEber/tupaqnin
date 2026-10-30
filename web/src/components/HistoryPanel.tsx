@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getBlockHistory, getDecisionHistory } from "../api/client";
+import { getBlockHistory, getDecisionHistory, markCritical } from "../api/client";
 import type { Entry } from "../api/graph";
 import { translate, type Lang } from "../i18n";
 
@@ -9,7 +9,12 @@ import { translate, type Lang } from "../i18n";
 // Go computes it from the history and the graph; no model narrates it.
 // With decision set (P-41, 30-oct), it is that decision's own history:
 // the signoff opens it for a decision with no point in the text.
-export function HistoryPanel({ lang, projectID, label, name, block, decision, onClose }: {
+// Each current decision can be marked or unmarked as critical with one
+// click (fichas §2, Tu turno; backlog-r2 2.1).
+// [EL DISEÑO NO LO DICE]: where the mark goes; here, on each decision
+// of the history, the one view that lists decisions that are not
+// critical yet.
+export function HistoryPanel({ lang, projectID, label, name, block, decision, onClose, onMarked }: {
   lang: Lang;
   projectID: string;
   label: string;
@@ -17,6 +22,7 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
   block: number;
   decision?: string;
   onClose: () => void;
+  onMarked?: () => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [entries, setEntries] = useState<Entry[] | null>(null);
@@ -28,11 +34,22 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
     panel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [block, label, decision]);
 
+  const [reload, setReload] = useState(0);
+
   useEffect(() => {
     setEntries(null);
     const load = decision ? getDecisionHistory(projectID, decision) : getBlockHistory(projectID, label, block);
     void load.then((v) => setEntries(v.entries), () => setEntries([]));
-  }, [projectID, label, block, decision]);
+  }, [projectID, label, block, decision, reload]);
+
+  async function toggleCritical(decisionLabel: string, marked: boolean) {
+    try {
+      await markCritical(projectID, decisionLabel, marked);
+    } finally {
+      setReload((n) => n + 1);
+      onMarked?.();
+    }
+  }
 
   return (
     <div className="request-panel" ref={panel}>
@@ -69,6 +86,17 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
                   {e.decision.would_choose_if && <> · {t("card.would_choose_if")} «{e.decision.would_choose_if}»</>}
                   {e.decision.reason && <> · {t("history.your_reason")}: «{e.decision.reason}»</>}
                   {e.decision.figure && <> · {t("history.figure")}: {e.decision.figure}</>}
+                  {!e.decision.discarded && (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        onClick={() => void toggleCritical(e.decision!.label, !e.decision!.marked)}
+                      >
+                        {t(e.decision.marked ? "decision.unmark_critical" : "decision.mark_critical")}
+                      </button>
+                    </>
+                  )}
                 </span>
               )
             )}

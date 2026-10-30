@@ -23,7 +23,12 @@ type ConversationEntry struct {
 	// Status is accepted or agent_pending for a step or understanding.
 	Status     string `json:"status,omitempty"`
 	StopReason string `json:"stop_reason,omitempty"`
-	CreatedAt  string `json:"created_at"`
+	// Stretch is the step's stretch as the app settled it (B-43);
+	// Reclassified says why rule 0 moved a direct step to build, shown
+	// with the triage line.
+	Stretch      string   `json:"stretch,omitempty"`
+	Reclassified []string `json:"reclassified,omitempty"`
+	CreatedAt    string   `json:"created_at"`
 }
 
 // GET /api/projects/{projectID}/conversation: the whole conversation,
@@ -53,6 +58,14 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			entry.Kind, entry.Status = "step", "accepted"
 			entry.TriageLine, entry.Reply = str(data, "triage_line"), str(data, "reply")
 			entry.Note, entry.StopReason = str(data, "note"), str(data, "stop_reason")
+			entry.Stretch = str(data, "stretch")
+			if reasons, ok := data["reclassified"].([]any); ok {
+				for _, reason := range reasons {
+					if s, ok := reason.(string); ok {
+						entry.Reclassified = append(entry.Reclassified, s)
+					}
+				}
+			}
 		case ev.Type == store.EventOutputRetry && str(data, "result") == "agent_pending":
 			// [EL DISEÑO NO LO DICE]: a step left pending for the agent
 			// writes no step_ended (B-24 names step_ended); its stop reason

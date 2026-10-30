@@ -205,7 +205,8 @@ func TestP32_UnderstandingDoesNotChangeAConfirmedRole(t *testing.T) {
 	out := recordedOutput(t, "understanding-valid.json")
 	var parsed map[string]any
 	_ = json.Unmarshal(out, &parsed)
-	parsed["sections"] = []any{map[string]any{"id": "sec-1", "title": "Síntesis", "role": "conclusion"}}
+	parsed["sections"] = []any{map[string]any{"id": "sec-1", "title": "Síntesis", "role": "conclusion",
+		"focus": "Lo que concluye.", "evidence_from": "Tu material."}}
 	out, _ = json.Marshal(parsed)
 	result, err := cycle.NewGate(db).EndUnderstanding(context.Background(), "p1", "turn-1", 1, out, refs)
 	if err != nil || result.Status != cycle.StatusAccepted {
@@ -238,7 +239,8 @@ func TestB23_RequestWithoutCriteriaGetsAnAcceptedUnderstanding(t *testing.T) {
 	db := openTemp(t)
 	output := json.RawMessage(`{"understood":"Un estado del arte sobre pobreza y desarrollo cerebral.",
 		"project_title":"Pobreza y desarrollo cerebral","criteria":[],"material_readings":[],
-		"sections":[{"id":"new-1","title":"Hallazgos","role":"conclusion"}]}`)
+		"evidence_required":{"value":true,"why":"Resume estudios."},
+		"sections":[{"id":"new-1","title":"Hallazgos","role":"conclusion","focus":"Qué se halló.","evidence_from":"falta material"}]}`)
 	result, err := cycle.NewGate(db).EndUnderstanding(context.Background(), "p1", "turn-1", 1, output, nil)
 	if err != nil || result.Status != cycle.StatusAccepted {
 		t.Fatalf("EndUnderstanding: %+v, %v", result, err)
@@ -256,7 +258,8 @@ func TestU1_UnderstandingProposesTheProjectTitleWithoutReplacingYours(t *testing
 	gate := cycle.NewGate(db)
 	output := func(title string) json.RawMessage {
 		return json.RawMessage(`{"understood":"Entendido.","project_title":"` + title + `","criteria":[],
-			"material_readings":[],"sections":[{"id":"new-1","title":"Hallazgos","role":"other"}]}`)
+			"material_readings":[],"evidence_required":{"value":false,"why":"Es una nota."},
+			"sections":[{"id":"new-1","title":"Hallazgos","role":"other","focus":"Qué se halló.","evidence_from":"falta material"}]}`)
 	}
 	if _, err := gate.EndUnderstanding(context.Background(), "p1", "turn-1", 1, output("Pobreza y cerebro"), nil); err != nil {
 		t.Fatalf("EndUnderstanding: %v", err)
@@ -272,5 +275,35 @@ func TestU1_UnderstandingProposesTheProjectTitleWithoutReplacingYours(t *testing
 	}
 	if got := projectName(t, db); got != "Mi título" {
 		t.Fatalf("name: %q, want yours", got)
+	}
+}
+
+// B-51, B-53, R-6 (stored from piece 2.1 on): the understanding's
+// evidence_required goes to the request as proposed, and each section's
+// focus and evidence_from go in its step_ended plan, by label.
+func TestB51_UnderstandingStoresEvidenceRequiredAndThePlan(t *testing.T) {
+	db := openTemp(t)
+	refs := seedRequest(t, db)
+	result, err := cycle.NewGate(db).EndUnderstanding(context.Background(), "p1", "turn-1", 1,
+		recordedOutput(t, "understanding-valid.json"), refs)
+	if err != nil || result.Status != cycle.StatusAccepted || !result.Output.EvidenceRequired.Value {
+		t.Fatalf("EndUnderstanding: %+v, %v", result, err)
+	}
+	requests, _ := db.ListObjects(context.Background(), "p1", store.ObjectRequest)
+	var rb map[string]any
+	_ = json.Unmarshal(requests[0].Body, &rb)
+	ev, _ := rb["evidence_required"].(map[string]any)
+	if ev["value"] != true || ev["state"] != "proposed" || ev["why"] != "Compara estudios publicados." {
+		t.Fatalf("request evidence_required: %v", rb["evidence_required"])
+	}
+	ended := eventsOfType(t, db, store.EventStepEnded)
+	plan, _ := eventData(t, ended[0])["plan"].([]any)
+	if len(plan) != 2 {
+		t.Fatalf("plan: %v", eventData(t, ended[0])["plan"])
+	}
+	first, _ := plan[0].(map[string]any)
+	if first["focus"] != "Lo que concluye la sección." || first["evidence_from"] != "Tu material." ||
+		!strings.HasPrefix(first["section"].(string), "sec-") {
+		t.Fatalf("plan entry: %v", first)
 	}
 }

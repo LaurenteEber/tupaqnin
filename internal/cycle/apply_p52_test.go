@@ -14,8 +14,8 @@ import (
 // without linking it: the pending «cifra sin decisión» (B-15).
 func writeLooseFigure(t *testing.T, db *store.DB) store.Object {
 	t.Helper()
-	applied := applyRecorded(t, db, json.RawMessage(`{"triage_line": "Construir: un paso.", "closing_risk": "none", "note": "Paso de prueba.",
-		"new_text": [{"section_id": "sec-1", "base_version": 1, "anchor": "Cierre.", "operation": "insert_after", "text": " Quedan 7 casos."}]}`))
+	applied := applyRecorded(t, db, json.RawMessage(`{"stretch": "build", "triage_line": "Construir: un paso.", "closing_risk": "none", "note": "Paso de prueba.",
+		"new_text": [{"section_id": "sec-1", "base_version": 1, "anchor": "Cierre.", "claim_origin": "material", "operation": "insert_after", "text": " Quedan 7 casos."}]}`))
 	if !applied.Applied {
 		t.Fatalf("first step not applied: %v", applied.Errors)
 	}
@@ -31,7 +31,7 @@ func writeLooseFigure(t *testing.T, db *store.DB) store.Object {
 func TestP52_ALaterStepLinksAFigureAlreadyInTheText(t *testing.T) {
 	db := seedStepProject(t)
 	sec := writeLooseFigure(t, db)
-	applied := applyRecorded(t, db, json.RawMessage(`{"triage_line": "Construir: vinculo la cifra.", "closing_risk": "figures_and_calculations", "note": "Paso de prueba.",
+	applied := applyRecorded(t, db, json.RawMessage(`{"stretch": "build", "triage_line": "Construir: vinculo la cifra.", "closing_risk": "figures_and_calculations", "note": "Paso de prueba.",
 		"new_decisions": [{"id": "new-1", "statement": "Contar los casos que quedan.", "instead_of": "Contar todos los casos.",
 			"would_choose_if": "No hubiera exclusiones.", "assumption": false, "used_in_sections": ["sec-1"]}],
 		"figure_links": [{"figure_anchor": "7 casos", "decision_id": "new-1"}]}`))
@@ -55,7 +55,7 @@ func TestP52_ALaterStepLinksAFigureAlreadyInTheText(t *testing.T) {
 // step too.
 func TestP52_ALaterStepCitesAPassageAlreadyInTheText(t *testing.T) {
 	db := seedStepProject(t)
-	applied := applyRecorded(t, db, json.RawMessage(`{"triage_line": "Construir: cito.", "closing_risk": "none", "note": "Paso de prueba.",
+	applied := applyRecorded(t, db, json.RawMessage(`{"stretch": "build", "triage_line": "Construir: cito.", "closing_risk": "none", "note": "Paso de prueba.",
 		"used_sources": ["src-1"],
 		"citations": [{"claim_anchor": "Los estudios usan filtros.", "source_id": "src-1", "passage": "Los filtros finos retienen más partículas."}]}`))
 	if !applied.Applied {
@@ -77,13 +77,13 @@ func TestP52_ALaterStepCitesAPassageAlreadyInTheText(t *testing.T) {
 func TestP52_AnAnchorInTwoSectionsIsRejectedWithItsCount(t *testing.T) {
 	db := seedStepProject(t)
 	writeLooseFigure(t, db)
-	requireRejected(t, applyRecorded(t, db, json.RawMessage(`{"triage_line": "Construir: otra sección.", "closing_risk": "none", "note": "Paso de prueba.",
+	requireRejected(t, applyRecorded(t, db, json.RawMessage(`{"stretch": "build", "triage_line": "Construir: otra sección.", "closing_risk": "none", "note": "Paso de prueba.",
 		"proposed_roles": [{"section_id": "new-2", "role": "other", "title": "Otra"}],
 		"new_decisions": [{"id": "new-1", "statement": "Contar los casos que quedan.", "instead_of": "Contar todos los casos.",
 			"would_choose_if": "No hubiera exclusiones.", "assumption": false, "used_in_sections": ["sec-1"]}],
-		"new_text": [{"section_id": "new-2", "base_version": 0, "anchor": "", "operation": "insert_after", "text": "Aquí también quedan 7 casos."}],
+		"new_text": [{"section_id": "new-2", "base_version": 0, "anchor": "", "claim_origin": "material", "operation": "insert_after", "text": "Aquí también quedan 7 casos."}],
 		"figure_links": [{"figure_anchor": "7 casos", "decision_id": "new-1"}]}`)), "the anchor appears 2 times")
-	requireRejected(t, applyRecorded(t, db, json.RawMessage(`{"triage_line": "Construir: vinculo.", "closing_risk": "none", "note": "Paso de prueba.",
+	requireRejected(t, applyRecorded(t, db, json.RawMessage(`{"stretch": "build", "triage_line": "Construir: vinculo.", "closing_risk": "none", "note": "Paso de prueba.",
 		"new_decisions": [{"id": "new-1", "statement": "Contar los casos que quedan.", "instead_of": "Contar todos los casos.",
 			"would_choose_if": "No hubiera exclusiones.", "assumption": false, "used_in_sections": ["sec-1"]}],
 		"figure_links": [{"figure_anchor": "9 casos", "decision_id": "new-1"}]}`)), "the anchor appears 0 times")
@@ -97,7 +97,7 @@ func TestP52_LinkIntoASignedSectionIsNotApplied(t *testing.T) {
 	if _, err := db.Writer.ExecContext(context.Background(), `UPDATE object SET state = 'signed' WHERE project_id = 'p1' AND label = 'sec-1'`); err != nil {
 		t.Fatalf("sign: %v", err)
 	}
-	applied := applyRecorded(t, db, json.RawMessage(`{"triage_line": "Construir: vinculo.", "closing_risk": "none", "note": "Paso de prueba.",
+	applied := applyRecorded(t, db, json.RawMessage(`{"stretch": "build", "triage_line": "Construir: vinculo.", "closing_risk": "none", "note": "Paso de prueba.",
 		"new_decisions": [{"id": "new-1", "statement": "Contar los casos que quedan.", "instead_of": "Contar todos los casos.",
 			"would_choose_if": "No hubiera exclusiones.", "assumption": false, "used_in_sections": ["sec-1"]}],
 		"figure_links": [{"figure_anchor": "7 casos", "decision_id": "new-1"}]}`))

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -23,6 +24,8 @@ type newTextItem struct {
 	Anchor      string `json:"anchor"`
 	Operation   string `json:"operation"`
 	Text        string `json:"text"`
+	// ClaimOrigin is stored from slice 2 on; its logic is piece 2.11 (R-1).
+	ClaimOrigin string `json:"claim_origin"`
 }
 
 type newDecision struct {
@@ -55,6 +58,8 @@ type citationItem struct {
 }
 
 type stepOutput struct {
+	// Stretch is the proposed stretch (B-43); rule 0 reads it.
+	Stretch               string          `json:"stretch"`
 	TriageLine            string          `json:"triage_line"`
 	Reply                 string          `json:"reply"`
 	ClosingRisk           string          `json:"closing_risk"`
@@ -89,6 +94,10 @@ type ApplyResult struct {
 	// is in signoff or signed (B-14), each with a message for the agent;
 	// the rest of the step applied.
 	Rejected []string
+	// Stretch is the stretch the app settled after rule 0 (B-43);
+	// Reclassified says why a direct step became build, nil otherwise.
+	Stretch      string
+	Reclassified []string
 }
 
 // errStale is a section that changed since the version the agent read
@@ -167,7 +176,8 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Work: work}, nil
+	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Work: work,
+		Stretch: p.stretch, Reclassified: p.reclassified}, nil
 }
 
 // beforeApplyWrite runs between ApplyStep's read and its write; tests
@@ -177,10 +187,13 @@ var beforeApplyWrite = func() {}
 // project is what ApplyStep reads before the write: the label
 // translation (only in graph, rule 7 of AGENTS) and current objects.
 type project struct {
-	labels   *graph.Labeler
-	byID     map[string]store.Object
-	edgesOut map[string][]store.Edge
-	sources  []store.Object
+	// stretch and reclassified are what rule 0 settled when applying.
+	stretch      string
+	reclassified []string
+	labels       *graph.Labeler
+	byID         map[string]store.Object
+	edgesOut     map[string][]store.Edge
+	sources      []store.Object
 	// inSignoff are the sections with a signoff in progress (B-14).
 	inSignoff map[string]bool
 }
@@ -259,6 +272,7 @@ type edit struct {
 	start, end int // byte range of the base text it replaces (empty for an insert)
 	text       string
 	anchor     string
+	origin     string // claim_origin (R-1)
 }
 
 // sectionPlan is the text a step writes in one section.
@@ -500,7 +514,7 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 			fail(path, "a new section is written with base_version 0, an empty anchor and insert_after")
 			continue
 		}
-		e := edit{index: i, text: item.Text, anchor: item.Anchor}
+		e := edit{index: i, text: item.Text, anchor: item.Anchor, origin: item.ClaimOrigin}
 		if item.Anchor == "" {
 			if item.Operation != "insert_after" {
 				fail(path+"/anchor", "an empty anchor is only valid with insert_after")
@@ -760,16 +774,19 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		// block finds the step (B-10).
 		// [EL DISEÑO NO LO DICE]: the edit event records base and new
 		// version only; texts and anchors are added to its data.
-		texts, anchors := []string{}, []string{}
+		texts, anchors, origins := []string{}, []string{}, []string{}
 		for _, e := range sp.edits {
 			texts = append(texts, e.text)
+			origins = append(origins, e.origin)
 			if e.anchor != "" {
 				anchors = append(anchors, e.anchor)
 			}
 		}
 		stepEvent := func(t store.EventType) store.EventInput {
 			ev := agent(t)
-			ev.Data = map[string]any{"texts": texts, "anchors": anchors}
+			// claim_origins goes by text, in the order of texts (R-1;
+			// logic in piece 2.11).
+			ev.Data = map[string]any{"texts": texts, "anchors": anchors, "claim_origins": origins}
 			return ev
 		}
 		if isNew(sp.ref) {
@@ -1033,6 +1050,12 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		"note": out.Note, "deferred": deferred, "labels": labels, "not_applied": notApplied,
 		"written_sections": writtenLabels, "used_decisions": usedDecisions,
 	}
+	// The app's rules 0 to 5, in this transaction, before step_ended,
+	// so the reclassification (rule 0) and «escrito sin decisión» (rule
+	// 2) are written in it (backlog-r2 2.1). No rule stops the chain.
+	if err := p.runRules(tx, out, pl, ids, sectionIDs, data); err != nil {
+		return nil, err
+	}
 	if longDeferred != nil {
 		data["long_deferred"] = longDeferred
 	}
@@ -1163,4 +1186,76 @@ func sortedKeys(m map[string]bool) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// runRules builds the change of an applied step, runs the app's rules
+// on it and writes into step_ended's data what rules 0 and 2 leave
+// there: the stretch the app settled, with the proposed one and why
+// when rule 0 reclassified it (B-43), the sections left with «escrito
+// sin decisión» (B-42) and those where the step declared a decision,
+// which closes it.
+func (p *project) runRules(tx *store.Tx, out stepOutput, pl *plan, ids map[string]string,
+	sectionIDs []string, data map[string]any) error {
+	resolve := func(value string) string {
+		if isNew(value) {
+			return ids[value]
+		}
+		obj, _ := p.object(value)
+		return obj.ID
+	}
+	change := checks.Change{Kind: checks.AgentStep, Sections: sectionIDs, Stretch: out.Stretch,
+		Decided: map[string]bool{}}
+	for _, sp := range pl.sections {
+		for _, e := range sp.edits {
+			change.Texts = append(change.Texts, e.text)
+		}
+	}
+	for i := range out.FigureLinks {
+		if !pl.skipFigures[i] {
+			change.Figures = true
+		}
+	}
+	for i := range out.Citations {
+		if !pl.skipCitations[i] {
+			change.Citations = true
+		}
+	}
+	for _, d := range out.NewDecisions {
+		if len(d.Applies) > 0 {
+			change.Criteria = true
+		}
+		for _, sec := range d.UsedInSections {
+			change.Decided[resolve(sec)] = true
+		}
+	}
+	if len(out.UsedDecisions) > 0 { // used_in goes to every section the step wrote
+		for _, sec := range sectionIDs {
+			change.Decided[sec] = true
+		}
+	}
+	findings, err := checks.RunRules(context.Background(), tx, tx.ProjectID(), change)
+	if err != nil {
+		return err
+	}
+	data["stretch"] = out.Stretch
+	p.stretch = out.Stretch
+	withoutDecision, decided := []string{}, []string{}
+	for _, f := range findings {
+		switch f.Kind {
+		case checks.FindingReclassified:
+			data["stretch"], data["proposed_stretch"], data["reclassified"] = f.About, out.Stretch, f.Reasons
+			p.stretch, p.reclassified = f.About, f.Reasons
+		case graph.PendingTextWithoutDecision:
+			withoutDecision = append(withoutDecision, f.Section)
+		}
+	}
+	for _, id := range sectionIDs {
+		if change.Decided[id] {
+			if sec, err := tx.GetObject(context.Background(), tx.ProjectID(), id); err == nil {
+				decided = append(decided, sec.Label)
+			}
+		}
+	}
+	data["text_without_decision"], data["decided_sections"] = withoutDecision, decided
+	return nil
 }

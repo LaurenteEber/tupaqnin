@@ -271,5 +271,15 @@
   "section.error.version_conflict": "The section changed meanwhile; try again.",
   "section.error.internal": "It could not be saved.",
   "frame.move_up": "Move up",
-  "frame.move_down": "Move down"
+  "frame.move_down": "Move down",
+  "pending.text_without_decision": "Text written without a decision",
+  "pending.internal_codes": "Internal codes in the text",
+  "triage.reclassified": "The app moved this step to Build: it touches {what}.",
+  "triage.touches.figure": "a figure",
+  "triage.touches.citation": "a citation",
+  "triage.touches.conclusion": "a section where it concludes",
+  "triage.touches.criterion": "a criterion",
+  "card.own_edit": "Your edit changed a figure of this critical decision. Write why; the decision stays as it is.",
+  "decision.mark_critical": "Mark as critical",
+  "decision.unmark_critical": "Unmark as critical"
 }

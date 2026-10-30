@@ -273,13 +273,26 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The app's rules 1 to 5 run on each save that changes the
+	// fingerprint (B-36), in the same transaction (backlog-r2 2.1).
+	baseText := str(bodyMap(current), "text")
+	runRules := fingerprint.Section(req.Text) != fingerprint.Section(baseText)
+
 	var updated store.Object
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		var err error
 		updated, err = tx.UpdateObject(current.ID, req.BaseVersion, state, body,
 			store.EventInput{Type: store.EventEdit, Actor: "human"})
-		if err != nil || !inSignoff {
+		if err != nil {
 			return err
+		}
+		if runRules {
+			if _, err := cycle.CheckYourEdit(r.Context(), tx, current.ID, baseText); err != nil {
+				return err
+			}
+		}
+		if !inSignoff {
+			return nil
 		}
 		return cycle.CancelSignoff(tx, signing, graph.CancelEdited, "human", map[string]any{"section": current.Label})
 	})

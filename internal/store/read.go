@@ -23,6 +23,10 @@ type Querier interface {
 	AllObjects(ctx context.Context, projectID string) ([]Object, error)
 	EdgesFrom(ctx context.Context, projectID, fromID string) ([]Edge, error)
 	EdgesTo(ctx context.Context, projectID, toID string) ([]Edge, error)
+	// EventsSince reads the history after seq; in a transaction, with
+	// the events it appended (backlog-r2 2.1: the checks run in the
+	// change's transaction).
+	EventsSince(ctx context.Context, projectID string, seq int) ([]Event, error)
 }
 
 var (
@@ -50,6 +54,10 @@ func (tx *Tx) EdgesFrom(ctx context.Context, projectID, fromID string) ([]Edge, 
 
 func (tx *Tx) EdgesTo(ctx context.Context, projectID, toID string) ([]Edge, error) {
 	return edges(ctx, tx.tx, projectID, "to_id", toID)
+}
+
+func (tx *Tx) EventsSince(ctx context.Context, projectID string, seq int) ([]Event, error) {
+	return eventsSince(ctx, tx.tx, projectID, seq)
 }
 
 // ProjectID is the project the transaction writes to.
@@ -168,7 +176,11 @@ func (db *DB) EdgesTo(ctx context.Context, projectID, toID string) ([]Edge, erro
 // EventsSince returns the history after seq, in seq order (T-7: the
 // order of the history is event.seq, not the clock).
 func (db *DB) EventsSince(ctx context.Context, projectID string, seq int) ([]Event, error) {
-	rows, err := db.Reader.QueryContext(ctx,
+	return eventsSince(ctx, db.Reader, projectID, seq)
+}
+
+func eventsSince(ctx context.Context, q queryer, projectID string, seq int) ([]Event, error) {
+	rows, err := q.QueryContext(ctx,
 		`SELECT seq, type, actor, agent_role, model_and_effort, reason, object_id,
 			base_version, new_version, turn_id, data, created_at
 		 FROM event WHERE project_id = ? AND seq > ? ORDER BY seq`, projectID, seq)

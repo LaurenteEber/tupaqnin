@@ -89,6 +89,11 @@ export interface CardView {
   would_choose_if: string;
   reasons: string[];
   sections: SectionRef[];
+  /**
+   * OwnEdit marks the card of your critical edit (R4, B-49): it asks
+   * only for the «porque», with option null.
+   */
+  own_edit: boolean;
 }
 /**
  * SectionRef names a section on screen by its title (P-36, B-18); the
@@ -106,13 +111,24 @@ export interface TodoView {
   cards: CardView[];
 }
 export interface AnswerCardRequest {
-  option: string; // keep · other
+  /**
+   * Option is keep · other, or null on the card of your critical edit
+   * (B-49).
+   */
+  option?: string;
   reason: string;
 }
 export interface AnswerCardResponse {
   card: string;
   decision: string;
   new_decision?: string;
+}
+/**
+ * MarkCriticalRequest marks or unmarks a decision as critical (fichas
+ * §2, Tu turno).
+ */
+export interface MarkCriticalRequest {
+  marked: boolean;
 }
 
 //////////
@@ -138,6 +154,13 @@ export interface ConversationEntry {
    */
   status?: string;
   stop_reason?: string;
+  /**
+   * Stretch is the step's stretch as the app settled it (B-43);
+   * Reclassified says why rule 0 moved a direct step to build, shown
+   * with the triage line.
+   */
+  stretch?: string;
+  reclassified?: string[];
   created_at: string;
 }
 export interface RenameProjectRequest {

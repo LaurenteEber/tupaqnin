@@ -41,6 +41,17 @@ type UnderstandingSection struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	Role  string `json:"role"`
+	// Focus and EvidenceFrom are stored from slice 2 on; piece 2.12
+	// copies focus to the section when you confirm the plan (B-53, R-6).
+	Focus        string `json:"focus"`
+	EvidenceFrom string `json:"evidence_from"`
+}
+
+// EvidenceRequired is whether the document asks for evidence, as the
+// understanding proposes it (B-51); its logic is piece 2.11.
+type EvidenceRequired struct {
+	Value bool   `json:"value"`
+	Why   string `json:"why"`
 }
 
 // UnderstandingOutput is the principal's fixed understanding shape
@@ -53,7 +64,8 @@ type UnderstandingOutput struct {
 	Material     []struct {
 		Case string `json:"case"`
 	} `json:"material_readings"`
-	Sections []UnderstandingSection `json:"sections"`
+	Sections         []UnderstandingSection `json:"sections"`
+	EvidenceRequired EvidenceRequired       `json:"evidence_required"`
 }
 
 // UnderstandingResult is the outcome of one EndUnderstanding call:
@@ -129,22 +141,28 @@ func (g *Gate) EndUnderstanding(ctx context.Context, projectID, turnID string, a
 					return err
 				}
 			}
+			// The plan: each section's focus and evidence, by label, stored
+			// in step_ended until piece 2.12 confirms it (R-6).
+			plan := []any{}
 			for _, sec := range parsed.Sections {
 				if strings.HasPrefix(sec.ID, "new-") {
-					if _, err := tx.CreateObject(store.ObjectSection, "draft",
+					obj, err := tx.CreateObject(store.ObjectSection, "draft",
 						map[string]any{
 							"title": sec.Title, "text": "",
 							"role":         map[string]any{"value": sec.Role, "state": "proposed"},
 							"open_changes": []any{},
-						}, ev); err != nil {
+						}, ev)
+					if err != nil {
 						return err
 					}
+					plan = append(plan, map[string]any{"section": obj.Label, "focus": sec.Focus, "evidence_from": sec.EvidenceFrom})
 					continue
 				}
 				obj, err := g.db.GetObject(ctx, projectID, sec.ID)
 				if err != nil {
 					return err
 				}
+				plan = append(plan, map[string]any{"section": obj.Label, "focus": sec.Focus, "evidence_from": sec.EvidenceFrom})
 				applied, err := proposeRole(tx, sec.ID, obj.ID, sec.Role, turnID)
 				if err != nil {
 					return err
@@ -160,7 +178,11 @@ func (g *Gate) EndUnderstanding(ctx context.Context, projectID, turnID string, a
 					return err
 				}
 			}
-			data := map[string]any{"turn_kind": "understanding", "understood": parsed.Understood}
+			if err := proposeEvidenceRequired(ctx, tx, projectID, parsed.EvidenceRequired, turnID); err != nil {
+				return err
+			}
+			data := map[string]any{"turn_kind": "understanding", "understood": parsed.Understood, "plan": plan,
+				"evidence_required": map[string]any{"value": parsed.EvidenceRequired.Value, "why": parsed.EvidenceRequired.Why}}
 			if rolesNotApplied != nil {
 				data["not_applied"] = map[string]any{"proposed_roles": rolesNotApplied}
 			}
@@ -282,4 +304,29 @@ func compiledUnderstandingSchema() (*jsonschema.Schema, map[string]any, error) {
 		undCompiled, undDoc = sch, rawDoc
 	})
 	return undCompiled, undDoc, undErr
+}
+
+// proposeEvidenceRequired stores the understanding's proposal in the
+// request as evidence_required {value, state: proposed}, with the shape
+// of the role (B-51). A value you confirmed stays.
+// [EL DISEÑO NO LO DICE]: where the «por qué» line is kept; in the
+// request, next to the value, as why.
+func proposeEvidenceRequired(ctx context.Context, tx *store.Tx, projectID string, ev EvidenceRequired, turnID string) error {
+	requests, err := tx.ListObjects(ctx, projectID, store.ObjectRequest)
+	if err != nil || len(requests) == 0 {
+		return err
+	}
+	req := requests[0]
+	b := bodyOf(req)
+	if cur, _ := b["evidence_required"].(map[string]any); cur["state"] == "confirmed" {
+		return nil
+	}
+	b["evidence_required"] = map[string]any{"value": ev.Value, "why": ev.Why, "state": "proposed"}
+	_, err = tx.UpdateObject(req.ID, req.CurrentVersion, req.State, b,
+		store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID,
+			Data: map[string]any{"label": req.Label, "field": "evidence_required", "to": "proposed"}})
+	if errors.Is(err, store.ErrNoChange) {
+		return nil
+	}
+	return err
 }

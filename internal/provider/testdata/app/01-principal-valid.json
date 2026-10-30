@@ -2,7 +2,7 @@
   "name": "01-principal-valid",
   "turn_kind": "step",
   "deltas": [
-    "{\"triage_line\": \"Constru",
+    "{\"stretch\": \"build\", \"triage_line\": \"Constru",
     "ir: redacto la primera s",
     "ección del pedido.\", \"cl",
     "osing_risk\": \"none\", \"ne",
@@ -38,7 +38,7 @@
       "content": [
         {
           "type": "output_text",
-          "text": "{\"triage_line\": \"Construir: redacto la primera sección del pedido.\", \"closing_risk\": \"none\", \"new_text\": [{\"section_id\": \"new-1\", \"base_version\": 0, \"anchor\": \"\", \"operation\": \"insert_after\", \"text\": \"# Alcance\\n\\nPrimera versión del alcance.\"}], \"proposed_roles\": [{\"section_id\": \"new-1\", \"role\": \"other\", \"title\": \"Alcance\"}], \"deferred\": [{\"what\": \"Confirmar el destinatario\", \"why\": \"Todavía no está en el pedido\"}], \"note\": \"Intenté una primera sección mínima; descarté decisiones nuevas hasta conocer el pedido.\"}"
+          "text": "{\"stretch\": \"build\", \"triage_line\": \"Construir: redacto la primera sección del pedido.\", \"closing_risk\": \"none\", \"new_text\": [{\"section_id\": \"new-1\", \"base_version\": 0, \"anchor\": \"\", \"claim_origin\": \"material\", \"operation\": \"insert_after\", \"text\": \"# Alcance\\n\\nPrimera versión del alcance.\"}], \"proposed_roles\": [{\"section_id\": \"new-1\", \"role\": \"other\", \"title\": \"Alcance\"}], \"deferred\": [{\"what\": \"Confirmar el destinatario\", \"why\": \"Todavía no está en el pedido\"}], \"note\": \"Intenté una primera sección mínima; descarté decisiones nuevas hasta conocer el pedido.\"}"
         }
       ]
     }

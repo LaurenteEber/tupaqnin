@@ -149,9 +149,9 @@ func TestB2_InvalidOutputsRetryOnceThenAgentPending(t *testing.T) {
 		output json.RawMessage
 	}{
 		{"recorded without note", recordedOutput(t, filepath.Join("app", "02-principal-invalid.json"))},
-		{"without operation", json.RawMessage(`{"triage_line":"Build: draft.","closing_risk":"none","note":"Tried.","new_text":[{"section_id":"new-1","base_version":0,"anchor":"","text":"# Scope"}]}`)},
-		{"replace with empty anchor", json.RawMessage(`{"triage_line":"Build: draft.","closing_risk":"none","note":"Tried.","new_text":[{"section_id":"sec-1","base_version":1,"anchor":"","operation":"replace","text":"new"}]}`)},
-		{"reviewed_unchanged without reason", json.RawMessage(`{"triage_line":"Build: draft.","closing_risk":"none","note":"Tried.","handled_changes":[{"change_id":"chg-1","result":"reviewed_unchanged"}]}`)},
+		{"without operation", json.RawMessage(`{"stretch": "build", "triage_line":"Build: draft.","closing_risk":"none","note":"Tried.","new_text":[{"section_id":"new-1","base_version":0,"anchor":"","text":"# Scope"}]}`)},
+		{"replace with empty anchor", json.RawMessage(`{"stretch": "build", "triage_line":"Build: draft.","closing_risk":"none","note":"Tried.","new_text":[{"section_id":"sec-1","base_version":1,"anchor":"","claim_origin": "material", "operation":"replace","text":"new"}]}`)},
+		{"reviewed_unchanged without reason", json.RawMessage(`{"stretch": "build", "triage_line":"Build: draft.","closing_risk":"none","note":"Tried.","handled_changes":[{"change_id":"chg-1","result":"reviewed_unchanged"}]}`)},
 		{"not json at all", json.RawMessage(`I drafted the section and all is well.`)},
 	}
 	for _, tc := range cases {
@@ -204,7 +204,7 @@ func TestT6_NoteOf500WordsIsNotRejectedAndIsKeptComplete(t *testing.T) {
 
 	note := strings.TrimSpace(strings.Repeat("palabra ", 500))
 	output, err := json.Marshal(map[string]any{
-		"triage_line": "Build: draft.", "closing_risk": "none", "note": note,
+		"stretch": "build", "triage_line": "Build: draft.", "closing_risk": "none", "note": note,
 	})
 	if err != nil {
 		t.Fatalf("marshal output: %v", err)

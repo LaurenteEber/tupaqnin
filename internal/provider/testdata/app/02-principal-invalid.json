@@ -2,7 +2,7 @@
   "name": "02-principal-invalid",
   "turn_kind": "step",
   "deltas": [
-    "{\"triage_line\": \"Constru",
+    "{\"stretch\": \"build\", \"triage_line\": \"Constru",
     "ir: sigo.\", \"closing_ris",
     "k\": \"none\"}"
   ],
@@ -19,7 +19,7 @@
       "content": [
         {
           "type": "output_text",
-          "text": "{\"triage_line\": \"Construir: sigo.\", \"closing_risk\": \"none\"}"
+          "text": "{\"stretch\": \"build\", \"triage_line\": \"Construir: sigo.\", \"closing_risk\": \"none\"}"
         }
       ]
     }

@@ -13,8 +13,8 @@ import (
 // before the fixed message.
 func TestP54_ChainedStepCarriesTheComputedPendings(t *testing.T) {
 	_, runner, cap, _ := newCaptureRunner(t,
-		stepFixture("loose-figure", `{"triage_line": "Construir: escribo.", "closing_risk": "none", "note": "Paso.",
-			"new_text": [{"section_id": "new-1", "base_version": 0, "anchor": "", "operation": "insert_after", "text": "Quedan 7 casos comparables."}],
+		stepFixture("loose-figure", `{"stretch": "build", "triage_line": "Construir: escribo.", "closing_risk": "none", "note": "Paso.",
+			"new_text": [{"section_id": "new-1", "base_version": 0, "anchor": "", "claim_origin": "material", "operation": "insert_after", "text": "Quedan 7 casos comparables."}],
 			"proposed_roles": [{"section_id": "new-1", "role": "other", "title": "Síntesis"}]}`),
 		loadAppFixture(t, "04-principal-no-work.json"))
 	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe la síntesis."); err != nil {

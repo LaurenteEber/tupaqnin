@@ -10,7 +10,7 @@ import { translate, type Lang } from "../i18n";
 export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
   lang: Lang;
   projectID: string;
-  refreshKey: number;
+  refreshKey: number | string;
   onAnswered: () => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
@@ -28,10 +28,11 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
   }, [refresh, refreshKey]);
 
   async function apply(card: CardView) {
-    const option = options[card.label];
-    if (!option) return;
+    // The card of your critical edit asks only for the «porque» (B-49).
+    const option = card.own_edit ? null : options[card.label];
+    if (!card.own_edit && !option) return;
     try {
-      await answerCard(projectID, card.label, option, reasons[card.label] ?? "");
+      await answerCard(projectID, card.label, option ?? null, reasons[card.label] ?? "");
       setErrors((prev) => ({ ...prev, [card.label]: "" }));
       await refresh();
       onAnswered();
@@ -58,24 +59,30 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
           <p>{t("card.instead_of")}: {card.instead_of}</p>
           {card.would_choose_if && <p>{t("card.would_choose_if")}: {card.would_choose_if}</p>}
           <p>{t("card.sections")}: {card.sections.map((s) => s.title || t("section.untitled")).join(", ")}</p>
-          <label>
-            <input
-              type="radio"
-              name={`option-${card.label}`}
-              checked={options[card.label] === "keep"}
-              onChange={() => setOptions((prev) => ({ ...prev, [card.label]: "keep" }))}
-            />
-            {t("card.keep")}
-          </label>
-          <label>
-            <input
-              type="radio"
-              name={`option-${card.label}`}
-              checked={options[card.label] === "other"}
-              onChange={() => setOptions((prev) => ({ ...prev, [card.label]: "other" }))}
-            />
-            {t("card.other")}
-          </label>
+          {card.own_edit ? (
+            <p>{t("card.own_edit")}</p>
+          ) : (
+            <>
+              <label>
+                <input
+                  type="radio"
+                  name={`option-${card.label}`}
+                  checked={options[card.label] === "keep"}
+                  onChange={() => setOptions((prev) => ({ ...prev, [card.label]: "keep" }))}
+                />
+                {t("card.keep")}
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name={`option-${card.label}`}
+                  checked={options[card.label] === "other"}
+                  onChange={() => setOptions((prev) => ({ ...prev, [card.label]: "other" }))}
+                />
+                {t("card.other")}
+              </label>
+            </>
+          )}
           <label>
             {t("card.reason")}
             <input
@@ -83,7 +90,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
               onChange={(e) => setReasons((prev) => ({ ...prev, [card.label]: e.target.value }))}
             />
           </label>
-          <button type="button" disabled={!options[card.label]} onClick={() => void apply(card)}>
+          <button type="button" disabled={!card.own_edit && !options[card.label]} onClick={() => void apply(card)}>
             {t("card.apply")}
           </button>
           {errors[card.label] && <p className="turn-error">{t(`card.error.${errors[card.label]}`)}</p>}

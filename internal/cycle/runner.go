@@ -335,14 +335,19 @@ type stepPayload struct {
 	Reply string `json:"reply,omitempty"`
 	// StopReason says why a chain stopped (P-43), so the page can say it.
 	StopReason StopReason `json:"stop_reason,omitempty"`
+	// Stretch is the stretch the app settled (B-43); Reclassified says
+	// why rule 0 moved a direct step to build, for the triage line.
+	Stretch      string   `json:"stretch,omitempty"`
+	Reclassified []string `json:"reclassified,omitempty"`
 }
 
 func (r *Runner) publishStep(projectID, turnID string, result StepResult, outputText string) {
-	r.publishChainStep(projectID, turnID, result, outputText, "")
+	r.publishChainStep(projectID, turnID, result, ApplyResult{}, outputText, "")
 }
 
-func (r *Runner) publishChainStep(projectID, turnID string, result StepResult, outputText string, reason StopReason) {
-	payload := stepPayload{Status: result.Status, Errors: result.Errors, StopReason: reason}
+func (r *Runner) publishChainStep(projectID, turnID string, result StepResult, applied ApplyResult, outputText string, reason StopReason) {
+	payload := stepPayload{Status: result.Status, Errors: result.Errors, StopReason: reason,
+		Stretch: applied.Stretch, Reclassified: applied.Reclassified}
 	if result.Status == StatusAccepted {
 		var out struct {
 			TriageLine  string          `json:"triage_line"`
@@ -599,6 +604,7 @@ const (
 func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, human bool) error {
 	filter := newFieldFilter(stepStreamKeys)
 	var last StepResult
+	var lastApplied ApplyResult
 	var lastText string
 	reason := StopStepLimit
 	var notice string // B-14: what the last step could not write, for the agent
@@ -658,7 +664,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			r.fail(projectID, turnID, "turn_failed")
 			return err
 		}
-		last, lastText = result, outText
+		last, lastApplied, lastText = result, applied, outText
 		notice = ""
 		if len(applied.Rejected) > 0 {
 			notice = strings.Join(applied.Rejected, "\n")
@@ -672,7 +678,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			break
 		}
 	}
-	r.publishChainStep(projectID, turnID, last, lastText, reason)
+	r.publishChainStep(projectID, turnID, last, lastApplied, lastText, reason)
 	return nil
 }
 

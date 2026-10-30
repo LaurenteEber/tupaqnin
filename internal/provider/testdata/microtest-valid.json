@@ -7,7 +7,7 @@
     "null,\"figure_links\":null,\"handled",
     "_changes\":null,\"new_decisions\":",
     "null,\"new_text\":[{\"anchor\":\"\",\"base",
-    "_version\":0,\"operation\":\"insert_after",
+    "_version\":0,\"claim_origin\": \"material\", \"operation\":\"insert_after",
     "\",\"section_id\":\"new-1\",\"",
     "text\":\"## Watering basics\\nWater",
     " plants early in the morning so leaves",
@@ -24,7 +24,7 @@
     " this toy step.\",\"proposed_open_questions",
     "\":null,\"proposed_roles\":[{\"role",
     "\":\"other\",\"section_id\":\"new-",
-    "1\"}],\"triage_line\":\"initial section",
+    "1\"}],\"stretch\": \"build\", \"triage_line\":\"initial section",
     ", risk none, no delegation\",\"",
     "used_decisions\":null,\"used_sources",
     "\":null}"
@@ -42,7 +42,7 @@
         {
           "annotations": [],
           "logprobs": [],
-          "text": "{\"citations\":null,\"closing_risk\":\"none\",\"deferred\":null,\"figure_links\":null,\"handled_changes\":null,\"new_decisions\":null,\"new_text\":[{\"anchor\":\"\",\"base_version\":0,\"operation\":\"insert_after\",\"section_id\":\"new-1\",\"text\":\"## Watering basics\\nWater plants early in the morning so leaves dry during the day.\"}],\"note\":\"del agente: wrote first section draft about watering basics, no alternatives considered for this toy step.\",\"proposed_open_questions\":null,\"proposed_roles\":[{\"role\":\"other\",\"section_id\":\"new-1\"}],\"triage_line\":\"initial section, risk none, no delegation\",\"used_decisions\":null,\"used_sources\":null}",
+          "text": "{\"citations\":null,\"closing_risk\":\"none\",\"deferred\":null,\"figure_links\":null,\"handled_changes\":null,\"new_decisions\":null,\"new_text\":[{\"anchor\":\"\",\"base_version\":0,\"claim_origin\": \"material\", \"operation\":\"insert_after\",\"section_id\":\"new-1\",\"text\":\"## Watering basics\\nWater plants early in the morning so leaves dry during the day.\"}],\"note\":\"del agente: wrote first section draft about watering basics, no alternatives considered for this toy step.\",\"proposed_open_questions\":null,\"proposed_roles\":[{\"role\":\"other\",\"section_id\":\"new-1\"}],\"stretch\": \"build\", \"triage_line\":\"initial section, risk none, no delegation\",\"used_decisions\":null,\"used_sources\":null}",
           "type": "output_text"
         }
       ],

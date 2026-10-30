@@ -73,8 +73,8 @@ func TestB16_SupersededDecisionInTextClosesWithTheNextStepThatDeclaresIt(t *test
 		t.Fatalf("after other: %s %v", st, pendings)
 	}
 	sec, _ := object(t, db, "sec-1")
-	step := `{"triage_line":"Construir.","closing_risk":"none","note":"Reescribo con tu decisión.",
-		"new_text":[{"section_id":"sec-1","base_version":` + itoa(sec.CurrentVersion) + `,"anchor":"Cierre.","operation":"replace","text":"Cierre con conteos crudos."}],
+	step := `{"stretch": "build", "triage_line":"Construir.","closing_risk":"none","note":"Reescribo con tu decisión.",
+		"new_text":[{"section_id":"sec-1","base_version":` + itoa(sec.CurrentVersion) + `,"anchor":"Cierre.","claim_origin": "material", "operation":"replace","text":"Cierre con conteos crudos."}],
 		"used_decisions":["dec-4"]}`
 	if applied := applyRecorded(t, db, json.RawMessage(step)); !applied.Applied {
 		t.Fatalf("step: %v", applied.Errors)
@@ -93,14 +93,14 @@ func TestB15_MalformedOutputIsPendingUntilTheNextValidStep(t *testing.T) {
 	}
 	gate := cycle.NewGate(db)
 	for attempt := 1; attempt <= 2; attempt++ {
-		if _, err := gate.EndStep(context.Background(), "p1", "turn-2", attempt, json.RawMessage(`{"triage_line":"x"}`)); err != nil {
+		if _, err := gate.EndStep(context.Background(), "p1", "turn-2", attempt, json.RawMessage(`{"stretch": "build", "triage_line":"x"}`)); err != nil {
 			t.Fatalf("EndStep: %v", err)
 		}
 	}
 	if st, pendings := status(t, db, "sec-1"); st != graph.StatusDraft || len(pendings) != 1 || pendings[0].Kind != graph.PendingMalformedOutput {
 		t.Fatalf("after the failed step: %s %v", st, pendings)
 	}
-	applyRecorded(t, db, json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Sigo."}`))
+	applyRecorded(t, db, json.RawMessage(`{"stretch": "build", "triage_line":"Construir.","closing_risk":"none","note":"Sigo."}`))
 	if st, _ := status(t, db, "sec-1"); st != graph.StatusReady {
 		t.Fatalf("after a valid step: %s, want ready", st)
 	}

@@ -56,6 +56,10 @@ as a schema. Always include:
   you delegate, why. The human reads it: write it in words and name
   sections by their titles. Never put a label (`sec-1`, `dec-12`)
   or a schema value (`none`, `sources_and_citations`) in it.
+- `stretch`: the stretch of this step — `direct`, `discover`,
+  `build` or `verify`. The app checks `direct` after the change: a
+  step that touches a figure, a citation, a section where the
+  document concludes or a criterion becomes `build`.
 - `closing_risk`: `none`, or one of the schema's closed list.
 - `reply`: only when the human's message asks something; null
   otherwise.
@@ -64,7 +68,9 @@ as a schema. Always include:
   instance of yourself that remembers nothing else.
 
 When the step produces them, also include `new_text` (with its
-anchor and operation), `new_decisions` (each with its full
+anchor, operation and `claim_origin`: `material` when what it claims
+comes from the human's material, `model_knowledge` when it comes from
+what you know), `new_decisions` (each with its full
 contrast: statement, instead of, would choose if, assumption),
 `used_decisions`, `proposed_roles`, `proposed_open_questions`,
 `figure_links`, `used_sources`, `citations` (with the literal

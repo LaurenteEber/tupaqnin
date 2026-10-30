@@ -173,6 +173,11 @@ export interface DecisionEntry {
   origin: string;
   discarded: boolean;
   figure?: string; // the anchor of the figure it covers in this block
+  /**
+   * Marked: you marked it critical (the fourth reason, T-5); the page
+   * offers to mark or unmark it from here (backlog-r2 2.1).
+   */
+  marked: boolean;
 }
 /**
  * DatumEntry is a datum copied from a source in a block (A-3, P-60):
@@ -502,6 +507,14 @@ export const PendingMalformedOutput = "malformed_output";
  * it; this is the smallest English one.
  */
 export const PendingSupersededDecision = "superseded_decision_in_text";
+/**
+ * Slice 2 (glossary §9, backlog-r2 2.1).
+ */
+export const PendingTextWithoutDecision = "text_without_decision";
+/**
+ * Pending kinds of slice 1 (glossary §9, B-15, B-16).
+ */
+export const PendingInternalCodes = "internal_codes";
 /**
  * Pending is one thing a section lacks: its kind and what it is about,
  * by label or by the number in the text.

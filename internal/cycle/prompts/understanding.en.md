@@ -24,6 +24,12 @@ Rules:
   summary) and there is no material, say so in understood and offer
   two ways on: the human uploads material, or the work waits for
   search. Do not promise a synthesis from memory.
+- evidence_required: whether the document asks for evidence (a state
+  of the art, a research summary: yes; a personal note: no), with one
+  line for the human on why.
+- For each section, focus says in up to 60 words what it concludes or
+  addresses, and evidence_from where its evidence will come from, by
+  author and year, or that material is missing when there is none.
 - Propose each section's role from what the section will conclude,
   the mark «here the document concludes»: conclusion when it states
   the document's answer or tells the reader what to do, other

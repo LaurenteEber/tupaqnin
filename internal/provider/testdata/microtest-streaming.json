@@ -7,7 +7,7 @@
     "null,\"figure_links\":null,\"handled",
     "_changes\":null,\"new_decisions\":",
     "null,\"new_text\":[{\"anchor\":\"\",\"base",
-    "_version\":0,\"operation\":\"insert_after",
+    "_version\":0,\"claim_origin\": \"material\", \"operation\":\"insert_after",
     "\",\"section_id\":\"new-1\",\"",
     "text\":\"# Watering Plants\\n\\n",
     "Water early in the morning and check the",
@@ -48,7 +48,7 @@
         {
           "annotations": [],
           "logprobs": [],
-          "text": "{\"citations\":null,\"closing_risk\":\"none\",\"deferred\":null,\"figure_links\":null,\"handled_changes\":null,\"new_decisions\":null,\"new_text\":[{\"anchor\":\"\",\"base_version\":0,\"operation\":\"insert_after\",\"section_id\":\"new-1\",\"text\":\"# Watering Plants\\n\\nWater early in the morning and check the top soil first.\"}],\"note\":\"del agente: intente inicial de guia de riego, texto corto creado sin fuentes ni decisiones.\",\"proposed_open_questions\":null,\"proposed_roles\":[{\"role\":\"other\",\"section_id\":\"new-1\"}],\"triage_line\":\"tramo inicial, riesgo ninguno\",\"used_decisions\":null,\"used_sources\":null}",
+          "text": "{\"citations\":null,\"closing_risk\":\"none\",\"deferred\":null,\"figure_links\":null,\"handled_changes\":null,\"new_decisions\":null,\"new_text\":[{\"anchor\":\"\",\"base_version\":0,\"claim_origin\": \"material\", \"operation\":\"insert_after\",\"section_id\":\"new-1\",\"text\":\"# Watering Plants\\n\\nWater early in the morning and check the top soil first.\"}],\"note\":\"del agente: intente inicial de guia de riego, texto corto creado sin fuentes ni decisiones.\",\"proposed_open_questions\":null,\"proposed_roles\":[{\"role\":\"other\",\"section_id\":\"new-1\"}],\"stretch\": \"build\", \"triage_line\":\"tramo inicial, riesgo ninguno\",\"used_decisions\":null,\"used_sources\":null}",
           "type": "output_text"
         }
       ],

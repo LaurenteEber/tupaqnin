@@ -14,6 +14,12 @@ const (
 	OptionOther = "other"
 )
 
+// CardOwnEdit is the kind of the card of your critical edit (R4, B-49):
+// it asks only for the «porque» (option null).
+// [EL DISEÑO NO LO DICE]: how that card is told apart; its body carries
+// kind own_edit, with the section and the anchor your edit changed.
+const CardOwnEdit = "own_edit"
+
 var (
 	ErrCardNotFound  = errors.New("cycle: card not found")
 	ErrCardNotOpen   = errors.New("cycle: card is not open")
@@ -45,7 +51,10 @@ func (g *Gate) AnswerCard(ctx context.Context, projectID, cardLabel, option, rea
 	if card.State != "open" {
 		return CardAnswer{}, ErrCardNotOpen
 	}
-	if option != OptionKeep && option != OptionOther {
+	ownEdit := bodyStr(bodyOf(card), "kind") == CardOwnEdit
+	// Option null (empty) only on the card of your critical edit, and
+	// only there (B-49).
+	if ownEdit && option != "" || !ownEdit && option != OptionKeep && option != OptionOther {
 		return CardAnswer{}, ErrInvalidOption
 	}
 	opened, err := g.cardOpenedAt(ctx, projectID, card.ID)
@@ -87,18 +96,22 @@ func (g *Gate) AnswerCard(ctx context.Context, projectID, cardLabel, option, rea
 				return err
 			}
 			answer = CardAnswer{Card: card.Label, Decision: dec.Label}
-			if dec.State != "agent" {
+			if !ownEdit && dec.State != "agent" {
 				return ErrCardObsolete
 			}
 			human := func(t store.EventType, data map[string]any) store.EventInput {
 				return store.EventInput{Type: t, Actor: "human", Reason: reason, Data: data}
 			}
-			if option == OptionKeep {
+			switch {
+			case ownEdit:
+				// The decision does not change state: the «porque» stays on
+				// the card and in the history (B-49).
+			case option == OptionKeep:
 				if _, err := tx.UpdateObject(dec.ID, dec.CurrentVersion, "confirmed", bodyOf(dec),
 					human(store.EventStateChanged, map[string]any{"label": dec.Label, "from": "agent", "to": "confirmed", "via": "card"})); err != nil {
 					return err
 				}
-			} else {
+			default:
 				born, err := chooseOther(ctx, tx, dec, reason)
 				if err != nil {
 					return err

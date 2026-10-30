@@ -1,5 +1,5 @@
 {
-  "triage_line": "Construir: un paso.",
+  "stretch": "build", "triage_line": "Construir: un paso.",
   "closing_risk": "none",
   "note": "Paso de prueba.",
   "new_text": [
@@ -7,14 +7,14 @@
       "section_id": "sec-1",
       "base_version": 1,
       "anchor": "La síntesis",
-      "operation": "replace",
+      "claim_origin": "material", "operation": "replace",
       "text": "El resumen"
     },
     {
       "section_id": "sec-1",
       "base_version": 1,
       "anchor": "Cierre.",
-      "operation": "replace",
+      "claim_origin": "material", "operation": "replace",
       "text": "Fin."
     }
   ],

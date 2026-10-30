@@ -25,8 +25,8 @@ func history(t *testing.T, db *store.DB, block int) []graph.Entry {
 // order (newest first).
 func TestB10_StepAndYourEditShowInTheBlockInOrder(t *testing.T) {
 	db := seedStepProject(t)
-	step := json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Sumo una frase.",
-		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","operation":"insert_after","text":" El agente suma una frase sobre filtros."}]}`)
+	step := json.RawMessage(`{"stretch": "build", "triage_line":"Construir.","closing_risk":"none","note":"Sumo una frase.",
+		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","claim_origin": "material", "operation":"insert_after","text":" El agente suma una frase sobre filtros."}]}`)
 	if applied := applyRecorded(t, db, step); !applied.Applied {
 		t.Fatalf("step: %v", applied.Errors)
 	}
@@ -119,11 +119,11 @@ func seedCase5Calculation(t *testing.T) *store.DB {
 // with the calculation source and its passage (A-3).
 func TestP60_Case5ParagraphShowsTheRuleAndTheCalculationSource(t *testing.T) {
 	db := seedCase5Calculation(t)
-	step := json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
+	step := json.RawMessage(`{"stretch": "build", "triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
 		"new_decisions":[{"id":"new-1","statement":"Comparar los conteos desde el mismo tamaño mínimo de partícula.",
 			"instead_of":"Comparar los conteos crudos.","would_choose_if":"Todos los estudios usaran el mismo filtro.",
 			"assumption":false,"used_in_sections":["sec-1"]}],
-		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","operation":"insert_after",
+		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","claim_origin": "material", "operation":"insert_after",
 			"text":" La embotellada trae 1,5 veces más partículas que la de grifo."}],
 		"used_sources":["src-2"]}`)
 	applied := applyRecorded(t, db, step)
@@ -154,8 +154,8 @@ func TestP60_Case5ParagraphShowsTheRuleAndTheCalculationSource(t *testing.T) {
 // of the average, not T5's minimum size.
 func TestP63_Case5ParagraphListsOnlyItsDataWithTheirMatchingPassage(t *testing.T) {
 	db := seedCase5Calculation(t)
-	step := json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
-		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","operation":"insert_after",
+	step := json.RawMessage(`{"stretch": "build", "triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
+		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","claim_origin": "material", "operation":"insert_after",
 			"text":" Al comparar solo los estudios que cuentan desde el mismo tamaño mínimo (T5, T6, B4, B5 y B6), el grifo tiene un promedio de 20 partículas por litro y la embotellada, de 30. La embotellada trae 1,5 veces más partículas que la de grifo."}],
 		"used_sources":["src-2"]}`)
 	if applied := applyRecorded(t, db, step); !applied.Applied {
@@ -187,8 +187,8 @@ func TestP63_Case5ParagraphListsOnlyItsDataWithTheirMatchingPassage(t *testing.T
 // links a stored datum by the number rule, not by a text search.
 func TestP64_StoredDatumInsideACodeIsNotListed(t *testing.T) {
 	db := seedCase5Calculation(t)
-	step := json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
-		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","operation":"insert_after",
+	step := json.RawMessage(`{"stretch": "build", "triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
+		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","claim_origin": "material", "operation":"insert_after",
 			"text":" Con los estudios T5 y B4, la embotellada trae 1,5 veces más partículas que la de grifo."}],
 		"used_sources":["src-2"]}`)
 	if applied := applyRecorded(t, db, step); !applied.Applied {
