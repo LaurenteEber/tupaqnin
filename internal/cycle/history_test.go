@@ -181,3 +181,40 @@ func TestP63_Case5ParagraphListsOnlyItsDataWithTheirMatchingPassage(t *testing.T
 		}
 	}
 }
+
+// P-64: a datum «4» stored before P-63 (from the code «B4») is not
+// listed for a paragraph whose only «4» is inside «B4»: the history
+// links a stored datum by the number rule, not by a text search.
+func TestP64_StoredDatumInsideACodeIsNotListed(t *testing.T) {
+	db := seedCase5Calculation(t)
+	step := json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
+		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","operation":"insert_after",
+			"text":" Con los estudios T5 y B4, la embotellada trae 1,5 veces más partículas que la de grifo."}],
+		"used_sources":["src-2"]}`)
+	if applied := applyRecorded(t, db, step); !applied.Applied {
+		t.Fatalf("step: %v", applied.Errors)
+	}
+	ctx := context.Background()
+	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		sec, _ := tx.GetObject(ctx, "p1", "sec-1")
+		src, _ := tx.GetObject(ctx, "p1", "src-2")
+		agent := store.EventInput{Type: store.EventStateChanged, Actor: "agent"}
+		dat, err := tx.CreateObject(store.ObjectDatum, "", map[string]any{"section_id": sec.ID, "anchor": "4", "value": "4"}, agent)
+		if err != nil {
+			return err
+		}
+		_, err = tx.AddEdge(store.EdgeComesFrom, dat.ID, src.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		return err
+	}); err != nil {
+		t.Fatalf("store the old datum: %v", err)
+	}
+	var data []string
+	for _, e := range history(t, db, 1) {
+		if e.Kind == graph.EntryDatum {
+			data = append(data, e.Datum.Value)
+		}
+	}
+	if len(data) != 1 || data[0] != "1,5" {
+		t.Fatalf("data listed: %q, want only 1,5", data)
+	}
+}

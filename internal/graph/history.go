@@ -123,7 +123,7 @@ func BlockHistory(ctx context.Context, db *store.DB, projectID, sectionLabel str
 		return nil, err
 	}
 	out = append(out, decisions...)
-	data, err := blockData(ctx, db, projectID, section.ID, blocks[block-1], b, events)
+	data, err := blockData(ctx, db, projectID, section.ID, blocks[block-1], events)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func stepDecisions(ctx context.Context, db *store.DB, projectID, sectionID strin
 // blockData are the data copied from a source into the block (A-3,
 // P-60), each at its birth, with the source's title and the passage of
 // the source that holds the value.
-func blockData(ctx context.Context, db *store.DB, projectID, sectionID, block string, b Compared, events []store.Event) ([]Entry, error) {
+func blockData(ctx context.Context, db *store.DB, projectID, sectionID, block string, events []store.Event) ([]Entry, error) {
 	born := map[string]store.Event{}
 	for _, ev := range events {
 		if _, ok := born[ev.ObjectID]; !ok && ev.ObjectID != "" {
@@ -291,7 +291,9 @@ func blockData(ctx context.Context, db *store.DB, projectID, sectionID, block st
 	var out []Entry
 	for _, d := range data {
 		value := bodyString(d, "value")
-		if bodyString(d, "section_id") != sectionID || len(b.Find(bodyString(d, "anchor"))) == 0 {
+		// By the number rule, not a text search: a datum «4» stored before
+		// P-63 is not in a block whose only «4» is inside «B4» (P-64).
+		if bodyString(d, "section_id") != sectionID || sentenceWith(block, bodyString(d, "anchor")) == "" {
 			continue
 		}
 		edges, err := db.EdgesFrom(ctx, projectID, d.ID)
