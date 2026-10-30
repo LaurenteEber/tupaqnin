@@ -39,7 +39,17 @@ func (s *Server) getBlockHistory(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
+	if err := s.recordSeen(r, projectID, entries); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, BlockHistoryView{Section: label, Block: block, Entries: entries})
+}
+
+// recordSeen records decision_seen with history for each decision
+// shown (M-1).
+func (s *Server) recordSeen(r *http.Request, projectID string, entries []graph.Entry) error {
+	return s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		for _, e := range entries {
 			if e.Kind != graph.EntryDecision {
 				continue
@@ -55,9 +65,35 @@ func (s *Server) getBlockHistory(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
+}
+
+// DecisionHistoryView is the history of one decision with no point in
+// the text, opened from P7 (P-41, Eber 30-oct).
+type DecisionHistoryView struct {
+	Decision string        `json:"decision"`
+	Entries  []graph.Entry `json:"entries"`
+}
+
+// GET /api/projects/{projectID}/decisions/{label}/history. Like the
+// block's, opening it records decision_seen with history (M-1).
+func (s *Server) getDecisionHistory(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	label := r.PathValue("label")
+	entries, err := graph.DecisionHistory(r.Context(), s.db, projectID, label)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "decision_not_found")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	writeJSON(w, http.StatusOK, BlockHistoryView{Section: label, Block: block, Entries: entries})
+	if err := s.recordSeen(r, projectID, entries); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, DecisionHistoryView{Decision: label, Entries: entries})
 }

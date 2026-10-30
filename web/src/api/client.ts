@@ -1,6 +1,7 @@
 import type {
   AnswerCardResponse,
   BlockHistoryView,
+  DecisionHistoryView,
   CaseView,
   ConversationEntry,
   EditorResponse,
@@ -206,6 +207,12 @@ export async function claimEditor(projectID: string): Promise<boolean> {
 // decision_seen (history) in Go.
 export async function getBlockHistory(projectID: string, label: string, block: number): Promise<BlockHistoryView> {
   return json(await fetch(`/api/projects/${projectID}/sections/${label}/history?block=${block}`));
+}
+
+// P-41 (30-oct): the history of a decision with no point in the text,
+// opened from the signoff; it also records decision_seen (history).
+export async function getDecisionHistory(projectID: string, decision: string): Promise<DecisionHistoryView> {
+  return json(await fetch(`/api/projects/${projectID}/decisions/${decision}/history`));
 }
 
 // The frame (backlog-r1 1.5b, specification §9): computed in Go, read

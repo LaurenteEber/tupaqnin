@@ -149,54 +149,13 @@ func editInBlock(block, prev, next string) bool {
 // blockDecisions are the decisions covering the block's figures, each
 // at its birth, and the decisions they replaced, discarded (fichas §9).
 func blockDecisions(ctx context.Context, db *store.DB, projectID, sectionID string, b Compared, events []store.Event) ([]Entry, error) {
-	born := map[string]store.Event{}
-	for _, ev := range events {
-		if _, ok := born[ev.ObjectID]; !ok && ev.ObjectID != "" {
-			born[ev.ObjectID] = ev
-		}
-	}
-	reasons, err := cardReasons(ctx, db, projectID)
+	add, out, err := decisionAdder(ctx, db, projectID, events)
 	if err != nil {
 		return nil, err
 	}
 	figures, err := db.ListObjects(ctx, projectID, store.ObjectFigure)
 	if err != nil {
 		return nil, err
-	}
-	seen := map[string]bool{}
-	var out []Entry
-	var add func(decID, figure string, discarded bool) error
-	add = func(decID, figure string, discarded bool) error {
-		if seen[decID] {
-			return nil
-		}
-		seen[decID] = true
-		dec, err := db.GetObject(ctx, projectID, decID)
-		if err != nil {
-			return err
-		}
-		reason := bodyString(dec, "reason")
-		if reason == "" {
-			reason = reasons[decID]
-		}
-		ev := born[decID]
-		out = append(out, Entry{Kind: EntryDecision, Actor: ev.Actor, At: ev.CreatedAt, seq: ev.Seq,
-			Decision: &DecisionEntry{Label: dec.Label, Statement: bodyString(dec, "statement"),
-				InsteadOf: bodyString(dec, "instead_of"), WouldChooseIf: bodyString(dec, "would_choose_if"),
-				Reason: reason, State: dec.State, Origin: bodyString(dec, "origin"),
-				Discarded: discarded || dec.State == "superseded" || dec.State == "revoked", Figure: figure}})
-		replaced, err := db.EdgesFrom(ctx, projectID, decID)
-		if err != nil {
-			return err
-		}
-		for _, e := range replaced {
-			if e.Type == store.EdgeSupersedes {
-				if err := add(e.ToID, figure, true); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
 	}
 	for _, fig := range figures {
 		anchor := bodyString(fig, "anchor")
@@ -215,7 +174,82 @@ func blockDecisions(ctx context.Context, db *store.DB, projectID, sectionID stri
 			}
 		}
 	}
-	return out, nil
+	return *out, nil
+}
+
+// DecisionHistory is the history of one decision with no point in the
+// text (P-41, Eber 30-oct): its proposal, its contrast, the person's
+// «porque», and the decisions it replaced, discarded. P7 opens it from
+// «Ver la historia de ese punto» when the decision has no block.
+func DecisionHistory(ctx context.Context, db *store.DB, projectID, decisionLabel string) ([]Entry, error) {
+	dec, err := db.GetObject(ctx, projectID, decisionLabel)
+	if err != nil || dec.Type != store.ObjectDecision {
+		return nil, fmt.Errorf("%w: decision %s", store.ErrNotFound, decisionLabel)
+	}
+	events, err := db.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		return nil, err
+	}
+	add, out, err := decisionAdder(ctx, db, projectID, events)
+	if err != nil {
+		return nil, err
+	}
+	if err := add(dec.ID, "", false); err != nil {
+		return nil, err
+	}
+	return *out, nil
+}
+
+// decisionAdder returns add, which appends a decision entry (with the
+// ones it replaced, discarded) to *out once per decision.
+func decisionAdder(ctx context.Context, db *store.DB, projectID string, events []store.Event) (
+	func(decID, figure string, discarded bool) error, *[]Entry, error) {
+	born := map[string]store.Event{}
+	for _, ev := range events {
+		if _, ok := born[ev.ObjectID]; !ok && ev.ObjectID != "" {
+			born[ev.ObjectID] = ev
+		}
+	}
+	reasons, err := cardReasons(ctx, db, projectID)
+	if err != nil {
+		return nil, nil, err
+	}
+	seen := map[string]bool{}
+	out := &[]Entry{}
+	var add func(decID, figure string, discarded bool) error
+	add = func(decID, figure string, discarded bool) error {
+		if seen[decID] {
+			return nil
+		}
+		seen[decID] = true
+		dec, err := db.GetObject(ctx, projectID, decID)
+		if err != nil {
+			return err
+		}
+		reason := bodyString(dec, "reason")
+		if reason == "" {
+			reason = reasons[decID]
+		}
+		ev := born[decID]
+		*out = append(*out, Entry{Kind: EntryDecision, Actor: ev.Actor, At: ev.CreatedAt, seq: ev.Seq,
+			Decision: &DecisionEntry{Label: dec.Label, Statement: bodyString(dec, "statement"),
+				InsteadOf: bodyString(dec, "instead_of"), WouldChooseIf: bodyString(dec, "would_choose_if"),
+				Reason: reason, State: dec.State, Origin: bodyString(dec, "origin"),
+				Discarded: discarded || dec.State == "superseded" || dec.State == "revoked", Figure: figure}})
+		replaced, err := db.EdgesFrom(ctx, projectID, decID)
+		if err != nil {
+			return err
+		}
+		for _, e := range replaced {
+			if e.Type == store.EdgeSupersedes {
+				if err := add(e.ToID, figure, true); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return add, out, nil
 }
 
 // cardReasons maps each decision to the «porque» of its answered card.

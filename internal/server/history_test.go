@@ -62,3 +62,37 @@ func TestP5_OpeningTheHistoryRecordsDecisionSeen(t *testing.T) {
 		t.Fatalf("block 7: %d, want 404", rec.Code)
 	}
 }
+
+// P-41 (Eber, 30-oct): the history of a decision with no point in the
+// text, opened from the signoff, shows the decision with its contrast
+// and records that the person saw it (M-1).
+func TestP41_DecisionHistoryShowsTheDecisionAndRecordsItSeen(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectDecision, "agent", map[string]any{
+			"statement": "Comparar solo estudios con el mismo tamaño de partícula.", "instead_of": "Comparar los conteos tal cual.",
+			"would_choose_if": "Todos usaran el mismo filtro.", "assumption": false, "origin": "agent",
+		}, store.EventInput{Type: store.EventStateChanged, Actor: "agent"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed decision: %v", err)
+	}
+	base := "/api/projects/" + projectID
+	if rec := do(t, h, http.MethodGet, base+"/decisions/dec-9/history", nil); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown decision: %d", rec.Code)
+	}
+	got := decode[server.DecisionHistoryView](t, do(t, h, http.MethodGet, base+"/decisions/dec-1/history", nil))
+	if got.Decision != "dec-1" || len(got.Entries) != 1 || got.Entries[0].Decision.InsteadOf != "Comparar los conteos tal cual." {
+		t.Fatalf("decision history: %+v", got)
+	}
+	events, _ := db.EventsSince(context.Background(), projectID, 0)
+	seen := false
+	for _, ev := range events {
+		seen = seen || ev.Type == store.EventDecisionSeen
+	}
+	if !seen {
+		t.Fatal("decision_seen was not recorded")
+	}
+}

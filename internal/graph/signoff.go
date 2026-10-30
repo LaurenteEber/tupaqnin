@@ -422,7 +422,9 @@ type WonderVerdict struct {
 	// HistoryOffered: P7 offers «Ver la historia de ese punto» (P-41,
 	// corrected 30-oct, flujos §3): after Wonder names what is missing
 	// in your explanation, or once the signoff is no longer in
-	// progress. Verdicts exist only after your first explanation.
+	// progress. Verdicts exist only after your first explanation. With
+	// Block 0 (no point in the text) it opens the decision's own
+	// history (DecisionHistory).
 	HistoryOffered bool `json:"history_offered"`
 }
 
@@ -546,7 +548,7 @@ func SignoffDetail(ctx context.Context, db *store.DB, projectID, signLabel strin
 					w.Block = b
 				}
 			}
-			w.HistoryOffered = w.Block > 0 && w.Verdict != "match" &&
+			w.HistoryOffered = w.Verdict != "match" &&
 				(phase != SignoffInProgress || w.Verdict == "missing_in_explanation")
 			v.Verdicts = append(v.Verdicts, w)
 		}

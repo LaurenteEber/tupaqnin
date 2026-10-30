@@ -127,6 +127,14 @@ export interface BlockHistoryView {
   block: number /* int */;
   entries: Entry[];
 }
+/**
+ * DecisionHistoryView is the history of one decision with no point in
+ * the text, opened from P7 (P-41, Eber 30-oct).
+ */
+export interface DecisionHistoryView {
+  decision: string;
+  entries: Entry[];
+}
 
 //////////
 // source: hub.go

@@ -382,7 +382,9 @@ export interface WonderVerdict {
    * HistoryOffered: P7 offers «Ver la historia de ese punto» (P-41,
    * corrected 30-oct, flujos §3): after Wonder names what is missing
    * in your explanation, or once the signoff is no longer in
-   * progress. Verdicts exist only after your first explanation.
+   * progress. Verdicts exist only after your first explanation. With
+   * Block 0 (no point in the text) it opens the decision's own
+   * history (DecisionHistory).
    */
   history_offered: boolean;
 }

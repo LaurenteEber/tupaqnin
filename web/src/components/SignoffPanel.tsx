@@ -30,6 +30,9 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
   const [contrasting, setContrasting] = useState(false);
   const [errorCode, setErrorCode] = useState("");
   const [historyBlock, setHistoryBlock] = useState(0);
+  // P-41 (30-oct): a decision with no point in the text opens its own
+  // history instead of a block's.
+  const [historyDecision, setHistoryDecision] = useState("");
   const [question, setQuestion] = useState("");
   const [agentAnswer, setAgentAnswer] = useState("");
   const [asking, setAsking] = useState(false);
@@ -226,9 +229,17 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
                   {/* P-41 corrected (30-oct, flujos §3): Go says when the history
                       of that point is offered: after Wonder names what is missing,
                       or once the signoff is no longer in progress; never before
-                      your first explanation. */}
-                  {v.history_offered && v.block > 0 && (
-                    <button type="button" className="small" onClick={() => setHistoryBlock(v.block)}>
+                      your first explanation. Without a point in the text (block 0)
+                      it opens the decision's own history. */}
+                  {v.history_offered && (
+                    <button
+                      type="button"
+                      className="small"
+                      onClick={() => {
+                        setHistoryBlock(v.block);
+                        setHistoryDecision(v.block > 0 ? "" : v.decision);
+                      }}
+                    >
                       {t("signoff.history")}
                     </button>
                   )}
@@ -290,14 +301,18 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
         )}
       </ol>
 
-      {historyBlock > 0 && (
+      {(historyBlock > 0 || historyDecision) && (
         <HistoryPanel
           lang={lang}
           projectID={projectID}
           label={view.section}
           name={title}
           block={historyBlock}
-          onClose={() => setHistoryBlock(0)}
+          decision={historyDecision || undefined}
+          onClose={() => {
+            setHistoryBlock(0);
+            setHistoryDecision("");
+          }}
         />
       )}
 

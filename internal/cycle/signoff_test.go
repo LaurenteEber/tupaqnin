@@ -725,3 +725,34 @@ func TestP41_HistoryOfThatPointShowsAgainAfterWonderNamesWhatIsMissing(t *testin
 		t.Fatalf("after «falta en tu explicación»: %+v", v.Verdicts)
 	}
 }
+
+// P-41 (Eber, 30-oct): a decision with no point in the text still
+// offers «Ver la historia de ese punto», which opens the decision's own
+// history: its proposal, its contrast and the person's «porque».
+func TestP41_DecisionWithoutAPointOffersItsOwnHistory(t *testing.T) {
+	db := openTemp(t)
+	_, decisionID := seedSignable(t, db, true)
+	g := cycle.NewGate(db)
+	sign := openSignoff(t, g)
+	if err := g.RecordExplanation(context.Background(), "p1", sign, "Comparo los estudios entre sí."); err != nil {
+		t.Fatalf("RecordExplanation: %v", err)
+	}
+	round(t, g, sign, "missing-in-explanation")
+	v := view(t, db, sign)
+	if len(v.Verdicts) != 1 || v.Verdicts[0].Block != 0 || !v.Verdicts[0].HistoryOffered {
+		t.Fatalf("decision without a point: %+v", v.Verdicts)
+	}
+	dec, err := db.GetObject(context.Background(), "p1", decisionID)
+	if err != nil {
+		t.Fatalf("GetObject: %v", err)
+	}
+	entries, err := graph.DecisionHistory(context.Background(), db, "p1", dec.Label)
+	if err != nil || len(entries) != 1 || entries[0].Decision == nil {
+		t.Fatalf("DecisionHistory: %+v, %v", entries, err)
+	}
+	d := entries[0].Decision
+	if d.Statement != "Comparar solo estudios con el mismo tamaño de partícula." ||
+		d.InsteadOf != "Comparar los conteos tal cual." || d.WouldChooseIf != "Todos usaran el mismo filtro." {
+		t.Fatalf("decision entry: %+v", d)
+	}
+}

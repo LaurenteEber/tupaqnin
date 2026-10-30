@@ -100,6 +100,7 @@
   "section.status.changed_since_signoff": "cambió desde que la firmaste",
   "section.status.stale": "escrita con lo anterior",
   "section.pendings": "{n} pendientes",
+  "history.decision_title": "Historia de esta decisión · {section}",
   "history.title": "Historia · {section} ¶{block}",
   "history.close": "Cerrar",
   "history.empty": "Este párrafo todavía no tiene entradas.",
