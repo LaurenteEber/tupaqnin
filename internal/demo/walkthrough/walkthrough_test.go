@@ -44,8 +44,12 @@ func TestH1_Case5WalkthroughPassesEndToEnd(t *testing.T) {
 			return fake.CountTokens(ctx, provider.PrincipalModel, input)
 		}
 	}, nil)
-	section, sign := w.toSignoff()
+	section, sign, historyDecision := w.toSignoff()
+	// The recordings link 1,5 to the rule, so its history shows it.
+	if !historyDecision {
+		t.Fatalf("the history of the block with %q shows no decision", caseFigure)
+	}
 	w.wonderFirstRound(sign)
 	w.signAfterRounds(section, sign)
-	w.orderedEvents(stepEvents(section))
+	w.orderedEvents(stepEvents(section, historyDecision))
 }

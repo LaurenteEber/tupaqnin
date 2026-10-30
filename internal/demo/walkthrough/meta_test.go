@@ -91,10 +91,10 @@ func TestDemoCheck(t *testing.T) {
 			return meta.CountTokens(ctx, provider.PrincipalModel, input)
 		}
 	}, rec.lastOutput)
-	section, sign := w.toSignoff()
+	section, sign, historyDecision := w.toSignoff()
 	w.wonderFirstRound(sign)
-	want, names := stepEvents(section)
-	w.orderedEvents(want[:firstRoundEvents], names[:firstRoundEvents])
+	want, names := stepEvents(section, historyDecision)
+	w.orderedEvents(want[:len(want)-afterFirstRound], names[:len(names)-afterFirstRound])
 	spent, _ := w.db.ProjectSpend(context.Background(), w.project)
 	t.Logf("walkthrough passed up to Wonder's first round: %d model calls, %.4f USD", len(rec.calls), spent)
 }

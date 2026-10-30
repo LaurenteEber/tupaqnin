@@ -244,8 +244,9 @@ func (w *walk) api(path string) string { return "/api/projects/" + w.project + p
 
 // toSignoff walks steps 1 to 5, opens the signoff of the section with
 // the comparison rule and sends the explanation (step 6 up to Wonder's
-// first round). It returns the section's and the signoff's labels.
-func (w *walk) toSignoff() (string, string) {
+// first round). It returns the section's and the signoff's labels, and
+// whether the history of the block with the figure showed a decision.
+func (w *walk) toSignoff() (string, string, bool) {
 	w.t.Helper()
 	// 1. «Probar con el caso de demo» (B3-19).
 	var created server.CreateProjectResponse
@@ -336,6 +337,14 @@ func (w *walk) toSignoff() (string, string) {
 	if len(history.Entries) == 0 {
 		w.fail("5 history", "the history of block %d of %s is empty", block, ruleSection.Label)
 	}
+	// decision_seen with history is recorded only for each decision the
+	// block's history shows (M-1); a copied datum has none (A-3, P-58).
+	historyDecision := false
+	for _, e := range history.Entries {
+		if e.Kind == graph.EntryDecision {
+			historyDecision = true
+		}
+	}
 
 	// 6. «Firmar sección»: an explanation without the why of the rule;
 	// Wonder names what is missing and brings a case.
@@ -353,7 +362,7 @@ func (w *walk) toSignoff() (string, string) {
 	var view graph.SignoffView
 	w.do("6 signoff", http.MethodPost, w.api("/sections/"+ruleSection.Label+"/signoff"), nil, http.StatusCreated, &view)
 	w.do("6 signoff", http.MethodPost, w.api("/signoffs/"+view.Label+"/explanation"), map[string]any{"text": explanation}, http.StatusAccepted, nil)
-	return ruleSection.Label, view.Label
+	return ruleSection.Label, view.Label, historyDecision
 }
 
 // wonderFirstRound checks Wonder's first round (P-57): at least one
@@ -429,9 +438,9 @@ func (w *walk) orderedEvents(want []func(store.Event) bool, names []string) {
 	}
 }
 
-// firstRoundEvents is how many of stepEvents happen by the end of
-// Wonder's first round (up to the round that does not coincide).
-const firstRoundEvents = 9
+// afterFirstRound is how many of stepEvents come after Wonder's first
+// round: the round that coincides and the signed section.
+const afterFirstRound = 2
 
 func eventData(ev store.Event) map[string]any {
 	var d map[string]any
@@ -453,10 +462,11 @@ func field(key string, want any) func(map[string]any) bool {
 // order: the request, the understanding, the agent's text and its card,
 // the end of the chain, the answered card, the history seen, the
 // signoff with a round that names what is missing, a round that
-// coincides, and the signed section. The run with Meta stops after
-// Wonder's first round, so it checks the first firstRoundEvents.
-func stepEvents(signed string) ([]func(store.Event) bool, []string) {
-	return []func(store.Event) bool{
+// coincides, and the signed section. The history seen counts only when
+// the block's history showed a decision (P-58). The run with Meta stops
+// after Wonder's first round, so it leaves out the last afterFirstRound.
+func stepEvents(signed string, historyDecision bool) ([]func(store.Event) bool, []string) {
+	want := []func(store.Event) bool{
 		is(store.EventHumanMessage, "human", nil),
 		is(store.EventStepEnded, "agent", field("turn_kind", "understanding")),
 		is(store.EventEdit, "agent", nil),
@@ -468,10 +478,17 @@ func stepEvents(signed string) ([]func(store.Event) bool, []string) {
 		is(store.EventSignoffCase, "agent", field("coincides", false)),
 		is(store.EventSignoffCase, "agent", field("coincides", true)),
 		is(store.EventStateChanged, "human", func(d map[string]any) bool { return d["label"] == signed && d["to"] == "signed" }),
-	}, []string{
+	}
+	names := []string{
 		"1-2 request (human_message)", "3 understanding (step_ended)", "4 agent text (edit)", "4 card opened (state_changed)",
 		"4 chain stopped (step_ended with stop_reason)", "5 card answered (decision_seen card)", "5 history (decision_seen history)",
 		"6 signoff requested", "6 Wonder names what is missing (signoff_case, not coinciding)",
 		"6 signoff coincides (signoff_case)", "6 section signed (state_changed)",
 	}
+	if !historyDecision {
+		const seenHistory = 6
+		want = append(want[:seenHistory], want[seenHistory+1:]...)
+		names = append(names[:seenHistory], names[seenHistory+1:]...)
+	}
+	return want, names
 }
