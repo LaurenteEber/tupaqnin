@@ -43,7 +43,7 @@ func seedSignable(t *testing.T, db *store.DB, critical bool) (sectionID, decisio
 			return err
 		}
 		decisionID = dec.ID
-		_, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	if err != nil {
@@ -703,7 +703,7 @@ func TestP41_HistoryOfThatPointShowsAgainAfterWonderNamesWhatIsMissing(t *testin
 		if err != nil {
 			return err
 		}
-		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, decisionID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, decisionID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	if err != nil {

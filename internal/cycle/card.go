@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -174,7 +175,7 @@ func chooseOther(ctx context.Context, tx *store.Tx, old store.Object, reason str
 		return store.Object{}, err
 	}
 	edge := store.EventInput{Type: store.EventEdge, Actor: "human"}
-	if _, err := tx.AddEdge(store.EdgeSupersedes, born.ID, old.ID, "", edge); err != nil {
+	if _, err := tx.AddEdge(store.EdgeSupersedes, born.ID, old.ID, "", nil, edge); err != nil {
 		return store.Object{}, err
 	}
 	in, err := tx.EdgesTo(ctx, tx.ProjectID(), old.ID)
@@ -183,7 +184,8 @@ func chooseOther(ctx context.Context, tx *store.Tx, old store.Object, reason str
 	}
 	for _, e := range in {
 		if e.Type == store.EdgeCovers {
-			if _, err := tx.ChangeEdge(e.ID, born.ID, e.Anchor, edge); err != nil {
+			// The figure did not change: covers keeps what it used (B-45).
+			if _, err := tx.ChangeEdge(e.ID, born.ID, e.Anchor, e.Data, edge); err != nil {
 				return store.Object{}, err
 			}
 		}
@@ -199,7 +201,10 @@ func chooseOther(ctx context.Context, tx *store.Tx, old store.Object, reason str
 		if err := tx.EndEdge(e.ID, edge); err != nil {
 			return store.Object{}, err
 		}
-		if _, err := tx.AddEdge(store.EdgeUsedIn, born.ID, e.ToID, e.Anchor, edge); err != nil {
+		// Answering a card does not warn (B-45): the section's used_in
+		// starts from the born decision, with what it is now; «texto con
+		// una decisión reemplazada» (B-16) asks the agent to rewrite it.
+		if _, err := tx.AddEdge(store.EdgeUsedIn, born.ID, e.ToID, e.Anchor, graph.UsageOf(born), edge); err != nil {
 			return store.Object{}, err
 		}
 	}

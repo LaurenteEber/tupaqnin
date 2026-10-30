@@ -38,7 +38,7 @@ func seedCoveredFigure(t *testing.T, db *store.DB, projectID string) {
 		if err != nil {
 			return err
 		}
-		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, dec.ID, "60 veces", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, dec.ID, "60 veces", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	if err != nil {

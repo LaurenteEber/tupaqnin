@@ -119,13 +119,8 @@ func (g *Gate) signoff(ctx context.Context, projectID, label string) (store.Obje
 // are not pendings, and they also block the signoff (estados §1).
 func openChanges(section store.Object) []string {
 	var out []string
-	changes, _ := bodyOf(section)["open_changes"].([]any)
-	for _, c := range changes {
-		if m, ok := c.(map[string]any); ok {
-			if l, _ := m["label"].(string); l != "" {
-				out = append(out, l)
-			}
-		}
+	for _, c := range graph.OpenChanges(section) {
+		out = append(out, c.Label)
 	}
 	return out
 }
@@ -341,7 +336,9 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 	if err != nil {
 		return err
 	}
-	if section.State == "stale" {
+	// With open changes it is not signed, in any state (E-4, A-1): one
+	// may enter while the signoff is in progress.
+	if section.State == "stale" || len(openChanges(section)) > 0 {
 		return ErrSignoffOutdated
 	}
 	if section.CurrentVersion != body.SectionVersion {
@@ -436,7 +433,7 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 				return err
 			}
 			for _, d := range critical {
-				if _, err := tx.AddEdge(store.EdgeExplains, sign.ID, d.ID, "",
+				if _, err := tx.AddEdge(store.EdgeExplains, sign.ID, d.ID, "", nil,
 					store.EventInput{Type: store.EventEdge, Actor: "app"}); err != nil {
 					return err
 				}

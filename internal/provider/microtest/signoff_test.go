@@ -133,7 +133,7 @@ func newScenario(t *testing.T, meta provider.Provider, text string) *scenario {
 		if err != nil {
 			return err
 		}
-		_, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	if err != nil {

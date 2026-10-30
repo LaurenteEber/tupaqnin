@@ -49,6 +49,9 @@ func marshalData(data any) (sql.NullString, error) {
 	if data == nil {
 		return sql.NullString{}, nil
 	}
+	if raw, ok := data.(json.RawMessage); ok && len(raw) == 0 {
+		return sql.NullString{}, nil // an edge's empty data (B-45)
+	}
 	raw, err := marshalBody(data)
 	if err != nil {
 		return sql.NullString{}, err
@@ -137,6 +140,10 @@ func (tx *Tx) nextLabel(prefix string) (string, error) {
 	}
 	return fmt.Sprintf("%s-%d", prefix, n), nil
 }
+
+// NewChangeLabel assigns the label of a new change in a section's list
+// (chg-n, T-2, glossary §8), from the same project counter as objects.
+func (tx *Tx) NewChangeLabel() (string, error) { return tx.nextLabel("chg") }
 
 // AppendEvent appends one event with the next seq for the project.
 // History only grows: there is no update or delete for events.
@@ -330,13 +337,16 @@ func edgeEvent(ev EventInput, kind string, e Edge) EventInput {
 	if e.Anchor != "" {
 		data["anchor"] = e.Anchor
 	}
+	if e.Data != nil {
+		data["data"] = e.Data
+	}
 	ev.Data = data
 	return ev
 }
 
 // AddEdge creates a current edge at version 1 and appends its edge
-// event (created).
-func (tx *Tx) AddEdge(t EdgeType, fromID, toID, anchor string, ev EventInput) (Edge, error) {
+// event (created). data is what a using edge used (B-45), or nil.
+func (tx *Tx) AddEdge(t EdgeType, fromID, toID, anchor string, data any, ev EventInput) (Edge, error) {
 	if !t.Valid() {
 		return Edge{}, fmt.Errorf("%w: edge type %q", ErrInvalidType, t)
 	}
@@ -349,12 +359,19 @@ func (tx *Tx) AddEdge(t EdgeType, fromID, toID, anchor string, ev EventInput) (E
 	if err != nil {
 		return Edge{}, err
 	}
+	raw, err := marshalData(data)
+	if err != nil {
+		return Edge{}, err
+	}
 	edge := Edge{ProjectID: tx.projectID, ID: id, Type: t, FromID: fromID,
 		ToID: toID, Anchor: anchor, Version: 1, Current: true}
+	if raw.Valid {
+		edge.Data = json.RawMessage(raw.String)
+	}
 	if _, err := tx.tx.ExecContext(tx.ctx,
-		`INSERT INTO edge (project_id, id, type, from_id, to_id, version, anchor, current)
-		 VALUES (?, ?, ?, ?, ?, 1, ?, 1)`,
-		tx.projectID, id, string(t), fromID, toID, nullStr(anchor)); err != nil {
+		`INSERT INTO edge (project_id, id, type, from_id, to_id, version, anchor, current, data)
+		 VALUES (?, ?, ?, ?, ?, 1, ?, 1, ?)`,
+		tx.projectID, id, string(t), fromID, toID, nullStr(anchor), raw); err != nil {
 		return Edge{}, fmt.Errorf("create edge: %w", err)
 	}
 	if _, err := tx.AppendEvent(edgeEvent(ev, "created", edge)); err != nil {
@@ -366,11 +383,11 @@ func (tx *Tx) AddEdge(t EdgeType, fromID, toID, anchor string, ev EventInput) (E
 // currentEdge returns the current version of an edge, or ErrNotFound.
 func (tx *Tx) currentEdge(edgeID string) (Edge, error) {
 	e := Edge{ProjectID: tx.projectID, Current: true}
-	var anchor sql.NullString
+	var anchor, data sql.NullString
 	err := tx.tx.QueryRowContext(tx.ctx,
-		`SELECT id, type, from_id, to_id, anchor, version FROM edge
+		`SELECT id, type, from_id, to_id, anchor, version, data FROM edge
 		 WHERE project_id = ? AND id = ? AND current = 1`, tx.projectID, edgeID).
-		Scan(&e.ID, &e.Type, &e.FromID, &e.ToID, &anchor, &e.Version)
+		Scan(&e.ID, &e.Type, &e.FromID, &e.ToID, &anchor, &e.Version, &data)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Edge{}, ErrNotFound
 	}
@@ -378,13 +395,16 @@ func (tx *Tx) currentEdge(edgeID string) (Edge, error) {
 		return Edge{}, fmt.Errorf("get edge: %w", err)
 	}
 	e.Anchor = anchor.String
+	if data.Valid {
+		e.Data = json.RawMessage(data.String)
+	}
 	return e, nil
 }
 
-// ChangeEdge gives the edge a new end and anchor in its next version,
-// with the same id (B-8), and appends its edge event (changed). The
-// previous version stays in the table, not current.
-func (tx *Tx) ChangeEdge(edgeID, toID, anchor string, ev EventInput) (Edge, error) {
+// ChangeEdge gives the edge a new end, anchor and data (B-45) in its
+// next version, with the same id (B-8), and appends its edge event
+// (changed). The previous version stays in the table, not current.
+func (tx *Tx) ChangeEdge(edgeID, toID, anchor string, data any, ev EventInput) (Edge, error) {
 	old, err := tx.currentEdge(edgeID)
 	if err != nil {
 		return Edge{}, err
@@ -397,13 +417,20 @@ func (tx *Tx) ChangeEdge(edgeID, toID, anchor string, ev EventInput) (Edge, erro
 		tx.projectID, edgeID, old.Version); err != nil {
 		return Edge{}, fmt.Errorf("change edge: %w", err)
 	}
+	raw, err := marshalData(data)
+	if err != nil {
+		return Edge{}, err
+	}
 	next := old
-	next.ToID, next.Anchor, next.Version = toID, anchor, old.Version+1
+	next.ToID, next.Anchor, next.Version, next.Data = toID, anchor, old.Version+1, nil
+	if raw.Valid {
+		next.Data = json.RawMessage(raw.String)
+	}
 	if _, err := tx.tx.ExecContext(tx.ctx,
-		`INSERT INTO edge (project_id, id, type, from_id, to_id, version, anchor, current)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+		`INSERT INTO edge (project_id, id, type, from_id, to_id, version, anchor, current, data)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
 		tx.projectID, next.ID, string(next.Type), next.FromID, next.ToID, next.Version,
-		nullStr(anchor)); err != nil {
+		nullStr(anchor), raw); err != nil {
 		return Edge{}, fmt.Errorf("change edge: %w", err)
 	}
 	if _, err := tx.AppendEvent(edgeEvent(ev, "changed", next)); err != nil {

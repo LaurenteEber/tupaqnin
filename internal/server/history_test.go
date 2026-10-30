@@ -35,7 +35,7 @@ func TestP5_OpeningTheHistoryRecordsDecisionSeen(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, dec.ID, "1,5 veces", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, dec.ID, "1,5 veces", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	if err != nil {

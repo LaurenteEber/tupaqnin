@@ -245,7 +245,7 @@ func TestT2_EdgesAreCreatedWithTheirEvents(t *testing.T) {
 	var edge store.Edge
 	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
 		var err error
-		edge, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "",
+		edge, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", nil,
 			store.EventInput{Type: store.EventEdge, Actor: "agent", Data: map[string]any{"kind": "created"}})
 		return err
 	}); err != nil {
@@ -280,7 +280,7 @@ func edgeFixture(t *testing.T, db *store.DB) (dec, sec1, sec2 store.Object, edge
 		if sec2, err = tx.CreateObject(store.ObjectSection, "draft", map[string]any{"text": "b"}, humanEvent()); err != nil {
 			return err
 		}
-		edge, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec1.ID, "",
+		edge, err = tx.AddEdge(store.EdgeUsedIn, dec.ID, sec1.ID, "", nil,
 			store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	}); err != nil {
@@ -316,7 +316,7 @@ func TestB8_ChangeEdgeKeepsItsIdAndMakesTheNextVersion(t *testing.T) {
 	var changed store.Edge
 	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
 		var err error
-		changed, err = tx.ChangeEdge(edge.ID, sec2.ID, "anchor",
+		changed, err = tx.ChangeEdge(edge.ID, sec2.ID, "anchor", nil,
 			store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	}); err != nil {

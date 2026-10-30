@@ -10,8 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/demo/case5"
 	"github.com/LaurenteEber/tupaqnin/internal/fingerprint"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/pdfextract"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -218,7 +220,7 @@ func (s *Server) createFromTemplate(r *http.Request) (string, string) {
 		return "", code
 	}
 	for _, src := range tpl.Sources {
-		if _, code := s.addSource(r, id, src.Kind, src.Filename, files[src.Filename]); code != "" {
+		if _, code := s.addSource(r, id, src.Kind, src.Filename, files[src.Filename], ""); code != "" {
 			return "", code
 		}
 	}
@@ -277,9 +279,11 @@ func (s *Server) putRequest(w http.ResponseWriter, r *http.Request) {
 const maxSourceBytes = 5 << 20 // specification §6: source ≤ 5 MB
 
 // addSource stores one source. A source identical to a current one
-// (same fingerprint) creates no new version (§4). It returns the
-// view and a catalog code ("") on success.
-func (s *Server) addSource(r *http.Request, projectID, kind, filename string, data []byte) (SourceView, string) {
+// (same fingerprint) creates no new version (§4). With replaces (the
+// label of a source), it is the new version of that same source
+// (backlog-r2 2.2, A-1). It returns the view and a catalog code ("") on
+// success.
+func (s *Server) addSource(r *http.Request, projectID, kind, filename string, data []byte, replaces string) (SourceView, string) {
 	if kind != "file" && kind != "calculation" {
 		return SourceView{}, "source_invalid_kind"
 	}
@@ -305,6 +309,10 @@ func (s *Server) addSource(r *http.Request, projectID, kind, filename string, da
 		return SourceView{}, "source_unsupported_type"
 	}
 	fp := fingerprint.Source(text)
+	body := sourceBody{Kind: kind, Filename: filename, MediaType: mediaType, Text: text, Fingerprint: fp}
+	if replaces != "" {
+		return s.replaceSource(r, projectID, replaces, body)
+	}
 
 	existing, err := s.db.ListObjects(r.Context(), projectID, store.ObjectSource)
 	if err != nil {
@@ -319,7 +327,6 @@ func (s *Server) addSource(r *http.Request, projectID, kind, filename string, da
 		}
 	}
 
-	body := sourceBody{Kind: kind, Filename: filename, MediaType: mediaType, Text: text, Fingerprint: fp}
 	var created store.Object
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		var err error
@@ -334,7 +341,54 @@ func (s *Server) addSource(r *http.Request, projectID, kind, filename string, da
 		Filename: filename, MediaType: mediaType, Fingerprint: fp}, ""
 }
 
-// POST /api/projects/{projectID}/sources (multipart: file, kind)
+// replaceSource writes the new version of the same source object
+// (backlog-r2 2.2): UpdateObject with its new text and fingerprint, so
+// the uses edges keep pointing at it, with source_new_version, and rule
+// 4 warns each section that used it (A-1), in the same transaction. An
+// identical source (same fingerprint) writes nothing (B-9).
+// [EL DISEÑO NO LO DICE]: body.replaces (specification §1.1) is not
+// set: the source is the same object, its versions are the chain. Only
+// the replaced source is compared for «idéntica».
+func (s *Server) replaceSource(r *http.Request, projectID, replaces string, body sourceBody) (SourceView, string) {
+	view := func(obj store.Object, b sourceBody) SourceView {
+		return SourceView{Label: obj.Label, Version: obj.CurrentVersion, Kind: b.Kind,
+			Filename: b.Filename, MediaType: b.MediaType, Fingerprint: b.Fingerprint}
+	}
+	ctx := r.Context()
+	var out store.Object
+	err := s.db.Write(ctx, projectID, func(tx *store.Tx) error {
+		src, err := tx.GetObject(ctx, projectID, replaces)
+		if err != nil || src.Type != store.ObjectSource {
+			return errSourceNotFound
+		}
+		var old sourceBody
+		_ = json.Unmarshal(src.Body, &old)
+		if graph.UsageStamp(src) == body.Fingerprint {
+			out, body = src, old
+			return nil
+		}
+		out, err = tx.UpdateObject(src.ID, src.CurrentVersion, "", body,
+			store.EventInput{Type: store.EventSourceNewVersion, Actor: "human",
+				Data: map[string]any{"label": src.Label, "filename": body.Filename}})
+		if err != nil {
+			return err
+		}
+		_, err = checks.Warn(ctx, tx, "human", "", []string{src.ID}, nil)
+		return err
+	})
+	if errors.Is(err, errSourceNotFound) {
+		return SourceView{}, "source_not_found"
+	}
+	if err != nil {
+		return SourceView{}, "internal"
+	}
+	return view(out, body), ""
+}
+
+var errSourceNotFound = errors.New("server: source not found")
+
+// POST /api/projects/{projectID}/sources (multipart: file, kind, and
+// replaces: the label of the source this file replaces, backlog-r2 2.2)
 func (s *Server) uploadSource(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {
@@ -356,7 +410,7 @@ func (s *Server) uploadSource(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "source_too_large")
 		return
 	}
-	view, code := s.addSource(r, projectID, r.FormValue("kind"), header.Filename, data)
+	view, code := s.addSource(r, projectID, r.FormValue("kind"), header.Filename, data, r.FormValue("replaces"))
 	if code != "" {
 		status := http.StatusBadRequest
 		if code == "internal" {
@@ -367,6 +421,9 @@ func (s *Server) uploadSource(w http.ResponseWriter, r *http.Request) {
 		}
 		if code == "source_pdf_busy" {
 			status = http.StatusConflict
+		}
+		if code == "source_not_found" {
+			status = http.StatusNotFound
 		}
 		writeError(w, status, code)
 		return

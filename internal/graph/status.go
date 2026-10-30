@@ -126,10 +126,13 @@ func SectionStatus(ctx context.Context, db store.Querier, projectID, label strin
 		pendings = append(pendings, Pending{Kind: PendingMissingInText, About: passage})
 	}
 
-	// Ready = text and no pendings (B-21): a section without text stays
-	// draft and is not offered for signing.
+	// Ready = text, no pendings (B-21) and no open changes: a section
+	// without text stays draft and is not offered for signing. Open
+	// changes are not pendings, but they count here in any state (A-1,
+	// E-4; backlog-r2 2.2): a draft never shows ready with one.
 	status := Status(section.State)
-	if status == StatusDraft && len(pendings) == 0 && strings.TrimSpace(bodyString(section, "text")) != "" {
+	if status == StatusDraft && len(pendings) == 0 && len(OpenChanges(section)) == 0 &&
+		strings.TrimSpace(bodyString(section, "text")) != "" {
 		status = StatusReady
 	}
 	return status, pendings, nil

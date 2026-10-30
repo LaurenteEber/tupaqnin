@@ -135,7 +135,7 @@ func listObjects(ctx context.Context, q queryer, projectID string, t ObjectType)
 func edges(ctx context.Context, q queryer, projectID, column, id string) ([]Edge, error) {
 	// column is one of two fixed literals chosen below, never input.
 	rows, err := q.QueryContext(ctx,
-		`SELECT id, type, from_id, to_id, anchor, version, current FROM edge
+		`SELECT id, type, from_id, to_id, anchor, version, current, data FROM edge
 		 WHERE project_id = ? AND `+column+` = ? AND current = 1 ORDER BY id`,
 		projectID, id)
 	if err != nil {
@@ -145,14 +145,17 @@ func edges(ctx context.Context, q queryer, projectID, column, id string) ([]Edge
 	var out []Edge
 	for rows.Next() {
 		var e Edge
-		var anchor sql.NullString
+		var anchor, data sql.NullString
 		var current int
-		if err := rows.Scan(&e.ID, &e.Type, &e.FromID, &e.ToID, &anchor, &e.Version, &current); err != nil {
+		if err := rows.Scan(&e.ID, &e.Type, &e.FromID, &e.ToID, &anchor, &e.Version, &current, &data); err != nil {
 			return nil, fmt.Errorf("list edges: %w", err)
 		}
 		e.ProjectID = projectID
 		e.Anchor = anchor.String
 		e.Current = current == 1
+		if data.Valid {
+			e.Data = json.RawMessage(data.String)
+		}
 		out = append(out, e)
 	}
 	if err := rows.Err(); err != nil {

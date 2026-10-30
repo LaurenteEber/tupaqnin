@@ -215,6 +215,10 @@ type Edge struct {
 	Anchor    string   `json:"anchor"`
 	Version   int      `json:"version"`
 	Current   bool     `json:"current"`
+	// Data is what a using edge used (B-45): used_in, covers and uses
+	// carry the version and content stamp of what they used; nil on
+	// other edges and on edges older than migration 0004.
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 // EventInput is what a caller appends to the history (table 1.3).

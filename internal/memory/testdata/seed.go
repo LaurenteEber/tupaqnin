@@ -54,7 +54,7 @@ func create(ctx context.Context, db *store.DB, project string, t store.ObjectTyp
 
 func addEdge(ctx context.Context, db *store.DB, project string, t store.EdgeType, from, to string) error {
 	return db.Write(ctx, project, func(tx *store.Tx) error {
-		_, err := tx.AddEdge(t, from, to, "",
+		_, err := tx.AddEdge(t, from, to, "", nil,
 			store.EventInput{Type: store.EventEdge, Actor: "agent", AgentRole: "principal"})
 		return err
 	})

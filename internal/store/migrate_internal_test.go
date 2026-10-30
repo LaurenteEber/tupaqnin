@@ -62,7 +62,7 @@ func TestB8_Migration0002KeepsEveryEdgeAndAllowsTheNextVersion(t *testing.T) {
 		t.Fatalf("old edge after 0002: %q, %v", anchor.String, err)
 	}
 	if err := db.Write(ctx, "p1", func(tx *Tx) error {
-		_, err := tx.ChangeEdge("e1", "o2", "now", EventInput{Type: EventEdge, Actor: "agent"})
+		_, err := tx.ChangeEdge("e1", "o2", "now", nil, EventInput{Type: EventEdge, Actor: "agent"})
 		return err
 	}); err != nil {
 		t.Fatalf("ChangeEdge after 0002: %v", err)

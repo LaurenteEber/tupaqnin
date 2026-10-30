@@ -203,7 +203,7 @@ func TestP64_StoredDatumInsideACodeIsNotListed(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = tx.AddEdge(store.EdgeComesFrom, dat.ID, src.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeComesFrom, dat.ID, src.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	}); err != nil {
 		t.Fatalf("store the old datum: %v", err)

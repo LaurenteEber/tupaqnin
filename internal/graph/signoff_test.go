@@ -38,11 +38,11 @@ func originFixture(t *testing.T, depends bool) (*store.DB, store.Object) {
 			if err != nil {
 				return err
 			}
-			if _, err := tx.AddEdge(store.EdgeUsedIn, d.ID, sec.ID, "", edge); err != nil {
+			if _, err := tx.AddEdge(store.EdgeUsedIn, d.ID, sec.ID, "", nil, edge); err != nil {
 				return err
 			}
 			if depends {
-				if _, err := tx.AddEdge(store.EdgeDependsOnAssumption, d.ID, assumptions[target].ID, "", edge); err != nil {
+				if _, err := tx.AddEdge(store.EdgeDependsOnAssumption, d.ID, assumptions[target].ID, "", nil, edge); err != nil {
 					return err
 				}
 			}

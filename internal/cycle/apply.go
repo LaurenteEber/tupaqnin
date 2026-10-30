@@ -176,6 +176,9 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	if err != nil {
 		return ApplyResult{}, err
 	}
+	for _, c := range p.rejectedCloses { // rule 7: only that close is rejected
+		rejected = append(rejected, c["message"].(string))
+	}
 	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Work: work,
 		Stretch: p.stretch, Reclassified: p.reclassified}, nil
 }
@@ -190,10 +193,13 @@ type project struct {
 	// stretch and reclassified are what rule 0 settled when applying.
 	stretch      string
 	reclassified []string
-	labels       *graph.Labeler
-	byID         map[string]store.Object
-	edgesOut     map[string][]store.Edge
-	sources      []store.Object
+	// rejectedCloses are the handled_changes rule 7 rejected, each with
+	// its message for the agent (specification §3).
+	rejectedCloses []map[string]any
+	labels         *graph.Labeler
+	byID           map[string]store.Object
+	edgesOut       map[string][]store.Edge
+	sources        []store.Object
 	// inSignoff are the sections with a signoff in progress (B-14).
 	inSignoff map[string]bool
 }
@@ -866,6 +872,7 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	}
 
 	edges := newEdgeSet(p, tx, agent(store.EventEdge))
+	var changed []string // decisions whose content this step changed (rule 4)
 	for _, d := range out.NewDecisions {
 		decID := ids[d.ID]
 		for _, s := range d.UsedInSections {
@@ -893,6 +900,7 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 			if _, err := tx.UpdateObject(old.ID, old.CurrentVersion, "superseded", bodyOf(old), ev); err != nil {
 				return nil, err
 			}
+			changed = append(changed, old.ID)
 		}
 	}
 	sectionIDs := sortedKeys(written)
@@ -990,9 +998,17 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	if len(out.ProposedOpenQuestions) > 0 && string(out.ProposedOpenQuestions) != "null" {
 		notApplied["proposed_open_questions"] = out.ProposedOpenQuestions
 	}
-	if len(out.HandledChanges) > 0 && string(out.HandledChanges) != "null" {
-		notApplied["handled_changes"] = out.HandledChanges
+	// Rule 7 of the gate (specification §3): each close is checked in
+	// this transaction; one that does not comply stays here, rejected
+	// alone, with its message for the agent.
+	rejectedCloses, err := applyHandledChanges(context.Background(), tx, turnID, out.HandledChanges, written)
+	if err != nil {
+		return nil, err
 	}
+	if rejectedCloses != nil {
+		notApplied["handled_changes"] = rejectedCloses
+	}
+	p.rejectedCloses = rejectedCloses
 	if rolesNotApplied != nil {
 		notApplied["proposed_roles"] = rolesNotApplied // P-32
 	}
@@ -1053,7 +1069,7 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	// The app's rules 0 to 5, in this transaction, before step_ended,
 	// so the reclassification (rule 0) and «escrito sin decisión» (rule
 	// 2) are written in it (backlog-r2 2.1). No rule stops the chain.
-	if err := p.runRules(tx, out, pl, ids, sectionIDs, data); err != nil {
+	if err := p.runRules(tx, turnID, out, pl, ids, sectionIDs, changed, data); err != nil {
 		return nil, err
 	}
 	if longDeferred != nil {
@@ -1175,8 +1191,28 @@ func (s *edgeSet) add(t store.EdgeType, from, to, anchor string) error {
 			return nil
 		}
 	}
-	_, err := s.tx.AddEdge(t, from, to, anchor, s.ev)
+	_, err := s.tx.AddEdge(t, from, to, anchor, usedData(s.tx, t, from, to), s.ev)
 	return err
+}
+
+// usedData is what a using edge stores of what it used (B-45): the
+// decision of used_in, the figure of covers, the source of uses; nil
+// for every other edge.
+func usedData(tx *store.Tx, t store.EdgeType, from, to string) any {
+	id := ""
+	switch t {
+	case store.EdgeUsedIn, store.EdgeCovers:
+		id = from
+	case store.EdgeUses:
+		id = to
+	default:
+		return nil
+	}
+	obj, err := tx.Object(id)
+	if err != nil {
+		return nil
+	}
+	return graph.UsageOf(obj)
 }
 
 func sortedKeys(m map[string]bool) []string {
@@ -1194,8 +1230,8 @@ func sortedKeys(m map[string]bool) []string {
 // when rule 0 reclassified it (B-43), the sections left with «escrito
 // sin decisión» (B-42) and those where the step declared a decision,
 // which closes it.
-func (p *project) runRules(tx *store.Tx, out stepOutput, pl *plan, ids map[string]string,
-	sectionIDs []string, data map[string]any) error {
+func (p *project) runRules(tx *store.Tx, turnID string, out stepOutput, pl *plan, ids map[string]string,
+	sectionIDs, changed []string, data map[string]any) error {
 	resolve := func(value string) string {
 		if isNew(value) {
 			return ids[value]
@@ -1204,7 +1240,7 @@ func (p *project) runRules(tx *store.Tx, out stepOutput, pl *plan, ids map[strin
 		return obj.ID
 	}
 	change := checks.Change{Kind: checks.AgentStep, Sections: sectionIDs, Stretch: out.Stretch,
-		Decided: map[string]bool{}}
+		Decided: map[string]bool{}, Changed: changed, Actor: "agent", TurnID: turnID}
 	for _, sp := range pl.sections {
 		for _, e := range sp.edits {
 			change.Texts = append(change.Texts, e.text)
@@ -1239,9 +1275,11 @@ func (p *project) runRules(tx *store.Tx, out stepOutput, pl *plan, ids map[strin
 	}
 	data["stretch"] = out.Stretch
 	p.stretch = out.Stretch
-	withoutDecision, decided := []string{}, []string{}
+	withoutDecision, decided, warned := []string{}, []string{}, []any{}
 	for _, f := range findings {
 		switch f.Kind {
+		case checks.FindingUsageChange:
+			warned = append(warned, map[string]any{"change": f.Change, "section": f.Section, "about": f.About})
 		case checks.FindingReclassified:
 			data["stretch"], data["proposed_stretch"], data["reclassified"] = f.About, out.Stretch, f.Reasons
 			p.stretch, p.reclassified = f.About, f.Reasons
@@ -1257,5 +1295,10 @@ func (p *project) runRules(tx *store.Tx, out stepOutput, pl *plan, ids map[strin
 		}
 	}
 	data["text_without_decision"], data["decided_sections"] = withoutDecision, decided
+	if len(warned) > 0 {
+		// [EL DISEÑO NO LO DICE]: step_ended does not list the changes
+		// rule 4 entered; they are added as usage_changes.
+		data["usage_changes"] = warned
+	}
 	return nil
 }

@@ -10,6 +10,7 @@ package checks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -77,13 +78,22 @@ type Change struct {
 
 	// Your edit: the section's text at the base version, before the save.
 	BaseText string
+
+	// Changed are the ids of the decisions, figures and sources whose
+	// content this change changed (rule 4, B-45), with who changed them
+	// and the turn, for the events rule 4 writes.
+	Changed []string
+	Actor   string
+	TurnID  string
 }
 
 // Finding is one thing a rule found. Section is a label; About is what
 // it is about (a label, a number in the text or an anchor); Decision is
 // the label of the decision of rule 3.
 type Finding struct {
-	Rule     int      `json:"rule"`
+	Rule int `json:"rule"`
+	// Change is the label of the change rule 4 entered (chg-n).
+	Change   string   `json:"change,omitempty"`
 	Kind     string   `json:"kind"`
 	Section  string   `json:"section,omitempty"`
 	About    string   `json:"about,omitempty"`
@@ -158,8 +168,23 @@ func RunRules(ctx context.Context, q store.Querier, projectID string, change Cha
 		out = append(out, used...)
 	}
 
-	// Rule 4: warnings to other sections and the list of changes arrive
-	// with piece 2.2.
+	// Rule 4: warnings to other sections (A-1, B-45). It writes the
+	// changes in the same transaction, so it needs it.
+	if len(change.Changed) > 0 {
+		tx, ok := q.(*store.Tx)
+		if !ok {
+			return nil, errors.New("checks: rule 4 needs the change's transaction")
+		}
+		exclude := map[string]bool{}
+		for _, id := range change.Sections {
+			exclude[id] = true
+		}
+		warned, err := Warn(ctx, tx, change.Actor, change.TurnID, change.Changed, exclude)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, warned...)
+	}
 
 	// Rule 5: internal codes, from the current text. In an agent step a
 	// new-n in the text is already rejected by rule 4 of the gate

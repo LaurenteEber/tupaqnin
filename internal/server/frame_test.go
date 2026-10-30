@@ -61,7 +61,7 @@ func seedCase5Frame(t *testing.T, h http.Handler, db *store.DB) string {
 				return err
 			}
 			for _, sec := range sections {
-				if _, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"}); err != nil {
+				if _, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"}); err != nil {
 					return err
 				}
 			}
@@ -154,7 +154,7 @@ func TestM1_AnsweredCardBringsItsReasonAndSupersededDecisionIsNotInTheFrame(t *t
 		if err != nil {
 			return err
 		}
-		_, err = tx.AddEdge(store.EdgeUsedIn, old.ID, sec.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeUsedIn, old.ID, sec.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	if err != nil {

@@ -132,6 +132,27 @@ export interface MarkCriticalRequest {
 }
 
 //////////
+// source: changes.go
+
+/**
+ * ChangesView is a section's list of open changes (A-1, backlog-r2
+ * 2.2): each with its label, the kind of what changed and its label.
+ */
+export interface ChangesView {
+  section: string;
+  state: string;
+  changes: any /* graph.OpenChange */[];
+}
+/**
+ * CloseChangeRequest closes a change: updated (after editing that
+ * section) or reviewed_unchanged with a «porque» (fichas §3).
+ */
+export interface CloseChangeRequest {
+  result: string;
+  reason: string;
+}
+
+//////////
 // source: conversation.go
 
 /**

@@ -73,7 +73,7 @@ func TestT5_DecisionCoveringAFigureIsCritical(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, dec.ID, "1,5 veces", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, dec.ID, "1,5 veces", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	requireCritical(t, db, true, graph.ReasonCoversFigure)
@@ -81,7 +81,7 @@ func TestT5_DecisionCoveringAFigureIsCritical(t *testing.T) {
 
 func TestT5_DecisionInAConclusionSectionIsCritical(t *testing.T) {
 	db := criticalFixture(t, "conclusion", func(tx *store.Tx, _, sec2, dec store.Object) error {
-		_, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec2.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec2.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	requireCritical(t, db, true, graph.ReasonConclusionSection)
@@ -90,7 +90,7 @@ func TestT5_DecisionInAConclusionSectionIsCritical(t *testing.T) {
 func TestT5_DecisionInTwoSectionsIsCritical(t *testing.T) {
 	db := criticalFixture(t, "other", func(tx *store.Tx, sec1, sec2, dec store.Object) error {
 		for _, sec := range []store.Object{sec1, sec2} {
-			if _, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"}); err != nil {
+			if _, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"}); err != nil {
 				return err
 			}
 		}
@@ -103,7 +103,7 @@ func TestT5_DecisionInTwoSectionsIsCritical(t *testing.T) {
 // decision appears in a section the decision does not declare.
 func TestT5_SectionWhereALinkedFigureAppearsCountsTowardTwoSections(t *testing.T) {
 	db := criticalFixture(t, "other", func(tx *store.Tx, sec1, sec2, dec store.Object) error {
-		if _, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec2.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"}); err != nil {
+		if _, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec2.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"}); err != nil {
 			return err
 		}
 		fig, err := tx.CreateObject(store.ObjectFigure, "", map[string]any{"section_id": sec1.ID, "anchor": "1,5 veces", "value": "1,5"},
@@ -111,7 +111,7 @@ func TestT5_SectionWhereALinkedFigureAppearsCountsTowardTwoSections(t *testing.T
 		if err != nil {
 			return err
 		}
-		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, dec.ID, "1,5 veces", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, dec.ID, "1,5 veces", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	requireCritical(t, db, true, graph.ReasonTwoOrMoreSections)
@@ -119,7 +119,7 @@ func TestT5_SectionWhereALinkedFigureAppearsCountsTowardTwoSections(t *testing.T
 
 func TestT5_DecisionInOneOtherSectionIsNotCritical(t *testing.T) {
 	db := criticalFixture(t, "other", func(tx *store.Tx, sec1, _, dec store.Object) error {
-		_, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec1.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		_, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec1.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
 		return err
 	})
 	requireCritical(t, db, false, "")
@@ -131,7 +131,7 @@ func TestT5_CriticalInsideATransactionSeesItsOwnWrites(t *testing.T) {
 	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
 		dec, _ := tx.GetObject(context.Background(), "p1", "dec-1")
 		sec2, _ := tx.GetObject(context.Background(), "p1", "sec-2")
-		if _, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec2.ID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"}); err != nil {
+		if _, err := tx.AddEdge(store.EdgeUsedIn, dec.ID, sec2.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"}); err != nil {
 			return err
 		}
 		got, _, err := graph.Critical(context.Background(), tx, "p1", "dec-1")
