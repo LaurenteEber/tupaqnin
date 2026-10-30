@@ -526,6 +526,24 @@ func SignoffDetail(ctx context.Context, db *store.DB, projectID, signLabel strin
 			v.CriticalDecisions = append(v.CriticalDecisions, l)
 		}
 	}
+	for i, p := range v.Pendings {
+		if p.Kind != PendingOpenCard {
+			continue
+		}
+		card, err := db.GetObject(ctx, projectID, p.About)
+		if err != nil {
+			continue
+		}
+		dec, err := labels.ToLabel(bodyString(card, "decision_id"))
+		if err != nil {
+			continue
+		}
+		for j, l := range v.CriticalDecisions {
+			if l == dec {
+				v.Pendings[i].Number = j + 1
+			}
+		}
+	}
 	if body.OriginAssumptionID != "" {
 		v.OriginAssumption, _ = labels.ToLabel(body.OriginAssumptionID)
 	}

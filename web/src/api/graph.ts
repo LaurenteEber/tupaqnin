@@ -509,6 +509,12 @@ export const PendingSupersededDecision = "superseded_decision_in_text";
 export interface Pending {
   kind: string;
   about?: string;
+  /**
+   * Number names an open card on the signoff screen by its decision's
+   * place among the critical decisions, from 1 (P-62, as P-59); 0
+   * elsewhere.
+   */
+  number?: number /* int */;
 }
 
 //////////

@@ -91,17 +91,16 @@ func TestB10_BlockOutOfRangeIsNotFound(t *testing.T) {
 	}
 }
 
-// P-60 (pantallas P5, D7): the case 5 paragraph with «1,5» shows the
-// comparison rule the step declared for its section and the datum 1,5
-// with the calculation source and its passage (A-3).
-func TestP60_Case5ParagraphShowsTheRuleAndTheCalculationSource(t *testing.T) {
+// seedCase5Calculation adds the real case 5 calculation as src-2, read
+// by the principal, to the step project.
+func seedCase5Calculation(t *testing.T) *store.DB {
+	t.Helper()
 	db := seedStepProject(t)
 	calc, err := os.ReadFile(filepath.Join("..", "demo", "case5", "template", "sources", "calculo-comparacion.md"))
 	if err != nil {
 		t.Fatalf("read the case 5 calculation: %v", err)
 	}
-	ctx := context.Background()
-	if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+	if err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
 		src, err := tx.CreateObject(store.ObjectSource, "", map[string]any{
 			"kind": "file", "filename": "calculo-comparacion.md", "text": string(calc),
 		}, store.EventInput{Type: store.EventStateChanged, Actor: "human"})
@@ -112,6 +111,14 @@ func TestP60_Case5ParagraphShowsTheRuleAndTheCalculationSource(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed source: %v", err)
 	}
+	return db
+}
+
+// P-60 (pantallas P5, D7): the case 5 paragraph with «1,5» shows the
+// comparison rule the step declared for its section and the datum 1,5
+// with the calculation source and its passage (A-3).
+func TestP60_Case5ParagraphShowsTheRuleAndTheCalculationSource(t *testing.T) {
+	db := seedCase5Calculation(t)
 	step := json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
 		"new_decisions":[{"id":"new-1","statement":"Comparar los conteos desde el mismo tamaño mínimo de partícula.",
 			"instead_of":"Comparar los conteos crudos.","would_choose_if":"Todos los estudios usaran el mismo filtro.",
@@ -138,5 +145,39 @@ func TestP60_Case5ParagraphShowsTheRuleAndTheCalculationSource(t *testing.T) {
 	if datum == nil || datum.Value != "1,5" || datum.Source != "calculo-comparacion.md" ||
 		datum.Passage != "Embotellada frente a grifo: 1,5 veces." {
 		t.Fatalf("datum entry: %+v, want 1,5 from calculo-comparacion.md with its passage", datum)
+	}
+}
+
+// P-63: the case 5 «1,5» paragraph names the studies by their codes
+// (T5, B4…); its history lists only the data in its text, each with the
+// source passage that shares the most words with its sentence: the 20
+// of the average, not T5's minimum size.
+func TestP63_Case5ParagraphListsOnlyItsDataWithTheirMatchingPassage(t *testing.T) {
+	db := seedCase5Calculation(t)
+	step := json.RawMessage(`{"triage_line":"Construir.","closing_risk":"none","note":"Escribo la comparación.",
+		"new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","operation":"insert_after",
+			"text":" Al comparar solo los estudios que cuentan desde el mismo tamaño mínimo (T5, T6, B4, B5 y B6), el grifo tiene un promedio de 20 partículas por litro y la embotellada, de 30. La embotellada trae 1,5 veces más partículas que la de grifo."}],
+		"used_sources":["src-2"]}`)
+	if applied := applyRecorded(t, db, step); !applied.Applied {
+		t.Fatalf("step: %v", applied.Errors)
+	}
+	got := map[string]string{}
+	for _, e := range history(t, db, 1) {
+		if e.Kind == graph.EntryDatum {
+			got[e.Datum.Value] = e.Datum.Passage
+		}
+	}
+	want := map[string]string{
+		"20":  "Grifo: promedio de 20 partículas por litro.",
+		"30":  "Embotellada: promedio de 30 partículas por litro.",
+		"1,5": "Embotellada frente a grifo: 1,5 veces.",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("data: got %q, want only %q", got, want)
+	}
+	for v, passage := range want {
+		if got[v] != passage {
+			t.Fatalf("datum %s: passage %q, want %q (all: %q)", v, got[v], passage, got)
+		}
 	}
 }

@@ -798,3 +798,31 @@ func TestP59_VerdictNamesTheDecisionByItsNumber(t *testing.T) {
 		t.Fatalf("verdicts: %+v of critical %v, want the decision as number 1", v.Verdicts, v.CriticalDecisions)
 	}
 }
+
+// P-62 (as P-59): an open card in the signoff's pendings is named by
+// its decision's place among the critical decisions, never by its label
+// nor its statement.
+func TestP62_OpenCardPendingNamedByItsDecisionNumber(t *testing.T) {
+	db := openTemp(t)
+	_, decID := seedSignable(t, db, true)
+	g := cycle.NewGate(db)
+	sign := openSignoff(t, g)
+	if err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectCard, "open",
+			map[string]any{"decision_id": decID, "chosen_option": "", "reason": ""},
+			store.EventInput{Type: store.EventStateChanged, Actor: "app"})
+		return err
+	}); err != nil {
+		t.Fatalf("open card: %v", err)
+	}
+	v := view(t, db, sign)
+	var card *graph.Pending
+	for i := range v.Pendings {
+		if v.Pendings[i].Kind == graph.PendingOpenCard {
+			card = &v.Pendings[i]
+		}
+	}
+	if card == nil || card.Number != 1 {
+		t.Fatalf("pendings: %+v of critical %v, want the open card as decision number 1", v.Pendings, v.CriticalDecisions)
+	}
+}

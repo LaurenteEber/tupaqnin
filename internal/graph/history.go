@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -122,7 +123,7 @@ func BlockHistory(ctx context.Context, db *store.DB, projectID, sectionLabel str
 		return nil, err
 	}
 	out = append(out, decisions...)
-	data, err := blockData(ctx, db, projectID, section.ID, b, events)
+	data, err := blockData(ctx, db, projectID, section.ID, blocks[block-1], b, events)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +277,7 @@ func stepDecisions(ctx context.Context, db *store.DB, projectID, sectionID strin
 // blockData are the data copied from a source into the block (A-3,
 // P-60), each at its birth, with the source's title and the passage of
 // the source that holds the value.
-func blockData(ctx context.Context, db *store.DB, projectID, sectionID string, b Compared, events []store.Event) ([]Entry, error) {
+func blockData(ctx context.Context, db *store.DB, projectID, sectionID, block string, b Compared, events []store.Event) ([]Entry, error) {
 	born := map[string]store.Event{}
 	for _, ev := range events {
 		if _, ok := born[ev.ObjectID]; !ok && ev.ObjectID != "" {
@@ -308,7 +309,8 @@ func blockData(ctx context.Context, db *store.DB, projectID, sectionID string, b
 			text := bodyString(src, "text")
 			ev := born[d.ID]
 			out = append(out, Entry{Kind: EntryDatum, Actor: ev.Actor, At: ev.CreatedAt, seq: ev.Seq,
-				Datum: &DatumEntry{Value: value, Source: SourceTitle(src), Passage: SourcePassage(text, value)}})
+				Datum: &DatumEntry{Value: value, Source: SourceTitle(src),
+					Passage: SourcePassage(text, value, sentenceWith(block, value))}})
 			break
 		}
 	}
@@ -330,34 +332,80 @@ func SourceTitle(src store.Object) string {
 }
 
 // SourcePassage is the sentence of a source's text that holds a number
-// with the given value, literal.
-// [EL DISEÑO NO LO DICE]: the passage is the sentence (up to «. » or a
-// line break) of the first occurrence of the value, without a list or
-// heading marker.
-func SourcePassage(text, value string) string {
+// with the given value, literal. When the value appears in several
+// sentences, it is the one sharing the most words with the paragraph's
+// sentence that holds the datum; on a tie, the first (P-63).
+// [EL DISEÑO NO LO DICE]: a sentence ends at «. » or a line break and
+// loses its list or heading marker; a word is a run of 3 or more
+// letters, compared without case, so study codes (T5) and short
+// particles do not count.
+func SourcePassage(text, value, sentence string) string {
 	want := NormalizeNumber(value)
+	words := wordSet(sentence)
+	best, bestShared := "", -1
 	for _, line := range strings.Split(text, "\n") {
-		for _, loc := range numberPattern.FindAllStringIndex(line, -1) {
+		for _, loc := range numberSpans(line) {
 			if NormalizeNumber(line[loc[0]:loc[1]]) != want {
 				continue
 			}
-			start := strings.LastIndex(line[:loc[0]], ". ")
-			if start < 0 {
-				start = 0
-			} else {
-				start += 2
+			candidate := sentenceAround(line, loc[0], loc[1])
+			shared := 0
+			for w := range wordSet(candidate) {
+				if words[w] {
+					shared++
+				}
 			}
-			end := strings.Index(line[loc[1]:], ". ")
-			if end < 0 {
-				end = len(line)
-			} else {
-				end += loc[1] + 1
+			if shared > bestShared {
+				best, bestShared = candidate, shared
 			}
-			// A list or heading marker is not part of the passage.
-			return strings.TrimSpace(strings.TrimLeft(line[start:end], " \t-*+#>"))
+		}
+	}
+	return best
+}
+
+// sentenceWith is the sentence of a text that holds the first number
+// with the given value.
+func sentenceWith(text, value string) string {
+	want := NormalizeNumber(value)
+	for _, line := range strings.Split(text, "\n") {
+		for _, loc := range numberSpans(line) {
+			if NormalizeNumber(line[loc[0]:loc[1]]) == want {
+				return sentenceAround(line, loc[0], loc[1])
+			}
 		}
 	}
 	return ""
+}
+
+// sentenceAround is the sentence of a line around line[start:end], up
+// to «. » on each side, without a list or heading marker.
+func sentenceAround(line string, start, end int) string {
+	from := strings.LastIndex(line[:start], ". ")
+	if from < 0 {
+		from = 0
+	} else {
+		from += 2
+	}
+	to := strings.Index(line[end:], ". ")
+	if to < 0 {
+		to = len(line)
+	} else {
+		to += end + 1
+	}
+	// A list or heading marker is not part of the passage.
+	return strings.TrimSpace(strings.TrimLeft(line[from:to], " \t-*+#>"))
+}
+
+// wordSet is the set of a text's words of 3 or more letters, in lower
+// case.
+func wordSet(text string) map[string]bool {
+	out := map[string]bool{}
+	for _, w := range strings.FieldsFunc(strings.ToLower(text), func(r rune) bool { return !unicode.IsLetter(r) }) {
+		if utf8.RuneCountInString(w) >= 3 {
+			out[w] = true
+		}
+	}
+	return out
 }
 
 // DecisionHistory is the history of one decision with no point in the

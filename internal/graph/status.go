@@ -37,6 +37,10 @@ const (
 type Pending struct {
 	Kind  string `json:"kind"`
 	About string `json:"about,omitempty"`
+	// Number names an open card on the signoff screen by its decision's
+	// place among the critical decisions, from 1 (P-62, as P-59); 0
+	// elsewhere.
+	Number int `json:"number,omitempty"`
 }
 
 // SectionStatus is the one function every view uses for a section's

@@ -3,6 +3,8 @@ package graph
 import (
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Number is one number found in a text (B-20 b): Raw as it is written,
@@ -34,18 +36,38 @@ func NormalizeNumber(raw string) string {
 // of a line and the digits of a short label do not.
 func Numbers(text string) []Number {
 	var out []Number
+	for _, loc := range numberSpans(text) {
+		raw := text[loc[0]:loc[1]]
+		out = append(out, Number{Raw: raw, Value: NormalizeNumber(raw)})
+	}
+	return out
+}
+
+// numberSpans returns where the numbers of a text are, by Numbers'
+// rules.
+func numberSpans(text string) [][]int {
+	var out [][]int
 	for _, loc := range numberPattern.FindAllStringIndex(text, -1) {
 		start, end := loc[0], loc[1]
-		if labelBefore.MatchString(text[:start]) {
+		if labelBefore.MatchString(text[:start]) || codeBefore(text[:start]) {
 			continue
 		}
 		if isListNumber(text, start, end) {
 			continue
 		}
-		raw := text[start:end]
-		out = append(out, Number{Raw: raw, Value: NormalizeNumber(raw)})
+		out = append(out, loc)
 	}
 	return out
+}
+
+// codeBefore reports whether the digits that follow are attached to a
+// letter, as in a study code such as T5 or B4: like a label, it is not a
+// number (B-20 b, P-63).
+// [EL DISEÑO NO LO DICE]: only a letter right before the digits; one
+// right after («20µm») still leaves a number.
+func codeBefore(before string) bool {
+	r, _ := utf8.DecodeLastRuneInString(before)
+	return r != utf8.RuneError && unicode.IsLetter(r)
 }
 
 // isListNumber reports whether the number at text[start:end] opens a

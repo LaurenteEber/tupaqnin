@@ -165,7 +165,11 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
               {view.pendings.map((p, i) => (
                 <li key={i}>
                   {t(`pending.${p.kind}`)}
-                  {p.about && <> · «{p.about}»</>}
+                  {/* An open card by its decision's number, never its label
+                      nor its statement (P-62). */}
+                  {p.kind === "open_card"
+                    ? p.number !== undefined && p.number > 0 && <> · {t("signoff.decision_number", { n: String(p.number) })}</>
+                    : p.about && <> · «{p.about}»</>}
                 </li>
               ))}
             </ul>
