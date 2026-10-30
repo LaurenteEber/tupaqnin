@@ -36,10 +36,16 @@ func seedStepProject(t *testing.T) *store.DB {
 		if err != nil {
 			return err
 		}
-		if _, err := tx.CreateObject(store.ObjectSource, "", map[string]any{
+		src, err := tx.CreateObject(store.ObjectSource, "", map[string]any{
 			"kind": "file", "filename": "estudio.md",
 			"text": "En 2023 los conteos fueron 60 veces mayores. Los filtros finos retienen más partículas.",
-		}, human); err != nil {
+		}, human)
+		if err != nil {
+			return err
+		}
+		// The principal already read it (R-3): these tests are about
+		// what a read source supports.
+		if err := tx.RecordDelivery(store.Delivery{Via: store.ViaRead, ObjectID: src.ID, Version: src.CurrentVersion}); err != nil {
 			return err
 		}
 		if _, err := tx.CreateObject(store.ObjectDecision, "human", map[string]any{
@@ -428,4 +434,23 @@ func TestP40_StepOnAChangedSinceSignoffSectionRejectsOnlyThatText(t *testing.T) 
 	}
 	requireOnlyLockedTextRejected(t, db,
 		applyRecorded(t, db, json.RawMessage(strings.Replace(lockedStep, `"base_version": 1`, `"base_version": 2`, 1))), 2)
+}
+
+// P-46: a text inserted with insert_after is its own paragraph: it is
+// separated from the text before and after it by a blank line, never
+// glued («…equipos.Se consideran…»).
+func TestP46_InsertedTextIsASeparateParagraph(t *testing.T) {
+	db := seedStepProject(t)
+	applied := applyRecorded(t, db, json.RawMessage(`{"triage_line":"Escribo.","closing_risk":"none","note":"Dos párrafos.",
+		"new_text":[
+		 {"section_id":"sec-1","base_version":1,"anchor":"","operation":"insert_after","text":"Primero el contexto."},
+		 {"section_id":"sec-1","base_version":1,"anchor":"Los estudios usan filtros.","operation":"insert_after","text":"Se consideran dos filtros."}]}`))
+	if !applied.Applied {
+		t.Fatalf("ApplyStep: %+v", applied)
+	}
+	_, body := object(t, db, "sec-1")
+	want := "Primero el contexto.\n\nLa síntesis compara estudios. Los estudios usan filtros.\n\nSe consideran dos filtros.\n\nCierre."
+	if body["text"] != want {
+		t.Fatalf("text:\n%q\nwant\n%q", body["text"], want)
+	}
 }

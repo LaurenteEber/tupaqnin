@@ -419,6 +419,11 @@ type WonderVerdict struct {
 	Missing  string `json:"missing,omitempty"`
 	Passage  string `json:"passage,omitempty"`
 	Block    int    `json:"block"`
+	// HistoryOffered: P7 offers «Ver la historia de ese punto» (P-41,
+	// corrected 30-oct, flujos §3): after Wonder names what is missing
+	// in your explanation, or once the signoff is no longer in
+	// progress. Verdicts exist only after your first explanation.
+	HistoryOffered bool `json:"history_offered"`
 }
 
 // SignoffView is what P7 reads (pantallas P7): computed in Go, labels
@@ -541,6 +546,8 @@ func SignoffDetail(ctx context.Context, db *store.DB, projectID, signLabel strin
 					w.Block = b
 				}
 			}
+			w.HistoryOffered = w.Block > 0 && w.Verdict != "match" &&
+				(phase != SignoffInProgress || w.Verdict == "missing_in_explanation")
 			v.Verdicts = append(v.Verdicts, w)
 		}
 	}

@@ -107,3 +107,74 @@ func TestB17_ChainStopsAtAStepPendingForTheAgent(t *testing.T) {
 		t.Fatalf("output_retry: %d, want 2", n)
 	}
 }
+
+// textFixture is a step recording whose output is text.
+func textFixture(t *testing.T, text string) provider.Fixture {
+	t.Helper()
+	item, err := json.Marshal(map[string]any{"type": "message", "role": "assistant",
+		"content": []map[string]string{{"type": "output_text", "text": text}}})
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+	return provider.Fixture{TurnKind: provider.TurnStep, Deltas: []string{text}, Items: []json.RawMessage{item}}
+}
+
+func stepEndedData(t *testing.T, db *store.DB) []map[string]any {
+	t.Helper()
+	var out []map[string]any
+	for _, ev := range eventsOfType(t, db, store.EventStepEnded) {
+		var data map[string]any
+		if err := json.Unmarshal(ev.Data, &data); err != nil {
+			t.Fatalf("step_ended data: %v", err)
+		}
+		out = append(out, data)
+	}
+	return out
+}
+
+// B-24: the stop reason is stored in the step_ended where the chain
+// stops, so a reload can still say why the agent stopped.
+func TestB24_StopReasonIsStoredInTheStepWhereTheChainStops(t *testing.T) {
+	db, runner, _, _ := newCaptureRunner(t,
+		loadAppFixture(t, "01-principal-valid.json"), loadAppFixture(t, "04-principal-no-work.json"))
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	steps := stepEndedData(t, db)
+	if len(steps) != 2 || steps[0]["stop_reason"] != nil || steps[1]["stop_reason"] != "no_work" {
+		t.Fatalf("stop_reason by step: %v", steps)
+	}
+
+	db, runner, _, _ = newCaptureRunner(t, loadAppFixture(t, "01-principal-valid.json"))
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	steps = stepEndedData(t, db)
+	if len(steps) != cycle.MaxChainSteps || steps[len(steps)-1]["stop_reason"] != "step_limit" {
+		t.Fatalf("last step at the limit: %v", steps[len(steps)-1])
+	}
+}
+
+// R-5: a message that asks gets a reply; the step writes nothing in
+// the document and does not count as work, so the chain stops there.
+func TestR5_AQuestionGetsAReplyThatWritesNothingAndIsNotWork(t *testing.T) {
+	db, runner, cap, pub := newCaptureRunner(t, textFixture(t,
+		`{"triage_line":"Respondo tu pregunta.","closing_risk":"none","note":"Solo respondí.",`+
+			`"reply":"Me basé en el material que subiste."}`))
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "¿En qué te basaste?"); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	if len(cap.sent) != 1 {
+		t.Fatalf("provider calls: %d, want 1 (a reply is not work)", len(cap.sent))
+	}
+	steps := stepEndedData(t, db)
+	if len(steps) != 1 || steps[0]["reply"] != "Me basé en el material que subiste." || steps[0]["stop_reason"] != "no_work" {
+		t.Fatalf("step_ended: %v", steps)
+	}
+	if sections, _ := db.ListObjects(context.Background(), "p1", store.ObjectSection); len(sections) != 0 {
+		t.Fatalf("sections: %d, want none written", len(sections))
+	}
+	if step := pub.step(t); step["reply"] != "Me basé en el material que subiste." {
+		t.Fatalf("published step: %v", step)
+	}
+}

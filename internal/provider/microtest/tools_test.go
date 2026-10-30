@@ -381,7 +381,7 @@ type toolRun struct {
 func saveToolFixture(t *testing.T, name string, c toolCall) {
 	t.Helper()
 	fx := provider.Fixture{Name: name, Deltas: c.deltas, Items: c.output,
-		Usage: provider.Usage{InputTokens: c.inTokens, OutputTokens: c.outTokens, CostUSD: c.cost()},
+		Usage:      provider.Usage{InputTokens: c.inTokens, OutputTokens: c.outTokens, CostUSD: c.cost()},
 		DeltaDelay: c.meanDelay}
 	b, err := json.MarshalIndent(fx, "", "  ")
 	if err != nil {

@@ -378,6 +378,13 @@ export interface WonderVerdict {
   missing?: string;
   passage?: string;
   block: number /* int */;
+  /**
+   * HistoryOffered: P7 offers «Ver la historia de ese punto» (P-41,
+   * corrected 30-oct, flujos §3): after Wonder names what is missing
+   * in your explanation, or once the signoff is no longer in
+   * progress. Verdicts exist only after your first explanation.
+   */
+  history_offered: boolean;
 }
 /**
  * SignoffView is what P7 reads (pantallas P7): computed in Go, labels

@@ -966,7 +966,7 @@ func (r *Runner) runSignoffAsk(ctx context.Context, projectID, turnID, signLabel
 		}
 		input = append(append(conversation, changes...), message)
 	}
-	resp, err := r.call(ctx, projectID, turnID, instanceID, input, newFieldFilter(stepStreamKeys))
+	resp, _, err := r.call(ctx, projectID, turnID, instanceID, input, newFieldFilter(stepStreamKeys))
 	if err != nil {
 		if werr := r.recordAsk(ctx, projectID, turnID, signLabel, text, ""); werr != nil {
 			return werr
@@ -975,10 +975,16 @@ func (r *Runner) runSignoffAsk(ctx context.Context, projectID, turnID, signLabel
 		return nil
 	}
 	var answer struct {
-		Note string `json:"note"`
+		Reply string `json:"reply"`
+		Note  string `json:"note"`
 	}
 	_ = json.Unmarshal([]byte(resp.Text), &answer)
-	if err := r.recordAsk(ctx, projectID, turnID, signLabel, text, answer.Note); err != nil {
+	// R-5: the agent answers in reply; older outputs answered in note.
+	said := answer.Reply
+	if said == "" {
+		said = answer.Note
+	}
+	if err := r.recordAsk(ctx, projectID, turnID, signLabel, text, said); err != nil {
 		r.fail(projectID, turnID, "turn_failed")
 		return err
 	}

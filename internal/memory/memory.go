@@ -348,9 +348,14 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 				st.Index = append(st.Index, Line{Label: obj.Label, Type: string(obj.Type),
 					Version: obj.CurrentVersion, State: obj.State, FirstLine: firstLine(text)})
 			}
-		case store.ObjectRound, store.ObjectSource:
+		case store.ObjectRound:
 			st.Index = append(st.Index, Line{Label: obj.Label, Type: string(obj.Type),
 				Version: obj.CurrentVersion, State: obj.State, FirstLine: firstLine(text)})
+		case store.ObjectSource:
+			// R-3: a source's line is its card; the model reads the rest
+			// with read_source and search_sources.
+			st.Index = append(st.Index, Line{Label: obj.Label, Type: string(obj.Type),
+				Version: obj.CurrentVersion, State: obj.State, FirstLine: sourceCard(b)})
 		}
 	}
 

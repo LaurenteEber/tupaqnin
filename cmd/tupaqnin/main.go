@@ -79,8 +79,9 @@ func main() {
 	// No global WriteTimeout: streaming routes (specification §6) write
 	// for a long time and set their own pacing and heartbeat.
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           server.NewWithAPI(logger, hub, db, runner, server.WithProjectCap(cfg.SpendCapProjectUSD)),
+		Addr: ":" + cfg.Port,
+		Handler: server.NewWithAPI(logger, hub, db, runner, server.WithProjectCap(cfg.SpendCapProjectUSD),
+			server.WithProvider(cfg.Provider)),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 20,

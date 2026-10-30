@@ -81,6 +81,8 @@ type Server struct {
 	signoffs   SignoffStarter
 	editors    *editors
 	projectCap float64
+	// providerName is shown in the summary (U-2): meta or fake.
+	providerName string
 }
 
 // Option configures the API server.
@@ -89,6 +91,10 @@ type Option func(*Server)
 // WithProjectCap sets the project's spending cap shown in the summary
 // (B3-20; TQ_CAP_PROJECT_USD).
 func WithProjectCap(usd float64) Option { return func(s *Server) { s.projectCap = usd } }
+
+// WithProvider names the model provider shown in the summary (U-2;
+// TQ_PROVIDER).
+func WithProvider(name string) Option { return func(s *Server) { s.providerName = name } }
 
 // Hub returns the hub turn runners publish stream events to.
 func (s *Server) Hub() *Hub { return s.hub }
@@ -151,6 +157,8 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("GET /api/projects/{projectID}/sections/{label}", s.getSection)
 		mux.HandleFunc("GET /api/projects/{projectID}/sections/{label}/history", s.getBlockHistory)
 		mux.HandleFunc("GET /api/projects/{projectID}/summary", s.getSummary)
+		mux.HandleFunc("GET /api/projects/{projectID}/conversation", s.getConversation)
+		mux.HandleFunc("PUT /api/projects/{projectID}/name", s.putProjectName)
 		mux.HandleFunc("POST /api/projects/{projectID}/editor", s.claimEditor)
 		mux.HandleFunc("GET /api/projects/{projectID}/cards/{label}", s.getCard)
 		mux.HandleFunc("POST /api/projects/{projectID}/cards/{label}/answer", s.answerCard)

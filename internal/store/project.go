@@ -65,3 +65,27 @@ func (db *DB) ProjectExists(ctx context.Context, projectID string) (bool, error)
 	}
 	return true, nil
 }
+
+// ProposeProjectName sets the project's name only while it is empty:
+// the understanding proposes a title (U-1) and never replaces one the
+// person wrote. It reports whether the name was set.
+// [EL DISEÑO NO LO DICE]: the name has no event; it is a column of
+// project, not an object of the graph.
+func (tx *Tx) ProposeProjectName(name string) (bool, error) {
+	res, err := tx.tx.ExecContext(tx.ctx,
+		`UPDATE project SET name = ? WHERE id = ? AND COALESCE(name, '') = ''`, name, tx.projectID)
+	if err != nil {
+		return false, fmt.Errorf("propose project name: %w", err)
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
+// RenameProject sets the name the person wrote in the header (U-1).
+func (db *DB) RenameProject(ctx context.Context, projectID, name string) error {
+	if _, err := db.Writer.ExecContext(ctx,
+		`UPDATE project SET name = ? WHERE id = ?`, name, projectID); err != nil {
+		return fmt.Errorf("rename project: %w", err)
+	}
+	return nil
+}

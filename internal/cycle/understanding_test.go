@@ -222,3 +222,55 @@ func TestP32_UnderstandingDoesNotChangeAConfirmedRole(t *testing.T) {
 		t.Fatalf("step_ended not_applied: %v", eventData(t, ended[0]))
 	}
 }
+
+func projectName(t *testing.T, db *store.DB) string {
+	t.Helper()
+	projects, err := db.ListProjects(context.Background())
+	if err != nil || len(projects) != 1 {
+		t.Fatalf("ListProjects: %v, %v", projects, err)
+	}
+	return projects[0].Name
+}
+
+// B-23: a request without criteria gets an accepted understanding,
+// with no cases by criterion.
+func TestB23_RequestWithoutCriteriaGetsAnAcceptedUnderstanding(t *testing.T) {
+	db := openTemp(t)
+	output := json.RawMessage(`{"understood":"Un estado del arte sobre pobreza y desarrollo cerebral.",
+		"project_title":"Pobreza y desarrollo cerebral","criteria":[],"material_readings":[],
+		"sections":[{"id":"new-1","title":"Hallazgos","role":"conclusion"}]}`)
+	result, err := cycle.NewGate(db).EndUnderstanding(context.Background(), "p1", "turn-1", 1, output, nil)
+	if err != nil || result.Status != cycle.StatusAccepted {
+		t.Fatalf("EndUnderstanding: %+v, %v", result, err)
+	}
+	cases, _ := db.ListObjects(context.Background(), "p1", store.ObjectUnderstandingCase)
+	if len(cases) != 0 {
+		t.Fatalf("cases: %d, want 0", len(cases))
+	}
+}
+
+// U-1: the understanding proposes the project's title; it never
+// replaces a name the person wrote.
+func TestU1_UnderstandingProposesTheProjectTitleWithoutReplacingYours(t *testing.T) {
+	db := openTemp(t)
+	gate := cycle.NewGate(db)
+	output := func(title string) json.RawMessage {
+		return json.RawMessage(`{"understood":"Entendido.","project_title":"` + title + `","criteria":[],
+			"material_readings":[],"sections":[{"id":"new-1","title":"Hallazgos","role":"other"}]}`)
+	}
+	if _, err := gate.EndUnderstanding(context.Background(), "p1", "turn-1", 1, output("Pobreza y cerebro"), nil); err != nil {
+		t.Fatalf("EndUnderstanding: %v", err)
+	}
+	if got := projectName(t, db); got != "Pobreza y cerebro" {
+		t.Fatalf("name: %q, want the proposed title", got)
+	}
+	if err := db.RenameProject(context.Background(), "p1", "Mi título"); err != nil {
+		t.Fatalf("RenameProject: %v", err)
+	}
+	if _, err := gate.EndUnderstanding(context.Background(), "p1", "turn-2", 1, output("Otro título"), nil); err != nil {
+		t.Fatalf("EndUnderstanding: %v", err)
+	}
+	if got := projectName(t, db); got != "Mi título" {
+		t.Fatalf("name: %q, want yours", got)
+	}
+}

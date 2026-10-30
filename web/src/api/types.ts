@@ -88,6 +88,35 @@ export interface AnswerCardResponse {
 }
 
 //////////
+// source: conversation.go
+
+/**
+ * ConversationEntry is one item of the conversation as the person reads
+ * it (U-5): a message of theirs, the end of an agent step with its
+ * triage line, reply (R-5), note and stop reason (B-24), the end of the
+ * understanding, or a card they answered. Never an internal id.
+ */
+export interface ConversationEntry {
+  /**
+   * Kind is message · step · understanding · card_answered.
+   */
+  kind: string;
+  text?: string;
+  triage_line?: string;
+  reply?: string;
+  note?: string;
+  /**
+   * Status is accepted or agent_pending for a step or understanding.
+   */
+  status?: string;
+  stop_reason?: string;
+  created_at: string;
+}
+export interface RenameProjectRequest {
+  name: string;
+}
+
+//////////
 // source: history.go
 
 /**
@@ -231,6 +260,15 @@ export interface SummaryView {
   spent_usd: number /* float64 */;
   cap_usd: number /* float64 */;
   last_triage: string;
+  /**
+   * Model data in view (U-2): provider (meta · fake), the
+   * principal's model and effort, and the context its last call used.
+   */
+  provider: string;
+  model: string;
+  effort: string;
+  context_used_tokens: number /* int */;
+  context_window: number /* int */;
 }
 
 //////////

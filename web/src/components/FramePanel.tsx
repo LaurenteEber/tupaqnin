@@ -14,10 +14,12 @@ export type TodoTarget =
 // for, how it is judged, its skeleton with the critical decisions and
 // what is yours to do. Go computes all of it; this panel only shows it.
 // Expanding a decision records decision_seen (frame); scrolling does not.
-export function FramePanel({ lang, projectID, refreshKey, onSection, onHistory, onTodo }: {
+export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onTodo }: {
   lang: Lang;
   projectID: string;
   refreshKey: string;
+  // U-3: the section the document column shows.
+  selected: string;
   onSection: (section: string) => void;
   onHistory: (section: string, block: number) => void;
   onTodo: (target: TodoTarget) => void;
@@ -119,7 +121,7 @@ export function FramePanel({ lang, projectID, refreshKey, onSection, onHistory, 
         ) : (
           <ul className="skel">
             {frame.sections.map((s) => (
-              <SkeletonSection key={s.label} lang={lang} section={s} titleOf={titleOf}
+              <SkeletonSection key={s.label} lang={lang} section={s} titleOf={titleOf} active={s.label === selected}
                 onSection={onSection} onHistory={onHistory} onTodo={onTodo} onExpand={expanded} />
             ))}
           </ul>
@@ -145,9 +147,10 @@ export function FramePanel({ lang, projectID, refreshKey, onSection, onHistory, 
   );
 }
 
-function SkeletonSection({ lang, section, titleOf, onSection, onHistory, onTodo, onExpand }: {
+function SkeletonSection({ lang, section, titleOf, active, onSection, onHistory, onTodo, onExpand }: {
   lang: Lang;
   section: FrameSection;
+  active: boolean;
   titleOf: (label: string) => string;
   onSection: (section: string) => void;
   onHistory: (section: string, block: number) => void;
@@ -156,8 +159,8 @@ function SkeletonSection({ lang, section, titleOf, onSection, onHistory, onTodo,
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   return (
-    <li className="sec">
-      <button type="button" className="t" onClick={() => onSection(section.label)}>
+    <li className={`sec${active ? " active" : ""}`}>
+      <button type="button" className="t" aria-current={active || undefined} onClick={() => onSection(section.label)}>
         {titleOf(section.label)}{" "}
         <span className={`st ${section.pendings > 0 ? "todo" : section.status === "signed" ? "signed" : "draft"}`}>
           {section.pendings > 0

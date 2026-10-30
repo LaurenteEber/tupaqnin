@@ -41,7 +41,7 @@ type fieldFilter struct {
 
 // Keys streamed for the principal's step and for the understanding.
 var (
-	stepStreamKeys          = []string{"triage_line", "text", "note"}
+	stepStreamKeys          = []string{"triage_line", "reply", "text", "note"}
 	understandingStreamKeys = []string{"understood"}
 )
 

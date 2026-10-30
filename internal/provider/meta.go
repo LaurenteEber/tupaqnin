@@ -53,6 +53,10 @@ type responsesRequest struct {
 	Include      []string        `json:"include"`
 	Reasoning    *reasoningParam `json:"reasoning,omitempty"`
 	Text         *textParam      `json:"text,omitempty"`
+	// Tools and ToolChoice: function tools in strict mode (R-3; the
+	// tools micro-test of 1.9 passed with tool_choice "auto").
+	Tools      json.RawMessage `json:"tools,omitempty"`
+	ToolChoice string          `json:"tool_choice,omitempty"`
 }
 
 // marshalWithInput marshals base (an object without an input field)
@@ -115,6 +119,9 @@ func (m *Meta) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 	if len(req.Schema) > 0 {
 		body.Text = &textParam{Format: formatParam{
 			Type: "json_schema", Name: "principal_output", Strict: req.SchemaStrict, Schema: req.Schema}}
+	}
+	if len(req.Tools) > 0 {
+		body.Tools, body.ToolChoice = req.Tools, "auto"
 	}
 	payload, err := marshalWithInput(body, req.Input)
 	if err != nil {
@@ -267,9 +274,9 @@ func readResponseStream(r io.Reader, onDelta func(Delta)) (Response, error) {
 	if len(items) == 0 {
 		items = doneItems
 	}
-	resp := Response{RawItems: items}
+	resp := Response{RawItems: items, ToolCalls: toolCallsOf(items)}
 	resp.Text = textOfItems(items)
-	if resp.Text == "" {
+	if resp.Text == "" && len(resp.ToolCalls) == 0 {
 		resp.Text = text.String()
 	}
 	resp.Usage.InputTokens = completed.Usage.InputTokens

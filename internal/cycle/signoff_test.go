@@ -689,3 +689,39 @@ func TestM1_FrameShowsTheCurrentSignoffExplanation(t *testing.T) {
 		t.Fatalf("frame explanation: %q, want the signed one", d.SignoffExplanation)
 	}
 }
+
+// P-41 corrected (flujos §3): «Ver la historia de ese punto» is never
+// offered before your first explanation, and shows again, while the
+// signoff is in progress, once Wonder names what is missing.
+func TestP41_HistoryOfThatPointShowsAgainAfterWonderNamesWhatIsMissing(t *testing.T) {
+	db := openTemp(t)
+	sectionID, decisionID := seedSignable(t, db, true)
+	// The decision's point in the text: a figure that covers it.
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		fig, err := tx.CreateObject(store.ObjectFigure, "", map[string]any{"section_id": sectionID,
+			"anchor": "Así la comparación es justa."}, store.EventInput{Type: store.EventStateChanged, Actor: "agent"})
+		if err != nil {
+			return err
+		}
+		_, err = tx.AddEdge(store.EdgeCovers, fig.ID, decisionID, "", store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed figure: %v", err)
+	}
+	g := cycle.NewGate(db)
+	sign := openSignoff(t, g)
+	for _, v := range view(t, db, sign).Verdicts {
+		if v.HistoryOffered {
+			t.Fatalf("history offered before the first explanation: %+v", v)
+		}
+	}
+	if err := g.RecordExplanation(context.Background(), "p1", sign, "Comparo los estudios entre sí."); err != nil {
+		t.Fatalf("RecordExplanation: %v", err)
+	}
+	round(t, g, sign, "missing-in-explanation")
+	v := view(t, db, sign)
+	if v.Phase != graph.SignoffInProgress || len(v.Verdicts) != 1 || v.Verdicts[0].Block == 0 || !v.Verdicts[0].HistoryOffered {
+		t.Fatalf("after «falta en tu explicación»: %+v", v.Verdicts)
+	}
+}

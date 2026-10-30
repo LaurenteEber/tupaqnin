@@ -56,6 +56,7 @@ type citationItem struct {
 
 type stepOutput struct {
 	TriageLine            string          `json:"triage_line"`
+	Reply                 string          `json:"reply"`
 	ClosingRisk           string          `json:"closing_risk"`
 	Note                  string          `json:"note"`
 	NewText               []newTextItem   `json:"new_text"`
@@ -104,6 +105,14 @@ func (e errStale) Error() string {
 // step_ended with the labels given to each new-n and what slice 1 does
 // not apply (B-17). It never calls the model.
 func (g *Gate) ApplyStep(ctx context.Context, projectID, turnID string, output json.RawMessage) (ApplyResult, error) {
+	return g.ApplyChainStep(ctx, projectID, turnID, output, false)
+}
+
+// ApplyChainStep is ApplyStep for a step of the chain (B-17): when the
+// chain stops at this step, step_ended carries why (B-24): no_work for
+// a step without new text or decisions (a reply alone is not work,
+// R-5), step_limit when last is set and the step had work.
+func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, output json.RawMessage, last bool) (ApplyResult, error) {
 	errs, _, err := validateOutput(output)
 	if err != nil {
 		return ApplyResult{}, err
@@ -133,12 +142,21 @@ func (g *Gate) ApplyStep(ctx context.Context, projectID, turnID string, output j
 		rejected = append(rejected, r.message)
 	}
 
+	work := len(out.NewText) > 0 || len(out.NewDecisions) > 0
+	var stop StopReason
+	switch {
+	case !work:
+		stop = StopNoWork
+	case last:
+		stop = StopStepLimit
+	}
+
 	beforeApplyWrite()
 	var labels map[string]string
 	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		return TrackCriticality(ctx, tx, turnID, func() error {
 			var err error
-			labels, err = p.apply(tx, turnID, out, plan)
+			labels, err = p.apply(tx, turnID, out, plan, stop)
 			return err
 		})
 	})
@@ -149,8 +167,7 @@ func (g *Gate) ApplyStep(ctx context.Context, projectID, turnID string, output j
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected,
-		Work: len(out.NewText) > 0 || len(out.NewDecisions) > 0}, nil
+	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Work: work}, nil
 }
 
 // beforeApplyWrite runs between ApplyStep's read and its write; tests
@@ -181,11 +198,17 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 	if err != nil {
 		return nil, err
 	}
+	read, err := g.db.ReadObjectIDs(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 	p := &project{labels: labeler, byID: make(map[string]store.Object, len(objects)),
 		edgesOut: make(map[string][]store.Edge), inSignoff: inSignoff}
 	for _, obj := range objects {
 		p.byID[obj.ID] = obj
-		if obj.Type == store.ObjectSource {
+		// R-3: only a source the principal read can hold a figure or a
+		// citation (specification §3, «Precisiones del 30-oct»).
+		if obj.Type == store.ObjectSource && read[obj.ID] {
 			p.sources = append(p.sources, obj)
 		}
 		if obj.Type == store.ObjectDecision || obj.Type == store.ObjectFigure ||
@@ -198,6 +221,16 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 		}
 	}
 	return p, nil
+}
+
+// wasRead reports whether the principal read the source (R-3).
+func (p *project) wasRead(id string) bool {
+	for _, src := range p.sources {
+		if src.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *project) object(label string) (store.Object, bool) {
@@ -625,15 +658,50 @@ func applyEdits(base string, edits []edit) string {
 	})
 	out := base
 	for _, e := range sorted {
+		if e.start == e.end {
+			out = insertBlock(out[:e.start], e.text, out[e.end:])
+			continue
+		}
 		out = out[:e.start] + e.text + out[e.end:]
 	}
 	return out
 }
 
+// insertBlock puts an inserted text (insert_after) after its anchor.
+// A text that would be glued to what surrounds it («…equipos.Se
+// consideran…») is its own paragraph, with a blank line on each side
+// (P-46); a text that brings its own space or line break is inserted
+// as written.
+// [EL DISEÑO NO LO DICE]: T-4 says only that the text goes after the
+// anchor; an anchor inside a paragraph splits it. Only the spaces that
+// start after are dropped: edits apply back to front, so before keeps
+// the offsets of the edits still to apply.
+func insertBlock(before, text, after string) string {
+	space := func(r byte) bool { return r == ' ' || r == '\n' || r == '\t' }
+	gluedBefore := before != "" && text != "" && !space(before[len(before)-1]) && !space(text[0])
+	gluedAfter := before == "" && after != "" && text != "" && !space(text[len(text)-1]) && !space(after[0])
+	if !gluedBefore && !gluedAfter {
+		return before + text + after
+	}
+	text = strings.Trim(text, "\n")
+	if before != "" {
+		text = "\n\n" + text
+	}
+	after = strings.TrimLeft(after, " \t")
+	if after != "" && !strings.HasPrefix(after, "\n\n") {
+		if strings.HasPrefix(after, "\n") {
+			text += "\n"
+		} else {
+			text += "\n\n"
+		}
+	}
+	return before + text + after
+}
+
 // apply writes the validated step. Section text first, then the new
 // objects, so each new-n has its label before any edge is created
 // (specification §3, rule 4), then the edges and step_ended.
-func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (map[string]string, error) {
+func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, stop StopReason) (map[string]string, error) {
 	agent := func(t store.EventType) store.EventInput {
 		return store.EventInput{Type: t, Actor: "agent", AgentRole: "principal", TurnID: turnID}
 	}
@@ -832,7 +900,7 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 			return nil, err
 		}
 		src, _ := p.object(c.SourceID)
-		if len(graph.Compare(bodyStr(bodyOf(src), "text")).Find(c.Passage)) > 0 {
+		if p.wasRead(src.ID) && len(graph.Compare(bodyStr(bodyOf(src), "text")).Find(c.Passage)) > 0 {
 			if err := edges.add(store.EdgeComesFrom, cit.ID, src.ID, ""); err != nil {
 				return nil, err
 			}
@@ -913,6 +981,12 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan) (
 	if longDeferred != nil {
 		data["long_deferred"] = longDeferred
 	}
+	if out.Reply != "" { // R-5: the reply goes to the conversation
+		data["reply"] = out.Reply
+	}
+	if stop != "" { // B-24
+		data["stop_reason"] = string(stop)
+	}
 	ev := agent(store.EventStepEnded)
 	ev.Data = data
 	if _, err := tx.AppendEvent(ev); err != nil {
@@ -926,7 +1000,7 @@ func (p *project) linkData(tx *store.Tx, out stepOutput, pl *plan, ids map[strin
 	used := map[string]bool{}
 	var order []store.Object
 	for _, s := range out.UsedSources {
-		if src, ok := p.object(s); ok && !used[src.ID] {
+		if src, ok := p.object(s); ok && !used[src.ID] && p.wasRead(src.ID) {
 			used[src.ID] = true
 			order = append(order, src)
 		}

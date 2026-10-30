@@ -9,7 +9,7 @@ import {
   subscribeTurn,
 } from "../api/client";
 import type { SignoffView } from "../api/graph";
-import { translate, type Lang } from "../i18n";
+import { modelName, translate, type Lang } from "../i18n";
 import { HistoryPanel } from "./HistoryPanel";
 
 // P7 (backlog-r1 1.7): the signoff, full screen, without the frame and
@@ -132,7 +132,12 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
   const title = view.section_title || t("section.untitled");
   const active = view.phase === "in_progress";
   const explained = view.rounds > 0 || (view.brief && view.explanation !== "");
-  const contrastedBy = view.wonder_unavailable ? t("signoff.contrasted_spark") : t("signoff.contrasted_wonder");
+  // U-2: the model that contrasted, as Go recorded it («model effort»),
+  // with its display name; before the first round, the planned one.
+  const [contrastModel, contrastEffort] = (view.contrasted_by ?? "").split(" ");
+  const contrastedBy = contrastModel
+    ? `${modelName(contrastModel)}${contrastEffort ? ` · ${t(`summary.effort.${contrastEffort}`)}` : ""}`
+    : view.wonder_unavailable ? t("signoff.contrasted_spark") : t("signoff.contrasted_wonder");
 
   return (
     <section className="signoff" aria-label={t("signoff.title", { section: title })}>
@@ -218,10 +223,11 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
                   {v.decision} · {t(`signoff.verdict.${v.verdict}`)}
                   {v.missing && <> · {v.missing}</>}
                   {v.passage && <> · «{v.passage}»</>}
-                  {/* P-41: the history shows the decision, its contrast and your
-                      reason, so it is offered only once the signoff is no longer
-                      in progress (signed, paused or left; spec §9). */}
-                  {!active && v.verdict !== "match" && v.block > 0 && (
+                  {/* P-41 corrected (30-oct, flujos §3): Go says when the history
+                      of that point is offered: after Wonder names what is missing,
+                      or once the signoff is no longer in progress; never before
+                      your first explanation. */}
+                  {v.history_offered && v.block > 0 && (
                     <button type="button" className="small" onClick={() => setHistoryBlock(v.block)}>
                       {t("signoff.history")}
                     </button>
@@ -284,7 +290,7 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
         )}
       </ol>
 
-      {!active && historyBlock > 0 && (
+      {historyBlock > 0 && (
         <HistoryPanel
           lang={lang}
           projectID={projectID}

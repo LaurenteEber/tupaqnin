@@ -275,12 +275,14 @@ func (r *Runner) transportSchema() (json.RawMessage, error) {
 	return schema, nil
 }
 
-func (r *Runner) call(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter) (provider.Response, error) {
+// call makes one principal step call, with its tools (R-3). It returns
+// the input of the last call, tool rounds included.
+func (r *Runner) call(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter) (provider.Response, []json.RawMessage, error) {
 	schema, err := r.transportSchema()
 	if err != nil {
-		return provider.Response{}, err
+		return provider.Response{}, nil, err
 	}
-	return r.prov.Respond(ctx, provider.Request{
+	return r.respond(ctx, provider.Request{
 		ProjectID: projectID, TurnID: turnID, InstanceID: instanceID,
 		Role: provider.RolePrincipal, TurnKind: provider.TurnStep, Model: provider.PrincipalModel,
 		Effort: provider.PrincipalEffort, Instructions: principalInstructions,
@@ -329,6 +331,8 @@ type stepPayload struct {
 	ClosingRisk string          `json:"closing_risk,omitempty"`
 	Note        string          `json:"note,omitempty"`
 	Deferred    json.RawMessage `json:"deferred,omitempty"`
+	// Reply is the agent's answer in the conversation (R-5).
+	Reply string `json:"reply,omitempty"`
 	// StopReason says why a chain stopped (P-43), so the page can say it.
 	StopReason StopReason `json:"stop_reason,omitempty"`
 }
@@ -342,12 +346,14 @@ func (r *Runner) publishChainStep(projectID, turnID string, result StepResult, o
 	if result.Status == StatusAccepted {
 		var out struct {
 			TriageLine  string          `json:"triage_line"`
+			Reply       string          `json:"reply"`
 			ClosingRisk string          `json:"closing_risk"`
 			Note        string          `json:"note"`
 			Deferred    json.RawMessage `json:"deferred"`
 		}
 		if err := json.Unmarshal([]byte(outputText), &out); err == nil {
 			payload.TriageLine = out.TriageLine
+			payload.Reply = out.Reply
 			payload.ClosingRisk = out.ClosingRisk
 			payload.Note = out.Note
 			payload.Deferred = out.Deferred
@@ -416,12 +422,12 @@ func (r *Runner) requestText(ctx context.Context, projectID string) (string, err
 	return b.Text, nil
 }
 
-func (r *Runner) callUnderstanding(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter) (provider.Response, error) {
+func (r *Runner) callUnderstanding(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter) (provider.Response, []json.RawMessage, error) {
 	schema, err := provider.TransportSchema(understandingSchema)
 	if err != nil {
-		return provider.Response{}, err
+		return provider.Response{}, nil, err
 	}
-	return r.prov.Respond(ctx, provider.Request{
+	return r.respond(ctx, provider.Request{
 		ProjectID: projectID, TurnID: turnID, InstanceID: instanceID,
 		Role: provider.RolePrincipal, TurnKind: provider.TurnUnderstanding, Model: provider.PrincipalModel,
 		Effort: provider.EffortHigh, Instructions: understandingInstructions,
@@ -482,7 +488,7 @@ func (r *Runner) runUnderstandingTurn(ctx context.Context, projectID, turnID str
 	}
 
 	filter := newFieldFilter(understandingStreamKeys)
-	resp, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, input, filter)
+	resp, input, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, input, filter)
 	if err != nil {
 		r.fail(projectID, turnID, "provider_error")
 		return nil
@@ -495,7 +501,7 @@ func (r *Runner) runUnderstandingTurn(ctx context.Context, projectID, turnID str
 	if result.Status == StatusRetry {
 		retryInput := append(append([]json.RawMessage{}, input...), resp.RawItems...)
 		retryInput = append(retryInput, userItem(RetryMessage(result.Errors)))
-		resp2, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, retryInput, filter)
+		resp2, _, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, retryInput, filter)
 		if err != nil {
 			r.fail(projectID, turnID, "provider_error")
 			return nil
@@ -631,7 +637,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			input = append(conversation, changes...)
 			input = append(input, userItem(message))
 		}
-		result, applied, outText, err := r.runStep(ctx, projectID, turnID, instanceID, input, filter)
+		result, applied, outText, err := r.runStep(ctx, projectID, turnID, instanceID, input, filter, n == MaxChainSteps)
 		if errors.Is(err, errProvider) {
 			r.fail(projectID, turnID, "provider_error")
 			return nil
@@ -665,11 +671,12 @@ var errProvider = errors.New("cycle: provider call failed")
 // (specification §3); the retry carries what changed since it was
 // delivered, so a section that changed reaches the agent with its
 // current text (B-11).
-func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter) (StepResult, ApplyResult, string, error) {
+func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter, last bool) (StepResult, ApplyResult, string, error) {
 	var result StepResult
 	var applied ApplyResult
 	for attempt := 1; attempt <= 2; attempt++ {
-		resp, err := r.call(ctx, projectID, turnID, instanceID, input, f)
+		resp, sent, err := r.call(ctx, projectID, turnID, instanceID, input, f)
+		input = sent
 		if err != nil {
 			return StepResult{}, ApplyResult{}, "", errProvider
 		}
@@ -679,7 +686,7 @@ func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID stri
 		}
 		message := RetryMessage(result.Errors)
 		if result.Status == StatusAccepted {
-			applied, err = r.gate.ApplyStep(ctx, projectID, turnID, json.RawMessage(resp.Text))
+			applied, err = r.gate.ApplyChainStep(ctx, projectID, turnID, json.RawMessage(resp.Text), last)
 			if err != nil {
 				return StepResult{}, ApplyResult{}, "", err
 			}

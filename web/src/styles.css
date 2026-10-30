@@ -1,6 +1,6 @@
 /* Three columns (backlog-r1 1.5b, pantallas.md «Disposición general»):
-   the frame · the conversation · the document. The document uses a book
-   face because it is what you sign (boceto-ui.html). */
+   the frame · the conversation · the document. One font family (U-4):
+   the document stands apart by size, line height and line width. */
 :root {
   color-scheme: light;
   --bg: #f6f7f5;
@@ -16,7 +16,6 @@
   --ok: #2f6b3a;
   --ok-soft: #e3efe2;
   --ui: "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
-  --doc: Georgia, "Times New Roman", serif;
   --mono: ui-monospace, Menlo, monospace;
 }
 
@@ -117,8 +116,9 @@ button.small { padding: 3px 9px; font-size: 12px; }
 .no { color: var(--todo); font-weight: 500; }
 .skel, .tlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .sec { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.sec.active { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
 .sec .t { display: flex; justify-content: space-between; gap: 6px; align-items: center; font-weight: 500; border: 0; padding: 0; text-align: left; background: none; }
-.first { margin: 0; color: var(--muted); font-family: var(--doc); font-size: 14px; line-height: 1.4; }
+.first { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
 .dec { border-top: 1px dashed var(--line); padding-top: 6px; }
 .dec summary { cursor: pointer; font-size: 13px; display: flex; gap: 6px; align-items: baseline; list-style: none; }
 .dec summary::-webkit-details-marker { display: none; }
@@ -171,15 +171,14 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .message-input textarea:focus { border-color: var(--accent); outline: none; }
 
 /* The document */
-.section-tabs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.doc-state { display: flex; gap: 6px; align-items: center; }
 .section-editor-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.section-editor-head h2 { margin: 0; font-family: var(--doc); font-size: 20px; font-weight: 500; }
+.section-editor-head h2 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.3; }
 .save-status { color: var(--muted); font-size: 13px; }
 .section-editor-content {
-  font-family: var(--doc);
-  font-size: 17px;
-  line-height: 1.6;
-  max-width: 62ch;
+  font-size: 16.5px;
+  line-height: 1.75;
+  max-width: 64ch;
   min-height: 180px;
   padding: 8px 6px;
   outline: none;
@@ -209,7 +208,7 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
   overflow: auto;
 }
 .signoff-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.signoff-head h2 { margin: 0; font-family: var(--doc); font-size: 22px; font-weight: 500; }
+.signoff-head h2 { margin: 0; font-size: 22px; font-weight: 600; }
 .signoff-phase { background: var(--todo-soft); border-radius: 6px; padding: 8px 10px; margin: 0; }
 .signoff-steps { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
 .signoff-steps > li { display: flex; flex-direction: column; gap: 8px; }
@@ -249,3 +248,27 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 /* P-37: your sent request, a read-only message of yours (as in the mockup). */
 .msg.me { align-self: flex-end; max-width: 85%; background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; }
 .msg.me .msg-meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+/* U-1: the project title in the header, edited with one click. */
+.project-title { border: 0; background: none; padding: 2px 4px; font-weight: 500; color: var(--ink); border-radius: 5px; }
+.project-title:hover { background: var(--sunk); }
+.project-title-edit { display: flex; gap: 8px; align-items: center; }
+.project-title-edit input { font: inherit; padding: 3px 7px; border: 1px solid var(--accent); border-radius: 6px; min-width: 24ch; }
+
+/* U-2: the model data in the conversation header. */
+.model-line { text-align: right; }
+
+/* U-5, R-5: the conversation from the history; the agent's reply stands out. */
+.agent-step { display: flex; flex-direction: column; gap: 6px; max-width: 68ch; }
+.agent-step p { margin: 0; }
+.reply { margin: 0; white-space: pre-wrap; font-size: 14.5px; }
+.answered { margin: 0; }
+
+/* U-6: «Lo que entendí» as one card. */
+.understanding h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 500; }
+.understanding p { margin: 0; }
+.understanding ul.plan { list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: 4px; }
+.understanding ul.cases li { display: flex; flex-direction: column; gap: 4px; }
+.understanding.folded { flex-direction: row; justify-content: space-between; align-items: center; padding: 8px 14px; }
+.st.mark { background: var(--accent-soft); color: var(--accent); margin-left: 6px; }
+.correct-row { display: flex; gap: 6px; align-items: center; }

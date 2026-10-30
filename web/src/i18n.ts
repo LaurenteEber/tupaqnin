@@ -25,3 +25,21 @@ export function translate(lang: Lang, key: string, params?: Record<string, strin
   }
   return text;
 }
+
+// Model display names (U-2) are presentation: the API sends the model
+// id; an unknown id shows as it came.
+const modelNames: Record<string, string> = {
+  "muse-spark-1.3": "Muse Spark 1.3",
+  "muse-spark-1.2": "Muse Spark 1.2",
+  "muse-spark-1.1": "Muse Spark 1.1",
+  "muse-wonder-1.0": "Muse Wonder 1.0",
+};
+
+export function modelName(id: string): string {
+  return modelNames[id] ?? id;
+}
+
+// The locale for numbers on screen (U-2: «0,24» in Spanish).
+export function numberLocale(lang: Lang): string {
+  return lang === "es" ? "es-ES" : "en-US";
+}

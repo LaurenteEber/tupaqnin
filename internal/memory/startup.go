@@ -229,7 +229,9 @@ func renderIndex(lines []Line, sectionsOnly bool) string {
 	}
 	counts := make(map[string]int)
 	for _, l := range lines {
-		if l.Type == "section" {
+		// Sources stay listed with their cards even when the index is
+		// cut: the model needs their labels to read them (R-3).
+		if l.Type == "section" || l.Type == "source" {
 			fmt.Fprintf(&sb, "- %s · v%d · %s · %s\n", l.Label, l.Version, l.State, l.FirstLine)
 		} else {
 			counts[l.Type]++

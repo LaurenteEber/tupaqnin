@@ -16,6 +16,10 @@
       "type": "string",
       "minLength": 1
     },
+    "reply": {
+      "description": "Respuesta al humano en la conversación, cuando su mensaje pregunta algo (R-5). Va en la conversación, nunca en el documento. Un paso que solo responde trae reply y ningún new_text; no cuenta como trabajo para la cadena (B-17).",
+      "type": "string"
+    },
     "closing_risk": {
       "description": "Riesgo con que cierra el paso: «ninguno» o uno de la lista cerrada (D17, fichas §8.3).",
       "type": "string",
@@ -185,9 +189,9 @@
             "type": "string",
             "enum": [
               "conclusion",
-              "recommendation",
               "other"
-            ]
+            ],
+            "description": "conclusion si la sección concluye o recomienda («aquí se concluye», R-8); other si no."
           },
           "title": {
             "description": "Título de la sección (B-18). Obligatorio si section_id es un «new-n»; lo valida Go. Omitido para una sección existente.",

@@ -46,9 +46,11 @@ type UnderstandingSection struct {
 // UnderstandingOutput is the principal's fixed understanding shape
 // (fichas §7, salida-entendi.schema.json).
 type UnderstandingOutput struct {
-	Understood string                   `json:"understood"`
-	Criteria   []UnderstandingCriterion `json:"criteria"`
-	Material   []struct {
+	Understood string `json:"understood"`
+	// ProjectTitle is the title proposed for the project (U-1).
+	ProjectTitle string                   `json:"project_title"`
+	Criteria     []UnderstandingCriterion `json:"criteria"`
+	Material     []struct {
 		Case string `json:"case"`
 	} `json:"material_readings"`
 	Sections []UnderstandingSection `json:"sections"`
@@ -149,6 +151,13 @@ func (g *Gate) EndUnderstanding(ctx context.Context, projectID, turnID string, a
 				}
 				if !applied { // P-32: a confirmed role stays
 					rolesNotApplied = append(rolesNotApplied, map[string]any{"section_id": sec.ID, "role": sec.Role})
+				}
+			}
+			// U-1: the proposed title names the project unless the
+			// person already wrote a name.
+			if title := strings.TrimSpace(parsed.ProjectTitle); title != "" {
+				if _, err := tx.ProposeProjectName(title); err != nil {
+					return err
 				}
 			}
 			data := map[string]any{"turn_kind": "understanding", "understood": parsed.Understood}

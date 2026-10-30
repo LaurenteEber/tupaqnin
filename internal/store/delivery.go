@@ -71,3 +71,27 @@ func (db *DB) LatestDeliveries(ctx context.Context, projectID string) (map[strin
 	}
 	return out, nil
 }
+
+// ReadObjectIDs returns the ids of the objects any principal instance
+// read in the project (via = read): a figure or citation must be
+// literal in a source read (R-3, specification §3).
+func (db *DB) ReadObjectIDs(ctx context.Context, projectID string) (map[string]bool, error) {
+	rows, err := db.Reader.QueryContext(ctx,
+		`SELECT DISTINCT object_id FROM delivery WHERE project_id = ? AND via = ?`, projectID, ViaRead)
+	if err != nil {
+		return nil, fmt.Errorf("read objects: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := make(map[string]bool)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("read objects: %w", err)
+		}
+		out[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read objects: %w", err)
+	}
+	return out, nil
+}

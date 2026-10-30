@@ -153,6 +153,13 @@ type SummaryView struct {
 	SpentUSD   float64 `json:"spent_usd"`
 	CapUSD     float64 `json:"cap_usd"`
 	LastTriage string  `json:"last_triage"`
+	// Model data in view (U-2): provider (meta · fake), the
+	// principal's model and effort, and the context its last call used.
+	Provider          string `json:"provider"`
+	Model             string `json:"model"`
+	Effort            string `json:"effort"`
+	ContextUsedTokens int    `json:"context_used_tokens"`
+	ContextWindow     int    `json:"context_window"`
 }
 
 // GET /api/projects/{projectID}/summary
@@ -172,6 +179,10 @@ func (s *Server) getSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := SummaryView{SpentUSD: spent, CapUSD: s.projectCap}
+	if err := s.modelInfo(r, projectID, &view); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
 	for _, ev := range events {
 		if ev.Type != store.EventStepEnded {
 			continue

@@ -184,11 +184,13 @@ type captureProvider struct {
 	mu    sync.Mutex
 	sent  [][]json.RawMessage
 	got   []provider.Response
+	tools []json.RawMessage
 }
 
 func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
 	c.mu.Lock()
 	c.sent = append(c.sent, append([]json.RawMessage{}, req.Input...))
+	c.tools = append(c.tools, req.Tools)
 	c.mu.Unlock()
 	resp, err := c.inner.Respond(ctx, req, onDelta)
 	if err == nil {

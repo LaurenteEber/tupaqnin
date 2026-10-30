@@ -4,15 +4,15 @@ import {
   createProject,
   getSummary,
   createSection,
+  getConversation,
   listProjects,
   listSections,
   postMessage,
   requestSignoff,
   subscribeTurn,
-  type StepPayload,
   type StreamDelta,
 } from "./api/client";
-import type { ProjectView, SectionView, SignoffBlocked, SummaryView } from "./api/types";
+import type { ConversationEntry, ProjectView, SectionView, SignoffBlocked, SummaryView } from "./api/types";
 import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
 import { UnderstandingPanel } from "./components/UnderstandingPanel";
@@ -21,6 +21,9 @@ import { HistoryPanel } from "./components/HistoryPanel";
 import { SectionEditor } from "./components/SectionEditor";
 import { FramePanel, type TodoTarget } from "./components/FramePanel";
 import { SignoffPanel } from "./components/SignoffPanel";
+import { ConversationPanel } from "./components/ConversationPanel";
+import { ModelLine } from "./components/ModelLine";
+import { ProjectTitle } from "./components/ProjectTitle";
 import { initialLang, translate, type Lang } from "./i18n";
 
 export function App() {
@@ -32,11 +35,14 @@ export function App() {
   const [projectID, setProjectID] = useState("");
   const [sections, setSections] = useState<SectionView[]>([]);
   const [selected, setSelected] = useState("");
-  // The streamed turn, by field (P-28): triage line, text, note or
-  // understanding; the raw model text only in a devroutes build.
+  // The streamed turn, by field (P-28): triage line, reply, text, note
+  // or understanding; the raw model text only in a devroutes build.
+  // When the turn ends it is read back from the history (U-5).
   const [stream, setStream] = useState<StreamDelta[]>([]);
   const [rawStream, setRawStream] = useState("");
-  const [step, setStep] = useState<StepPayload | null>(null);
+  const [conversation, setConversation] = useState<ConversationEntry[]>([]);
+  // The sent request, shown by the request panel as your message (P-37).
+  const [requestText, setRequestText] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [working, setWorking] = useState(false);
   // Only one tab edits (backlog-r1 1.5): this tab holds the editor
@@ -44,7 +50,6 @@ export function App() {
   const [editor, setEditor] = useState(true);
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const [historyBlock, setHistoryBlock] = useState(0);
-  const [understandingTurn, setUnderstandingTurn] = useState(false);
   // The frame refetches when the understanding, the cards or the
   // sections change.
   const [frameTick, setFrameTick] = useState(0);
@@ -83,6 +88,14 @@ export function App() {
     if (projectID) void getSummary(projectID).then(setSummary);
   }, [projectID, understandingKey]);
 
+  const refreshConversation = useCallback(async (project: string) => {
+    setConversation(await getConversation(project));
+  }, []);
+
+  useEffect(() => {
+    if (projectID) void refreshConversation(projectID);
+  }, [projectID, refreshConversation]);
+
   const refreshProjects = useCallback(async () => {
     setProjects(await listProjects());
   }, []);
@@ -96,7 +109,8 @@ export function App() {
     setSections([]);
     setSelected("");
     clearStream();
-    setStep(null);
+    setConversation([]);
+    setRequestText("");
     setProjectID(created.project_id);
     setMenuOpen(false);
     await refreshProjects();
@@ -124,13 +138,15 @@ export function App() {
         });
       },
       onStep: (payload) => {
-        setStep(payload);
         setWorking(false);
+        // The ended turn is now in the history: read it back and drop
+        // the stream, so it does not show twice (U-5). The
+        // understanding may have titled the project (U-1).
+        void refreshConversation(projectID).then(clearStream);
+        void refreshProjects();
         if (payload.next_turn_id) {
           // The agent's chain starts on its own after the understanding.
           setUnderstandingKey((k) => k + 1);
-          setUnderstandingTurn(false);
-          clearStream();
           watchTurn(payload.next_turn_id);
           return;
         }
@@ -189,7 +205,8 @@ export function App() {
       setSelected("");
       setHistoryBlock(0);
       clearStream();
-      setStep(null);
+      setConversation([]);
+      setRequestText("");
       setErrorCode("");
       setProjectID(id);
     }
@@ -216,7 +233,9 @@ export function App() {
     }
   }
 
+  // U-3: the frame is the one navigation between sections.
   function openSection(label: string, block = 0) {
+    if (label !== selected) setSignBlocked(null);
     setSelected(label);
     setHistoryBlock(block);
     window.setTimeout(() => reach(block > 0 ? "history" : "document"), 0);
@@ -225,9 +244,7 @@ export function App() {
   async function send(text: string) {
     if (!projectID) return;
     await saveRef.current(); // always save before sending (§2)
-    setUnderstandingTurn(false);
     clearStream();
-    setStep(null);
     setErrorCode("");
     let turn_id: string;
     try {
@@ -238,6 +255,7 @@ export function App() {
       setErrorCode(e instanceof Error && e.message === "http_409" ? "turn_running" : "turn_failed");
       return;
     }
+    void refreshConversation(projectID); // your message, from the history
     watchTurn(turn_id);
   }
 
@@ -253,7 +271,17 @@ export function App() {
       <header className="app-header">
         <div className="brand">
           <h1>{t("app.title")}</h1>
-          <span className="tagline">{t("app.tagline")}</span>
+          {projectID ? (
+            <ProjectTitle
+              key={projectID}
+              lang={lang}
+              projectID={projectID}
+              name={currentProject?.name ?? ""}
+              onRenamed={() => void refreshProjects()}
+            />
+          ) : (
+            <span className="tagline">{t("app.tagline")}</span>
+          )}
         </div>
         <div className="lang-switch" role="group" aria-label="language">
           <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
@@ -301,6 +329,7 @@ export function App() {
                 lang={lang}
                 projectID={projectID}
                 refreshKey={`${understandingKey}-${frameTick}`}
+                selected={selected}
                 onSection={(label) => openSection(label)}
                 onHistory={(label, block) => openSection(label, block)}
                 onTodo={onTodo}
@@ -322,11 +351,7 @@ export function App() {
         <section className="col" aria-label={t("chat.title")}>
           <div className="hd">
             <span className="lbl">{t("chat.title")}</span>
-            {summary && (
-              <span className="meta">
-                {t("summary.spent", { spent: summary.spent_usd.toFixed(2), cap: summary.cap_usd.toFixed(2) })}
-              </span>
-            )}
+            {projectID && summary && <ModelLine lang={lang} summary={summary} />}
           </div>
           <div className="scroll">
             {!projectID && (
@@ -351,11 +376,10 @@ export function App() {
                 key={projectID}
                 lang={lang}
                 projectID={projectID}
+                onRequest={setRequestText}
                 onSubmitted={(turnID) => {
                   clearStream();
-                  setStep(null);
                   setErrorCode("");
-                  setUnderstandingTurn(true);
                   watchTurn(turnID);
                 }}
               />
@@ -363,10 +387,10 @@ export function App() {
 
             {projectID && (
               <UnderstandingPanel
+                key={projectID}
                 lang={lang}
                 projectID={projectID}
                 refreshKey={understandingKey}
-                pending={understandingTurn && step?.status === "agent_pending"}
                 onRoleChanged={() => {
                   void refreshSections(projectID);
                   setUnderstandingKey((k) => k + 1); // a role can open a card (K-13)
@@ -375,55 +399,16 @@ export function App() {
               />
             )}
 
-            {(working || stream.length > 0 || step || errorCode) && (
-              <div className="turn-panel" aria-live="polite">
-                {working && <p className="working">{t("turn.working")}</p>}
-                {stream.map((piece, i) =>
-                  piece.field === "text" ? (
-                    <div key={i} className="stream-text">{piece.text}</div>
-                  ) : piece.field === "triage_line" ? (
-                    <p key={i} className="triage">{piece.text}</p>
-                  ) : piece.field === "note" ? (
-                    <details key={i} className="note">
-                      <summary>{t("turn.note")}</summary>
-                      <p className="meta">{piece.text}</p>
-                    </details>
-                  ) : (
-                    <p key={i}>{piece.text}</p>
-                  ),
-                )}
-                {rawStream && (
-                  <details>
-                    <summary>{t("turn.raw")}</summary>
-                    <pre>{rawStream}</pre>
-                  </details>
-                )}
-                {step && (
-                  <div className="step-result">
-                    <p className="meta">{t(`turn.status.${step.status}`)}</p>
-                    {/* P-43: why the chain stopped (Go says it), and that
-                        the person can write to the agent. */}
-                    {step.stop_reason && (
-                      <p className="meta">
-                        {t(`turn.stop.${step.stop_reason}`)} {t("turn.write_to_agent")}
-                      </p>
-                    )}
-                    {stream.length === 0 && step.triage_line && <p className="triage">{step.triage_line}</p>}
-                    {stream.length === 0 && step.note && (
-                      <details className="note">
-                        <summary>{t("turn.note")}</summary>
-                        <p className="meta">{step.note}</p>
-                      </details>
-                    )}
-                  </div>
-                )}
-                {errorCode && (
-                  <p className="turn-error">
-                    {t(`stream.error.${errorCode}`)}
-                    {errorCode !== "turn_running" && <> {t("turn.write_to_agent")}</>}
-                  </p>
-                )}
-              </div>
+            {projectID && (
+              <ConversationPanel
+                lang={lang}
+                entries={conversation}
+                requestText={requestText}
+                working={working}
+                stream={stream}
+                rawStream={rawStream}
+                errorCode={errorCode}
+              />
             )}
 
             {projectID && (
@@ -431,7 +416,10 @@ export function App() {
                 lang={lang}
                 projectID={projectID}
                 refreshKey={understandingKey}
-                onAnswered={() => void refreshSections(projectID)}
+                onAnswered={() => {
+                  void refreshSections(projectID);
+                  void refreshConversation(projectID); // the answered card (U-5)
+                }}
               />
             )}
           </div>
@@ -443,8 +431,21 @@ export function App() {
 
         {projectID && sections.length > 0 && (
           <section className="col doc" aria-label={t("doc.title")} id="document">
+            {/* U-3: the frame chooses the section; this column shows only
+                that one: its title, state, pendings and «Sign section». */}
             <div className="hd">
-              <span className="lbl">{t("doc.title")}</span>
+              {current ? (
+                <span className="doc-state">
+                  <span className={`st ${current.state === "signed" ? "signed" : current.pendings > 0 ? "todo" : ""}`}>
+                    {t(`section.status.${current.state}`)}
+                  </span>
+                  {current.pendings > 0 && (
+                    <span className="st todo">{t("section.pendings", { n: String(current.pendings) })}</span>
+                  )}
+                </span>
+              ) : (
+                <span className="lbl">{t("doc.title")}</span>
+              )}
               <button
                 type="button"
                 id="sign-section"
@@ -476,25 +477,6 @@ export function App() {
                 </div>
               )}
               {signError && <p className="turn-error">{t(`signoff.error.${signError}`)}</p>}
-              <ul className="section-tabs">
-                {sections.map((s) => (
-                  <li key={s.label}>
-                    <button
-                      type="button"
-                      className={s.label === selected ? "active" : ""}
-                      onClick={() => {
-                        setSelected(s.label);
-                        setHistoryBlock(0);
-                        setSignBlocked(null);
-                      }}
-                    >
-                      {sectionName(s)} · {t(`section.status.${s.state}`)}
-                      {s.pendings > 0 && ` · ${t("section.pendings", { n: String(s.pendings) })}`}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
               {current && (
                 <SectionEditor
                   key={current.label}

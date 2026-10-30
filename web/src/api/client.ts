@@ -2,6 +2,7 @@ import type {
   AnswerCardResponse,
   BlockHistoryView,
   CaseView,
+  ConversationEntry,
   EditorResponse,
   CreateProjectResponse,
   PostMessageResponse,
@@ -39,6 +40,25 @@ export async function createProject(template = ""): Promise<CreateProjectRespons
 
 export async function listProjects(): Promise<ProjectView[]> {
   return json(await fetch("/api/projects"));
+}
+
+// U-1: you rename the project the understanding titled; Go refuses a
+// blank name (400 invalid_name, project.error.<code> in the catalog).
+export async function renameProject(projectID: string, name: string): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/name`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "internal");
+  }
+}
+
+// U-5: the whole conversation, oldest first, read from the history.
+export async function getConversation(projectID: string): Promise<ConversationEntry[]> {
+  return json(await fetch(`/api/projects/${projectID}/conversation`));
 }
 
 export async function getRequest(projectID: string): Promise<RequestView> {
@@ -309,6 +329,8 @@ export interface StepPayload {
   status: "accepted" | "retry" | "agent_pending";
   errors?: string[];
   triage_line?: string;
+  // What the agent answers you (R-5), shown in the conversation.
+  reply?: string;
   closing_risk?: string;
   note?: string;
   deferred?: { what: string; why: string }[];
@@ -323,7 +345,7 @@ export interface StepPayload {
 }
 
 // StreamDelta is one streamed piece (P-28): Go sends only the parsed
-// triage line, text, note or understanding, each with its field; a
+// triage line, reply, text, note or understanding, each with its field; a
 // development build (-tags=devroutes) also sends the raw model text as
 // field "raw".
 export interface StreamDelta {

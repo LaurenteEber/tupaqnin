@@ -1,7 +1,7 @@
 {
   "name": "understanding-valid",
   "deltas": [
-    "{\"understood\": \"Escribo el estado del arte comparando conteos y métodos, sin evaluar salud.\", \"criteria\": [{\"criterion\": \"crit-1\", \"counts\": \"Un muestreo de grifos reales en casas.\", \"does_not_count\": \"Un piloto de laboratorio.\"}, {\"criterion\": \"crit-2\", \"counts\": \"Una comparación de conteos entre estudios.\", \"does_not_count\": \"Una recomendación de qué agua tomar.\"}], \"material_readings\": [{\"case\": \"El cálculo compara 60 veces con conteos crudos.\"}], \"sections\": [{\"id\": \"new-1\", \"title\": \"Síntesis\", \"role\": \"conclusion\"}, {\"id\": \"new-2\", \"title\": \"Conclusiones\", \"role\": \"recommendation\"}]}"
+    "{\"understood\": \"Escribo el estado del arte comparando conteos y métodos, sin evaluar salud.\", \"project_title\": \"Microplásticos en agua embotellada y de grifo\", \"criteria\": [{\"criterion\": \"crit-1\", \"counts\": \"Un muestreo de grifos reales en casas.\", \"does_not_count\": \"Un piloto de laboratorio.\"}, {\"criterion\": \"crit-2\", \"counts\": \"Una comparación de conteos entre estudios.\", \"does_not_count\": \"Una recomendación de qué agua tomar.\"}], \"material_readings\": [{\"case\": \"El cálculo compara 60 veces con conteos crudos.\"}], \"sections\": [{\"id\": \"new-1\", \"title\": \"Síntesis\", \"role\": \"conclusion\"}, {\"id\": \"new-2\", \"title\": \"Conclusiones\", \"role\": \"conclusion\"}]}"
   ],
   "items": [
     {
@@ -16,7 +16,7 @@
       "content": [
         {
           "type": "output_text",
-          "text": "{\"understood\": \"Escribo el estado del arte comparando conteos y métodos, sin evaluar salud.\", \"criteria\": [{\"criterion\": \"crit-1\", \"counts\": \"Un muestreo de grifos reales en casas.\", \"does_not_count\": \"Un piloto de laboratorio.\"}, {\"criterion\": \"crit-2\", \"counts\": \"Una comparación de conteos entre estudios.\", \"does_not_count\": \"Una recomendación de qué agua tomar.\"}], \"material_readings\": [{\"case\": \"El cálculo compara 60 veces con conteos crudos.\"}], \"sections\": [{\"id\": \"new-1\", \"title\": \"Síntesis\", \"role\": \"conclusion\"}, {\"id\": \"new-2\", \"title\": \"Conclusiones\", \"role\": \"recommendation\"}]}"
+          "text": "{\"understood\": \"Escribo el estado del arte comparando conteos y métodos, sin evaluar salud.\", \"project_title\": \"Microplásticos en agua embotellada y de grifo\", \"criteria\": [{\"criterion\": \"crit-1\", \"counts\": \"Un muestreo de grifos reales en casas.\", \"does_not_count\": \"Un piloto de laboratorio.\"}, {\"criterion\": \"crit-2\", \"counts\": \"Una comparación de conteos entre estudios.\", \"does_not_count\": \"Una recomendación de qué agua tomar.\"}], \"material_readings\": [{\"case\": \"El cálculo compara 60 veces con conteos crudos.\"}], \"sections\": [{\"id\": \"new-1\", \"title\": \"Síntesis\", \"role\": \"conclusion\"}, {\"id\": \"new-2\", \"title\": \"Conclusiones\", \"role\": \"conclusion\"}]}"
         }
       ]
     }

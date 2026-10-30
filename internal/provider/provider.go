@@ -57,14 +57,48 @@ type Request struct {
 	// design, so it is sent without strict and validated in Go
 	// instead (B-2; finding of micro-test 0.8, param="schema").
 	SchemaStrict bool
+	// Tools are the function tools the model may call (R-3), a JSON
+	// array of Responses API tool definitions; nil sends none.
+	Tools json.RawMessage
 }
 
 // Response is one completed call: every raw output item, the joined
-// output text, and the reported usage.
+// output text, the function calls the model made (R-3), and the
+// reported usage.
 type Response struct {
-	RawItems []json.RawMessage
-	Text     string
-	Usage    Usage
+	RawItems  []json.RawMessage
+	Text      string
+	ToolCalls []ToolCall
+	Usage     Usage
+}
+
+// ToolCall is one function_call output item (R-3): the model asks the
+// app to run a tool and answer with ToolOutputItem.
+type ToolCall struct {
+	CallID    string `json:"call_id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+// toolCallsOf reads the function_call items of an output.
+func toolCallsOf(items []json.RawMessage) []ToolCall {
+	var out []ToolCall
+	for _, item := range items {
+		var fc struct {
+			Type string `json:"type"`
+			ToolCall
+		}
+		if json.Unmarshal(item, &fc) == nil && fc.Type == "function_call" {
+			out = append(out, fc.ToolCall)
+		}
+	}
+	return out
+}
+
+// ToolOutputItem is the input item that answers one tool call.
+func ToolOutputItem(callID, output string) json.RawMessage {
+	b, _ := json.Marshal(map[string]string{"type": "function_call_output", "call_id": callID, "output": output})
+	return b
 }
 
 // Usage is the use a call reports (§1.4).
@@ -223,9 +257,9 @@ func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 			onDelta(Delta{Text: d})
 		}
 	}
-	resp := Response{RawItems: fx.Items, Usage: fx.Usage}
+	resp := Response{RawItems: fx.Items, Usage: fx.Usage, ToolCalls: toolCallsOf(fx.Items)}
 	resp.Text = textOfItems(fx.Items)
-	if resp.Text == "" {
+	if resp.Text == "" && len(resp.ToolCalls) == 0 {
 		for _, d := range fx.Deltas {
 			resp.Text += d
 		}
@@ -252,12 +286,15 @@ func textOfItems(items []json.RawMessage) string {
 	for _, raw := range items {
 		var item struct {
 			Type    string `json:"type"`
+			Phase   string `json:"phase"`
 			Content []struct {
 				Type string `json:"type"`
 				Text string `json:"text"`
 			} `json:"content"`
 		}
-		if err := json.Unmarshal(raw, &item); err != nil || item.Type != "message" {
+		// A commentary message comes beside tool calls (R-3, recorded in
+		// the tools micro-test): it is not the fixed output.
+		if err := json.Unmarshal(raw, &item); err != nil || item.Type != "message" || item.Phase == "commentary" {
 			continue
 		}
 		for _, part := range item.Content {

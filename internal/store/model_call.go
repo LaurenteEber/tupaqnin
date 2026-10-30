@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -92,4 +93,23 @@ func (db *DB) ProjectSpend(ctx context.Context, projectID string) (float64, erro
 		return 0, fmt.Errorf("project spend: %w", err)
 	}
 	return spent.Float64, nil
+}
+
+// LastModelCall returns the project's most recent call by role, and
+// false when the role has made none.
+func (db *DB) LastModelCall(ctx context.Context, projectID, role string) (ModelCall, bool, error) {
+	var c ModelCall
+	var model sql.NullString
+	err := db.Reader.QueryRowContext(ctx,
+		`SELECT model_and_effort, input_tokens, context_window FROM model_call
+		 WHERE project_id = ? AND role = ? ORDER BY rowid DESC LIMIT 1`, projectID, role).
+		Scan(&model, &c.InputTokens, &c.ContextWindow)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ModelCall{}, false, nil
+	}
+	if err != nil {
+		return ModelCall{}, false, fmt.Errorf("last model call: %w", err)
+	}
+	c.ProjectID, c.Role, c.ModelAndEffort = projectID, role, model.String
+	return c, true, nil
 }

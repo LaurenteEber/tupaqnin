@@ -10,10 +10,13 @@ import { translate, type Lang } from "../i18n";
 export function RequestPanel({
   lang,
   projectID,
+  onRequest,
   onSubmitted,
 }: {
   lang: Lang;
   projectID: string;
+  // The sent request's text, so the conversation does not repeat it (U-5).
+  onRequest: (sentText: string) => void;
   onSubmitted: (turnID: string) => void;
 }) {
   const t = (key: string) => translate(lang, key);
@@ -26,6 +29,10 @@ export function RequestPanel({
   const [kind, setKind] = useState("file");
   const [errorCode, setErrorCode] = useState("");
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    onRequest(view?.submitted ? view.text : "");
+  }, [view, onRequest]);
 
   useEffect(() => {
     if (!projectID) return;
