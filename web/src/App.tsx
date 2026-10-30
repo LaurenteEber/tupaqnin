@@ -401,6 +401,13 @@ export function App() {
                 {step && (
                   <div className="step-result">
                     <p className="meta">{t(`turn.status.${step.status}`)}</p>
+                    {/* P-43: why the chain stopped (Go says it), and that
+                        the person can write to the agent. */}
+                    {step.stop_reason && (
+                      <p className="meta">
+                        {t(`turn.stop.${step.stop_reason}`)} {t("turn.write_to_agent")}
+                      </p>
+                    )}
                     {stream.length === 0 && step.triage_line && <p className="triage">{step.triage_line}</p>}
                     {stream.length === 0 && step.note && (
                       <details className="note">
@@ -410,7 +417,12 @@ export function App() {
                     )}
                   </div>
                 )}
-                {errorCode && <p className="turn-error">{t(`stream.error.${errorCode}`)}</p>}
+                {errorCode && (
+                  <p className="turn-error">
+                    {t(`stream.error.${errorCode}`)}
+                    {errorCode !== "turn_running" && <> {t("turn.write_to_agent")}</>}
+                  </p>
+                )}
               </div>
             )}
 

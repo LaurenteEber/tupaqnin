@@ -63,13 +63,21 @@ func TestB17_ChainContinuesWithTheFixedMessageAndStopsAtAStepWithoutWork(t *test
 	if got := lastUserText(t, cap.sent[1]); strings.Contains(got, "primera sección") {
 		t.Fatal("the chained step carries the person's text")
 	}
-	if step := pub.step(t); step["status"] != "accepted" {
+	if step := pub.step(t); step["status"] != "accepted" || step["stop_reason"] != "no_work" {
 		t.Fatalf("published step: %v", step)
 	}
 }
 
+// P-43: the chained step tells the agent to write and not to wait for
+// the person to confirm cases or roles (fichas §2: nothing blocks).
+func TestP43_ChainedMessageSaysWriteTheNextSectionWithoutWaiting(t *testing.T) {
+	if cycle.ContinueMessage != "Write the next section of the plan; do not wait for confirmations." {
+		t.Fatalf("ContinueMessage: %q", cycle.ContinueMessage)
+	}
+}
+
 func TestB17_ChainStopsAtFiveSteps(t *testing.T) {
-	db, runner, cap, _ := newCaptureRunner(t, loadAppFixture(t, "01-principal-valid.json"))
+	db, runner, cap, pub := newCaptureRunner(t, loadAppFixture(t, "01-principal-valid.json"))
 	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe."); err != nil {
 		t.Fatalf("RunTurn: %v", err)
 	}
@@ -78,6 +86,9 @@ func TestB17_ChainStopsAtFiveSteps(t *testing.T) {
 	}
 	if n := len(eventsOfType(t, db, store.EventStepEnded)); n != 5 {
 		t.Fatalf("step_ended: %d, want 5", n)
+	}
+	if step := pub.step(t); step["stop_reason"] != "step_limit" {
+		t.Fatalf("published step: %v", step)
 	}
 }
 
@@ -89,7 +100,7 @@ func TestB17_ChainStopsAtAStepPendingForTheAgent(t *testing.T) {
 	if len(cap.sent) != 2 {
 		t.Fatalf("provider calls: %d, want 2 (one step and its retry)", len(cap.sent))
 	}
-	if step := pub.step(t); step["status"] != "agent_pending" {
+	if step := pub.step(t); step["status"] != "agent_pending" || step["stop_reason"] != "agent_pending" {
 		t.Fatalf("published step: %v", step)
 	}
 	if n := len(eventsOfType(t, db, store.EventOutputRetry)); n != 2 {

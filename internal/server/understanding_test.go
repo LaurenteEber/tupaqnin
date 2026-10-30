@@ -154,3 +154,40 @@ func TestP30_SectionListCarriesTheTitle(t *testing.T) {
 		t.Fatalf("section list: %+v, want the title Síntesis", list)
 	}
 }
+
+// P-43: an understanding that ended pending for the agent (two calls
+// without a valid output) is shown as failed, also after a reload: Go
+// reads it from the events, not from the live stream.
+func TestP43_UnderstandingThatFailedIsShownAsPendingForTheAgent(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	base := "/api/projects/" + projectID
+
+	view := decode[server.UnderstandingView](t, do(t, h, http.MethodGet, base+"/understanding", nil))
+	if view.Status != "none" {
+		t.Fatalf("status before any understanding: %q, want none", view.Status)
+	}
+
+	err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+		for attempt, result := range []string{"", "agent_pending"} {
+			data := map[string]any{"attempt": attempt + 1, "errors": []string{"/criteria: req-1 is not a criterion of this request"},
+				"turn_kind": "understanding"}
+			if result != "" {
+				data["result"] = result
+			}
+			if _, err := tx.AppendEvent(store.EventInput{Type: store.EventOutputRetry, Actor: "agent",
+				AgentRole: "principal", TurnID: "turn-1", Data: data}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("seed output_retry: %v", err)
+	}
+
+	view = decode[server.UnderstandingView](t, do(t, h, http.MethodGet, base+"/understanding", nil))
+	if view.Status != "agent_pending" {
+		t.Fatalf("status after a failed understanding: %q, want agent_pending", view.Status)
+	}
+}

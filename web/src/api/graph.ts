@@ -79,9 +79,9 @@ export interface FrameDecision {
    */
   reason?: string;
   /**
-   * SignoffExplanation is your current signoff explanation.
-   * [EL DISEÑO NO LO DICE]: signing arrives in 1.7 and the signoff's
-   * fields are not named yet; until then it is always empty.
+   * SignoffExplanation is your explanation in the section's current
+   * signature, on each critical decision that signature explains
+   * (spec §9).
    */
   signoff_explanation?: string;
   /**

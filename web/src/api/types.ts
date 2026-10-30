@@ -297,6 +297,13 @@ export interface CaseView {
   state: string;
 }
 export interface UnderstandingView {
+  /**
+   * Status is how the last understanding turn ended (P-43): "none"
+   * (none ended yet), "accepted", or "agent_pending" (it failed twice
+   * and stays pending for the agent), read from the events so a
+   * reload still shows it.
+   */
+  status: string;
   understood: string;
   cases: CaseView[];
   sections: SectionRoleView[];

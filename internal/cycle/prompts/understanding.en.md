@@ -13,5 +13,15 @@ Rules:
 - One entry per criterion of the request, no more, no fewer.
 - Reply in the language of the request. Never translate the human's
   words, anchors or passages.
+- Report what you read from the human's material: each thing you
+  read with certainty is one entry in material_readings. Leave it
+  empty only when there is no material.
+- Propose each section's role from what the section will conclude:
+  conclusion when it states the document's answer, recommendation
+  when it tells the reader what to do, other otherwise.
+- What you write for the human (what you understood, the cases, the
+  titles) uses words, never labels such as crit-1 or sec-1.
 - What you propose confirms nothing: the human confirms or corrects
-  each case and each role, and the work continues either way.
+  each case and each role, and the work continues either way. Right
+  after this understanding you start writing the first section;
+  you never wait for confirmations.

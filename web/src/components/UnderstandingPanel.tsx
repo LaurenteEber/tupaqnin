@@ -10,7 +10,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRol
   lang: Lang;
   projectID: string;
   refreshKey: number;
-  // The last understanding turn ended as pending for the agent.
+  // The live understanding turn just ended as pending for the agent.
   pending: boolean;
   onRoleChanged: () => void;
   // A case was confirmed or corrected: the frame shows its state.
@@ -40,12 +40,16 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, pending, onRol
   }
 
   if (!projectID) return null;
+  // P-43: a failed understanding shows as failed, also after a reload
+  // (Go reads it from the events).
+  const failed = pending || view?.status === "agent_pending";
 
   return (
     <div className="request-panel chat-card" id="understanding">
       <h2>{t("understanding.title")}</h2>
+      {failed && <p className="turn-error">{t("understanding.pending")}</p>}
       {!view || (view.cases.length === 0 && view.sections.length === 0) ? (
-        <p>{t(pending ? "understanding.pending" : "understanding.empty")}</p>
+        !failed && <p>{t("understanding.empty")}</p>
       ) : (
         <>
           {view.understood && <p>{view.understood}</p>}

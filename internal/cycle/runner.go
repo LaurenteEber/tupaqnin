@@ -329,10 +329,16 @@ type stepPayload struct {
 	ClosingRisk string          `json:"closing_risk,omitempty"`
 	Note        string          `json:"note,omitempty"`
 	Deferred    json.RawMessage `json:"deferred,omitempty"`
+	// StopReason says why a chain stopped (P-43), so the page can say it.
+	StopReason StopReason `json:"stop_reason,omitempty"`
 }
 
 func (r *Runner) publishStep(projectID, turnID string, result StepResult, outputText string) {
-	payload := stepPayload{Status: result.Status, Errors: result.Errors}
+	r.publishChainStep(projectID, turnID, result, outputText, "")
+}
+
+func (r *Runner) publishChainStep(projectID, turnID string, result StepResult, outputText string, reason StopReason) {
+	payload := stepPayload{Status: result.Status, Errors: result.Errors, StopReason: reason}
 	if result.Status == StatusAccepted {
 		var out struct {
 			TriageLine  string          `json:"triage_line"`
@@ -563,8 +569,22 @@ const MaxChainSteps = 5
 
 // ContinueMessage is the fixed app message of a chained step without a
 // message of the person: in English, with nothing of the person's
-// (B-17).
-const ContinueMessage = "Continue with the next step of the task."
+// (B-17). It tells the agent to write and not to wait for the person
+// to confirm cases or roles (P-43, fichas §2: nothing blocks).
+const ContinueMessage = "Write the next section of the plan; do not wait for confirmations."
+
+// StopReason is why a chain of steps stopped (B-17), computed here so
+// the page can say it (P-43).
+type StopReason string
+
+const (
+	// StopNoWork: the last step brought no new text and no new decisions.
+	StopNoWork StopReason = "no_work"
+	// StopAgentPending: the last step was left pending for the agent.
+	StopAgentPending StopReason = "agent_pending"
+	// StopStepLimit: the chain reached MaxChainSteps.
+	StopStepLimit StopReason = "step_limit"
+)
 
 // runChain runs up to MaxChainSteps steps in one turn (B-17). The first
 // step gets the person's message when there is one; the others get
@@ -574,6 +594,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 	filter := newFieldFilter(stepStreamKeys)
 	var last StepResult
 	var lastText string
+	reason := StopStepLimit
 	var notice string // B-14: what the last step could not write, for the agent
 	for n := 1; n <= MaxChainSteps; n++ {
 		message := ContinueMessage
@@ -624,11 +645,16 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		if len(applied.Rejected) > 0 {
 			notice = strings.Join(applied.Rejected, "\n")
 		}
-		if result.Status != StatusAccepted || !applied.Work {
+		if result.Status != StatusAccepted {
+			reason = StopAgentPending
+			break
+		}
+		if !applied.Work {
+			reason = StopNoWork
 			break
 		}
 	}
-	r.publishStep(projectID, turnID, last, lastText)
+	r.publishChainStep(projectID, turnID, last, lastText, reason)
 	return nil
 }
 

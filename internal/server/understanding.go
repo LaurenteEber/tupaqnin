@@ -22,6 +22,11 @@ type CaseView struct {
 }
 
 type UnderstandingView struct {
+	// Status is how the last understanding turn ended (P-43): "none"
+	// (none ended yet), "accepted", or "agent_pending" (it failed twice
+	// and stays pending for the agent), read from the events so a
+	// reload still shows it.
+	Status     string            `json:"status"`
 	Understood string            `json:"understood"`
 	Cases      []CaseView        `json:"cases"`
 	Sections   []SectionRoleView `json:"sections"`
@@ -48,7 +53,7 @@ func (s *Server) getUnderstanding(w http.ResponseWriter, r *http.Request) {
 	if !s.requireProject(w, r, projectID) {
 		return
 	}
-	view := UnderstandingView{Cases: []CaseView{}, Sections: []SectionRoleView{}}
+	view := UnderstandingView{Status: "none", Cases: []CaseView{}, Sections: []SectionRoleView{}}
 
 	cases, _ := s.db.ListObjects(r.Context(), projectID, store.ObjectUnderstandingCase)
 	for _, c := range cases {
@@ -77,13 +82,20 @@ func (s *Server) getUnderstanding(w http.ResponseWriter, r *http.Request) {
 
 	events, _ := s.db.EventsSince(r.Context(), projectID, 0)
 	for _, ev := range events {
-		if ev.Type != store.EventStepEnded {
+		if ev.Type != store.EventStepEnded && ev.Type != store.EventOutputRetry {
 			continue
 		}
 		var data map[string]any
 		_ = json.Unmarshal(ev.Data, &data)
-		if str(data, "turn_kind") == "understanding" {
+		if str(data, "turn_kind") != "understanding" {
+			continue
+		}
+		switch {
+		case ev.Type == store.EventStepEnded:
+			view.Status = "accepted"
 			view.Understood = str(data, "understood")
+		case str(data, "result") == "agent_pending":
+			view.Status = "agent_pending"
 		}
 	}
 	writeJSON(w, http.StatusOK, view)

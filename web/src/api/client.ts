@@ -315,6 +315,8 @@ export interface StepPayload {
   // The understanding's step names the chain that starts after it (B-17).
   understood?: string;
   next_turn_id?: string;
+  // Why the agent's chain stopped (P-43), computed in Go.
+  stop_reason?: "no_work" | "agent_pending" | "step_limit";
   // A Wonder round of the signoff names its signoff and outcome (1.7).
   signoff?: string;
   outcome?: string;
