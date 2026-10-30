@@ -30,11 +30,14 @@ import (
 // What the jury writes: the card's «porque», an explanation without the
 // why of the rule (pantallas.md step 6) and the answers to Wonder.
 const (
-	cardReason   = "Porque los estudios con filtro más fino cuentan partículas que los otros no ven."
-	explanation  = "La embotellada trae 1,5 veces más partículas que la de grifo, comparando los estudios elegidos."
-	originAnswer = "Del supuesto de que el conteo depende del tamaño mínimo que cada estudio puede ver: con filtros distintos no se cuenta lo mismo."
-	caseAnswer   = "Solo los comparo desde el tamaño mínimo que ambos ven; si no, la diferencia sale del filtro y no del agua."
-	maxRounds    = 4
+	cardReason = "Porque los estudios con filtro más fino cuentan partículas que los otros no ven."
+	// otherCardReason answers any other card that blocks the signoff
+	// (P-56).
+	otherCardReason = "Porque mi criterio pide solo estudios de campo y así lo revisará el comité."
+	explanation     = "La embotellada trae 1,5 veces más partículas que la de grifo, comparando los estudios elegidos."
+	originAnswer    = "Del supuesto de que el conteo depende del tamaño mínimo que cada estudio puede ver: con filtros distintos no se cuenta lo mismo."
+	caseAnswer      = "Solo los comparo desde el tamaño mínimo que ambos ven; si no, la diferencia sale del filtro y no del agua."
+	maxRounds       = 4
 	// caseFigure is the datum of case 5: 1,5 times, not 60.
 	caseFigure = "1,5"
 	// ruleWord marks the comparison rule (P-55), compared without case
@@ -335,6 +338,17 @@ func (w *walk) run() string {
 	// 6. «Firmar sección»: an explanation without the why of the rule;
 	// Wonder names what is missing and brings a case; the jury answers
 	// until the signoff coincides, and signs.
+	// Every other open card that blocks the section is answered first,
+	// as the jury would from «Te toca» (P-56): the app blocks the
+	// signoff while a decision the section uses has an open card.
+	var detail server.SectionDetail
+	w.do("6 open cards", http.MethodGet, w.api("/sections/"+ruleSection.Label), nil, http.StatusOK, &detail)
+	for _, p := range detail.Pendings {
+		if p.Kind == graph.PendingOpenCard {
+			w.do("6 open cards", http.MethodPost, w.api("/cards/"+p.About+"/answer"),
+				map[string]any{"option": "keep", "reason": otherCardReason}, http.StatusOK, nil)
+		}
+	}
 	var view graph.SignoffView
 	w.do("6 signoff", http.MethodPost, w.api("/sections/"+ruleSection.Label+"/signoff"), nil, http.StatusCreated, &view)
 	sign := view.Label
