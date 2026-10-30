@@ -14,7 +14,7 @@ export type TodoTarget =
 // for, how it is judged, its skeleton with the critical decisions and
 // what is yours to do. Go computes all of it; this panel only shows it.
 // Expanding a decision records decision_seen (frame); scrolling does not.
-export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onTodo }: {
+export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onTodo, onReorder }: {
   lang: Lang;
   projectID: string;
   refreshKey: string;
@@ -23,6 +23,9 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   onSection: (section: string) => void;
   onHistory: (section: string, block: number) => void;
   onTodo: (target: TodoTarget) => void;
+  // P-49: «subir» and «bajar» send the whole new order; absent in a
+  // read-only tab.
+  onReorder?: (labels: string[]) => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [frame, setFrame] = useState<Frame | null>(null);
@@ -120,9 +123,15 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
           <p className="meta">{t("frame.skeleton_empty")}</p>
         ) : (
           <ul className="skel">
-            {frame.sections.map((s) => (
+            {frame.sections.map((s, i) => (
               <SkeletonSection key={s.label} lang={lang} section={s} titleOf={titleOf} active={s.label === selected}
-                onSection={onSection} onHistory={onHistory} onTodo={onTodo} onExpand={expanded} />
+                onSection={onSection} onHistory={onHistory} onTodo={onTodo} onExpand={expanded}
+                onMove={onReorder && ((dir) => {
+                  const labels = frame.sections.map((x) => x.label);
+                  [labels[i], labels[i + dir]] = [labels[i + dir], labels[i]];
+                  onReorder(labels);
+                })}
+                first={i === 0} last={i === frame.sections.length - 1} />
             ))}
           </ul>
         )}
@@ -147,9 +156,12 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   );
 }
 
-function SkeletonSection({ lang, section, titleOf, active, onSection, onHistory, onTodo, onExpand }: {
+function SkeletonSection({ lang, section, titleOf, active, onSection, onHistory, onTodo, onExpand, onMove, first, last }: {
   lang: Lang;
   section: FrameSection;
+  onMove?: (dir: -1 | 1) => void;
+  first: boolean;
+  last: boolean;
   active: boolean;
   titleOf: (label: string) => string;
   onSection: (section: string) => void;
@@ -168,6 +180,16 @@ function SkeletonSection({ lang, section, titleOf, active, onSection, onHistory,
             : t(`section.status.${section.status}`)}
         </span>
       </button>
+      {onMove && (
+        <span className="move">
+          <button type="button" className="link" disabled={first} onClick={() => onMove(-1)}>
+            {t("frame.move_up")}
+          </button>
+          <button type="button" className="link" disabled={last} onClick={() => onMove(1)}>
+            {t("frame.move_down")}
+          </button>
+        </span>
+      )}
       {section.first_line && <p className="first">{section.first_line}</p>}
       {section.decisions.map((d) => (
         <details

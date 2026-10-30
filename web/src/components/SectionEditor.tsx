@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
@@ -23,7 +23,7 @@ export function SectionEditor({
   lang,
   projectID,
   label,
-  name,
+  heading,
   readOnly,
   onBlock,
   version,
@@ -34,7 +34,8 @@ export function SectionEditor({
   lang: Lang;
   projectID: string;
   label: string;
-  name: string;
+  // The section title and «qué debe abordar», editable (P-49).
+  heading: ReactNode;
   readOnly: boolean;
   onBlock: (block: number) => void;
   version: number;
@@ -112,7 +113,7 @@ export function SectionEditor({
   return (
     <div className="section-editor" onBlur={() => void saveRef.current()}>
       <div className="section-editor-head">
-        <h2>{name}</h2>
+        <div className="section-editor-title">{heading}</div>
         <SaveStatus lang={lang} register={(fn) => (status.current = fn)} />
       </div>
       <EditorContent

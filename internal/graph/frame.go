@@ -158,6 +158,8 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		}
 	}
 
+	SortSections(sections) // the skeleton follows position (K-17)
+
 	critical, err := CriticalAll(ctx, db, projectID)
 	if err != nil {
 		return Frame{}, err

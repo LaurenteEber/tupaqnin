@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -70,7 +71,7 @@ func (s *Server) getUnderstanding(w http.ResponseWriter, r *http.Request) {
 		view.Cases = append(view.Cases, cv)
 	}
 
-	sections, _ := s.db.ListObjects(r.Context(), projectID, store.ObjectSection)
+	sections, _ := graph.OrderedSections(r.Context(), s.db, projectID)
 	for _, sec := range sections {
 		b := bodyMap(sec)
 		role, _ := b["role"].(map[string]any)

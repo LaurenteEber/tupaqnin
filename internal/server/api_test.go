@@ -83,7 +83,7 @@ func TestAPI_ProjectSectionSaveAndMessageFlow(t *testing.T) {
 	}
 	base := "/api/projects/" + project.ProjectID
 
-	rec = do(t, h, http.MethodPost, base+"/sections", nil)
+	rec = do(t, h, http.MethodPost, base+"/sections", map[string]any{"title": "Alcance"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create section: got %d (%s)", rec.Code, rec.Body.String())
 	}

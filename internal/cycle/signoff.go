@@ -341,8 +341,19 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 	if err != nil {
 		return err
 	}
-	if section.CurrentVersion != body.SectionVersion || section.State == "stale" {
+	if section.State == "stale" {
 		return ErrSignoffOutdated
+	}
+	if section.CurrentVersion != body.SectionVersion {
+		// The title, focus and position stay out of what is signed
+		// (K-17): a version that changed only those still signs.
+		same, err := sameSectionText(ctx, g.db, projectID, section, body.SectionVersion)
+		if err != nil {
+			return err
+		}
+		if !same {
+			return ErrSignoffOutdated
+		}
 	}
 	if _, pendings, err := graph.SectionStatus(ctx, g.db, projectID, section.Label); err != nil {
 		return err
@@ -990,4 +1001,22 @@ func (r *Runner) runSignoffAsk(ctx context.Context, projectID, turnID, signLabel
 	}
 	r.publishStep(projectID, turnID, StepResult{Status: StatusAccepted}, resp.Text)
 	return nil
+}
+
+// sameSectionText reports whether the section's text now has the same
+// fingerprint as at version.
+func sameSectionText(ctx context.Context, db *store.DB, projectID string, section store.Object, version int) (bool, error) {
+	versions, err := db.Versions(ctx, projectID, section.ID)
+	if err != nil {
+		return false, err
+	}
+	for _, v := range versions {
+		if v.Version != version {
+			continue
+		}
+		var old map[string]any
+		_ = json.Unmarshal(v.Body, &old)
+		return fingerprint.Section(bodyStr(old, "text")) == fingerprint.Section(bodyStr(bodyOf(section), "text")), nil
+	}
+	return false, nil
 }

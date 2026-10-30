@@ -770,8 +770,13 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		if _, done := ids[id]; done {
 			continue
 		}
+		// A principal's new section goes last (K-17).
+		position, err := graph.NextSectionPosition(context.Background(), tx, tx.ProjectID())
+		if err != nil {
+			return nil, err
+		}
 		obj, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{
-			"title": role.Title, "text": "",
+			"title": role.Title, "position": position, "text": "",
 			"role":         map[string]any{"value": role.Role, "state": "proposed"},
 			"open_changes": []any{},
 		}, agent(store.EventStateChanged))

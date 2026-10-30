@@ -76,6 +76,7 @@ func (s *Server) claimEditor(w http.ResponseWriter, r *http.Request) {
 type SectionDetail struct {
 	Label     string          `json:"label"`
 	Title     string          `json:"title"`
+	Focus     string          `json:"focus"`
 	Version   int             `json:"version"`
 	Status    string          `json:"status"`
 	Text      string          `json:"text"`
@@ -114,7 +115,7 @@ func (s *Server) getSection(w http.ResponseWriter, r *http.Request) {
 	}
 	b := bodyMap(sec)
 	role, _ := b["role"].(map[string]any)
-	detail := SectionDetail{Label: sec.Label, Title: str(b, "title"), Version: sec.CurrentVersion,
+	detail := SectionDetail{Label: sec.Label, Title: str(b, "title"), Focus: str(b, "focus"), Version: sec.CurrentVersion,
 		Status: string(status), Text: str(b, "text"), Role: str(role, "value"), RoleState: str(role, "state"),
 		Pendings: pendings, Figures: []LinkedAnchor{}, Citations: []LinkedAnchor{}}
 	for _, kind := range []struct {

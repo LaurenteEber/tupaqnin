@@ -24,6 +24,7 @@ export interface SectionResponse {
 export interface SectionView {
   label: string;
   title: string;
+  focus: string;
   version: number /* int */;
   /**
    * State is the section's status from graph.SectionStatus, the one
@@ -43,6 +44,33 @@ export interface PostMessageRequest {
 }
 export interface PostMessageResponse {
   turn_id: string;
+}
+/**
+ * CreateSectionRequest is «+ Sección» (K-17): a title (required), the
+ * «aquí se concluye» mark (role "conclusion", or empty: the principal
+ * proposes it) and «qué debe abordar».
+ */
+export interface CreateSectionRequest {
+  tab_id: string;
+  title: string;
+  role: string;
+  focus: string;
+}
+/**
+ * SectionDetailsRequest changes the title or «qué debe abordar» of a
+ * section (P-49); a missing field stays as it is.
+ */
+export interface SectionDetailsRequest {
+  tab_id: string;
+  title?: string;
+  focus?: string;
+}
+/**
+ * SectionOrderRequest names every section once, in the new order.
+ */
+export interface SectionOrderRequest {
+  tab_id: string;
+  labels: string[];
 }
 
 //////////
@@ -241,6 +269,7 @@ export interface EditorResponse {
 export interface SectionDetail {
   label: string;
   title: string;
+  focus: string;
   version: number /* int */;
   status: string;
   text: string;

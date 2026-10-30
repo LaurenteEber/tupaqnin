@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -34,6 +35,7 @@ type SectionResponse struct {
 type SectionView struct {
 	Label   string `json:"label"`
 	Title   string `json:"title"`
+	Focus   string `json:"focus"`
 	Version int    `json:"version"`
 	// State is the section's status from graph.SectionStatus, the one
 	// function every view uses (ready included, computed).
@@ -79,30 +81,113 @@ func (s *Server) requireProject(w http.ResponseWriter, r *http.Request, projectI
 	return true
 }
 
-// POST /api/projects/{projectID}/sections → {label, version}:
-// a new empty section in draft.
+// CreateSectionRequest is «+ Sección» (K-17): a title (required), the
+// «aquí se concluye» mark (role "conclusion", or empty: the principal
+// proposes it) and «qué debe abordar».
+type CreateSectionRequest struct {
+	TabID string `json:"tab_id"`
+	Title string `json:"title"`
+	Role  string `json:"role"`
+	Focus string `json:"focus"`
+}
+
+// POST /api/projects/{projectID}/sections with {title, role, focus} →
+// {label, version}: a new empty section in draft, last (K-17). It
+// replaces the 0.10 route.
 func (s *Server) createSection(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {
 		return
 	}
-	var obj store.Object
-	err := s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
-		var err error
-		obj, err = tx.CreateObject(store.ObjectSection, "draft",
-			map[string]any{
-				"text":         "",
-				"role":         map[string]any{"value": "other", "state": "proposed"},
-				"open_changes": []any{},
-			},
-			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
-		return err
-	})
+	var req CreateSectionRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	if !s.editors.claim(projectID, req.TabID) {
+		writeError(w, http.StatusConflict, "read_only_tab")
+		return
+	}
+	obj, err := cycle.CreateSection(r.Context(), s.db, projectID, req.Title, req.Role, req.Focus)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal")
+		writeSectionError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, SectionResponse{Label: obj.Label, Version: obj.CurrentVersion})
+}
+
+// SectionDetailsRequest changes the title or «qué debe abordar» of a
+// section (P-49); a missing field stays as it is.
+type SectionDetailsRequest struct {
+	TabID string  `json:"tab_id"`
+	Title *string `json:"title"`
+	Focus *string `json:"focus"`
+}
+
+// PUT /api/projects/{projectID}/sections/{label}/details with
+// {title?, focus?} → 204. The state does not change (K-17).
+func (s *Server) putSectionDetails(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	var req SectionDetailsRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	if !s.editors.claim(projectID, req.TabID) {
+		writeError(w, http.StatusConflict, "read_only_tab")
+		return
+	}
+	if err := cycle.ChangeSectionDetails(r.Context(), s.db, projectID, r.PathValue("label"), req.Title, req.Focus); err != nil {
+		writeSectionError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// SectionOrderRequest names every section once, in the new order.
+type SectionOrderRequest struct {
+	TabID  string   `json:"tab_id"`
+	Labels []string `json:"labels"`
+}
+
+// PUT /api/projects/{projectID}/sections/order with {labels[]} → 204
+// (P-49: «subir» and «bajar» in the frame skeleton).
+func (s *Server) putSectionOrder(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	var req SectionOrderRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	if !s.editors.claim(projectID, req.TabID) {
+		writeError(w, http.StatusConflict, "read_only_tab")
+		return
+	}
+	if err := cycle.ReorderSections(r.Context(), s.db, projectID, req.Labels); err != nil {
+		writeSectionError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func writeSectionError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, cycle.ErrTitleRequired), errors.Is(err, cycle.ErrFocusTooLong),
+		errors.Is(err, cycle.ErrInvalidRole), errors.Is(err, cycle.ErrInvalidOrder):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, cycle.ErrNotASection):
+		writeError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, store.ErrVersionConflict):
+		writeError(w, http.StatusConflict, "version_conflict")
+	default:
+		writeError(w, http.StatusInternalServerError, "internal")
+	}
 }
 
 func sectionText(obj store.Object) string {
@@ -118,7 +203,7 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 	if !s.requireProject(w, r, projectID) {
 		return
 	}
-	objects, err := s.db.ListObjects(r.Context(), projectID, store.ObjectSection)
+	objects, err := graph.OrderedSections(r.Context(), s.db, projectID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
@@ -130,7 +215,7 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "internal")
 			return
 		}
-		views = append(views, SectionView{Label: obj.Label, Title: str(bodyMap(obj), "title"),
+		views = append(views, SectionView{Label: obj.Label, Title: str(bodyMap(obj), "title"), Focus: str(bodyMap(obj), "focus"),
 			Version: obj.CurrentVersion, State: string(status), Pendings: len(pendings), Text: sectionText(obj)})
 	}
 	writeJSON(w, http.StatusOK, views)

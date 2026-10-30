@@ -70,6 +70,10 @@ type SectionRole struct {
 	Label string `json:"label"`
 	Role  string `json:"role"`
 	State string `json:"state"`
+	// Title and Focus («qué debe abordar», yours and in literal, K-17)
+	// go with the current task when the task is this section.
+	Title string `json:"title,omitempty"`
+	Focus string `json:"focus,omitempty"`
 }
 
 // Decision is the compact form of a decision (B2-1): label and
@@ -241,13 +245,14 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 		st.Essentials.PremiseText = b.str("text")
 		st.Essentials.PremiseExploratory = b.boolean("exploratory")
 	}
+	graph.SortSections(byType[store.ObjectSection]) // document order (K-17)
 	for _, sec := range byType[store.ObjectSection] {
 		b := decodeBody(sec)
 		role, _ := b["role"].(map[string]any)
 		roleValue, _ := role["value"].(string)
 		roleState, _ := role["state"].(string)
 		st.Essentials.SectionRoles = append(st.Essentials.SectionRoles,
-			SectionRole{Label: sec.Label, Role: roleValue, State: roleState})
+			SectionRole{Label: sec.Label, Role: roleValue, State: roleState, Title: b.str("title"), Focus: b.str("focus")})
 		if changes := openChangeLabels(b); len(changes) > 0 {
 			st.InFlight.OpenChanges[sec.Label] = changes
 		}
@@ -328,8 +333,8 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 	}
 
 	// Layer 2 index: sections, non-critical decisions, rounds and
-	// sources, one line each.
-	for _, obj := range objects {
+	// sources, one line each; sections in document order (K-17).
+	for _, obj := range sectionsInOrder(objects) {
 		b := decodeBody(obj)
 		text := b.str("text")
 		if text == "" {
@@ -467,4 +472,23 @@ func firstWords(s string, n int) (string, bool) {
 		return s, false
 	}
 	return strings.Join(words[:n], " "), true
+}
+
+// sectionsInOrder returns a copy of objects where the sections, in
+// their own slots, follow document order (K-17).
+func sectionsInOrder(objects []store.Object) []store.Object {
+	out := append([]store.Object(nil), objects...)
+	var slots []int
+	var sections []store.Object
+	for i, obj := range out {
+		if obj.Type == store.ObjectSection {
+			slots = append(slots, i)
+			sections = append(sections, obj)
+		}
+	}
+	graph.SortSections(sections)
+	for k, i := range slots {
+		out[i] = sections[k]
+	}
+	return out
 }

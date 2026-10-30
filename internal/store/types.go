@@ -175,6 +175,7 @@ const (
 	EventProbe                    EventType = "probe"
 	EventStartup                  EventType = "startup"
 	EventOutputRetry              EventType = "output_retry"
+	EventSectionDetailsChanged    EventType = "section_details_changed" // K-17
 )
 
 // Valid reports whether t is one of the table 1.3 event types.
@@ -186,7 +187,7 @@ func (t EventType) Valid() bool {
 		EventSignoffCancelled, EventBriefSignoff, EventAudienceQuestionDeclined, EventUsageChange,
 		EventSourceNewVersion, EventRoleChanged, EventAudienceChanged,
 		EventEdge, EventAnswerWithoutReason, EventActTimed, EventMarkedCritical,
-		EventProbe, EventStartup, EventOutputRetry:
+		EventProbe, EventStartup, EventOutputRetry, EventSectionDetailsChanged:
 		return true
 	default:
 		return false

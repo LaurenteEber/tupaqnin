@@ -165,10 +165,53 @@ export async function submitRequest(projectID: string): Promise<PostMessageRespo
   return (await res.json()) as PostMessageResponse;
 }
 
-export async function createSection(projectID: string): Promise<SectionResponse> {
-  return json(
-    await fetch(`/api/projects/${projectID}/sections`, { method: "POST" }),
-  );
+// The error code Go answers (title_required, focus_too_long…), or
+// "internal".
+async function errorCode(res: Response): Promise<string> {
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  return body.error ?? "internal";
+}
+
+// «+ Sección» (K-17): role is "conclusion" with the «aquí se concluye»
+// mark, or empty and the principal proposes it.
+export async function createSection(
+  projectID: string,
+  title: string,
+  role: "" | "conclusion",
+  focus: string,
+): Promise<SectionResponse> {
+  const res = await fetch(`/api/projects/${projectID}/sections`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tab_id: TAB_ID, title, role, focus }),
+  });
+  if (!res.ok) throw new Error(await errorCode(res));
+  return (await res.json()) as SectionResponse;
+}
+
+// P-49: the title and «qué debe abordar» of any section; a field left
+// undefined stays as it is.
+export async function changeSectionDetails(
+  projectID: string,
+  label: string,
+  details: { title?: string; focus?: string },
+): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/sections/${label}/details`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tab_id: TAB_ID, ...details }),
+  });
+  if (!res.ok) throw new Error(await errorCode(res));
+}
+
+// P-49: «subir» and «bajar» send every section's label in the new order.
+export async function reorderSections(projectID: string, labels: string[]): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/sections/order`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tab_id: TAB_ID, labels }),
+  });
+  if (!res.ok) throw new Error(await errorCode(res));
 }
 
 export async function listSections(projectID: string): Promise<SectionView[]> {

@@ -200,15 +200,24 @@ func compactDecision(d Decision) string {
 func (m *Memory) renderTask(st State) string {
 	var sb strings.Builder
 	sb.WriteString("Current task\n")
+	var task string
 	switch {
 	case len(st.Essentials.UnansweredMessages) > 0:
-		fmt.Fprintf(&sb, "Your unanswered message: %s\n", st.Essentials.UnansweredMessages[0])
+		task = st.Essentials.UnansweredMessages[0]
+		fmt.Fprintf(&sb, "Your unanswered message: %s\n", task)
 	case len(st.InFlight.AgentPending) > 0:
-		fmt.Fprintf(&sb, "First agent pending: %s\n", st.InFlight.AgentPending[0])
+		task = st.InFlight.AgentPending[0]
+		fmt.Fprintf(&sb, "First agent pending: %s\n", task)
 	case len(st.InFlight.Deferred) > 0:
-		fmt.Fprintf(&sb, "First deferred item: %s — %s\n", st.InFlight.Deferred[0].What, st.InFlight.Deferred[0].Why)
+		task = st.InFlight.Deferred[0].What + " — " + st.InFlight.Deferred[0].Why
+		fmt.Fprintf(&sb, "First deferred item: %s\n", task)
 	default:
 		sb.WriteString("Stop: only your items remain.\n")
+	}
+	// If the task is writing a section, it goes with its «qué debe
+	// abordar» in literal (bloque-2 §3, K-17).
+	for _, sec := range taskSections(task, st.Essentials.SectionRoles) {
+		fmt.Fprintf(&sb, "Section %s «%s» · what the person wants it to address: %s\n", sec.Label, sec.Title, sec.Focus)
 	}
 	for _, d := range st.Essentials.Decisions {
 		if d.Critical {
@@ -438,4 +447,47 @@ func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) 
 	}
 	return Item{Label: obj.Label, Type: string(obj.Type), Version: obj.CurrentVersion,
 		State: obj.State, Text: text}, nil
+}
+
+// taskSections are the sections with a focus that the task names.
+// [EL DISEÑO NO LO DICE]: how the app knows that the task is a section;
+// the smallest choice is that the task's text names its label or its
+// title (the person never sees labels, so they name the title).
+func taskSections(task string, sections []SectionRole) []SectionRole {
+	if task == "" {
+		return nil
+	}
+	lower := strings.ToLower(task)
+	var out []SectionRole
+	for _, sec := range sections {
+		if sec.Focus == "" {
+			continue
+		}
+		title := strings.ToLower(strings.TrimSpace(sec.Title))
+		if labelIn(lower, sec.Label) || title != "" && strings.Contains(lower, title) {
+			out = append(out, sec)
+		}
+	}
+	return out
+}
+
+// labelIn reports whether label appears in text as a whole word.
+func labelIn(text, label string) bool {
+	for i := 0; ; {
+		j := strings.Index(text[i:], label)
+		if j < 0 {
+			return false
+		}
+		start, end := i+j, i+j+len(label)
+		before := start == 0 || !isLabelChar(text[start-1])
+		after := end == len(text) || !isLabelChar(text[end])
+		if before && after {
+			return true
+		}
+		i = end
+	}
+}
+
+func isLabelChar(c byte) bool {
+	return c == '-' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z'
 }

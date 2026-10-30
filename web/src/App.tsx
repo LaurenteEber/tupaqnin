@@ -3,10 +3,10 @@ import {
   claimEditor,
   createProject,
   getSummary,
-  createSection,
   getConversation,
   listProjects,
   listSections,
+  reorderSections,
   postMessage,
   requestSignoff,
   subscribeTurn,
@@ -18,6 +18,8 @@ import { RequestPanel } from "./components/RequestPanel";
 import { UnderstandingPanel } from "./components/UnderstandingPanel";
 import { CardPanel } from "./components/CardPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { NewSectionForm } from "./components/NewSectionForm";
+import { SectionDetails } from "./components/SectionDetails";
 import { SectionEditor } from "./components/SectionEditor";
 import { FramePanel, type TodoTarget } from "./components/FramePanel";
 import { SignoffPanel } from "./components/SignoffPanel";
@@ -162,11 +164,28 @@ export function App() {
     });
   }
 
-  async function newSection() {
+  async function sectionCreated(label: string) {
     if (!projectID) return;
-    const created = await createSection(projectID);
     await refreshSections(projectID);
-    setSelected(created.label);
+    bumpFrame();
+    setSelected(label);
+  }
+
+  // P-49: «subir» and «bajar» in the skeleton; Go keeps the order.
+  async function reorder(labels: string[]) {
+    if (!projectID) return;
+    try {
+      await reorderSections(projectID, labels);
+    } finally {
+      await refreshSections(projectID);
+      bumpFrame();
+    }
+  }
+
+  function detailsChanged() {
+    if (!projectID) return;
+    void refreshSections(projectID);
+    bumpFrame();
   }
 
   function onSaved(label: string, version: number, text: string) {
@@ -305,7 +324,7 @@ export function App() {
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
             >
-              {projectID ? projectName(currentProject) : t("project.list")}
+              {t("project.list")} ▾
             </button>
             {menuOpen && (
               <div className="pmenu">
@@ -333,6 +352,7 @@ export function App() {
                 onSection={(label) => openSection(label)}
                 onHistory={(label, block) => openSection(label, block)}
                 onTodo={onTodo}
+                onReorder={editor ? (labels) => void reorder(labels) : undefined}
               />
             ) : (
               <div className="frame-empty">
@@ -341,9 +361,13 @@ export function App() {
               </div>
             )}
             {projectID && (
-              <button type="button" className="small" onClick={() => void newSection()}>
-                {t("section.new")}
-              </button>
+              <NewSectionForm
+                key={projectID}
+                lang={lang}
+                projectID={projectID}
+                disabled={!editor}
+                onCreated={(label) => void sectionCreated(label)}
+              />
             )}
           </div>
         </aside>
@@ -483,7 +507,18 @@ export function App() {
                   lang={lang}
                   projectID={projectID}
                   label={current.label}
-                  name={sectionName(current)}
+                  heading={
+                    <SectionDetails
+                      key={`details-${current.label}`}
+                      lang={lang}
+                      projectID={projectID}
+                      label={current.label}
+                      title={current.title}
+                      focus={current.focus}
+                      readOnly={!editor}
+                      onChanged={detailsChanged}
+                    />
+                  }
                   readOnly={!editor}
                   onBlock={setHistoryBlock}
                   version={current.version}
