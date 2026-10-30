@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"errors"
-	"strings"
 )
 
 // Model ids and context windows, taken from Meta's model docs
@@ -96,9 +95,8 @@ func Known(model string) bool {
 // 5xx or 429. A 4xx validation error is not: it is an error of the
 // turn. The caller retries once before treating the model as not
 // available.
-// [EL DISEÑO NO LO DICE]: the status is read from the ProviderError
-// code http_<status>, which Meta's own error code replaces when its
-// body names one; such an error counts as an error of the turn.
+// The status is the error's own HTTPStatus field, so it does not depend
+// on Meta's body (Eber, 29-oct).
 func Unavailable(err error) bool {
 	if err == nil {
 		return false
@@ -112,7 +110,7 @@ func Unavailable(err error) bool {
 	}
 	var perr *ProviderError
 	if errors.As(err, &perr) {
-		return perr.Code == "http_429" || strings.HasPrefix(perr.Code, "http_5")
+		return perr.HTTPStatus == 429 || perr.HTTPStatus >= 500
 	}
 	return false
 }

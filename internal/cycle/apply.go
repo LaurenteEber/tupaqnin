@@ -264,8 +264,8 @@ func lockedMessage(label string, signing bool) string {
 		return fmt.Sprintf("%s is being signed by the person: your new_text for it was not applied; the rest of your step was. "+
 			"Do not write in %s while it is being signed", label, label)
 	}
-	return fmt.Sprintf("%s is signed: your new_text for it was not applied; the rest of your step was. "+
-		"Do not write in a signed section", label)
+	return fmt.Sprintf("%s is signed (or changed since it was signed): your new_text for it was not applied; the rest of your step was. "+
+		"Do not write in it until the person signs it again", label)
 }
 
 // rawHTML finds the start of an HTML tag, comment or declaration (rule 3).
@@ -441,10 +441,10 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 					continue
 				}
 				// B-14: a section in signoff or signed rejects only this
-				// text, before B-11 looks at its version.
-				// [EL DISEÑO NO LO DICE]: «firmada» is the signed state;
-				// a section in changed_since_signoff keeps today's rule.
-				if signing := p.inSignoff[obj.ID]; signing || obj.State == "signed" {
+				// text, before B-11 looks at its version. P-40: a section
+				// in changed_since_signoff too (estados §1: steps arrive as
+				// proposals until the new signature; proposals are slice 4).
+				if signing := p.inSignoff[obj.ID]; signing || obj.State == "signed" || obj.State == "changed_since_signoff" {
 					pl.rejected = append(pl.rejected, rejectedText{section: item.SectionID, text: item.Text,
 						message: lockedMessage(item.SectionID, signing)})
 					continue

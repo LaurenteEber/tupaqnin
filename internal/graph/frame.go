@@ -63,9 +63,9 @@ type FrameDecision struct {
 	// Reason is your «porque»: the one of its answered card, or the one
 	// you wrote when you chose the other option.
 	Reason string `json:"reason,omitempty"`
-	// SignoffExplanation is your current signoff explanation.
-	// [EL DISEÑO NO LO DICE]: signing arrives in 1.7 and the signoff's
-	// fields are not named yet; until then it is always empty.
+	// SignoffExplanation is your explanation in the section's current
+	// signature, on each critical decision that signature explains
+	// (spec §9).
 	SignoffExplanation string `json:"signoff_explanation,omitempty"`
 	// Icon is the first criticality reason it meets, in the order
 	// figure · conclusion or recommendation · several sections · marked
@@ -190,6 +190,7 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 	// Each current critical decision, with the sections that use it:
 	// those it is used_in and those where a figure it covers is.
 	type item struct {
+		id       string
 		decision FrameDecision
 		anchors  map[string][]string // section id → anchors of its figures
 		in       map[string]bool
@@ -200,7 +201,7 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		if !ok || dec.State == "superseded" || dec.State == "revoked" {
 			continue
 		}
-		it := &item{anchors: map[string][]string{}, in: map[string]bool{}}
+		it := &item{id: dec.ID, anchors: map[string][]string{}, in: map[string]bool{}}
 		out, err := db.EdgesFrom(ctx, projectID, dec.ID)
 		if err != nil {
 			return Frame{}, err
@@ -251,12 +252,23 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		fs := FrameSection{Label: sec.Label, Title: bodyString(sec, "title"), Status: status,
 			Pendings: len(pendings), FirstLine: firstSentence(text), Decisions: []FrameDecision{}}
 		blocks := Blocks(text)
+		signed, hasSignature, err := CurrentSignoff(ctx, db, projectID, sec.ID)
+		if err != nil {
+			return Frame{}, err
+		}
+		explained := map[string]bool{}
+		for _, ref := range signed.Critical {
+			explained[ref.ID] = true
+		}
 		for _, it := range items {
 			if !it.in[sec.ID] {
 				continue
 			}
 			d := it.decision
 			d.Block = blockOf(blocks, it.anchors[sec.ID])
+			if hasSignature && explained[it.id] {
+				d.SignoffExplanation = signed.Explanation
+			}
 			fs.Decisions = append(fs.Decisions, d)
 		}
 		f.Sections = append(f.Sections, fs)

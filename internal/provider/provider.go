@@ -88,6 +88,9 @@ type ProviderError struct {
 	Code  string
 	Type  string
 	Param string
+	// HTTPStatus is the provider's HTTP status, 0 when the error did not
+	// come from an HTTP reply. B-20 (c) reads it, never the body's code.
+	HTTPStatus int
 }
 
 func (e *ProviderError) Error() string {

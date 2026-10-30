@@ -177,7 +177,8 @@ func (m *Meta) client() *http.Client {
 // it is never returned or logged (T-10).
 func (m *Meta) httpError(httpResp *http.Response) error {
 	raw, _ := io.ReadAll(io.LimitReader(httpResp.Body, 1<<20))
-	perr := &ProviderError{Code: fmt.Sprintf("http_%d", httpResp.StatusCode), Type: "http_error"}
+	perr := &ProviderError{Code: fmt.Sprintf("http_%d", httpResp.StatusCode), Type: "http_error",
+		HTTPStatus: httpResp.StatusCode}
 	var parsed struct {
 		Error *struct {
 			Code  *string `json:"code"`

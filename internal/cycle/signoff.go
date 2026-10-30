@@ -926,16 +926,24 @@ func SignoffAskMessage(sectionLabel, text string) string {
 		"return no new_text and no new decisions, and answer in note.\n\n" + text
 }
 
-func (r *Runner) runSignoffAsk(ctx context.Context, projectID, turnID, signLabel, sectionLabel, text string) error {
-	err := r.db.Write(ctx, projectID, func(tx *store.Tx) error {
-		_, err := tx.AppendEvent(store.EventInput{Type: store.EventHumanMessage, Actor: "human", TurnID: turnID,
-			Data: map[string]any{"text": text, "signoff": signLabel}})
+// recordAsk writes your question as human_message with the agent's
+// answer, not applied (Eber, 29-oct; spec §1.3: «tu mensaje en literal
+// y, después, su respuesta»).
+// [EL DISEÑO NO LO DICE]: history only grows, so the event is written
+// once the answer is back, with both; a failed call leaves the question
+// alone, unanswered.
+func (r *Runner) recordAsk(ctx context.Context, projectID, turnID, signLabel, text, answer string) error {
+	data := map[string]any{"text": text, "signoff": signLabel, "applied": false}
+	if answer != "" {
+		data["response"] = answer
+	}
+	return r.db.Write(ctx, projectID, func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventHumanMessage, Actor: "human", TurnID: turnID, Data: data})
 		return err
 	})
-	if err != nil {
-		r.fail(projectID, turnID, "turn_failed")
-		return err
-	}
+}
+
+func (r *Runner) runSignoffAsk(ctx context.Context, projectID, turnID, signLabel, sectionLabel, text string) error {
 	instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
 	if err != nil {
 		r.fail(projectID, turnID, "turn_failed")
@@ -960,8 +968,19 @@ func (r *Runner) runSignoffAsk(ctx context.Context, projectID, turnID, signLabel
 	}
 	resp, err := r.call(ctx, projectID, turnID, instanceID, input, newFieldFilter(stepStreamKeys))
 	if err != nil {
+		if werr := r.recordAsk(ctx, projectID, turnID, signLabel, text, ""); werr != nil {
+			return werr
+		}
 		r.fail(projectID, turnID, "provider_error")
 		return nil
+	}
+	var answer struct {
+		Note string `json:"note"`
+	}
+	_ = json.Unmarshal([]byte(resp.Text), &answer)
+	if err := r.recordAsk(ctx, projectID, turnID, signLabel, text, answer.Note); err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
 	}
 	r.publishStep(projectID, turnID, StepResult{Status: StatusAccepted}, resp.Text)
 	return nil

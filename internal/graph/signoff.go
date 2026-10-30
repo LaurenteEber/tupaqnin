@@ -201,6 +201,34 @@ func (idx *signoffIndex) latest(sectionID string) (store.Object, bool) {
 	return best, found
 }
 
+// CurrentSignoff is the section's current signature: its newest signoff
+// that was signed (spec §9: «la explicación de firma vigente»). A
+// signoff in progress, paused or cancelled is not a signature.
+func CurrentSignoff(ctx context.Context, db *store.DB, projectID, sectionID string) (SignoffBody, bool, error) {
+	idx, _, err := loadSignoffs(ctx, db, projectID)
+	if err != nil {
+		return SignoffBody{}, false, err
+	}
+	var best store.Object
+	found := false
+	for _, o := range idx.signoffs {
+		if bodyString(o, "section_id") != sectionID {
+			continue
+		}
+		if phase, _ := phaseOf(idx.events[o.ID]); phase != SignoffSigned {
+			continue
+		}
+		if !found || idx.created[o.ID] > idx.created[best.ID] {
+			best, found = o, true
+		}
+	}
+	if !found {
+		return SignoffBody{}, false, nil
+	}
+	body, err := ParseSignoff(best)
+	return body, err == nil, err
+}
+
 // SignoffPhaseOf is the phase of one signoff and, when cancelled, its
 // reason.
 func SignoffPhaseOf(ctx context.Context, db *store.DB, projectID, signID string) (SignoffPhase, string, error) {

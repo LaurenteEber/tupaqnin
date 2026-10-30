@@ -218,7 +218,10 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
                   {v.decision} · {t(`signoff.verdict.${v.verdict}`)}
                   {v.missing && <> · {v.missing}</>}
                   {v.passage && <> · «{v.passage}»</>}
-                  {v.verdict !== "match" && v.block > 0 && (
+                  {/* P-41: the history shows the decision, its contrast and your
+                      reason, so it is offered only once the signoff is no longer
+                      in progress (signed, paused or left; spec §9). */}
+                  {!active && v.verdict !== "match" && v.block > 0 && (
                     <button type="button" className="small" onClick={() => setHistoryBlock(v.block)}>
                       {t("signoff.history")}
                     </button>
@@ -281,7 +284,7 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
         )}
       </ol>
 
-      {historyBlock > 0 && (
+      {!active && historyBlock > 0 && (
         <HistoryPanel
           lang={lang}
           projectID={projectID}

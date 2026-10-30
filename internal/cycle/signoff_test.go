@@ -477,7 +477,7 @@ func TestB20c_WonderUnavailableFallsBackToSpark13XHigh(t *testing.T) {
 	db := openTemp(t)
 	seedSignable(t, db, true)
 	prov := &unavailableWonder{fake: provider.NewFake(signoffFixture(t, "round1-all-match")),
-		err: &provider.ProviderError{Code: "http_503", Type: "http_error"}}
+		err: &provider.ProviderError{Code: "http_503", Type: "http_error", HTTPStatus: 503}}
 	r := cycle.NewRunner(db, prov, nil, nil)
 	g := cycle.NewGate(db)
 	sign := openSignoff(t, g)
@@ -503,7 +503,7 @@ func TestB20c_ValidationErrorIsATurnErrorNotUnavailable(t *testing.T) {
 	db := openTemp(t)
 	seedSignable(t, db, true)
 	prov := &unavailableWonder{fake: provider.NewFake(signoffFixture(t, "round1-all-match")),
-		err: &provider.ProviderError{Code: "http_400", Type: "invalid_request_error"}}
+		err: &provider.ProviderError{Code: "http_400", Type: "invalid_request_error", HTTPStatus: 400}}
 	r := cycle.NewRunner(db, prov, nil, nil)
 	g := cycle.NewGate(db)
 	sign := openSignoff(t, g)
@@ -523,11 +523,11 @@ func TestB20c_UnavailableIsTimeout5xxOr429Only(t *testing.T) {
 		want bool
 	}{
 		{context.DeadlineExceeded, true},
-		{&provider.ProviderError{Code: "http_500"}, true},
-		{&provider.ProviderError{Code: "http_503"}, true},
-		{&provider.ProviderError{Code: "http_429"}, true},
-		{&provider.ProviderError{Code: "http_400"}, false},
-		{&provider.ProviderError{Code: "http_422"}, false},
+		{&provider.ProviderError{Code: "server_error", HTTPStatus: 500}, true},
+		{&provider.ProviderError{Code: "http_503", HTTPStatus: 503}, true},
+		{&provider.ProviderError{Code: "rate_limit", HTTPStatus: 429}, true},
+		{&provider.ProviderError{Code: "http_400", HTTPStatus: 400}, false},
+		{&provider.ProviderError{Code: "invalid", HTTPStatus: 422}, false},
 		{errors.New("other"), false},
 	} {
 		if got := provider.Unavailable(c.err); got != c.want {
@@ -632,5 +632,60 @@ func TestB14_AskingTheAgentFromTheSignoffWritesNoText(t *testing.T) {
 	}
 	if step := pub.step(t); step["status"] != "accepted" || step["note"] == "" {
 		t.Fatalf("published step: %v", step)
+	}
+}
+
+// The question is your human_message and the answer stays in the history
+// next to it, not applied (Eber, 29-oct).
+func TestB14_AskTheAgentRecordsYourQuestionAndItsAnswerNotApplied(t *testing.T) {
+	db, runner, _, _ := newCaptureRunner(t, loadAppFixture(t, "01-principal-valid.json"))
+	seedSignable(t, db, true)
+	sign := openSignoff(t, cycle.NewGate(db))
+	if err := runner.RunSignoffAsk(context.Background(), "p1", "turn-a", sign, "¿Por qué se dejan fuera estudios?"); err != nil {
+		t.Fatalf("RunSignoffAsk: %v", err)
+	}
+	msgs := eventsOfType(t, db, store.EventHumanMessage)
+	if len(msgs) != 1 {
+		t.Fatalf("human_message: %d, want 1", len(msgs))
+	}
+	data := eventData(t, msgs[0])
+	if data["text"] != "¿Por qué se dejan fuera estudios?" || data["applied"] != false ||
+		!strings.Contains(data["response"].(string), "Intenté una primera sección mínima") {
+		t.Fatalf("human_message data: %v, want the question, its answer and applied false", data)
+	}
+}
+
+// Spec §9: the frame shows your current signoff explanation on the
+// critical decision the signoff explains.
+func TestM1_FrameShowsTheCurrentSignoffExplanation(t *testing.T) {
+	db := openTemp(t)
+	seedSignable(t, db, true)
+	g := cycle.NewGate(db)
+	ctx := context.Background()
+	sign := openSignoff(t, g)
+	frameDecision := func() graph.FrameDecision {
+		f, err := graph.ComputeFrame(ctx, db, "p1", graph.FrameLayers{})
+		if err != nil || len(f.Sections) != 1 || len(f.Sections[0].Decisions) != 1 {
+			t.Fatalf("frame: %+v, %v", f, err)
+		}
+		return f.Sections[0].Decisions[0]
+	}
+	const explanation = "Comparo solo estudios con el mismo tamaño porque si no la diferencia es del filtro."
+	if err := g.RecordExplanation(ctx, "p1", sign, explanation); err != nil {
+		t.Fatalf("RecordExplanation: %v", err)
+	}
+	if d := frameDecision(); d.SignoffExplanation != "" {
+		t.Fatalf("explanation shown while signing: %q (not yet a signoff)", d.SignoffExplanation)
+	}
+	round(t, g, sign, "round1-all-match")
+	if err := g.RecordAnswers(ctx, "p1", sign, "Supongo que todos cuentan desde el mismo tamaño mínimo.", ""); err != nil {
+		t.Fatalf("RecordAnswers: %v", err)
+	}
+	round(t, g, sign, "round2-all-match-answers")
+	if err := g.Sign(ctx, "p1", sign); err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	if d := frameDecision(); d.SignoffExplanation != explanation {
+		t.Fatalf("frame explanation: %q, want the signed one", d.SignoffExplanation)
 	}
 }

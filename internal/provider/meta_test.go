@@ -228,3 +228,19 @@ func TestB5_MetaCountTokensUsesTheCountingEndpoint(t *testing.T) {
 		t.Fatalf("CountTokens: got %d, want 42", n)
 	}
 }
+
+// B-20 (c): a 5xx whose body names Meta's own error code is still a
+// model that is not available; the status lives in its own field.
+func TestB20c_HTTPStatusIsKeptWhenTheBodyNamesItsOwnCode(t *testing.T) {
+	m := cannedMeta(nil, http.StatusServiceUnavailable, "application/json",
+		`{"error":{"code":"server_overloaded","type":"server_error","message":"x"}}`, nil, nil)
+	_, err := m.Respond(context.Background(), provider.Request{ProjectID: "p1", Model: provider.ModelWonder10,
+		Input: []json.RawMessage{json.RawMessage(`{"role":"user","content":"hi"}`)}}, nil)
+	var perr *provider.ProviderError
+	if !errors.As(err, &perr) || perr.HTTPStatus != http.StatusServiceUnavailable || perr.Code != "server_overloaded" {
+		t.Fatalf("ProviderError: %+v (%v), want status 503 and Meta's code", perr, err)
+	}
+	if !provider.Unavailable(err) {
+		t.Fatal("a 503 with Meta's own code must count as not available")
+	}
+}

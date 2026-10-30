@@ -407,3 +407,25 @@ func TestB14_StepOnASectionNotInSignoffStillApplies(t *testing.T) {
 		t.Fatalf("figures: %d, want 1", len(figures))
 	}
 }
+
+// P-40: a section in changed_since_signoff rejects the agent's text like
+// a signed one (estados §1: until the new signature, steps arrive as
+// proposals, slice 4).
+func TestP40_StepOnAChangedSinceSignoffSectionRejectsOnlyThatText(t *testing.T) {
+	db := seedStepProject(t)
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		sec, err := tx.GetObject(context.Background(), "p1", "sec-1")
+		if err != nil {
+			return err
+		}
+		var b map[string]any
+		_ = json.Unmarshal(sec.Body, &b)
+		_, err = tx.UpdateObject(sec.ID, sec.CurrentVersion, "changed_since_signoff", b, store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("change sec-1: %v", err)
+	}
+	requireOnlyLockedTextRejected(t, db,
+		applyRecorded(t, db, json.RawMessage(strings.Replace(lockedStep, `"base_version": 1`, `"base_version": 2`, 1))), 2)
+}
