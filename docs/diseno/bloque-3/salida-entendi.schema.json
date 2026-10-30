@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "required": [
     "understood",
+    "project_title",
     "criteria",
     "material_readings",
     "sections"
@@ -16,10 +17,14 @@
       "description": "Lo que entendió del pedido, para el destinatario del pedido. Sin códigos internos.",
       "$ref": "#/$defs/text"
     },
+    "project_title": {
+      "description": "Título que propone para el proyecto, en el idioma del pedido, de 3 a 8 palabras; el humano lo edita (U-1).",
+      "type": "string"
+    },
     "criteria": {
-      "description": "Una entrada por cada criterio del pedido: cómo lo aplicará, con un caso que cuenta y otro que no.",
+      "description": "Una entrada por cada criterio del pedido: cómo lo aplicará, con un caso que cuenta y otro que no. Vacío si el pedido no trae criterios (B-23).",
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -84,9 +89,9 @@
           "role": {
             "enum": [
               "conclusion",
-              "recommendation",
               "other"
-            ]
+            ],
+            "description": "conclusion si la sección concluye o recomienda («aquí se concluye», R-8); other si no."
           }
         }
       }

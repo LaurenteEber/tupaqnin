@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Pantallas (bocetos)
-estado: v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
+estado: v0.4 · 30-oct · «+ Sección», edición del título y de «qué debe abordar», y reordenar (K-17) · v0.3 · 30-oct · precisiones U-1 a U-6, R-5 y R-8 · v0.3 · 29-oct · bocetos de la rebanada 2: «por aclarar», P6 con la defensa, avisos en el texto y la línea de vuelta (backlog-r2) · v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
 relacion: dibuja funcionalidades.md (v1.0) sobre bloque-3.md §4. Usa fichas §2 y §8.2, flujos §3 (firma), especificación §9 (el marco) y las decisiones B3-9 y B3-18 a B3-21. No decide reglas: solo dónde va cada cosa y qué datos pide cada vista. Es la entrada de la arquitectura
 ---
 
@@ -73,9 +73,11 @@ flowchart LR
 
 | Zona | Haces | Lee |
 |---|---|---|
-| Izquierda · el marco | cambiar de proyecto · desplegar una decisión (registra `decision_seen`, `frame`) · ir a la historia o a la tarjeta · ir a lo que te toca · filtro «solo lo que no viste» | `frame(project)` (espec. §9): pedido, destinatario y premisa en literal; criterios y sus casos; secciones con estado, primera línea y decisiones críticas; pendientes del humano. La línea de vuelta y el «sin ver» exacto, en la rebanada 2 |
+| Izquierda · el marco | cambiar de proyecto · 4q crear una sección y reordenarlas · desplegar una decisión (registra `decision_seen`, `frame`) · ir a la historia o a la tarjeta · ir a lo que te toca · filtro «solo lo que no viste» | `frame(project)` (espec. §9): pedido, destinatario y premisa en literal; criterios y sus casos; secciones con estado, primera línea y decisiones críticas; pendientes del humano. La línea de vuelta y el «sin ver» exacto, en la rebanada 2 |
 | Centro · conversación | 2a escribir el pedido · 2b subir fuentes · 2d y 2e confirmar o corregir el «Entendí» · 3a enviar un mensaje · 3d leer la nota · 4d responder tarjetas | stream del turno (texto parseado, triaje, nota; nunca el JSON crudo, P-28), el «Entendí», las tarjetas abiertas |
 | Derecha · documento | 4a editar · 6a clic en un párrafo · pedir firmar | texto vigente, cifras y citas vinculadas, avisos, historia del bloque (P5), lo gastado y el último triaje (traza) |
+
+**Precisiones del 30-oct (`../_propuesta-30oct-fuentes-y-flujo.md`):** el título del proyecto lo propone el «Entendí» y se edita en la cabecera (U-1) · la cabecera de la conversación muestra proveedor, modelo, esfuerzo, contexto usado y lo gastado; la firma, el modelo que contrasta (U-2) · el esqueleto del marco es la única navegación entre secciones; la columna derecha muestra solo la sección elegida, sin pestañas (U-3) · una sola familia tipográfica; el documento se distingue por tamaño, interlineado y ancho (U-4) · la conversación muestra toda su historia al abrir el proyecto (U-5) · «Lo que entendí» es una sola tarjeta: lo entendido, cómo se juzga (si hay criterios), el plan con la marca «aquí se concluye», y los botones «Confirmar» y «Corregir» (no condicionan el arranque, B-17); sin menús de rol (U-6, R-8) · las respuestas del agente a tus preguntas aparecen en la conversación (R-5) · **«+ Sección» (K-17, P-49):** pide título, la marca «aquí se concluye» (opcional; sin marcar, el rol lo propone el principal) y «qué debe abordar» (opcional, hasta 60 palabras); en la columna derecha, el título y «qué debe abordar» se editan con un clic bajo la cabecera de la sección; en el esqueleto del marco, cada sección tiene «subir» y «bajar». **Estas precisiones mandan sobre `boceto-ui.html`**, que es del 29-oct (letra del documento, «Entendí» con botones por caso, cabecera sin título ni modelo).
 
 **Reglas que se mantienen:** el chat no confirma nada (una tarjeta solo se cierra con opción y «porque»); nada bloquea; la firma va a pantalla completa y oculta el marco y el texto (P7); ningún id interno a la vista (regla 7). En pantallas angostas, las tres columnas se apilan.
 
@@ -142,6 +144,26 @@ No bloquea: si no respondes, el trabajo sigue y los casos quedan sin confirmar (
 |---|---|
 | 4d elegir y escribir el «porque» · 4b si es tu edición crítica: solo el «porque», o «fue un error · deshacer» [4] · 4e responder un «por aclarar», con sus opciones y variantes [2] | la decisión: enunciado, en vez de, elegiría si, motivo de criticidad, secciones que la usan. Responder registra el evento y `decision_seen` (`card`) |
 
+**«Por aclarar» [2]**, también como tarjeta en la conversación y en «Te toca» del marco:
+
+```
+┌─ Por aclarar · solo tú decides · bloquea «Estudios incluidos» ┐
+│ ¿El piloto D1 (agua de una planta real, medida en           │
+│ laboratorio) cuenta como «estudio de campo»?                │
+│ ( ) Cuenta     · contraste · consecuencia · riesgo          │
+│ ( ) No cuenta  · contraste · consecuencia · riesgo          │
+│ Variantes que el agente avanza sin elegir ▸                 │
+│ «La última entrega lo trata como campo · no lo declaró el   │
+│  agente»                                  ← solo si saltó   │
+│ Porque: [__________________________________________]        │
+│ [ Aplicar ]   ← solo con opción y «porque»; «ok» no cuenta  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Haces | Lee |
+|---|---|
+| 4e elegir una opción con «porque» · ver las variantes | la pregunta, cada opción con su contraste, su consecuencia y su riesgo, lo que bloquea (sección o decisión), las variantes y, si nació del comprobador, los dos pasajes y la marca «no lo declaró el agente» (bloque-2 §5). Responder registra el evento y `act_timed` |
+
 ## P5 · Historia de un párrafo, en un panel lateral [1]
 
 ```
@@ -157,9 +179,76 @@ No bloquea: si no respondes, el trabajo sigue y los casos quedan sin confirmar (
 |---|---|
 | 6a abrir desde el párrafo o desde una decisión del marco | versiones de la sección con su evento: quién, cuándo, decisión, contraste, «porque», lo descartado. Abrirla registra `decision_seen` (`history`) |
 
-## P6 · Informe de parada, en el panel [2]
+## P6 · Informe de parada, en la conversación [2]
 
-Primero la respuesta; después hecho · verificado · no verificado · por aclarar y tarjetas · siguiente (fichas §7). Con las preguntas del destinatario (5b), «sigue» o «abordémoslo» (5c), y «firmar» si no queda nada. Se bocetea con el backlog de la rebanada 2, junto con la vuelta tras días (8a y 8b).
+```
+┌─ El agente se detuvo · Síntesis ────────────────────────────┐
+│ Síntesis está lista para firmar; te toca 1 «por aclarar».   │ ← primero la respuesta
+│ ▸ Hecho (3)   ▸ Verificado (4)   ▸ No verificado (1)        │
+│ ▸ Por aclarar y tarjetas (1) → «¿El piloto D1 cuenta…?»     │
+│ ▸ Decisiones que no viste (5): esquema                       │
+│ Siguiente: escribir «Conclusiones» con la regla de 20 micras │
+│ ─ Preparación de la defensa · preguntas probables del comité │
+│   · ¿Por qué no comparar los conteos tal cual?  [Sí] [No]   │
+│   · ¿Cuántos estudios quedan con 20 micras?      [Sí] [No]   │
+│   · No cubre: el agua de pozo                    [Sí] [No]   │
+│ [ Sigue ]  [ Abordémoslo ]  [ Firmar «Síntesis» ]            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Haces | Lee |
+|---|---|
+| 5a leer el informe (abrirlo cuenta como visto) · 5b responder cada pregunta del destinatario: «Sí» la vuelve una instrucción tuya para el siguiente turno; «No» queda como «no abordado, decidido por ti»; sin respuesta, sigue abierta · 5c «Sigue», «Abordémoslo» o «Firmar» (este último solo si no queda ningún pendiente ni cambio sin cerrar) | el último `stop_report` y si lo viste; hecho, verificado, no verificado, por aclarar y tarjetas, siguiente y el esquema de lo no visto (fichas §7, `salida-informe.schema.json`); las preguntas del destinatario abiertas de la sección (`audience_question`) |
+
+**La defensa no bloquea:** con preguntas abiertas se firma igual, y la firma no las descarta (estados §9). Solo aparece en la parada que propone firmar una sección que lee alguien más que tú o que tiene conclusiones o recomendaciones.
+
+## Avisos en el texto [2]
+
+En la columna del documento, bajo el título de cada sección y en su lugar dentro del texto:
+
+```
+┌ Conclusiones · escrita con lo anterior ─────────────────────┐
+│ Cambió algo que usa (1)                                     │
+│  · la regla de comparación de «Síntesis» cambió             │
+│    [ Actualizado ]  [ Revisado, no requiere cambio ▸ porque ]│
+│ …texto…  ‿‿‿‿‿‿‿‿‿‿‿‿‿‿‿  ← pasaje subrayado: lleva a su   │
+│                             «por aclarar» o a su pendiente  │
+│ Pendiente del agente: un código interno en el texto         │
+│ [ Firmar sección ]  ← inactivo: 1 cambio sin cerrar          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Haces | Lee |
+|---|---|
+| cerrar un cambio: «Actualizado» (después de editar) o «Revisado, no requiere cambio» con «porque» · clic en un pasaje subrayado | estado de la sección; su lista de cambios sin cerrar, cada uno con qué cambió y dónde; los pasajes de sus «por aclarar» y pendientes del agente; ningún id a la vista |
+
+## Línea de vuelta y «sin ver» [2]
+
+Arriba del marco, solo si volviste tras 3 días o más:
+
+```
+┌ Izquierda · el marco ───────────────────────┐
+│ ┌ Volviste tras 10 días ──────────────────┐ │
+│ │ Quedaste en «Síntesis»: respondiste la  │ │
+│ │  tarjeta de la regla de comparación     │ │
+│ │ Cambió: 7 → ver la historia             │ │
+│ │ Te toca: 2 → informe sin ver · 1 por    │ │
+│ │  aclarar                                │ │
+│ └─────────────────────────────────────────┘ │
+│ Para qué · Cómo se juzga                    │
+│ Esqueleto                                   │
+│  Síntesis · lista                           │
+│   • Comparar con 20 micras  ← punto: no la  │
+│     viste en ninguna vía                    │
+│ [ Solo lo que no viste ]                    │
+└─────────────────────────────────────────────┘
+```
+
+| Haces | Lee |
+|---|---|
+| 8a desde la línea, ir a lo que te toca o a la historia de lo que cambió · desplegar una decisión con punto (deja de tenerlo) · filtro «solo lo que no viste» | `frame(project)` con `return_line` (última sección y último acto tuyo, número de cambios desde tu última visita, número de tus pendientes) y el «sin ver» de cada decisión crítica (espec. §9) |
+
+**En vueltas más cortas (8b)** no hay línea: la conversación abre con el informe sin ver arriba y, debajo, lo detectado desde tu última visita, tus ediciones incluidas (fichas §2, Reentrada).
 
 ## P7 · Firma, a pantalla completa y sin el marco [1]
 

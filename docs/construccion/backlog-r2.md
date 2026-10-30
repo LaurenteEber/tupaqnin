@@ -1,12 +1,12 @@
 ---
 titulo: Backlog de construcción · rebanada 2 (protecciones)
-estado: v0.2 · 29-oct · corregido tras la revisión fría (6 hallazgos) y la validación como implementador (8 huecos, 4 choques con el código): B-33 a B-35 nuevas; B-30, 2.1 a 2.8 y 2.10 precisadas · v0.1 · 29-oct · borrador
+estado: 30-oct · crear y reordenar secciones (K-17) pasan a la pieza 1.9b de la rebanada 1 · v0.2 · 29-oct · corregido tras la revisión fría (6 hallazgos) y la validación como implementador (8 huecos, 4 choques con el código): B-33 a B-35 nuevas; B-30, 2.1 a 2.8 y 2.10 precisadas · v0.1 · 29-oct · borrador
 relacion: aplica _plan-hackathon.md §1 (rebanada 2, con lo que suma H-3), H-1 (caso 5) y B2-5 (sondas, B2-7); implementa bloque-1-fichas.md §2, §3, §7 y §8, bloque-1-estados.md §1, §4 y §9, bloque-1-flujos.md §1, bloque-3-especificacion.md §1.3, §2 a §5 y §9, y pantallas.md (P4, P6 y la disposición general). Mismo formato y mismo «Retorno» que backlog-r1.md. Las reglas para el agente siguen en ../../AGENTS.md
 ---
 
 # Backlog · rebanada 2
 
-**Respuesta:** 10 piezas, de la 2.1 a la 2.10. Al terminar, **tupaqnin protege, no solo registra**: los 10 perfiles apurados de las simulaciones se frenan donde dice el diseño (con los frenos que fijamos antes de la 2.10), y el caso 5 suma el «por aclarar» sobre qué cuenta como «campo» y la cita cuyo pasaje no sostiene lo que se afirma (H-1). **Horas: 37–53 `[inferencia]`**; el plan le da dos días (31-oct y 1-nov). No se recorta: el número va a Eber (handoff §3.5).
+**Respuesta:** 10 piezas, de la 2.1 a la 2.10. Al terminar, **tupaqnin protege, no solo registra**: los 10 perfiles apurados de las simulaciones se frenan donde dice el diseño (con los frenos que fijamos antes de la 2.10), y el caso 5 suma el «por aclarar» sobre qué cuenta como «campo» y la cita cuyo pasaje no sostiene lo que se afirma (H-1). **Horas: 36–52 `[inferencia]`**; el plan le da dos días (31-oct y 1-nov). No se recorta: el número va a Eber (handoff §3.5).
 
 **Decisiones:** B-21 a B-35 (abajo), con la columna de Eber vacía; la 2.1 trae además una precisión de B-15 para que la adoptes. **Listo de nuestro lado:** los tres esquemas de salida nuevos (`salida-comprobador`, `salida-informe` y `salida-juez-defensa`, en `docs/diseno/bloque-3/`). **Falta de nuestro lado:** los bocetos de P4 («por aclarar»), P6, los avisos en el texto, la línea de vuelta y la preparación de la defensa en `pantallas.md` (van con este backlog), fijar el paso y el freno de cada uno de los 10 guiones del perfil apurado (2.10) y pasarlos al repo de código. `stretch` entra en `salida-principal.schema.json` al adoptar B-28.
 
@@ -28,7 +28,7 @@ relacion: aplica _plan-hackathon.md §1 (rebanada 2, con lo que suma H-3), H-1 (
 | Preparación de la defensa | 2.6 |
 | Avisos entre secciones y por nueva versión de una fuente, con su lista de cambios (A-1) · E-4 | 2.2 |
 | Reentrada · la línea de vuelta y el «sin ver» exacto (B3-9) | 2.7 |
-| Cambiar el destinatario o un criterio · marcar una decisión como crítica · efecto del rol y del destinatario sobre lo firmado (K-13) · descargar el `.md` · crear una sección a mano (K-17) | 2.8 (marcar crítica: 2.1) |
+| Cambiar el destinatario o un criterio · marcar una decisión como crítica · efecto del rol y del destinatario sobre lo firmado (K-13) · descargar el `.md` | 2.8 (marcar crítica: 2.1) |
 | Avisos en el texto (espec. §8) | 2.9 |
 | «Listo cuando»: los perfiles apurados se frenan donde dice el diseño | 2.10 |
 
@@ -58,7 +58,7 @@ flowchart LR
 | P6 | `GET /stop-report` (el último, con si lo viste) · `POST /stop-report/seen` · `POST /stop-report/continue` `{text}` → `{turn_id}` | `stop_report` (visto) · `decision_seen` (`report`) · `human_message` |
 | P6 | `POST /audience-questions/{label}/answer` `{answer: yes · no}` | `state_changed` · `audience_question_declined` |
 | Documento | `GET /sections/{label}/changes` · `POST /changes/{label}/close` `{result: updated · reviewed_unchanged, reason}` | `usage_change` |
-| Documento | `POST /sections` `{title, role}` (`role` puede ir vacío, K-17) · `GET /export.md` | `state_changed` · `role_changed` |
+| Documento | `GET /export.md` (secciones en el orden de `position`, K-17) | `state_changed` · `role_changed` |
 | Pedido | `PUT /request/audience` `{audience}` · `PUT /criteria/{label}` `{text}` · `POST /sources` suma `replaces` (etiqueta de la fuente que reemplaza) | `audience_changed` · `state_changed` · `source_new_version` |
 | Marco | `PUT /decisions/{label}/critical` `{marked}` · `GET /frame` suma `return_line` y el «sin ver» exacto | `marked_critical` |
 
@@ -194,17 +194,17 @@ flowchart LR
 | **No hacer** | La vuelta al terminar «continúa hasta terminar» (rebanada 4). «Reconstruye antes de mirar» (M-3) y la tesis por modelo (M-4): hoja de ruta. Abrir el marco desde la firma |
 | **Si algo no está** | `[EL DISEÑO NO LO DICE]` y una línea en `elecciones-agente.md` |
 
-### 2.8 · Acciones de H-3: destinatario, criterio, sección a mano y descarga
+### 2.8 · Acciones de H-3: destinatario, criterio y descarga
 
 | Campo | Contenido |
 |---|---|
-| **Qué** | Cambias el destinatario o un criterio después de enviar el pedido, creas una sección a mano y descargas el documento en `.md` con lo no firmado marcado. Cambiar el destinatario no toca lo firmado; cambiar un criterio dispara la sonda de contradicción sobre lo escrito |
-| **Implementa** | H-3 (rebanada 2) · fichas §2 (Tu turno: cambias el rol, creas una sección) · estados §6 (criterio, rol) · K-13 (destinatario) · K-17 · K-10 b · B-31 · B-32 |
+| **Qué** | Cambias el destinatario o un criterio después de enviar el pedido y descargas el documento en `.md` con lo no firmado marcado. Cambiar el destinatario no toca lo firmado; cambiar un criterio dispara la sonda de contradicción sobre lo escrito |
+| **Implementa** | H-3 (rebanada 2) · fichas §2 (Tu turno: cambias el rol; crear una sección pasó a la 1.9b) · estados §6 (criterio, rol) · K-13 (destinatario) · K-10 b · B-31 · B-32 |
 | **Leer** | Fichas §2 (Tu turno) · estados §6 · espec. §1.1 · `docs/diseno/bloque-3/funcionalidades.md` (hueco 6) · `docs/diseno/_plan-hackathon.md` (H-3) |
-| **Interfaz** | `PUT /request/audience` con `audience_changed`; no cambia ningún estado de sección · `PUT /criteria/{label}` crea la versión nueva del criterio (solo tuya) y encola la sonda de B-31 en el comprobador (2.3) · `POST /sections` `{title, role}` **reemplaza la ruta que hoy existe** (`server/api.go`, que fija `other` y `proposed`, sin título): pide título; nace en `draft`, vacía; un rol elegido nace `confirmed`; vacío, no se fija y lo propone el principal en su siguiente paso (K-17) · el rol: la lógica ya está en 1.4 (K-13 con K-6); aquí se prueba de punta a punta · cambiar el destinatario no mueve lo firmado · `GET /export.md`: las secciones en orden con su título y texto vigente, la marca de B-32 en las no firmadas, sin ids ni historia; nombre del archivo desde `project.name` |
-| **Listo cuando** | Prueba: cambiar el destinatario de un proyecto con una sección firmada la deja `signed` · prueba: cambiar a conclusión el rol de una sección firmada con una decisión del agente la pasa a `changed_since_signoff` y abre su tarjeta (K-13) · prueba: cambiar un criterio crea su versión nueva y la siguiente llamada al comprobador lleva la sonda contra el texto de las secciones afectadas (B-31) · prueba: una sección creada con rol queda `confirmed`; sin rol, el siguiente paso puede proponerlo · prueba: el `.md` de un proyecto con una sección firmada y otra no marca solo la segunda y no contiene ninguna etiqueta |
+| **Interfaz** | `PUT /request/audience` con `audience_changed`; no cambia ningún estado de sección · `PUT /criteria/{label}` crea la versión nueva del criterio (solo tuya) y encola la sonda de B-31 en el comprobador (2.3) · el rol: la lógica ya está en 1.4 (K-13 con K-6); aquí se prueba de punta a punta · cambiar el destinatario no mueve lo firmado · `GET /export.md`: las secciones en el orden de `position` (K-17) con su título y texto vigente, la marca de B-32 en las no firmadas, sin ids ni historia; nombre del archivo desde `project.name` |
+| **Listo cuando** | Prueba: cambiar el destinatario de un proyecto con una sección firmada la deja `signed` · prueba: cambiar a conclusión el rol de una sección firmada con una decisión del agente la pasa a `changed_since_signoff` y abre su tarjeta (K-13) · prueba: cambiar un criterio crea su versión nueva y la siguiente llamada al comprobador lleva la sonda contra el texto de las secciones afectadas (B-31) · prueba: el `.md` de un proyecto con una sección firmada y otra no marca solo la segunda y no contiene ninguna etiqueta |
 | **Depende de** | 2.2 · 2.3 · B-31 · B-32 |
-| **No hacer** | Quitar o reordenar secciones (fuera del hackathon, K-17). Exportar a otros formatos |
+| **No hacer** | Crear o reordenar secciones (ya en la 1.9b, K-17). Quitarlas (fuera del hackathon). Exportar a otros formatos |
 | **Si algo no está** | `[EL DISEÑO NO LO DICE]` en el retorno |
 
 ### 2.9 · Avisos en el texto
@@ -244,7 +244,7 @@ flowchart LR
 
 ## Horas `[inferencia]`
 
-2.1: 4–6 · 2.2: 5–7 · 2.3: 5–7 · 2.4: 4–6 · 2.5: 4–6 · 2.6: 2–3 · 2.7: 3–5 · 2.8: 3–4 · 2.9: 3–4 · 2.10: 4–5. **Total: 37–53 h.**
+2.1: 4–6 · 2.2: 5–7 · 2.3: 5–7 · 2.4: 4–6 · 2.5: 4–6 · 2.6: 2–3 · 2.7: 3–5 · 2.8: 2–3 · 2.9: 3–4 · 2.10: 4–5. **Total: 36–52 h.**
 
 **Lectura honesta (sin propuesta de recorte, handoff §3.5):** el plan le da a la rebanada 2 dos días, ≈ 16–18 h. A la rebanada 1 le quedan 1.5, 1.5b, 1.6, 1.7 y 1.8 (≈ 17–25 h de sus 34–48). Desde hoy hasta el 4-nov hay ≈ 45–50 h útiles `[inferencia]` y suman ≈ 54–78 h solo con las rebanadas 1 y 2, antes de la 3, la 4 y «Entrega» (14–18 h). Con agentes en paralelo parte se solapa (2.6, 2.8 y 2.9 son casi independientes). La decisión es de Eber.
 

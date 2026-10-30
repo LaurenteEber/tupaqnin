@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Inventario de funcionalidades
-estado: v1.0 · 28-oct · terminado: validado por un auditor independiente contra las decisiones del 28-oct (1g, 1h y 4q nuevas; 1c, 2e, 2f, 3j y 4h corregidas; leyenda con «fuera del hackathon») · v0.7 · 28-oct · rol de «+ Sección» sin valor por defecto (K-17) · v0.6 · 28-oct · caso de demo: el 5 (H-1); pedir un análisis de sensibilidad sigue funcionando (H-3) · v0.5 · 28-oct · K-17, H-3 y H-4 aplicadas: todas las acciones tienen rebanada o quedan fuera; queda abierto el caso de demo · v0.4 · 28-oct · B3-18 a B3-22 adoptadas: inicio, cuentas, crear proyecto, topes y nota del agente (1a a 1f, 3d, 3m, 9a); quedan 3 huecos · v0.3 · 28-oct · reverificada (21 observaciones resueltas; la alerta de edición sospechosa va en su fila) · v0.2 · 28-oct · borrador para Eber · corregido tras la auditoría contra los bloques 1 y 2 (15 omisiones y 6 incoherencias, todas verificadas contra su cita) · v0.1 · 28-oct · solo el inventario; los bocetos de pantallas vienen después
+estado: v1.2 · 30-oct · 4q precisada y adelantada a la rebanada 1 (K-17, P-49) · v1.1 · 30-oct · 2d, 2e y 4q precisadas; 2j a 2m nuevas (propuesta del 30-oct) · v1.0 · 28-oct · terminado: validado por un auditor independiente contra las decisiones del 28-oct (1g, 1h y 4q nuevas; 1c, 2e, 2f, 3j y 4h corregidas; leyenda con «fuera del hackathon») · v0.7 · 28-oct · rol de «+ Sección» sin valor por defecto (K-17) · v0.6 · 28-oct · caso de demo: el 5 (H-1); pedir un análisis de sensibilidad sigue funcionando (H-3) · v0.5 · 28-oct · K-17, H-3 y H-4 aplicadas: todas las acciones tienen rebanada o quedan fuera; queda abierto el caso de demo · v0.4 · 28-oct · B3-18 a B3-22 adoptadas: inicio, cuentas, crear proyecto, topes y nota del agente (1a a 1f, 3d, 3m, 9a); quedan 3 huecos · v0.3 · 28-oct · reverificada (21 observaciones resueltas; la alerta de edición sospechosa va en su fila) · v0.2 · 28-oct · borrador para Eber · corregido tras la auditoría contra los bloques 1 y 2 (15 omisiones y 6 incoherencias, todas verificadas contra su cita) · v0.1 · 28-oct · solo el inventario; los bocetos de pantallas vienen después
 relacion: deriva de bloque-1.md, bloque-1-fichas.md (§1, §2, §3, §5, §8.2), bloque-1-estados.md, bloque-1-flujos.md, K-16, bloque-2.md, bloque-3.md §4, bloque-3-especificacion.md §1.7, §6 y §8, bloque-3-decisiones.md (B3-18 a B3-22), bloque-3-decisiones.md (P3), _plan-hackathon.md §1 y §4 y backlog.md (0.10). No decide nada nuevo: lo que no tiene fuente queda en «Huecos»
 ---
 
@@ -43,8 +43,12 @@ flowchart LR
 | 2a | Tú escribes el pedido, el destinatario, los criterios y tu idea (o «exploratorio») | 1 | fichas §2 |
 | 2b | Tú subes material y fuentes, incluido un cálculo como fuente | 1 | F-1 |
 | 2c | Tú subes una nueva versión de una fuente; App avisa a las secciones que la usan | 2 | A-1 · estados §1 |
-| 2d | App muestra el «Entendí» con un caso que cuenta y otro que no por criterio; tú corriges o confirmas | 1 | fichas §2 |
-| 2e | Tú confirmas el rol de cada sección (si no respondes, rige lo propuesto) | 1 | K-2 · H-3; la criticidad lo usa |
+| 2d | App muestra el «Entendí» con un caso que cuenta y otro que no por criterio (si el pedido no trae criterios, sin casos, B-23); tú corriges o confirmas | 1 | fichas §2 · B-23 |
+| 2e | Tú confirmas el plan del «Entendí» con un botón, y quitas o pones la marca «aquí se concluye» en cada sección (si no respondes, rige lo propuesto) | 1 (1.9) | K-2 · R-8 · U-6; la criticidad lo usa |
+| 2j | Tú editas el título del proyecto, que propone el «Entendí» | 1 (1.9) | U-1 |
+| 2k | El agente te responde en la conversación cuando le preguntas algo; no escribe esa respuesta en el documento | 1 (1.9) | R-5 |
+| 2l | Ves toda la conversación al abrir el proyecto | 1 (1.9) | U-5 |
+| 2m | Ves el proveedor, el modelo, el esfuerzo y el contexto usado (en la firma, el modelo que contrasta) | 1 (1.9) | U-2 |
 | 2f | El principal crea una sección en un paso (`new-n`) o la propone en el «Entendí»; la API también permite crearla (tu botón está en 4q) | 1 `[inferencia]` (principal) · 0 (API) | esquema `new_text` · estados §6 · backlog 0.10 |
 
 ## 3 · El agente trabaja (lo que ves)
@@ -85,7 +89,7 @@ flowchart LR
 | 4n | Tú deshaces una edición tuya y puedes reaplicar la propuesta desplazada; si queda igual a lo firmado, la sección vuelve a «firmada» | 4 | G-1 · fichas §8.2 · estados §1 |
 | 4o | Tú aceptas o descartas una propuesta del agente (choque o sección firmada) | 4 | fichas §8.2 |
 | 4p | App alerta si ve sospechosa una edición tuya («¿Fue a propósito? · Deshacer»); no bloquea | 4 | G-1 · fichas §8.2 |
-| 4q | Tú creas una sección con «+ Sección» y eliges su rol; si lo dejas vacío, lo propone el principal en su siguiente paso | 2 | K-17 · fichas §2 · H-3 |
+| 4q | Tú creas una sección con «+ Sección»: título, la marca «aquí se concluye» o no (R-8; si lo dejas vacío, lo propone el principal en su siguiente paso) y, si quieres, «qué debe abordar». Editas el título y «qué debe abordar» de cualquier sección y reordenas las secciones | 1 | K-17 · fichas §2 · H-3 · P-49 |
 
 ## 5 · Parada
 

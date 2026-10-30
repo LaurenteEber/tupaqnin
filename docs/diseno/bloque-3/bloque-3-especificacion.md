@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Especificación (va a código y pruebas)
-estado: v2.13 · 29-oct · §7 con pnpm 12 y Node 24.22.1 o más (B-19) · v2.12 · 29-oct · `project.name`, `filename` y `media_type` de la fuente, `title` en `proposed_roles` y `step_ended` escrito al aplicar (backlog-r1, validación) · v2.11 · 29-oct · desde backlog-r1: título de la sección (B-18), «porque» de tu decisión (B-16), texto y huella de una fuente con PDF (B-9), cadena de dependencias con pnpm (B-19) · v2.10 · 28-oct · el vencimiento de §6 sigue a B3-18 · v2.9 · 28-oct · links, cuentas y sesiones (§1.7, B3-18), seguridad mínima (§6, B3-22), topes por link y saldo de la firma (§6, B3-20), horas de «Entrega» (§8) · v2.8 · 28-oct · `model_call` guarda también lo enviado y la instancia (la conversación del principal se rehace desde ahí) · v2.7 · 28-oct · reverificación: tarjeta solo para decisiones del agente (T-5); cómo se declara un `new-n` (T-3) · v2.6 · 28-oct · defaults técnicos validados aplicados: etiquetas cortas e ids provisionales (T-2, T-3), operación y reglas del ancla (T-4), criticidad al escribir y marca tuya (T-5), nota sin rechazo por largo (T-6); §9 en inglés (T-1) · v2.5 · 28-oct · nombres de tablas, campos y valores en inglés con el glosario (T-1) · v2.4 · 28-oct · §1 modelo de datos al día con fichas §9, estados y bloque 2 (nodos, 11 aristas, eventos, lo entregado y el uso de contexto) · v2.3 · 28-oct · referencias a las decisiones reorganizadas (B3-3, B3-9, B3-14 a B3-17, K-16); aristas según fichas §9; la caché de la memoria no es fuente · v2.2 · 27-oct · propuesta; alineada con el bloque 1 v4.5 (A-1 a A-5) y, en §9, con el marco del bloque 1 v4.7 (M-1 a M-4)
+estado: v2.16 · 30-oct · secciones a mano: `focus`, `position` y `section_details_changed` (K-17, P-49) · v2.15 · 30-oct · R-3: micro-prueba pasada, B-22 descartada; precisión de «leído» adoptada · v2.14 · 30-oct · título del proyecto propuesto por el «Entendí» (U-1), `reply` y `stop_reason` (R-5, B-24), herramientas `read_source` y `search_sources` (R-3), rol de dos valores (R-8) · v2.13 · 29-oct · §7 con pnpm 12 y Node 24.22.1 o más (B-19) · v2.12 · 29-oct · `project.name`, `filename` y `media_type` de la fuente, `title` en `proposed_roles` y `step_ended` escrito al aplicar (backlog-r1, validación) · v2.11 · 29-oct · desde backlog-r1: título de la sección (B-18), «porque» de tu decisión (B-16), texto y huella de una fuente con PDF (B-9), cadena de dependencias con pnpm (B-19) · v2.10 · 28-oct · el vencimiento de §6 sigue a B3-18 · v2.9 · 28-oct · links, cuentas y sesiones (§1.7, B3-18), seguridad mínima (§6, B3-22), topes por link y saldo de la firma (§6, B3-20), horas de «Entrega» (§8) · v2.8 · 28-oct · `model_call` guarda también lo enviado y la instancia (la conversación del principal se rehace desde ahí) · v2.7 · 28-oct · reverificación: tarjeta solo para decisiones del agente (T-5); cómo se declara un `new-n` (T-3) · v2.6 · 28-oct · defaults técnicos validados aplicados: etiquetas cortas e ids provisionales (T-2, T-3), operación y reglas del ancla (T-4), criticidad al escribir y marca tuya (T-5), nota sin rechazo por largo (T-6); §9 en inglés (T-1) · v2.5 · 28-oct · nombres de tablas, campos y valores en inglés con el glosario (T-1) · v2.4 · 28-oct · §1 modelo de datos al día con fichas §9, estados y bloque 2 (nodos, 11 aristas, eventos, lo entregado y el uso de contexto) · v2.3 · 28-oct · referencias a las decisiones reorganizadas (B3-3, B3-9, B3-14 a B3-17, K-16); aristas según fichas §9; la caché de la memoria no es fuente · v2.2 · 27-oct · propuesta; alineada con el bloque 1 v4.5 (A-1 a A-5) y, en §9, con el marco del bloque 1 v4.7 (M-1 a M-4)
 relacion: detalla bloque-3.md. Toma del bloque 3 anterior lo que sigue valiendo (marcado «se toma») y lo alinea con bloque-1-estados.md, bloque-1-fichas.md §7 y bloque-2.md. Lo marcado `[inicial]` se calibra construyendo
 ---
 
@@ -100,11 +100,11 @@ erDiagram
 
 | Tipo (`type`) | Estados (`state`, según `bloque-1-estados.md`) | Campos de `body` | Fuente |
 |---|---|---|---|
-| pedido · `request` | — | `text` en literal · `audience` | Fichas §9 · K-8 |
+| pedido · `request` | — | `text` en literal · `audience` (el nombre del proyecto lo propone el «Entendí» en `project_title` y lo editas, U-1) | Fichas §9 · K-8 |
 | criterio · `criterion` | `current` (cada cambio es una versión nueva, solo tuya) | `text` en literal · `request_id` | Estados §6 |
 | caso del «Entendí» · `understanding_case` | `unconfirmed` · `confirmed` · `corrected` | `text` · `counts`: true · false · `criterion_id` | Estados §6 · C1 |
 | premisa · `premise` | `current` · `contradicted` (se mantiene o cambia por «por aclarar») | `text` en literal · `request_id` · `exploratory`: true · false | Estados §6 · P4 · K-5 |
-| sección · `section` | `draft` · `signed` · `changed_since_signoff` · `stale`. **`ready` («lista») no se guarda: se calcula** cuando no quedan pendientes (estados §1) | `title` (B-18) · `text` Markdown · `role` {`value`: `conclusion` · `recommendation` · `other`, `state`: `proposed` · `confirmed`} · `open_changes` (cada uno con su etiqueta `chg-n`) | Estados §1 y §6 · K-2 · K-13 · A-1 |
+| sección · `section` | `draft` · `signed` · `changed_since_signoff` · `stale`. **`ready` («lista») no se guarda: se calcula** cuando no quedan pendientes (estados §1) | `title` (B-18) · `focus` («qué debe abordar»: literal, solo tuyo, K-17) · `position` (orden en el documento, K-17) · `text` Markdown · `role` {`value`: `conclusion` · `recommendation` · `other`, `state`: `proposed` · `confirmed`} · `open_changes` (cada uno con su etiqueta `chg-n`) | Estados §1 y §6 · K-2 · K-13 · A-1 |
 | decisión · `decision` | `agent` · `human` · `confirmed` · `in_open_question` · `superseded` · `revoked` | `statement` · `instead_of` · `would_choose_if` · `assumption`: true · false · `origin`: `agent` · `human` · `human_marked_critical`: true · false · `reason`: tu «porque», en una decisión tuya (B-16). La criticidad no se guarda: la calcula una función de la app (fichas §3, T-5; ver 1.5) | Estados §2 · fichas §7 · D9 |
 | cifra · `figure` | — | `section_id` · `anchor` · `value` | Fichas §9 · A-3 |
 | dato · `datum` | — | `section_id` · `anchor` · `value` (literal de una fuente) | A-3 |
@@ -142,7 +142,7 @@ erDiagram
 | Tipo | Qué registra (en `data`) | Fuente |
 |---|---|---|
 | `state_changed` | objeto, estado anterior y nuevo, quién y por qué | Estados §8 |
-| `step_ended` | línea de triaje · riesgo al cerrar · **nota del agente**, completa · **lo diferido** · las etiquetas que la app asignó a cada `new-n` (lo escribe la app al aplicar el paso, en su misma transacción) | Fichas §2 y §7 · B2-6 · T-3 · T-6 |
+| `step_ended` | línea de triaje · riesgo al cerrar · **nota del agente**, completa · **lo diferido** · las etiquetas que la app asignó a cada `new-n` (lo escribe la app al aplicar el paso, en su misma transacción) · `stop_reason` si la cadena para en este paso (B-24) · `reply`, si el paso respondió (R-5) | Fichas §2 y §7 · B2-6 · T-3 · T-6 |
 | `mode_set` | modo («normal» · «continúa hasta terminar») y tu mensaje en literal | Estados §8 · B2-1 |
 | `human_message` | tu mensaje en literal y, después, su respuesta | Estados §8 · B2-2 |
 | `stop_report` | el informe y si lo viste | Estados §8 · D19 |
@@ -154,6 +154,7 @@ erDiagram
 | `usage_change` | `entered` · `updated` · `reviewed_unchanged` (con «porque») | A-1 |
 | `source_new_version` | fuente reemplazada | A-1 |
 | `role_changed` · `audience_changed` | valor anterior y nuevo | K-13 |
+| `section_details_changed` | campo (`title` · `focus` · `position`), valor anterior y nuevo; solo tú; al reordenar, uno por cada sección que cambia de posición | K-17 |
 | `marked_critical` | decisión · la marcas o la desmarcas | Fichas §3 · T-5 |
 | `edge` | `created` · `changed` · `superseded` | N-1 |
 | `answer_without_reason` | tarjeta o «por aclarar» respondido sin «porque» válido | Estados §8 · P2 |
@@ -207,7 +208,7 @@ erDiagram
 
 | Componente | Herramientas | Lo que escribe |
 |---|---|---|
-| Principal | `search` (en el índice) · `read(id)` (bloque 2) | Nada directo. Su salida fija de cada paso (fichas §7) |
+| Principal | `search` (en el índice) · `read(id)` (bloque 2). En el hackathon, desde la 1.9: `read_source` y `search_sources` sobre tu material (R-3); las secciones, decisiones y cambios le llegan por el arranque y por «lo que cambió», como hoy | Nada directo. Su salida fija de cada paso (fichas §7) |
 | Lector | Búsqueda web alojada de Meta (F-2) · `read(id)` de fuentes del proyecto | Nada. Devuelve hallazgos |
 | Juez, comprobador, Wonder | Ninguna: todo llega en su encargo | Nada. Devuelven su forma fija |
 
@@ -228,6 +229,14 @@ Lo que pasa la validación se aplica; luego corren las comprobaciones (flujo §1
 - **Verificación de hallazgos web (F-2):** Go descarga la URL (tiempo y tamaño acotados), normaliza el texto y busca el pasaje. Resultado: entra · no verificado (inaccesible) · descartado.
 - **Límites `[inicial]`:** 8 llamadas a herramientas por paso; 3 lectores en paralelo.
 - **No existe como herramienta:** firmar, responder tarjetas o «por aclarar», revocar, tocar la historia, escribir el estado de trabajo, borrar.
+
+**Precisiones del 30-oct (`../_propuesta-30oct-fuentes-y-flujo.md`):**
+
+- **Respuesta y documento (R-5):** la salida del principal trae `reply` cuando tu mensaje pregunta algo; va a la conversación y nunca al documento. Un paso con `reply` y sin `new_text` es válido y no cuenta como trabajo para la cadena (B-17).
+- **Lectura a demanda (R-3):** el principal tiene dos herramientas, `read_source(fuente, tramo)` y `search_sources(texto)`, sobre tu material; cada lectura queda en `delivery` (`via = read`). En el índice ve una ficha de cada fuente que calcula la app (título, tipo, largo y primeras líneas). Una cifra o cita debe estar literal en una fuente que el principal leyó en el proyecto (alguna fila de `delivery` con `via = read` para esa fuente); no se guarda el tramo. La micro-prueba de herramientas con Meta pasó 5/5 (30-oct): B-22 queda descartada.
+- **Sin evidencia (R-4):** si el pedido necesita evidencia y no hay material ni búsqueda, el «Entendí» lo dice y propone opciones; el agente no escribe una síntesis de memoria salvo que lo elijas, y entonces queda marcada «sin verificar».
+- **Rol (R-8):** el principal y el «Entendí» proponen `conclusion` u `other`; `recommendation` sigue siendo válido en los datos, pero ya no se ofrece.
+- **Secciones a mano (K-17, P-49):** `POST /sections` `{title, role, focus}` reemplaza la ruta de la 0.10: título obligatorio; `role` solo `conclusion` (la marca «aquí se concluye», R-8) o vacío: vacío, no se fija y lo propone el principal; `focus` opcional, hasta 60 palabras `[inicial]` (más largo: 400 `focus_too_long`). `PUT /sections/{label}/details` `{title?, focus?}` y `PUT /sections/order` `{labels[]}` registran `section_details_changed`. Una sección nueva va al final, también una `new-n` del principal. `focus` va en la tarea en turno cuando la tarea es esa sección (bloque-2 §3); no cuenta como texto (B-21). **El título y `focus` quedan fuera de lo firmado:** no entran en la huella; su cambio se ve en la historia y `GET /export.md` muestra el título vigente. El marco, la columna derecha, el arranque y `GET /export.md` siguen `position`.
 
 ## 4. Huella, estado y firma
 

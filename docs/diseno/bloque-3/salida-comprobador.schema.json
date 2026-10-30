@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-comprobador.schema.json",
+  "title": "Salida fija del comprobador en cada paso",
+  "description": "Contrato de fichas §7 (fila «Comprobador»), en forma de esquema. El comprobador no decide: devuelve una marca por sonda y candidatos con los pasajes literales; la app los reparte (flujos §1). En la duda, salta (B2-7). Los campos «question» y «options» de un candidato siguen la elección B-29 de backlog-r2; si Eber la rechaza, se quitan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "probes",
+    "candidates"
+  ],
+  "properties": {
+    "probes": {
+      "description": "Una entrada por cada sonda que armó la app (fichas §3, B2-7), en el mismo orden.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "protected",
+          "verdict",
+          "passage"
+        ],
+        "properties": {
+          "protected": {
+            "description": "Etiqueta de lo protegido: pedido, criterio, caso del «Entendí», premisa o decisión.",
+            "$ref": "#/$defs/label"
+          },
+          "verdict": {
+            "enum": [
+              "contradicts",
+              "no",
+              "doubt"
+            ]
+          },
+          "passage": {
+            "description": "Si contradice o hay duda: el pasaje literal del texto nuevo que choca. Si no: null.",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "candidates": {
+      "description": "Lo que el comprobador encontró fuera de las sondas, y lo que ellas marcaron como contradicción o duda (fichas §3, flujos §1).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "section",
+          "new_passage",
+          "clashing_passage",
+          "protected",
+          "citation",
+          "question",
+          "options"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "contradiction",
+              "doubtful_term",
+              "process_narrative",
+              "written_without_decision",
+              "source_not_supporting",
+              "exceeds_reviewed"
+            ],
+            "description": "«exceeds_reviewed» (A-5) solo llega cuando hay inventario de una ronda (rebanada 3)."
+          },
+          "section": {
+            "$ref": "#/$defs/label"
+          },
+          "new_passage": {
+            "description": "Pasaje literal del texto nuevo.",
+            "$ref": "#/$defs/text"
+          },
+          "clashing_passage": {
+            "description": "Pasaje literal con el que choca: lo protegido, el pasaje de la fuente o el inventario. Null en «process_narrative» y «written_without_decision».",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "protected": {
+            "description": "En «contradiction»: la etiqueta de lo protegido. En «doubtful_term»: la del criterio. Si no: null.",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/label"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "citation": {
+            "description": "En «source_not_supporting»: la etiqueta de la cita juzgada con su par afirmación–pasaje (A-2). Si no: null.",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/label"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "description": "B-29. En «contradiction», «doubtful_term» y «exceeds_reviewed»: la pregunta para el humano, de una línea. Si no: null.",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "options": {
+            "description": "B-29. Con «question»: dos opciones o más, cada una con su contraste, su consecuencia y su riesgo (estados §4). Si no: null.",
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "option",
+                    "contrast",
+                    "consequence",
+                    "risk"
+                  ],
+                  "properties": {
+                    "option": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "contrast": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "consequence": {
+                      "$ref": "#/$defs/text"
+                    },
+                    "risk": {
+                      "$ref": "#/$defs/text"
+                    }
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "Etiqueta corta de un objeto que ya existe en el proyecto (T-2, glosario §8). No admite «new-n»; lo rechaza la regla 4 en Go (espec. §3), porque RE2 no admite lookahead.",
+      "type": "string",
+      "pattern": "^[a-z]{2,5}-[1-9][0-9]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

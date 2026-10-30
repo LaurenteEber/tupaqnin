@@ -1,6 +1,6 @@
 ---
 titulo: Glosario · del diseño (español) al código (inglés)
-estado: v1.6 · 29-oct · `name` del proyecto, `filename` y `media_type` de la fuente, `keep` · `other` de la tarjeta · v1.5 · 29-oct · `signoff_cancelled` (B-14) · v1.4 · 28-oct · suma los campos de las salidas del «Entendí» y de Wonder · v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
+estado: v1.8 · 30-oct · `focus` y `position` de la sección (K-17) · v1.7 · 30-oct · respuesta en la conversación, motivo de la parada, herramientas de lectura, procedencia y conflicto entre fuentes (propuesta del 30-oct) · v1.6 · 29-oct · `name` del proyecto, `filename` y `media_type` de la fuente, `keep` · `other` de la tarjeta · v1.5 · 29-oct · `signoff_cancelled` (B-14) · v1.4 · 28-oct · suma los campos de las salidas del «Entendí» y de Wonder · v1.3 · 28-oct · suma links, cuentas y sesiones (B3-18, B3-22) · v1.2 · 28-oct · suma `label`, `label_counter`, `operation` y el `id` de «por aclarar» propuesto · v1.1 · 28-oct · suma las etiquetas cortas (§8, T-2), los pendientes, los retornos de los modelos y la marca crítica (validación de los defaults) · v1 · 28-oct · sale de T-1 (defaults-tecnicos.md)
 relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, el backlog y AGENTS.md
 ---
 
@@ -29,7 +29,9 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 | caso del «Entendí» | `understanding_case` | sin confirmar · confirmado · corregido → `unconfirmed` · `confirmed` · `corrected` |
 | premisa | `premise` | vigente · contradicha → `current` · `contradicted` (proyecto exploratorio: `exploratory`) |
 | sección | `section` | borrador · lista · firmada · cambió desde que la firmaste · escrita con lo anterior → `draft` · `ready` (se calcula) · `signed` · `changed_since_signoff` · `stale` |
-| rol de la sección | `role` | conclusión · recomendación · otro → `conclusion` · `recommendation` · `other`; propuesto · confirmado → `proposed` · `confirmed` |
+| qué debe abordar (de una sección) | `focus` | — (K-17) |
+| orden de las secciones | `position` | — (K-17) |
+| rol de la sección | `role` | conclusión · recomendación · otro → `conclusion` · `recommendation` · `other` (R-8, 30-oct: se ofrecen solo `conclusion` · `other`, como la marca «aquí se concluye»); propuesto · confirmado → `proposed` · `confirmed` |
 | decisión | `decision` | del agente · tuya · confirmada · en «por aclarar» · reemplazada · revocada → `agent` · `human` · `confirmed` · `in_open_question` · `superseded` · `revoked` |
 | decisión de supuesto | `decision` con `assumption: true` | — |
 | la marcaste crítica (cuarto motivo de criticidad) | `human_marked_critical` (en la decisión) | — |
@@ -110,7 +112,7 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 | arranque · núcleo · tarea en turno · índice recortado · tope · umbral | `startup` · `core` · `current_task` · `trimmed_index` · `cap` · `threshold` |
 | lo entregado · lo que cambió · lo diferido · nota del agente | `delivery` · `changes_since_delivery` · `deferred` · `agent_note` |
 | sondas · lo protegido · «no lo declaró el agente» | `probes` · `protected` · `undeclared_by_agent` |
-| herramientas del principal: buscar · leer(id) | `search` · `read(id)` |
+| herramientas del principal: buscar · leer(id) | `search` · `read(id)` (diseño del bloque 2; en el hackathon el principal recibe `read_source` y `search_sources` sobre tu material, §11) |
 | el marco (función) · decisión vista, con su origen | `frame(project)` · `decision_seen` (`seen_via`: `report` · `card` · `history` · `frame`) |
 
 ## 8. Etiquetas cortas (T-2, T-3)
@@ -149,3 +151,16 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 | Wonder: la pregunta de origen la responde · no · caso nuevo lo aplica bien · no | `answers` · `does_not_answer` · `applies_well` · `does_not_apply` |
 | Wonder, campos de su salida: por decisión (marca · qué falta, sin la respuesta · pasaje) · pregunta de origen · caso anterior · caso nuevo | `decisions` (`verdict` · `missing` · `passage`) · `origin_question` (`question` · `answer`) · `previous_case` · `new_case` (`salida-wonder.schema.json`) |
 | «Entendí», campos de su salida: lo entendido · por criterio (caso que cuenta · caso que no) · lo leído de tu material · secciones con su rol propuesto | `understood` · `criteria` (`counts` · `does_not_count`) · `material_readings` · `sections` (`title` · `role`) (`salida-entendi.schema.json`) |
+
+## 11. Añadidos del 30-oct (`_propuesta-30oct-fuentes-y-flujo.md`)
+
+| Diseño | Código |
+|---|---|
+| respuesta del agente en la conversación (R-5) | `reply` (salida del principal) |
+| título del proyecto que propone el «Entendí» (U-1) | `project_title` (salida del «Entendí») → `name` de `project` |
+| motivo de la parada: sin trabajo · pendiente del agente · tope de pasos (B-24) | `stop_reason`: `no_work` · `agent_pending` · `step_limit` (en `step_ended`) |
+| herramientas del principal: leer un tramo de una fuente · buscar en tu material (R-3) | `read_source` · `search_sources` |
+| «aquí se concluye» (R-8): la marca de la sección en el plan | `role`: `conclusion` (marcada) · `other` (sin marca); `recommendation` ya no se ofrece |
+| origen de una afirmación: tu material · fuente buscada · conocimiento del modelo (R-1, rebanada 2; búsqueda en la 3) | `claim_origin`: `material` · `external` · `model_knowledge` (no confundir con `origin` de la decisión: `agent` · `human`) |
+| afirmación sin fuente (pendiente, R-1, rebanada 2) | `unsourced_claim` |
+| conflicto entre fuentes (R-9, rebanada 3) | `source_conflict` |
