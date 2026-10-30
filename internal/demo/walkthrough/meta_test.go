@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -72,31 +71,13 @@ func (r *recorder) lastOutput() string {
 	return r.last
 }
 
-// save replaces the recorded answers with this run's calls.
-func (r *recorder) save(t *testing.T) {
-	t.Helper()
-	old, _ := filepath.Glob(filepath.Join(recordedDir, "*.json"))
-	for _, name := range old {
-		if err := os.Remove(name); err != nil {
-			t.Fatalf("remove %s: %v", name, err)
-		}
-	}
-	for _, fx := range r.calls {
-		b, err := json.MarshalIndent(fx, "", "  ")
-		if err != nil {
-			t.Fatalf("marshal %s: %v", fx.Name, err)
-		}
-		if err := os.WriteFile(filepath.Join(recordedDir, fx.Name+".json"), b, 0o644); err != nil {
-			t.Fatalf("write %s: %v", fx.Name, err)
-		}
-	}
-	t.Logf("recorded answers saved: %d calls in %s", len(r.calls), recordedDir)
-}
-
 // TestDemoCheck runs the case 5 walkthrough against Meta (make
 // demo-check, TQ_PROVIDER=meta, key from the keychain). Eber runs it.
-// A failing run names the step and the model's last output and leaves
-// the recorded answers as they were; a passing run replaces them.
+// It stops after Wonder's first round (P-57): Wonder's cases are never
+// answered with fixed text; a person signs in the browser. A failing
+// run names the step and the model's last output. The recorded answers
+// stay as they are: they feed the fake's run up to «signed», which this
+// run does not reach.
 func TestDemoCheck(t *testing.T) {
 	key := os.Getenv("META_API_KEY")
 	if key == "" || os.Getenv("TQ_PROVIDER") != "meta" {
@@ -110,9 +91,10 @@ func TestDemoCheck(t *testing.T) {
 			return meta.CountTokens(ctx, provider.PrincipalModel, input)
 		}
 	}, rec.lastOutput)
-	signed := w.run()
-	w.orderedEvents(stepEvents(signed))
+	section, sign := w.toSignoff()
+	w.wonderFirstRound(sign)
+	want, names := stepEvents(section)
+	w.orderedEvents(want[:firstRoundEvents], names[:firstRoundEvents])
 	spent, _ := w.db.ProjectSpend(context.Background(), w.project)
-	t.Logf("walkthrough passed: %d model calls, %.4f USD", len(rec.calls), spent)
-	rec.save(t)
+	t.Logf("walkthrough passed up to Wonder's first round: %d model calls, %.4f USD", len(rec.calls), spent)
 }

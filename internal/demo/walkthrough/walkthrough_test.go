@@ -34,7 +34,8 @@ func recordedFixtures(t *testing.T) []provider.Fixture {
 
 // H-1 (backlog-r1 1.8): the case 5 walkthrough passes end to end with
 // the fake provider and the recorded answers, and the history holds the
-// events of each step in order.
+// events of each step in order. Wonder's first round is checked as the
+// run with Meta checks it (P-57).
 func TestH1_Case5WalkthroughPassesEndToEnd(t *testing.T) {
 	w := newWalk(t, func(db *store.DB) (provider.Provider, memory.TokenCounter) {
 		fake := provider.NewFake(recordedFixtures(t)...)
@@ -43,6 +44,8 @@ func TestH1_Case5WalkthroughPassesEndToEnd(t *testing.T) {
 			return fake.CountTokens(ctx, provider.PrincipalModel, input)
 		}
 	}, nil)
-	signed := w.run()
-	w.orderedEvents(stepEvents(signed))
+	section, sign := w.toSignoff()
+	w.wonderFirstRound(sign)
+	w.signAfterRounds(section, sign)
+	w.orderedEvents(stepEvents(section))
 }

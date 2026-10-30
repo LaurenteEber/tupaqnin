@@ -242,8 +242,10 @@ func (w *walk) do(step, method, path string, body any, want int, out any) {
 
 func (w *walk) api(path string) string { return "/api/projects/" + w.project + path }
 
-// run walks steps 1 to 6 and returns the signed section's label.
-func (w *walk) run() string {
+// toSignoff walks steps 1 to 5, opens the signoff of the section with
+// the comparison rule and sends the explanation (step 6 up to Wonder's
+// first round). It returns the section's and the signoff's labels.
+func (w *walk) toSignoff() (string, string) {
 	w.t.Helper()
 	// 1. «Probar con el caso de demo» (B3-19).
 	var created server.CreateProjectResponse
@@ -336,8 +338,7 @@ func (w *walk) run() string {
 	}
 
 	// 6. «Firmar sección»: an explanation without the why of the rule;
-	// Wonder names what is missing and brings a case; the jury answers
-	// until the signoff coincides, and signs.
+	// Wonder names what is missing and brings a case.
 	// Every other open card that blocks the section is answered first,
 	// as the jury would from «Te toca» (P-56): the app blocks the
 	// signoff while a decision the section uses has an open card.
@@ -351,8 +352,41 @@ func (w *walk) run() string {
 	}
 	var view graph.SignoffView
 	w.do("6 signoff", http.MethodPost, w.api("/sections/"+ruleSection.Label+"/signoff"), nil, http.StatusCreated, &view)
-	sign := view.Label
-	w.do("6 signoff", http.MethodPost, w.api("/signoffs/"+sign+"/explanation"), map[string]any{"text": explanation}, http.StatusAccepted, nil)
+	w.do("6 signoff", http.MethodPost, w.api("/signoffs/"+view.Label+"/explanation"), map[string]any{"text": explanation}, http.StatusAccepted, nil)
+	return ruleSection.Label, view.Label
+}
+
+// wonderFirstRound checks Wonder's first round (P-57): at least one
+// critical decision is missing in the explanation and a new case waits
+// for an answer. Meta's run stops here; a person signs in the browser.
+func (w *walk) wonderFirstRound(sign string) {
+	w.t.Helper()
+	var view graph.SignoffView
+	w.do("6 Wonder first round", http.MethodGet, w.api("/signoffs/"+sign), nil, http.StatusOK, &view)
+	if view.Phase != graph.SignoffInProgress || view.Rounds != 1 {
+		w.fail("6 Wonder first round", "phase %q after %d rounds, want in progress after 1: %+v", view.Phase, view.Rounds, view)
+	}
+	critical := map[string]bool{}
+	for _, d := range view.CriticalDecisions {
+		critical[d] = true
+	}
+	missing := false
+	for _, v := range view.Verdicts {
+		if v.Verdict == "missing_in_explanation" && critical[v.Decision] {
+			missing = true
+		}
+	}
+	if !missing || view.OpenCase == "" {
+		w.fail("6 Wonder first round", "want a critical decision missing_in_explanation and a new case; "+
+			"critical %q, verdicts %+v, open case %q", view.CriticalDecisions, view.Verdicts, view.OpenCase)
+	}
+}
+
+// signAfterRounds answers Wonder until the signoff coincides, signs
+// and checks the section is signed (the fake provider's full run).
+func (w *walk) signAfterRounds(section, sign string) {
+	w.t.Helper()
+	var view graph.SignoffView
 	for round := 1; ; round++ {
 		w.do("6 signoff", http.MethodGet, w.api("/signoffs/"+sign), nil, http.StatusOK, &view)
 		if view.CanSign {
@@ -365,12 +399,11 @@ func (w *walk) run() string {
 			map[string]any{"origin_answer": originAnswer, "case_answer": caseAnswer}, http.StatusAccepted, nil)
 	}
 	w.do("6 sign", http.MethodPost, w.api("/signoffs/"+sign+"/sign"), nil, http.StatusOK, nil)
-	var section server.SectionDetail
-	w.do("6 sign", http.MethodGet, w.api("/sections/"+ruleSection.Label), nil, http.StatusOK, &section)
-	if section.Status != "signed" {
-		w.fail("6 sign", "section %s: status %q, want signed", ruleSection.Label, section.Status)
+	var detail server.SectionDetail
+	w.do("6 sign", http.MethodGet, w.api("/sections/"+section), nil, http.StatusOK, &detail)
+	if detail.Status != "signed" {
+		w.fail("6 sign", "section %s: status %q, want signed", section, detail.Status)
 	}
-	return ruleSection.Label
 }
 
 // orderedEvents checks that the history holds, in order, the events
@@ -396,6 +429,10 @@ func (w *walk) orderedEvents(want []func(store.Event) bool, names []string) {
 	}
 }
 
+// firstRoundEvents is how many of stepEvents happen by the end of
+// Wonder's first round (up to the round that does not coincide).
+const firstRoundEvents = 9
+
 func eventData(ev store.Event) map[string]any {
 	var d map[string]any
 	_ = json.Unmarshal(ev.Data, &d)
@@ -416,7 +453,8 @@ func field(key string, want any) func(map[string]any) bool {
 // order: the request, the understanding, the agent's text and its card,
 // the end of the chain, the answered card, the history seen, the
 // signoff with a round that names what is missing, a round that
-// coincides, and the signed section.
+// coincides, and the signed section. The run with Meta stops after
+// Wonder's first round, so it checks the first firstRoundEvents.
 func stepEvents(signed string) ([]func(store.Event) bool, []string) {
 	return []func(store.Event) bool{
 		is(store.EventHumanMessage, "human", nil),
