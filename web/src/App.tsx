@@ -504,7 +504,12 @@ export function App() {
                   </button>
                 </div>
               )}
-              {signError && <p className="turn-error">{t(`signoff.error.${signError}`)}</p>}
+              {signError && (
+                <p className="turn-error">
+                  {/* P-67: asking to sign while the agent works waits for the checker on your edits. */}
+                  {signError === "turn_running" ? t("signoff.request.turn_running") : t(`signoff.error.${signError}`)}
+                </p>
+              )}
               {current && (
                 <SectionEditor
                   key={current.label}

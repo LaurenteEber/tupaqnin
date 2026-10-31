@@ -211,6 +211,7 @@
   "signoff.error.does_not_coincide": "Todavía no coincide: no se puede firmar.",
   "signoff.error.signoff_outdated": "La sección o sus decisiones críticas cambiaron: pide firmar de nuevo.",
   "signoff.error.turn_running": "Ya hay un turno en curso. Espera a que termine y vuelve a intentarlo.",
+  "signoff.request.turn_running": "El agente está trabajando; tus ediciones se comprueban al terminar.",
   "signoff.error.empty_answer": "Escribe primero tu respuesta.",
   "signoff.error.case_answer_required": "Responde primero el caso nuevo.",
   "signoff.error.invalid_body": "No se pudo leer el pedido. Vuelve a intentarlo.",

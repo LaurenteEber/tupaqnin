@@ -211,6 +211,7 @@
   "signoff.error.does_not_coincide": "It does not coincide yet: it cannot be signed.",
   "signoff.error.signoff_outdated": "The section or its critical decisions changed: ask to sign again.",
   "signoff.error.turn_running": "A turn is already running. Wait for it to finish and try again.",
+  "signoff.request.turn_running": "The agent is working; your edits are checked when it finishes.",
   "signoff.error.empty_answer": "Write your answer first.",
   "signoff.error.case_answer_required": "Answer the new case first.",
   "signoff.error.invalid_body": "The request could not be read. Try again.",
