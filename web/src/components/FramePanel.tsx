@@ -247,8 +247,8 @@ function SkeletonSection({ section, active, onMove, first, last, ...props }: Dec
   );
 }
 
-// A critical decision of the skeleton: the dot if no decision_seen
-// exists for it (B3-9), and its card when expanded (§9). Its link opens
+// A critical decision of the skeleton: the dot when Go says it is not seen
+// (B3-9, P-77), and its card when expanded (§9). Its link opens
 // its paragraph's history (P5) or, when it covers no figure, its own
 // (GET /decisions/{label}/history, P-41).
 function DecisionItem({ lang, section, decision: d, titleOf, onSection, onHistory, onDecisionHistory, onTodo, onExpand }:

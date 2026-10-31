@@ -89,9 +89,9 @@ type FrameDecision struct {
 	// [EL DISEÑO NO LO DICE]: which paragraph a decision without a
 	// figure opens; none, the link goes to the text only.
 	Block int `json:"block"`
-	// Seen: a decision_seen event exists for it.
-	// [EL DISEÑO NO LO DICE]: the exact «sin ver» is slice 2; here, seen
-	// once ever, through any view.
+	// Seen: a decision_seen event exists for it, or it is yours (P-77,
+	// B-39: «tus decisiones las viste al tomarlas»): of origin human, or
+	// born from your act (a card's other option, an open question's).
 	Seen bool `json:"seen"`
 }
 
@@ -223,12 +223,7 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 	if err != nil {
 		return Frame{}, err
 	}
-	seen := map[string]bool{}
-	for _, ev := range events {
-		if ev.Type == store.EventDecisionSeen {
-			seen[ev.ObjectID] = true
-		}
-	}
+	seen := seenDecisions(events, decisions)
 
 	// Each current critical decision, with the sections that use it:
 	// those it is used_in and those where a figure it covers is.
@@ -437,4 +432,33 @@ func firstSentence(markdown string) string {
 		end = firstLineMax
 	}
 	return strings.TrimSpace(string(runes[:end]))
+}
+
+// seenDecisions are the decisions, by internal id, that do not carry the
+// «sin ver» dot (B3-9, P-77): those with a decision_seen event, and
+// yours, which you saw when you made them (B-39): of origin human, or
+// whose first event is an act of yours (a card's other option, an open
+// question's option that replaced one).
+func seenDecisions(events []store.Event, decisions []store.Object) map[string]bool {
+	seen := map[string]bool{}
+	created := map[string]bool{}
+	for _, ev := range events {
+		if ev.ObjectID == "" {
+			continue
+		}
+		if ev.Type == store.EventDecisionSeen {
+			seen[ev.ObjectID] = true
+		}
+		if !created[ev.ObjectID] {
+			created[ev.ObjectID] = true // an object's first event creates it
+			// Keyed by id: only decisions are read from it.
+			seen[ev.ObjectID] = seen[ev.ObjectID] || ev.Actor == "human"
+		}
+	}
+	for _, dec := range decisions {
+		if bodyString(dec, "origin") == "human" {
+			seen[dec.ID] = true
+		}
+	}
+	return seen
 }
