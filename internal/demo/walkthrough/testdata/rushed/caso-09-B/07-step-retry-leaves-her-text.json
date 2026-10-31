@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "F9–10: the retry with her current text: her edit rules; the agent leaves it",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: tu frase rige; no la toco.",
+    "closing_risk": "none",
+    "note": "Dejé tu frase como la escribiste."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Anteproyecto guardería",
+  "text": "Anteproyecto guardería 4 aulas, 60 niños 0–3 años, para la municipalidad, revisión en 2 días. Las aulas miran al norte: luz natural, nunca sol directo. Clases de mañana, horario hasta las 19:00. Lo quiero para firmar antes del mediodía.",
+  "audience": "La municipalidad, que revisa el anteproyecto.",
+  "criteria": ["Las aulas miran al norte: luz natural, nunca sol directo."],
+  "premise": "Mi boceto: un solo piso, 4 aulas, patio, cocina y una rampa.",
+  "exploratory": false,
+  "sources": [
+    {"filename": "boceto.md", "kind": "file"},
+    {"filename": "ordenanza-centros-infantiles.md", "kind": "file"},
+    {"filename": "recorrido-del-sol.md", "kind": "file"}
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "turn_kind": "step",
+  "script": "F6: the agent writes «Estudios incluidos» counting the laboratory pilot with real plant water (D1) as field, declared as its decision with contrast",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo «Estudios incluidos» con los estudios de campo que leí.",
+    "closing_risk": "figures_and_calculations",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "Incluimos 13 estudios de campo, entre ellos el de Quispe y Morales, que tomó muestras de grifos domésticos de una red municipal, y el de Ferreira y Costa, que compró botellas de varias marcas en tiendas.\n\nEntre los de campo contamos el estudio de Paredes y Núñez, que llevó agua tratada de una planta real a una planta piloto de laboratorio."}
+    ],
+    "new_decisions": [
+      {"id": "new-1", "statement": "Contar como de campo el piloto de Paredes y Núñez, que usa agua tratada de una planta real.",
+       "instead_of": "Excluirlo por ser de laboratorio: quedarían 12 estudios.",
+       "would_choose_if": "El criterio de campo exigiera muestrear donde se toma el agua.",
+       "assumption": false, "used_in_sections": ["sec-1"]}
+    ],
+    "figure_links": [{"figure_anchor": "13 estudios", "decision_id": "new-1"}],
+    "citations": [
+      {"claim_anchor": "tomó muestras de grifos domésticos de una red municipal", "source_id": "src-1",
+       "passage": "Se tomaron 24 muestras de grifos domésticos de una red municipal durante dos estaciones."},
+      {"claim_anchor": "llevó agua tratada de una planta real a una planta piloto de laboratorio", "source_id": "src-14",
+       "passage": "Se llevaron 200 litros de agua tratada de una planta real a una planta piloto de laboratorio, donde se repitió la última etapa de filtrado."}
+    ],
+    "note": "Conté el piloto de Paredes y Núñez como de campo porque usa agua real; si lo excluyes quedan 12."
+  }
+}

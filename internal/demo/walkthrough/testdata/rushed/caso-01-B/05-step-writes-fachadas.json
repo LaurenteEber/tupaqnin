@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F8: the agent writes «Fachadas» with two labelled variants without choosing; the sunshades are Inés's to decide",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo las fachadas con dos variantes; elegir es tuyo.",
+    "closing_risk": "none",
+    "new_text": [
+      {"section_id": "sec-2", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "La fachada norte tiene dos variantes, sin elegir.\n\nVariante A: un alero sobre las ventanas, que corta el sol alto.\n\nVariante B: parasoles verticales, que cortan el sol bajo de la tarde durante el horario extendido."}
+    ],
+    "proposed_open_questions": [
+      {"id": "new-1", "question": "¿Alero o parasoles verticales en la fachada norte?",
+       "options": [
+         {"option": "Parasoles verticales", "contrast": "cortan el sol bajo de la tarde", "consequence": "las aulas quedan protegidas en el horario extendido", "risk": "cuestan más que un alero"},
+         {"option": "Alero", "contrast": "corta solo el sol alto", "consequence": "entra sol bajo de tarde en verano", "risk": "sol directo en las aulas en el horario extendido"}
+       ],
+       "depends_on": ["sec-2"],
+       "variants": ["Variante A: alero", "Variante B: parasoles verticales"]}
+    ],
+    "note": "Dejé las dos variantes rotuladas; los parasoles sobrarían si la guardería cerrara a media tarde."
+  }
+}

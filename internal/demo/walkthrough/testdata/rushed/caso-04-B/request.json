@@ -1,0 +1,11 @@
+{
+  "name": "Migración de la base de pedidos",
+  "text": "Doc de diseño para migrar la base de pedidos, para mi equipo. Criterio: cero caída del servicio; el equipo es de 3.",
+  "audience": "Mi equipo de ingeniería.",
+  "criteria": ["Cero caída del servicio; el equipo es de 3."],
+  "premise": "Copiar todo y cortar un domingo de madrugada con las escrituras congeladas unos minutos; no en caliente salvo que fuéramos más de 3.",
+  "exploratory": false,
+  "sources": [
+    {"filename": "registros-30-dias.md", "kind": "file"}
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "turn_kind": "step",
+  "script": "Earlier session (seed): the agent processes the monitoring",
+  "tool_calls": [
+    {"name": "read_source", "arguments": {"source": "src-1", "span": null}}
+  ]
+}

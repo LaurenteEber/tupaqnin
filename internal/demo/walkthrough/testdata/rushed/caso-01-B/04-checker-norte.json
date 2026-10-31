@@ -1,0 +1,21 @@
+{
+  "turn_kind": "checker",
+  "script": "F6–7: the checker judges the step: the classroom to the east contradicts the criterion «las aulas miran al norte»",
+  "when": "El aula de lactantes mira al este",
+  "output": {
+    "probes": [
+      {"protected": "crit-1", "verdict": "contradicts", "passage": "El aula de lactantes mira al este, con un alero que corta el sol del mediodía."}
+    ],
+    "candidates": [
+      {"type": "contradiction", "section": "sec-1",
+       "new_passage": "El aula de lactantes mira al este, con un alero que corta el sol del mediodía.",
+       "clashing_passage": "Las aulas miran al norte: luz natural, nunca sol directo.",
+       "protected": "crit-1", "citation": null,
+       "question": "¿El aula de lactantes puede mirar al este, si tu criterio pide que las aulas miren al norte sin sol directo?",
+       "options": [
+         {"option": "Todas las aulas al norte, también lactantes", "contrast": "cualquier sol que entra cuenta como sol directo", "consequence": "el patio se achica y la fachada norte necesita protección para la tarde", "risk": "el patio queda más cerca del mínimo"},
+         {"option": "Lactantes al este con alero", "contrast": "solo cuenta el sol que calienta", "consequence": "el aula recibe sol bajo de mañana que el alero no corta", "risk": "sol directo en el aula de los bebés"}
+       ]}
+    ]
+  }
+}

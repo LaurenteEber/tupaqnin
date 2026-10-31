@@ -1,0 +1,21 @@
+{
+  "turn_kind": "step",
+  "script": "F5: the agent writes «Diagnóstico» with the figure linked to its decision (estimated use 40 % by region, annual ENAHO)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo el diagnóstico con el uso estimado de la ENAHO anual.",
+    "closing_risk": "figures_and_calculations",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "El uso estimado del horario ampliado es de 40 % por región, según la ENAHO anual."}
+    ],
+    "new_decisions": [
+      {"id": "new-1", "statement": "Estimar el uso del horario ampliado con la ENAHO anual, por región.",
+       "instead_of": "Usar la ENAHO trimestral 2025, más reciente pero con poca muestra por región.",
+       "would_choose_if": "La muestra trimestral bastara por región.",
+       "assumption": false, "used_in_sections": ["sec-1"]}
+    ],
+    "figure_links": [{"figure_anchor": "40 %", "decision_id": "new-1"}],
+    "note": "La cifra queda vinculada a la decisión de usar la ENAHO anual."
+  }
+}

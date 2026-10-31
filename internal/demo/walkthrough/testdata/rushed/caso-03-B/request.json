@@ -1,0 +1,11 @@
+{
+  "name": "Due diligence de contratos",
+  "text": "DD, compra de acciones, sin fusión. Solo cuenta cambio de control por encima de US$ 1 M. Para el comité del viernes: quieren cuánto se pierde en plata.",
+  "audience": "El comité de inversión del cliente.",
+  "criteria": ["Solo cuenta cambio de control por encima de US$ 1 M."],
+  "premise": "",
+  "exploratory": false,
+  "sources": [
+    {"filename": "contratos-lotes.md", "kind": "file"}
+  ]
+}

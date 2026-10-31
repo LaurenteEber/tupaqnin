@@ -1,0 +1,9 @@
+{
+  "turn_kind": "step",
+  "script": "F4: the agent builds the model from Diego's documents (read_source over the mine plan, irradiation and quotes)",
+  "tool_calls": [
+    {"name": "read_source", "arguments": {"source": "src-1", "span": null}},
+    {"name": "read_source", "arguments": {"source": "src-2", "span": null}},
+    {"name": "read_source", "arguments": {"source": "src-3", "span": null}}
+  ]
+}

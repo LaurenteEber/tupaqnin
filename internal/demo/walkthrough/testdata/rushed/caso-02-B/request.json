@@ -1,0 +1,11 @@
+{
+  "name": "Memo cunas de 8 a 12 h",
+  "text": "Memo cunas de 8 a 12 h: cuánto cuesta y si conviene recomendarlo. ENAHO anual, no trimestral: poca muestra por región. Sale con horas extra del mismo personal, unos 12 millones al año. Es para mañana.",
+  "audience": "La dirección del ministerio.",
+  "criteria": ["ENAHO anual, no trimestral: poca muestra por región."],
+  "premise": "Sale con horas extra del mismo personal, unos 12 millones al año.",
+  "exploratory": false,
+  "sources": [
+    {"filename": "enaho-anual-2024-procesada.md", "kind": "calculation"}
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "turn_kind": "understanding",
+  "script": "F2: Entendí: an internal design doc; the agent assumes the frozen minutes do not count as downtime (its inference, not Martín's)",
+  "output": {
+    "understood": "Doc de diseño interno para tu equipo: migrar la base de pedidos con tu decisión de copiar todo y cortar un domingo de madrugada. Supongo que esos minutos no cuentan como caída porque de madrugada no hay tráfico.",
+    "project_title": "Migración de la base de pedidos",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "Un corte que ningún cliente nota.", "does_not_count": "Una ventana de mantenimiento anunciada con el servicio caído."}
+    ],
+    "material_readings": [{"case": "Tus registros muestran las escrituras de los últimos días."}],
+    "evidence_required": {"value": false, "why": "Es un documento interno de diseño."},
+    "sections": [
+      {"id": "new-1", "title": "Plan de migración", "role": "other", "focus": "Cómo se migra sin caída.", "evidence_from": "Tu borrador."},
+      {"id": "new-2", "title": "Riesgos", "role": "other", "focus": "Qué puede fallar.", "evidence_from": "Tus registros."},
+      {"id": "new-3", "title": "Cronograma", "role": "other", "focus": "Cuándo se hace cada paso.", "evidence_from": "Tu equipo."}
+    ]
+  }
+}

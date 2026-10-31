@@ -1,0 +1,12 @@
+{
+  "name": "Plan de ciclovías",
+  "text": "Plan de ciclovías del distrito para el equipo de movilidad: una red que conecte el mercado, dos colegios y el paradero principal.",
+  "audience": "El equipo de movilidad, antes del concejo.",
+  "criteria": ["No se quita estacionamiento en la calle comercial."],
+  "premise": "",
+  "exploratory": false,
+  "sources": [
+    {"filename": "catastro.md", "kind": "file"},
+    {"filename": "conteos.md", "kind": "file"}
+  ]
+}

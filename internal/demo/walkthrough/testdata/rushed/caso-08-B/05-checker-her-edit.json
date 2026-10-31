@@ -1,0 +1,21 @@
+{
+  "turn_kind": "checker",
+  "script": "F1–F3: her edit of Av. Grau goes to the checker with her message (B-36); judged against the critical decisions of the other sections (B-36, fichas §3), it contradicts the main stop kept free of the lane",
+  "when": "un carril por sentido, uno a cada lado",
+  "output": {
+    "probes": [
+      {"protected": "dec-2", "verdict": "contradicts", "passage": "En Av. Grau la ciclovía va con un carril por sentido, uno a cada lado."}
+    ],
+    "candidates": [
+      {"type": "contradiction", "section": "sec-1",
+       "new_passage": "En Av. Grau la ciclovía va con un carril por sentido, uno a cada lado.",
+       "clashing_passage": "En el paradero principal los buses no cruzan la ciclovía.",
+       "protected": "dec-2", "citation": null,
+       "question": "Con un carril a cada lado de Av. Grau, los buses cruzan el carril sur en el paradero principal: ¿qué hacemos?",
+       "options": [
+         {"option": "Volver a la bidireccional en el lado norte", "contrast": "el paradero queda libre", "consequence": "choca con el giro de buses que pide la gerencia", "risk": "la gerencia no lo acepta"},
+         {"option": "Mantener tu cambio con una isla de paradero", "contrast": "la ciclovía pasa por detrás del paradero", "consequence": "los buses no cruzan el carril", "risk": "necesita una vereda ancha que no está en los datos"}
+       ]}
+    ]
+  }
+}

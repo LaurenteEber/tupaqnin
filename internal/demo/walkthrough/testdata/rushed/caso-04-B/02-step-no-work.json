@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "After F2 the chain starts on its own (B-17); Martín drives and writes, the agent audits when asked, so this step writes nothing",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: tú redactas el plan; espero tu borrador para auditarlo.",
+    "closing_risk": "none",
+    "note": "No escribí nada en este paso."
+  }
+}

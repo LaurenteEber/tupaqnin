@@ -1,0 +1,29 @@
+{
+  "turn_kind": "step",
+  "script": "F7: the agent writes «Modelo de cobro» with two labelled variants without choosing; choosing the model is hers: one question",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo el modelo de cobro con dos variantes; elegir es tuyo.",
+    "closing_risk": "conclusions_and_recommendations",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "Para los negocios: pagas solo cuando cobras una reserva.\n\nVariante A: comisión mixta, un porcentaje más una tarifa fija por reserva.\n\nVariante B: solo un porcentaje por reserva."}
+    ],
+    "new_decisions": [
+      {"id": "new-1", "statement": "Cobrar solo por reserva cobrada, sin cargos fijos mensuales.",
+       "instead_of": "Cobrar un plan mensual fijo.",
+       "would_choose_if": "Los negocios abrieran todo el año.",
+       "assumption": false, "used_in_sections": ["sec-1"]}
+    ],
+    "proposed_open_questions": [
+      {"id": "new-2", "question": "¿Comisión mixta o solo porcentaje?",
+       "options": [
+         {"option": "Comisión mixta", "contrast": "porcentaje más tarifa fija", "consequence": "deja más en las reservas baratas", "risk": "la tarifa fija pesa en las reservas chicas"},
+         {"option": "Solo porcentaje", "contrast": "sin tarifa fija", "consequence": "deja más en las reservas caras", "risk": "deja menos en tus reservas típicas"}
+       ],
+       "depends_on": ["sec-1"],
+       "variants": ["Variante A: comisión mixta", "Variante B: solo porcentaje"]}
+    ],
+    "note": "Dejé las dos variantes; el modelo lo eliges tú."
+  }
+}

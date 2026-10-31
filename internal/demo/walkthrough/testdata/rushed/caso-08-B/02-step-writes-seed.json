@@ -1,0 +1,28 @@
+{
+  "turn_kind": "step",
+  "script": "Earlier session (seed): the route by Jr. Los Olivos instead of Av. Comercio, and the main stop kept free of the lane, both critical",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo el trazo, el estacionamiento y los paraderos.",
+    "closing_risk": "none",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "El trazo va por Jr. Los Olivos, paralela a Av. Comercio.\n\nEn Av. Grau la ciclovía es bidireccional en el lado norte."},
+      {"section_id": "sec-2", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "El trazo no quita estacionamiento en Av. Comercio."},
+      {"section_id": "sec-3", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "En el paradero principal los buses no cruzan la ciclovía."}
+    ],
+    "new_decisions": [
+      {"id": "new-1", "statement": "Llevar el trazo por Jr. Los Olivos.",
+       "instead_of": "Llevarlo por Av. Comercio, donde no cabe un carril sin quitar estacionamiento.",
+       "would_choose_if": "Av. Comercio tuviera un carril libre.",
+       "assumption": false, "used_in_sections": ["sec-1", "sec-2"]},
+      {"id": "new-2", "statement": "Mantener el paradero principal libre del cruce de los buses con la ciclovía.",
+       "instead_of": "Que los buses crucen el carril de la ciclovía al detenerse.",
+       "would_choose_if": "Los buses no se detuvieran junto a la ciclovía.",
+       "assumption": false, "used_in_sections": ["sec-1", "sec-3"]}
+    ],
+    "note": "Registré el trazo y el paradero libre como decisiones."
+  }
+}

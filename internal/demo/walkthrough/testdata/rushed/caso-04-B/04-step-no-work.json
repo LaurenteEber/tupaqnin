@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F3: «sí»: the agent has nothing to write until Martín asks for the audit (F4, slice 3)",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: sigo; la auditoría la pides tú.",
+    "closing_risk": "none",
+    "reply": "Listo. Cuando quieras, pide la auditoría del plan.",
+    "note": "No escribí nada en este paso."
+  }
+}

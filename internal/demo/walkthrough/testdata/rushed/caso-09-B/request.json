@@ -1,0 +1,11 @@
+{
+  "name": "Especificación de pagos",
+  "text": "Investiga y arma la spec. Pago por uso, nada de suscripción. Clientes: locales chicos, cierran en temporada baja, odian cargos fijos; la mitad de las reservas, S/ 15–20.",
+  "audience": "El equipo de ingeniería de la empresa.",
+  "criteria": ["Pago por uso, nada de suscripción."],
+  "premise": "",
+  "exploratory": true,
+  "sources": [
+    {"filename": "apps-de-reservas.md", "kind": "file"}
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "turn_kind": "step",
+  "script": "F4–6: the agent decides the irradiation with contrast (20-year satellite series vs the mine's 3-year station); it covers a figure, so it is critical and its card waits for Diego",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: armo el modelo de evaluación con la irradiación satelital.",
+    "closing_risk": "figures_and_calculations",
+    "new_text": [
+      {"section_id": "sec-4", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "La producción de la planta se estima con una irradiación media de 6,2 kWh por metro cuadrado al día, de la serie satelital."}
+    ],
+    "new_decisions": [
+      {"id": "new-1", "statement": "Usar la serie satelital de veinte años para la irradiación.",
+       "instead_of": "Usar la estación de la mina, que solo tiene tres años de datos.",
+       "would_choose_if": "La estación de la mina tuviera una serie larga.",
+       "assumption": false, "used_in_sections": ["sec-4", "sec-5"]}
+    ],
+    "figure_links": [{"figure_anchor": "6,2 kWh", "decision_id": "new-1"}],
+    "note": "Elegí la serie satelital por ser larga; la estación tiene pocos años."
+  }
+}

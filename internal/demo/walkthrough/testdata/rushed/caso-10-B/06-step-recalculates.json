@@ -1,0 +1,21 @@
+{
+  "turn_kind": "step",
+  "script": "F3–4: after her «ok», the agent recalculates the same measurements against the national standard (12 %) and presents it as a decision",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: recalculo la cifra con el estándar nacional; contradice algo confirmado.",
+    "closing_risk": "contradicts_confirmed",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 2, "anchor": "El 31 % de las mediciones aguas abajo supera la guía internacional recreativa.", "operation": "replace", "claim_origin": "material",
+       "text": "El 12 % de las mediciones aguas abajo supera el estándar nacional de la categoría del río."}
+    ],
+    "new_decisions": [
+      {"id": "new-1", "statement": "Comparar las mediciones con el estándar nacional de la categoría del río.",
+       "instead_of": "Compararlas con la guía internacional recreativa, que da 31 %.",
+       "would_choose_if": "El río no tuviera categoría nacional.",
+       "assumption": false, "used_in_sections": ["sec-1", "sec-3"], "supersedes": "dec-1"}
+    ],
+    "figure_links": [{"figure_anchor": "12 %", "decision_id": "new-1"}],
+    "note": "Las mismas mediciones contra el estándar nacional dan 12 %; la autoridad observa toda referencia no nacional."
+  }
+}

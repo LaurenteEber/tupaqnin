@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "F8 would delegate to the judge (slice 3): the walkthrough is cut there, so the chain ends without more work",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: queda verificar la lista con el juez; no escribo más en este paso.",
+    "closing_risk": "none",
+    "note": "No escribí nada nuevo en este paso."
+  }
+}

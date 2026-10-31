@@ -1,0 +1,25 @@
+{
+  "turn_kind": "step",
+  "script": "Earlier session (seed): «El 31 % … supera la guía internacional recreativa», recorded as «valor guía internacional» without noticing it clashes with her rule; «Conclusiones» uses it",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo la calidad del río, el área y las conclusiones.",
+    "closing_risk": "figures_and_calculations",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "El 31 % de las mediciones aguas abajo supera la guía internacional recreativa."},
+      {"section_id": "sec-2", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "El área de influencia abarca el tramo del río aguas abajo de la planta."},
+      {"section_id": "sec-3", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "La calidad del río aguas abajo supera la referencia en buena parte de las mediciones."}
+    ],
+    "new_decisions": [
+      {"id": "new-1", "statement": "Comparar las mediciones con el valor guía internacional recreativo.",
+       "instead_of": "Compararlas con el estándar nacional de la categoría del río.",
+       "would_choose_if": "El río no tuviera categoría nacional.",
+       "assumption": false, "used_in_sections": ["sec-1", "sec-3"]}
+    ],
+    "figure_links": [{"figure_anchor": "31 %", "decision_id": "new-1"}],
+    "note": "Comparé con la guía internacional recreativa."
+  }
+}

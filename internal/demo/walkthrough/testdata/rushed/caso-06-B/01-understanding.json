@@ -1,0 +1,15 @@
+{
+  "turn_kind": "understanding",
+  "script": "Earlier session (seed): Entendí: the seismic evaluation with the reinforcement proposal",
+  "output": {
+    "understood": "Preparo la evaluación sísmica del colegio con la propuesta de refuerzo, para la dirección y los padres, con tu decisión de reforzar por etapas.",
+    "project_title": "Refuerzo sísmico del colegio",
+    "criteria": [],
+    "material_readings": [{"case": "Tu inspección describe los tres pabellones."}],
+    "evidence_required": {"value": false, "why": "Se apoya en tu inspección."},
+    "sections": [
+      {"id": "new-1", "title": "Diagnóstico", "role": "other", "focus": "En qué estado están los pabellones.", "evidence_from": "Tu inspección."},
+      {"id": "new-2", "title": "Propuesta de refuerzo", "role": "other", "focus": "Cómo se refuerza cada pabellón.", "evidence_from": "El diagnóstico."}
+    ]
+  }
+}

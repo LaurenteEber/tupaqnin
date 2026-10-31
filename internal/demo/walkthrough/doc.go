@@ -2,5 +2,8 @@
 // (backlog-r1 1.8, plan §1, H-1; pantallas.md «Recorrido del jurado»,
 // steps 1 to 6) through the HTTP API, with the real cycle: with the fake
 // provider and the recorded answers by default, and against Meta with
-// make demo-check (-tags=meta), which records the answers again.
+// make demo-check (-tags=meta), which records the answers again. It also
+// runs the rushed profile's ten walkthroughs (backlog-r2 2.10), each with
+// hand-made outputs and the brake of the table «Frenos esperados», and
+// the slice-2 stretch of case 5 against Meta in make demo-check.
 package walkthrough

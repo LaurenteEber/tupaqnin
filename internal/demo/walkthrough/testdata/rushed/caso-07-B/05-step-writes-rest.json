@@ -1,0 +1,18 @@
+{
+  "turn_kind": "step",
+  "script": "F10: the agent goes on with the other three sections, left without pendings; only the card and the question remain",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo contexto, demanda e inversión.",
+    "closing_risk": "none",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "La mina evalúa construir una planta solar propia en vez de seguir comprando energía a la red."},
+      {"section_id": "sec-2", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "La mina consume energía de forma pareja durante el día, según tu curva de consumo."},
+      {"section_id": "sec-3", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "Dos proveedores cotizaron la planta llave en mano."}
+    ],
+    "note": "Las tres secciones quedan sin pendientes."
+  }
+}

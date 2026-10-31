@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "F6 would delegate to the judge (slice 3): the walkthrough is cut there, so the chain ends without more work",
+  "output": {
+    "stretch": "verify",
+    "triage_line": "Verificar: el cálculo pasa al juez; no escribo más en este paso.",
+    "closing_risk": "none",
+    "note": "No escribí nada nuevo en este paso."
+  }
+}

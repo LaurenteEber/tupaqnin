@@ -1,0 +1,17 @@
+{
+  "turn_kind": "understanding",
+  "script": "F2: Entendí: C1 counts a commission per charged booking, not a fixed monthly plan; exploratory, no premise",
+  "output": {
+    "understood": "Investigo cómo cobrar en la app de reservas y armo la especificación de pagos para ingeniería.",
+    "project_title": "Especificación de pagos",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "Una comisión por cada reserva cobrada.", "does_not_count": "Un plan mensual fijo."}
+    ],
+    "material_readings": [{"case": "Tu resumen compara cómo cobran otras apps."}],
+    "evidence_required": {"value": false, "why": "Es una especificación interna."},
+    "sections": [
+      {"id": "new-1", "title": "Modelo de cobro", "role": "conclusion", "focus": "Cómo cobra la app.", "evidence_from": "La investigación."},
+      {"id": "new-2", "title": "Reembolsos", "role": "other", "focus": "Qué pasa con la comisión al devolver.", "evidence_from": "El modelo de cobro."}
+    ]
+  }
+}

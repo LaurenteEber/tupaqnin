@@ -1,0 +1,21 @@
+{
+  "turn_kind": "checker",
+  "script": "F6: the checker judges the step: counting a laboratory pilot as «campo» is a doubtful case of the person's term (fichas §3, H-1)",
+  "when": "Entre los de campo contamos el estudio de Paredes y Núñez",
+  "output": {
+    "probes": [
+      {"protected": "crit-1", "verdict": "doubt", "passage": "Entre los de campo contamos el estudio de Paredes y Núñez, que llevó agua tratada de una planta real a una planta piloto de laboratorio."}
+    ],
+    "candidates": [
+      {"type": "doubtful_term", "section": "sec-1",
+       "new_passage": "Entre los de campo contamos el estudio de Paredes y Núñez, que llevó agua tratada de una planta real a una planta piloto de laboratorio.",
+       "clashing_passage": "Solo estudios de campo, no de laboratorio.",
+       "protected": "crit-1", "citation": null,
+       "question": "¿Cuenta como estudio de campo un piloto de laboratorio que usa agua tratada de una planta real?",
+       "options": [
+         {"option": "Sí, cuenta como campo", "contrast": "el agua es real aunque el conteo se haga en laboratorio", "consequence": "el capítulo incluye 13 estudios", "risk": "tu comité puede leerlo como un estudio de laboratorio"},
+         {"option": "No, es de laboratorio", "contrast": "campo exige muestrear donde se toma el agua", "consequence": "el capítulo incluye 12 estudios", "risk": "se pierde un dato de agua real"}
+       ]}
+    ]
+  }
+}

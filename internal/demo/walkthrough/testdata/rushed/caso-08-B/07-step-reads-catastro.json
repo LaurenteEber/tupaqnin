@@ -1,0 +1,14 @@
+{
+  "turn_kind": "step",
+  "script": "F7: the agent reads «calle comercial» by the cadastre: the third block of Av. Grau is housing, so «the criterion is not touched»",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: reviso el estacionamiento con tu cambio de Av. Grau.",
+    "closing_risk": "contradicts_confirmed",
+    "new_text": [
+      {"section_id": "sec-2", "base_version": 2, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "La tercera cuadra de Av. Grau es de vivienda según el catastro, así que no es calle comercial y quitar sus plazas no toca tu criterio."}
+    ],
+    "note": "Leí la cuadra con el catastro."
+  }
+}

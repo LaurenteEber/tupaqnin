@@ -1,0 +1,9 @@
+{
+  "turn_kind": "checker",
+  "script": "F3: the «sí» sends Martín's pasted draft to the checker (B-36); nothing contradicts what is protected: the contradiction comes from the judge with a reader at F4 (slice 3)",
+  "when": "domingo de madrugada con las escrituras congeladas",
+  "output": {
+    "probes": [],
+    "candidates": []
+  }
+}

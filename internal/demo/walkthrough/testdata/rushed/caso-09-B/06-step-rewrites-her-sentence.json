@@ -1,0 +1,14 @@
+{
+  "turn_kind": "step",
+  "script": "F9: the agent rewrites the sentence for the businesses on the version it read, while she edits it herself: the step is rejected (B-11)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: reescribo la frase para los negocios.",
+    "closing_risk": "none",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 3, "anchor": "Para los negocios: pagas solo cuando cobras una reserva.", "operation": "replace", "claim_origin": "model_knowledge",
+       "text": "Para los negocios: la app cobra una comisión por cada reserva cobrada."}
+    ],
+    "note": "Reescribí la frase para los negocios."
+  }
+}

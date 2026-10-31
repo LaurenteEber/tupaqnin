@@ -1,0 +1,25 @@
+{
+  "turn_kind": "step",
+  "script": "F7: the mine closes before the plant's life ends; the horizon is scope, Diego's alone: one question, both variants advanced and labelled without choosing",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: el cierre de la mina cambia el horizonte; avanzo las dos variantes y te pregunto.",
+    "closing_risk": "conclusions_and_recommendations",
+    "new_text": [
+      {"section_id": "sec-5", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "Variante A: evaluar hasta el cierre de la mina y vender los equipos al cierre.\n\nVariante B: evaluar la vida completa de la planta vendiendo energía a la red."},
+      {"section_id": "sec-6", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "model_knowledge",
+       "text": "No se puede recomendar todavía: falta tu decisión sobre la planta tras el cierre."}
+    ],
+    "proposed_open_questions": [
+      {"id": "new-1", "question": "¿Qué horizonte evaluamos, si la mina cierra antes de que termine la vida de la planta?",
+       "options": [
+         {"option": "Hasta el cierre, vendiendo los equipos", "contrast": "solo los años de la mina", "consequence": "el valor actual neto sale negativo en parte de los escenarios", "risk": "pesa sobre todo el precio de la red"},
+         {"option": "La vida completa, vendiendo energía a la red", "contrast": "años sin la mina", "consequence": "el valor actual neto es más atractivo", "risk": "depende de vender a la red sin la mina"}
+       ],
+       "depends_on": ["sec-4", "sec-5", "sec-6"],
+       "variants": ["Variante A: hasta el cierre", "Variante B: vida completa"]}
+    ],
+    "note": "El horizonte es tuyo; dejé las dos variantes rotuladas."
+  }
+}

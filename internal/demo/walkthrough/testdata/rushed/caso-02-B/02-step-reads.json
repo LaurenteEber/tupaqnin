@@ -1,0 +1,7 @@
+{
+  "turn_kind": "step",
+  "script": "F3–4: the reader of the microdata, substituted: the principal reads the processing with read_source",
+  "tool_calls": [
+    {"name": "read_source", "arguments": {"source": "src-1", "span": null}}
+  ]
+}

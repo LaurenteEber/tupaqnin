@@ -1,0 +1,19 @@
+{
+  "turn_kind": "understanding",
+  "script": "F2: Entendí; the human's «Sí, sigue» confirms no case (the chat does not confirm)",
+  "output": {
+    "understood": "Escribo el capítulo 2: el estado del arte que compara conteos y métodos entre el agua de grifo y la embotellada, para tu comité, sin evaluar la salud.",
+    "project_title": "Microplásticos en agua potable",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "Un muestreo de grifos reales en casas.", "does_not_count": "El estudio de laboratorio de Ishikawa y Weber."},
+      {"criterion": "crit-2", "counts": "Una comparación de conteos entre estudios.", "does_not_count": "Una recomendación de qué agua tomar."}
+    ],
+    "material_readings": [{"case": "Tu cálculo compara con conteos crudos y luego con el mismo tamaño mínimo de partícula."}],
+    "evidence_required": {"value": true, "why": "Compara estudios publicados ante tu comité."},
+    "sections": [
+      {"id": "new-1", "title": "Estudios incluidos", "role": "other", "focus": "Qué estudios entran y por qué.", "evidence_from": "Tus artículos."},
+      {"id": "new-2", "title": "Síntesis", "role": "other", "focus": "Qué dicen los conteos comparables.", "evidence_from": "Tus artículos y tu cálculo."},
+      {"id": "new-3", "title": "Conclusiones", "role": "conclusion", "focus": "Lo que concluye el capítulo.", "evidence_from": "Tu cálculo."}
+    ]
+  }
+}

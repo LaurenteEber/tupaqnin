@@ -1,0 +1,17 @@
+{
+  "turn_kind": "understanding",
+  "script": "F2: Entendí: a table of contracts with a change-of-control clause above US$ 1 M and the exposure, for the committee",
+  "output": {
+    "understood": "Armo la tabla de contratos con cláusula de cambio de control por encima del umbral de tu criterio, con la exposición en dólares, para el comité.",
+    "project_title": "Due diligence de contratos",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "Un contrato grande que el cliente puede terminar si cambia el dueño.", "does_not_count": "Un contrato por debajo del umbral."}
+    ],
+    "material_readings": [{"case": "Los lotes traen la cláusula de cada contrato con su monto."}],
+    "evidence_required": {"value": false, "why": "La tabla sale de los contratos que subiste."},
+    "sections": [
+      {"id": "new-1", "title": "Contratos con cambio de control", "role": "other", "focus": "La tabla de contratos que cuentan.", "evidence_from": "Tus contratos."},
+      {"id": "new-2", "title": "Exposición para el comité", "role": "conclusion", "focus": "Cuánto se pierde en plata.", "evidence_from": "La tabla."}
+    ]
+  }
+}

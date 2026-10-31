@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F9: the human asks why vertical sunshades and not a longer eave; the agent explains and does not edit",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: respondo tu pregunta sin editar.",
+    "closing_risk": "none",
+    "reply": "En verano, al final de la tarde, el sol llega bajo desde el noroeste; un alero más largo corta el sol alto, no ese.",
+    "note": "Expliqué sin editar."
+  }
+}

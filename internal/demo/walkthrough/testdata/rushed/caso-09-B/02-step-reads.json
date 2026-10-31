@@ -1,0 +1,7 @@
+{
+  "turn_kind": "step",
+  "script": "F4–6: the four web readers, substituted: the principal reads the research with read_source",
+  "tool_calls": [
+    {"name": "read_source", "arguments": {"source": "src-1", "span": null}}
+  ]
+}

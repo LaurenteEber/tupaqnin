@@ -8,13 +8,18 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/memory"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
+	"github.com/LaurenteEber/tupaqnin/internal/server"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -97,4 +102,107 @@ func TestDemoCheck(t *testing.T) {
 	w.orderedEvents(want[:len(want)-afterFirstRound], names[:len(names)-afterFirstRound])
 	spent, _ := w.db.ProjectSpend(context.Background(), w.project)
 	t.Logf("walkthrough passed up to Wonder's first round: %d model calls, %.4f USD", len(rec.calls), spent)
+}
+
+// campoReason answers the «por aclarar» on «campo» with a «porque».
+const campoReason = "Porque mi criterio pide muestrear donde se toma el agua; un piloto de laboratorio no lo es."
+
+// TestDemoCheckSlice2 runs the slice-2 stretch of case 5 against Meta
+// (backlog-r2 2.10, «Listo cuando»; make demo-check runs it with
+// TestDemoCheck, TQ_PROVIDER=meta, key from the keychain). Eber runs it:
+// after the understanding and the agent's chain, the «por aclarar» on
+// «campo» (D1) is open and the signoff of each section it blocks lists
+// it; once answered with an option and a «porque», it no longer blocks.
+// A failing run names the step and the model's last output.
+func TestDemoCheckSlice2(t *testing.T) {
+	key := os.Getenv("META_API_KEY")
+	if key == "" || os.Getenv("TQ_PROVIDER") != "meta" {
+		t.Skip("demo-check needs TQ_PROVIDER=meta and META_API_KEY (make demo-check)")
+	}
+	rec := &recorder{}
+	w := newWalk(t, func(db *store.DB) (provider.Provider, memory.TokenCounter) {
+		meta := provider.NewMeta(key, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		rec.inner = meta
+		return rec, func(ctx context.Context, input []json.RawMessage) (int, error) {
+			return meta.CountTokens(ctx, provider.PrincipalModel, input)
+		}
+	}, rec.lastOutput)
+	ctx := context.Background()
+
+	// 1–4: the demo case, the request sent, the understanding and the
+	// agent's chain (B-17).
+	var created server.CreateProjectResponse
+	w.do("1 demo case", http.MethodPost, "/api/projects", map[string]any{"template": "case-5"}, http.StatusCreated, &created)
+	w.project = created.ProjectID
+	w.do("2 request", http.MethodPost, w.api("/request/submit"), nil, http.StatusAccepted, nil)
+
+	// 7 (slice 2): the «por aclarar» on «campo».
+	var todo server.TodoView
+	w.do("7 campo", http.MethodGet, w.api("/todo"), nil, http.StatusOK, &todo)
+	var campo server.OpenQuestionView
+	var open []string
+	for _, q := range todo.OpenQuestions {
+		open = append(open, q.Question)
+		obj, err := w.db.GetObject(ctx, w.project, q.Label)
+		if err != nil {
+			w.fail("7 campo", "open question %s: %v", q.Label, err)
+		}
+		var body map[string]any
+		_ = json.Unmarshal(obj.Body, &body)
+		id, _ := body["protected_id"].(string)
+		if id == "" {
+			continue
+		}
+		prot, err := w.db.GetObject(ctx, w.project, id)
+		if err != nil {
+			continue
+		}
+		var pb map[string]any
+		_ = json.Unmarshal(prot.Body, &pb)
+		if text, _ := pb["text"].(string); prot.Type == store.ObjectCriterion && strings.Contains(text, "campo") {
+			campo = q
+			break
+		}
+	}
+	if campo.Label == "" || len(campo.Sections) == 0 {
+		w.fail("7 campo", "no open «por aclarar» on the criterion «campo» blocking a section; open: %q", open)
+	}
+
+	// Its sections cannot be signed while it is open.
+	signoff := func(step, label string) (int, server.SignoffBlocked) {
+		req := httptest.NewRequest(http.MethodPost, w.api("/sections/"+label+"/signoff"), nil)
+		res := httptest.NewRecorder()
+		w.h.ServeHTTP(res, req)
+		var blocked server.SignoffBlocked
+		if res.Code == http.StatusConflict {
+			_ = json.Unmarshal(res.Body.Bytes(), &blocked)
+		}
+		return res.Code, blocked
+	}
+	lists := func(b server.SignoffBlocked) bool {
+		for _, p := range b.Pendings {
+			if p.Kind == graph.PendingOpenQuestion && p.About == campo.Label {
+				return true
+			}
+		}
+		return false
+	}
+	for _, sec := range campo.Sections {
+		code, blocked := signoff("7 campo blocks", sec.Label)
+		if code != http.StatusConflict || !lists(blocked) {
+			w.fail("7 campo blocks", "signoff of %q: %d %+v, want it blocked by %s", sec.Title, code, blocked, campo.Label)
+		}
+	}
+
+	// Answered with an option and a «porque», it no longer blocks.
+	option := 0
+	w.do("7 campo answered", http.MethodPost, w.api("/open-questions/"+campo.Label+"/answer"),
+		map[string]any{"option": option, "reason": campoReason}, http.StatusOK, nil)
+	for _, sec := range campo.Sections {
+		if code, blocked := signoff("7 campo answered", sec.Label); code == http.StatusConflict && lists(blocked) {
+			w.fail("7 campo answered", "signoff of %q still lists %s after the answer: %+v", sec.Title, campo.Label, blocked)
+		}
+	}
+	spent, _ := w.db.ProjectSpend(ctx, w.project)
+	t.Logf("slice-2 stretch passed: %d model calls, %.4f USD", len(rec.calls), spent)
 }

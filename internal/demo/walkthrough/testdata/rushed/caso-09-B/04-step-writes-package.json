@@ -1,0 +1,15 @@
+{
+  "turn_kind": "step",
+  "script": "F8 (and F11's habits): the agent reads «pago por uso» as compatible with a prepaid package and writes the paragraph, narrating the process and naming a decision by its label (T-2: a real label, not «D-04»)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: agrego el paquete prepagado al modelo de cobro.",
+    "closing_risk": "contradicts_confirmed",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 2, "anchor": "solo un porcentaje por reserva.", "operation": "insert_after", "claim_origin": "model_knowledge",
+       "text": "\n\nTras descartar el plan mensual en la revisión del martes, ofrecemos un paquete prepagado de reservas con descuento, que vence a los noventa días, según dec-1."}
+    ],
+    "used_decisions": ["dec-1"],
+    "note": "Leí tu criterio como compatible con un paquete prepagado."
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "turn_kind": "understanding",
+  "script": "F2: Entendí, with the agent's reading of «sol directo» as the sun that heats; the human's «ok» confirms no case",
+  "output": {
+    "understood": "Preparo el anteproyecto de una guardería de un piso para la municipalidad: implantación, orientación y fachadas, a partir de tu boceto.",
+    "project_title": "Anteproyecto guardería",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "Sol de mediodía en una ventana de aula: se evita.", "does_not_count": "Sol bajo de primera hora, que no calienta."}
+    ],
+    "material_readings": [{"case": "En tu boceto leo una escalera a un segundo piso junto al patio; no sé qué son las dos cajas junto a la cocina."}],
+    "evidence_required": {"value": false, "why": "Es un anteproyecto de diseño sobre tu boceto."},
+    "sections": [
+      {"id": "new-1", "title": "Implantación y orientación", "role": "other", "focus": "Dónde va cada aula y hacia dónde mira.", "evidence_from": "Tu boceto y el recorrido del sol."},
+      {"id": "new-2", "title": "Fachadas", "role": "other", "focus": "Cómo se protege cada fachada del sol.", "evidence_from": "El recorrido del sol."}
+    ]
+  }
+}

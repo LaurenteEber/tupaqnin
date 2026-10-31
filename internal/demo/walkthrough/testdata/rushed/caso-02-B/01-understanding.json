@@ -1,0 +1,18 @@
+{
+  "turn_kind": "understanding",
+  "script": "F2: Entendí: a three-section memo for the direction; the human's «sí» confirms no case",
+  "output": {
+    "understood": "Escribo un memo de tres secciones para la dirección: cuánto cuesta ampliar el horario de las cunas de 8 a 12 horas y si conviene recomendarlo.",
+    "project_title": "Memo cunas de 8 a 12 h",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "El uso estimado por región con la ENAHO anual.", "does_not_count": "Una cifra de la ENAHO trimestral."}
+    ],
+    "material_readings": [{"case": "Tu procesamiento da el uso estimado del horario ampliado por región."}],
+    "evidence_required": {"value": false, "why": "El memo se apoya en tu procesamiento de la encuesta."},
+    "sections": [
+      {"id": "new-1", "title": "Diagnóstico", "role": "other", "focus": "Cuántas familias usarían el horario ampliado.", "evidence_from": "Tu procesamiento de la ENAHO anual."},
+      {"id": "new-2", "title": "Costos", "role": "other", "focus": "Cuánto cuesta ampliar el horario.", "evidence_from": "El cálculo del agente."},
+      {"id": "new-3", "title": "Recomendación", "role": "conclusion", "focus": "Si conviene recomendarlo.", "evidence_from": "Diagnóstico y costos."}
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F14: «firma tú lo que esté bien»: only the person signs; the agent signs nothing",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: respondo sin editar.",
+    "closing_risk": "none",
+    "reply": "Solo tú firmas. Para firmar cada sección la explicas sin mirar.",
+    "note": "No firmé nada."
+  }
+}

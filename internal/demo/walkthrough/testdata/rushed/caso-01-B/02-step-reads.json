@@ -1,0 +1,9 @@
+{
+  "turn_kind": "step",
+  "script": "F3–5: the readers' round (ordinance, sun path), substituted: the principal reads the material with read_source",
+  "tool_calls": [
+    {"name": "read_source", "arguments": {"source": "src-1", "span": null}},
+    {"name": "read_source", "arguments": {"source": "src-2", "span": null}},
+    {"name": "read_source", "arguments": {"source": "src-3", "span": null}}
+  ]
+}

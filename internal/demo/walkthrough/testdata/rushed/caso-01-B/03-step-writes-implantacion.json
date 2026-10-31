@@ -1,0 +1,20 @@
+{
+  "turn_kind": "step",
+  "script": "F6: the agent writes the orientation with its reading of «sol directo»: three classrooms to the north and the infants' to the east, with an eave",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo la implantación con la orientación de las aulas; contradice algo confirmado.",
+    "closing_risk": "contradicts_confirmed",
+    "new_text": [
+      {"section_id": "sec-1", "base_version": 1, "anchor": "", "operation": "insert_after", "claim_origin": "material",
+       "text": "La guardería ocupa un solo piso alrededor del patio. Tres aulas miran al norte. El aula de lactantes mira al este, con un alero que corta el sol del mediodía."}
+    ],
+    "new_decisions": [
+      {"id": "new-1", "statement": "Ubicar el aula de lactantes al este, con un alero.",
+       "instead_of": "Ubicarla al norte con las otras aulas: el patio se achica.",
+       "would_choose_if": "El sol directo que hay que evitar incluyera el sol bajo de la mañana.",
+       "assumption": false, "used_in_sections": ["sec-1", "sec-2"]}
+    ],
+    "note": "El este da luz de mañana y el alero corta el sol del mediodía."
+  }
+}
