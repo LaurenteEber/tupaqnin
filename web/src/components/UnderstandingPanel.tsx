@@ -1,18 +1,30 @@
 import { useCallback, useEffect, useState } from "react";
-import { confirmCase, correctCase, getUnderstanding, putEvidenceRequired, putSectionRole } from "../api/client";
+import {
+  changeSectionDetails,
+  confirmCase,
+  confirmPlan,
+  correctCase,
+  getUnderstanding,
+  putEvidenceRequired,
+  putSectionRole,
+} from "../api/client";
 import type { CaseView, SectionRoleView, UnderstandingView } from "../api/types";
 import { translate, type Lang } from "../i18n";
 
 // «Lo que entendí» as one card (U-6): (1) what was understood, with
 // what was read from your material; (2) how it will be judged, only if
 // there are criteria cases; (3) the plan, the understanding's sections
-// with the mark «aquí se concluye» (R-8). «Confirm» confirms every case
-// and every proposed mark; it does not hold the start, the chain has
+// with the mark «aquí se concluye» (R-8) and, from slice 2, what each
+// section concludes or addresses and where its evidence comes from
+// (R-6). «Confirm» confirms every case, every proposed mark and the plan
+// (each line passes to its section, B-53); correcting a line or a mark
+// also answers the plan. It does not hold the start, the chain has
 // already started (B-17). Nothing here blocks the work (fichas §2).
 export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged, onChanged }: {
   lang: Lang;
   projectID: string;
   refreshKey: number;
+  // A mark or a plan line changed: the section list reloads.
   onRoleChanged: () => void;
   // A case was confirmed or corrected: the frame shows its state.
   onChanged: () => void;
@@ -20,6 +32,9 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
   const t = (key: string) => translate(lang, key);
   const [view, setView] = useState<UnderstandingView | null>(null);
   const [corrections, setCorrections] = useState<Record<string, string>>({});
+  // A plan line being corrected: its title and focus, by section label.
+  const [lines, setLines] = useState<Record<string, { title: string; focus: string }>>({});
+  const [lineError, setLineError] = useState("");
   // Folded once confirmed; you can reopen it. It opens by itself while
   // something is still unconfirmed.
   const [folded, setFolded] = useState(true);
@@ -42,22 +57,41 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
   // `recommendation` also shows marked), unmarked is `other`. Changing
   // or confirming a role makes a new section version (P-27).
   async function toggleMark(s: SectionRoleView) {
-    await putSectionRole(projectID, s.label, marked(s) ? "other" : "conclusion");
-    await refresh();
+    await putSectionRole(projectID, s.label, marked(s) ? "other" : "conclusion", true);
+    await changed();
     onRoleChanged();
+  }
+
+  // Correcting a plan line: your title and focus, literal (B-53); the
+  // first correction also answers the plan (R-6), Go records it.
+  async function saveLine(s: SectionRoleView) {
+    const line = lines[s.label];
+    if (!line) return;
+    setLineError("");
+    try {
+      await changeSectionDetails(projectID, s.label, { title: line.title, focus: line.focus, plan: true });
+      setLines(({ [s.label]: _, ...rest }) => rest);
+      await changed();
+      onRoleChanged(); // the section list shows the new title and focus
+    } catch (e) {
+      setLineError((e as Error).message);
+    }
   }
 
   async function confirmAll() {
     if (!view) return;
     setBusy(true);
     try {
+      const answersPlan = !view.plan_confirmed && view.sections.length > 0;
+      if (answersPlan) await confirmPlan(projectID);
       for (const c of view.cases) {
         if (c.state === "unconfirmed") await confirmCase(projectID, c.label);
       }
       const proposed = view.sections.filter((s) => s.role_state === "proposed");
       for (const s of proposed) await putSectionRole(projectID, s.label, s.role);
       await changed();
-      if (proposed.length > 0) onRoleChanged();
+      // The plan's lines are now the sections' «qué debe abordar».
+      if (proposed.length > 0 || answersPlan) onRoleChanged();
       setCorrecting(false);
       setFolded(true);
     } finally {
@@ -91,7 +125,9 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
   }
 
   const unconfirmed =
-    view.cases.some((c) => c.state === "unconfirmed") || view.sections.some((s) => s.role_state === "proposed");
+    view.cases.some((c) => c.state === "unconfirmed") ||
+    view.sections.some((s) => s.role_state === "proposed") ||
+    (!view.plan_confirmed && view.sections.length > 0);
   if (folded && !unconfirmed && !failed) {
     return (
       <div className="chat-card understanding folded" id="understanding">
@@ -158,25 +194,73 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
 
       {view.sections.length > 0 && (
         <>
-          <h3>{t("understanding.plan")}</h3>
+          <h3>
+            {t("understanding.plan")}{" "}
+            <span className="meta">
+              · {t(view.plan_confirmed ? "understanding.plan.confirmed" : "understanding.plan.proposed")}
+            </span>
+          </h3>
           <ul className="plan">
-            {view.sections.map((s) => (
-              <li key={s.label}>
-                {correcting ? (
-                  <label>
-                    <input type="checkbox" checked={marked(s)} onChange={() => void toggleMark(s)} />
-                    {s.title || t("section.untitled")} · {t("understanding.concludes")}
-                  </label>
-                ) : (
-                  <span>
-                    {s.title || t("section.untitled")}
-                    {marked(s) && <>{" "}<span className="st mark">{t("understanding.concludes")}</span></>}
-                  </span>
-                )}
-                {s.role_state === "proposed" && <span className="meta"> · {t("understanding.role_state.proposed")}</span>}
-              </li>
-            ))}
+            {view.sections.map((s) => {
+              const line = lines[s.label];
+              return (
+                <li key={s.label}>
+                  {correcting ? (
+                    <label>
+                      <input type="checkbox" checked={marked(s)} onChange={() => void toggleMark(s)} />
+                      {s.title || t("section.untitled")} · {t("understanding.concludes")}
+                    </label>
+                  ) : (
+                    <span>
+                      {s.title || t("section.untitled")}
+                      {marked(s) && <>{" "}<span className="st mark">{t("understanding.concludes")}</span></>}
+                    </span>
+                  )}
+                  {s.role_state === "proposed" && <span className="meta"> · {t("understanding.role_state.proposed")}</span>}
+                  {s.focus && (
+                    <div className="meta">
+                      {t("understanding.plan.addresses")}: {s.focus}
+                    </div>
+                  )}
+                  {s.evidence_from && (
+                    <div className="meta">
+                      {t("understanding.plan.evidence_from")}: {s.evidence_from}
+                    </div>
+                  )}
+                  {correcting && (
+                    <span className="correct-row">
+                      <input
+                        aria-label={t("section.field.title")}
+                        placeholder={t("section.field.title")}
+                        value={line?.title ?? s.title}
+                        onChange={(e) =>
+                          setLines((prev) => ({
+                            ...prev,
+                            [s.label]: { title: e.target.value, focus: prev[s.label]?.focus ?? s.focus ?? "" },
+                          }))
+                        }
+                      />
+                      <input
+                        aria-label={t("section.field.focus")}
+                        placeholder={t("section.field.focus")}
+                        value={line?.focus ?? s.focus ?? ""}
+                        onChange={(e) =>
+                          setLines((prev) => ({
+                            ...prev,
+                            [s.label]: { title: prev[s.label]?.title ?? s.title, focus: e.target.value },
+                          }))
+                        }
+                      />
+                      <button type="button" className="small" disabled={!line} onClick={() => void saveLine(s)}>
+                        {t("understanding.save_correction")}
+                      </button>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
+          {lineError && <p className="turn-error">{t(`section.error.${lineError}`)}</p>}
         </>
       )}
 

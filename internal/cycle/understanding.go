@@ -41,8 +41,9 @@ type UnderstandingSection struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	Role  string `json:"role"`
-	// Focus and EvidenceFrom are stored from slice 2 on; piece 2.12
-	// copies focus to the section when you confirm the plan (B-53, R-6).
+	// Focus and EvidenceFrom are the plan's line for the section, kept
+	// in step_ended; focus passes to the section when you confirm or
+	// correct the plan (B-53, R-6, ConfirmPlanTx).
 	Focus        string `json:"focus"`
 	EvidenceFrom string `json:"evidence_from"`
 }
@@ -141,8 +142,8 @@ func (g *Gate) EndUnderstanding(ctx context.Context, projectID, turnID string, a
 					return err
 				}
 			}
-			// The plan: each section's focus and evidence, by label, stored
-			// in step_ended until piece 2.12 confirms it (R-6).
+			// The plan: each section's focus and evidence, by label, kept in
+			// step_ended until you answer it (R-6, ConfirmPlanTx).
 			plan := []any{}
 			for _, sec := range parsed.Sections {
 				if strings.HasPrefix(sec.ID, "new-") {
@@ -226,7 +227,13 @@ func checkUnderstanding(out UnderstandingOutput, criteria []CriterionRef, g *Gat
 		}
 	}
 	newSeen := map[string]bool{}
-	for _, sec := range out.Sections {
+	for i, sec := range out.Sections {
+		// B-53: the focus passes to «qué debe abordar», up to 60 words
+		// (K-17; salida-entendi: «validado en Go»).
+		if checkFocus(sec.Focus) != nil {
+			errs = append(errs, fmt.Sprintf("/sections/%d/focus: over %d words; say what the section concludes or addresses in %d words or fewer",
+				i, FocusMaxWords, FocusMaxWords))
+		}
 		if strings.HasPrefix(sec.ID, "new-") {
 			if newSeen[sec.ID] {
 				errs = append(errs, fmt.Sprintf("/sections: %s is declared more than once", sec.ID))

@@ -132,6 +132,9 @@ type SectionDetailsRequest struct {
 	TabID string  `json:"tab_id"`
 	Title *string `json:"title"`
 	Focus *string `json:"focus"`
+	// Plan: the change is a correction from the «Entendí»'s card, so it
+	// also answers the plan (R-6, cycle.CorrectPlanDetails).
+	Plan bool `json:"plan,omitempty"`
 }
 
 // PUT /api/projects/{projectID}/sections/{label}/details with
@@ -150,7 +153,11 @@ func (s *Server) putSectionDetails(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "read_only_tab")
 		return
 	}
-	if err := cycle.ChangeSectionDetails(r.Context(), s.db, projectID, r.PathValue("label"), req.Title, req.Focus); err != nil {
+	change := cycle.ChangeSectionDetails
+	if req.Plan {
+		change = cycle.CorrectPlanDetails
+	}
+	if err := change(r.Context(), s.db, projectID, r.PathValue("label"), req.Title, req.Focus); err != nil {
 		writeSectionError(w, err)
 		return
 	}

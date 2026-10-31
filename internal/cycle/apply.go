@@ -149,9 +149,15 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	if len(errs) > 0 {
 		return ApplyResult{Errors: errs}, nil
 	}
+	// One message per rejected section (B-54), however many of its
+	// texts were skipped with it.
 	var rejected []string
-	for _, r := range plan.rejected {
-		rejected = append(rejected, r.message)
+	seen := map[string]bool{}
+	for _, msg := range plan.rejectedMessages() {
+		if !seen[msg] {
+			seen[msg] = true
+			rejected = append(rejected, msg)
+		}
 	}
 
 	work := len(out.NewText) > 0 || len(out.NewDecisions) > 0
@@ -205,6 +211,9 @@ type project struct {
 	sources        []store.Object
 	// inSignoff are the sections with a signoff in progress (B-14).
 	inSignoff map[string]bool
+	// planConfirmed: you answered the plan, so a new section of the
+	// agent is rejected (B-54).
+	planConfirmed bool
 	// newCitations and change are what the checker judges after the step
 	// (backlog-r2 2.3): the citations the step created and its change.
 	newCitations []string
@@ -228,8 +237,12 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 	if err != nil {
 		return nil, err
 	}
+	planConfirmed, err := PlanConfirmed(ctx, g.db, projectID)
+	if err != nil {
+		return nil, err
+	}
 	p := &project{labels: labeler, byID: make(map[string]store.Object, len(objects)),
-		edgesOut: make(map[string][]store.Edge), inSignoff: inSignoff}
+		edgesOut: make(map[string][]store.Edge), inSignoff: inSignoff, planConfirmed: planConfirmed}
 	for _, obj := range objects {
 		p.byID[obj.ID] = obj
 		// R-3: only a source the principal read can hold a figure or a
@@ -304,9 +317,41 @@ type plan struct {
 	// rejected are the new_text items on a section in signoff or signed
 	// (B-14); the figures and citations whose anchor is only in them are
 	// skipped with them.
-	rejected      []rejectedText
-	skipFigures   map[int]bool
-	skipCitations map[int]bool
+	rejected []rejectedText
+	// rejectedSections are the new sections not created because the
+	// plan is confirmed (B-54); their texts are in rejected.
+	rejectedSections []rejectedSection
+	skipFigures      map[int]bool
+	skipCitations    map[int]bool
+}
+
+// rejectedMessages are the messages of what the step did not apply:
+// texts on locked sections (B-14) and new sections (B-54).
+func (pl *plan) rejectedMessages() []string {
+	var out []string
+	for _, r := range pl.rejectedSections {
+		out = append(out, r.message)
+	}
+	for _, r := range pl.rejected {
+		out = append(out, r.message)
+	}
+	return out
+}
+
+// sectionRejected is the message of a new section not created (B-54),
+// or "".
+func (pl *plan) sectionRejected(id string) string {
+	for _, r := range pl.rejectedSections {
+		if r.id == id {
+			return r.message
+		}
+	}
+	return ""
+}
+
+// rejectedSection is a new section of the agent not created (B-54).
+type rejectedSection struct {
+	id, title, role, message string
 }
 
 // rejectedText is one new_text item not applied (B-14).
@@ -371,6 +416,17 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 		declare(fmt.Sprintf("/proposed_roles/%d/section_id", i), r.SectionID, "section")
 		if strings.TrimSpace(r.Title) == "" {
 			fail(fmt.Sprintf("/proposed_roles/%d/title", i), "a new section needs its title")
+		}
+		// B-54: with the plan confirmed, only this part of the step is
+		// rejected; what names the section (its text, used_in_sections,
+		// depends_on) is skipped with it, and the rest applies.
+		// [EL DISEÑO NO LO DICE]: what happens to what names the rejected
+		// section; its text is not applied (like B-14) and its links are
+		// not created.
+		if p.planConfirmed {
+			pl.rejectedSections = append(pl.rejectedSections, rejectedSection{id: r.SectionID, title: r.Title,
+				role: r.Role, message: planMessage(r.SectionID, r.Title)})
+			continue
 		}
 		pl.newRoles[r.SectionID] = r
 	}
@@ -493,6 +549,10 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 			if isNew(item.SectionID) {
 				if pl.declared[item.SectionID] != "section" {
 					fail(path+"/section_id", "%s is not declared as a new section in proposed_roles", item.SectionID)
+					continue
+				}
+				if msg := pl.sectionRejected(item.SectionID); msg != "" { // B-54
+					pl.rejected = append(pl.rejected, rejectedText{section: item.SectionID, text: item.Text, message: msg})
 					continue
 				}
 			} else {
@@ -1020,6 +1080,13 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	if rolesNotApplied != nil {
 		notApplied["proposed_roles"] = rolesNotApplied // P-32
 	}
+	if len(pl.rejectedSections) > 0 { // B-54
+		var sections []any
+		for _, r := range pl.rejectedSections {
+			sections = append(sections, map[string]any{"section_id": r.id, "title": r.title, "role": r.role, "message": r.message})
+		}
+		notApplied["new_sections"] = sections
+	}
 	if len(pl.rejected) > 0 { // B-14
 		var texts []any
 		for _, r := range pl.rejected {
@@ -1121,6 +1188,9 @@ func (p *project) linkData(tx *store.Tx, out stepOutput, pl *plan, ids map[strin
 		if !isNew(item.SectionID) {
 			obj, _ := p.object(item.SectionID)
 			secID = obj.ID
+		}
+		if secID == "" { // a new section not created (B-54): its text was not applied
+			continue
 		}
 		for _, n := range graph.Numbers(item.Text) {
 			if linked[n.Value] {

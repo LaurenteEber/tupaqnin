@@ -33,6 +33,9 @@ type UnderstandingView struct {
 	Sections   []SectionRoleView `json:"sections"`
 	// EvidenceRequired is nil until the «Entendí» proposes it (B-51).
 	EvidenceRequired *EvidenceRequiredView `json:"evidence_required,omitempty"`
+	// PlanConfirmed: you answered the plan, confirming or correcting it
+	// (R-6, plan_confirmed).
+	PlanConfirmed bool `json:"plan_confirmed"`
 }
 
 type SectionRoleView struct {
@@ -40,6 +43,12 @@ type SectionRoleView struct {
 	Title     string `json:"title"`
 	Role      string `json:"role"`
 	RoleState string `json:"role_state"`
+	// Focus is what the section concludes or addresses: the section's
+	// own once it has one (yours, or the plan's line after you answered
+	// it), else the plan's proposed line; EvidenceFrom is where its
+	// evidence will come from, from the plan (R-6, B-53).
+	Focus        string `json:"focus,omitempty"`
+	EvidenceFrom string `json:"evidence_from,omitempty"`
 }
 
 type CorrectCaseRequest struct {
@@ -48,6 +57,9 @@ type CorrectCaseRequest struct {
 
 type PutRoleRequest struct {
 	Role string `json:"role"`
+	// Plan: the mark is changed from the «Entendí»'s card, so it also
+	// answers the plan (R-6).
+	Plan bool `json:"plan,omitempty"`
 }
 
 // GET /api/projects/{projectID}/understanding
@@ -56,6 +68,26 @@ func (s *Server) getUnderstanding(w http.ResponseWriter, r *http.Request) {
 	if !s.requireProject(w, r, projectID) {
 		return
 	}
+	writeJSON(w, http.StatusOK, s.understandingView(r, projectID))
+}
+
+// POST /api/projects/{projectID}/plan/confirm → 200 with the
+// understanding: «Confirmar» on the plan records plan_confirmed and
+// copies each focus to its section (R-6, B-53). Confirming again
+// changes nothing.
+func (s *Server) confirmPlan(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	if _, err := cycle.ConfirmPlan(r.Context(), s.db, projectID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, s.understandingView(r, projectID))
+}
+
+func (s *Server) understandingView(r *http.Request, projectID string) UnderstandingView {
 	view := UnderstandingView{Status: "none", Cases: []CaseView{}, Sections: []SectionRoleView{}}
 
 	cases, _ := s.db.ListObjects(r.Context(), projectID, store.ObjectUnderstandingCase)
@@ -73,15 +105,26 @@ func (s *Server) getUnderstanding(w http.ResponseWriter, r *http.Request) {
 		view.Cases = append(view.Cases, cv)
 	}
 
+	plan, _ := cycle.ProposedPlan(r.Context(), s.db, projectID)
+	lines := make(map[string]cycle.PlanLine, len(plan))
+	for _, l := range plan {
+		lines[l.Section] = l
+	}
 	sections, _ := graph.OrderedSections(r.Context(), s.db, projectID)
 	for _, sec := range sections {
 		b := bodyMap(sec)
 		role, _ := b["role"].(map[string]any)
-		view.Sections = append(view.Sections, SectionRoleView{
+		v := SectionRoleView{
 			Label: sec.Label, Title: str(b, "title"),
 			Role: str(role, "value"), RoleState: str(role, "state"),
-		})
+			Focus: str(b, "focus"), EvidenceFrom: lines[sec.Label].EvidenceFrom,
+		}
+		if v.Focus == "" {
+			v.Focus = lines[sec.Label].Focus
+		}
+		view.Sections = append(view.Sections, v)
 	}
+	view.PlanConfirmed, _ = cycle.PlanConfirmed(r.Context(), s.db, projectID)
 
 	events, _ := s.db.EventsSince(r.Context(), projectID, 0)
 	for _, ev := range events {
@@ -105,7 +148,7 @@ func (s *Server) getUnderstanding(w http.ResponseWriter, r *http.Request) {
 		v := EvidenceRequiredView(ev)
 		view.EvidenceRequired = &v
 	}
-	writeJSON(w, http.StatusOK, view)
+	return view
 }
 
 func (s *Server) updateCase(w http.ResponseWriter, r *http.Request, state, text string, keepText bool) {
@@ -197,6 +240,9 @@ func (s *Server) putSectionRole(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(err, store.ErrNoChange) {
 				err = nil
 				updated = obj
+			}
+			if err == nil && req.Plan {
+				_, err = cycle.ConfirmPlanTx(r.Context(), tx, projectID)
 			}
 			return err
 		})

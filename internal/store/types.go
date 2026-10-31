@@ -180,6 +180,9 @@ const (
 	// general knowledge, with its literal passage and your «porque»
 	// (R-1, backlog-r2 2.11).
 	EventClaimAccepted EventType = "claim_accepted"
+	// EventPlanConfirmed: you answered the «Entendí»'s plan, confirming
+	// or correcting it (R-6, backlog-r2 2.12); B-54 reads it.
+	EventPlanConfirmed EventType = "plan_confirmed"
 )
 
 // Valid reports whether t is one of the table 1.3 event types.
@@ -191,7 +194,8 @@ func (t EventType) Valid() bool {
 		EventSignoffCancelled, EventBriefSignoff, EventAudienceQuestionDeclined, EventUsageChange,
 		EventSourceNewVersion, EventRoleChanged, EventAudienceChanged,
 		EventEdge, EventAnswerWithoutReason, EventActTimed, EventMarkedCritical,
-		EventProbe, EventStartup, EventOutputRetry, EventSectionDetailsChanged, EventClaimAccepted:
+		EventProbe, EventStartup, EventOutputRetry, EventSectionDetailsChanged, EventClaimAccepted,
+		EventPlanConfirmed:
 		return true
 	default:
 		return false

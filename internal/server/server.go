@@ -149,6 +149,7 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("POST /api/projects/{projectID}/cases/{label}/confirm", s.confirmCase)
 		mux.HandleFunc("POST /api/projects/{projectID}/cases/{label}/correct", s.correctCase)
 		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}/role", s.putSectionRole)
+		mux.HandleFunc("POST /api/projects/{projectID}/plan/confirm", s.confirmPlan)
 		mux.HandleFunc("POST /api/projects/{projectID}/sections", s.createSection)
 		mux.HandleFunc("GET /api/projects/{projectID}/sections", s.listSections)
 		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}", s.putSection)

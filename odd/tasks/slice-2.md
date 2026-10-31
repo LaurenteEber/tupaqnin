@@ -32,7 +32,7 @@ Each piece's spec is its row in `docs/construccion/backlog-r2.md` v0.7, read ver
 | T2 | S2 (2.2) | delegated (context backstop) | done · make test/vet/web green · migration 0004 only ADD COLUMN | see L5 |
 | T3 | S3 (2.3) | delegated | done · make test/vet/web green on top of P-65 · no migration | see L8 |
 | T4 | S4 (2.11) | delegated | done · RED→GREEN for 10 tests · make test/vet/web green on top of F1, F2 | see L12 |
-| T5 | S5 (2.12) | delegated | pending | |
+| T5 | S5 (2.12) | delegated | done · RED→GREEN for 7 tests, 2 kept-behaviour tests · make test/vet/web green · no migration | see L13 |
 | T6 | S6 (2.4) | delegated | pending | |
 | T7 | S7 (2.5) | delegated | pending | |
 | T8 | S8 (2.6) | delegated | pending | |
@@ -57,3 +57,4 @@ Each piece's spec is its row in `docs/construccion/backlog-r2.md` v0.7, read ver
 - **L10:** fixes go in worktree branch `fixes-p66-p68` off `b72df3d`; they land on main by fast-forward after the 2.11 commit is staged aside (stash 2.11 paths, ff, pop), so history reads P-66, P-67/P-68, 2.11. P-66 covers multi-word assents («de acuerdo») as one part.
 - **L11 (2.11):** built; `TestH1_Case5WalkthroughPassesEndToEnd` went red: the slice-1 case-5 recording proposes `evidence_required` but writes material paragraphs without reads or citations, so `unsourced_claim` blocks the signoff as designed. Smallest choice (rule 13): the walkthrough accepts those paragraphs with a «porque» via the new accept route before signing; logged in elecciones; 2.10 re-records the slice-2 stretch of case 5. Not done: proper tygo types for provenance fields (`web/tygo.yaml` out of surface, come out as `any`); fuller «¿pide evidencia?» card (2.12). Spotted: `PUT /request` after submit would erase `evidence_required` (2.8 adds the 409).
 - **L12:** main fast-forwarded to `18a50fb` (P-66, P-67/P-68); 2.11 reapplied (one append conflict in elecciones, both kept), `web/tygo.yaml` maps `graph.Provenance` and `graph.OpenChange` so they are no longer `any`; committed as `feat: slice-2.11`. Makefile target for Eber in the P-67/P-68 report. Next: T5 (2.12).
+- **L13 (2.12):** committed as `feat: slice-2.12`. New route `POST /plan/confirm`; optional `plan` on details/role routes; `plan_confirmed` event; `new-n` rejected once the plan is confirmed. Not done: unconfirmed plan lines in the principal's memory (question to Eber), principal prompt unchanged. Questions: memory carries proposed plan lines until you answer; `plan` flag vs any edit answers the plan; second confirm 200 vs 409. Next: T6 (2.4).

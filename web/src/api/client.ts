@@ -144,18 +144,27 @@ export async function answerCard(
   );
 }
 
+// With plan, the mark is changed from the «Entendí»'s card and also
+// answers the plan (R-6).
 export async function putSectionRole(
   projectID: string,
   label: string,
   role: string,
+  plan = false,
 ): Promise<SectionRoleView> {
   return json(
     await fetch(`/api/projects/${projectID}/sections/${label}/role`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role }),
+      body: JSON.stringify(plan ? { role, plan } : { role }),
     }),
   );
+}
+
+// «Confirmar» on the plan (R-6): Go records plan_confirmed and copies
+// each section's line to its «qué debe abordar» (B-53).
+export async function confirmPlan(projectID: string): Promise<UnderstandingView> {
+  return json(await fetch(`/api/projects/${projectID}/plan/confirm`, { method: "POST" }));
 }
 
 export async function submitRequest(projectID: string): Promise<PostMessageResponse> {
@@ -192,11 +201,12 @@ export async function createSection(
 }
 
 // P-49: the title and «qué debe abordar» of any section; a field left
-// undefined stays as it is.
+// undefined stays as it is. With plan, the change is a correction from
+// the «Entendí»'s card and also answers the plan (R-6).
 export async function changeSectionDetails(
   projectID: string,
   label: string,
-  details: { title?: string; focus?: string },
+  details: { title?: string; focus?: string; plan?: boolean },
 ): Promise<void> {
   const res = await fetch(`/api/projects/${projectID}/sections/${label}/details`, {
     method: "PUT",

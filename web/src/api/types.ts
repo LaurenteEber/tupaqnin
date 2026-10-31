@@ -75,6 +75,11 @@ export interface SectionDetailsRequest {
   tab_id: string;
   title?: string;
   focus?: string;
+  /**
+   * Plan: the change is a correction from the «Entendí»'s card, so it
+   * also answers the plan (R-6, cycle.CorrectPlanDetails).
+   */
+  plan?: boolean;
 }
 /**
  * SectionOrderRequest names every section once, in the new order.
@@ -484,16 +489,34 @@ export interface UnderstandingView {
    * EvidenceRequired is nil until the «Entendí» proposes it (B-51).
    */
   evidence_required?: EvidenceRequiredView;
+  /**
+   * PlanConfirmed: you answered the plan, confirming or correcting it
+   * (R-6, plan_confirmed).
+   */
+  plan_confirmed: boolean;
 }
 export interface SectionRoleView {
   label: string;
   title: string;
   role: string;
   role_state: string;
+  /**
+   * Focus is what the section concludes or addresses: the section's
+   * own once it has one (yours, or the plan's line after you answered
+   * it), else the plan's proposed line; EvidenceFrom is where its
+   * evidence will come from, from the plan (R-6, B-53).
+   */
+  focus?: string;
+  evidence_from?: string;
 }
 export interface CorrectCaseRequest {
   text: string;
 }
 export interface PutRoleRequest {
   role: string;
+  /**
+   * Plan: the mark is changed from the «Entendí»'s card, so it also
+   * answers the plan (R-6).
+   */
+  plan?: boolean;
 }

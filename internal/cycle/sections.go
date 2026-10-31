@@ -74,6 +74,19 @@ func CreateSection(ctx context.Context, db *store.DB, projectID, title, role, fo
 // changes the state: title and focus stay out of the fingerprint and
 // of what is signed.
 func ChangeSectionDetails(ctx context.Context, db *store.DB, projectID, label string, title, focus *string) error {
+	return changeDetails(ctx, db, projectID, label, title, focus, false)
+}
+
+// CorrectPlanDetails is ChangeSectionDetails from the «Entendí»'s card
+// (R-6): correcting a line also answers the plan, so the first
+// correction records plan_confirmed and the other lines pass to their
+// sections (ConfirmPlanTx), in the same transaction. Your change goes
+// first, so it stays literal and is recorded as yours (B-53).
+func CorrectPlanDetails(ctx context.Context, db *store.DB, projectID, label string, title, focus *string) error {
+	return changeDetails(ctx, db, projectID, label, title, focus, true)
+}
+
+func changeDetails(ctx context.Context, db *store.DB, projectID, label string, title, focus *string, plan bool) error {
 	if title != nil {
 		t := strings.TrimSpace(*title)
 		if t == "" {
@@ -103,10 +116,15 @@ func ChangeSectionDetails(ctx context.Context, db *store.DB, projectID, label st
 			changes = append(changes, map[string]any{"field": f.name, "from": bodyStr(b, f.name), "to": *f.to})
 			b[f.name] = *f.to
 		}
-		if len(changes) == 0 {
-			return nil
+		if len(changes) > 0 {
+			if err := writeDetails(tx, obj, b, changes); err != nil {
+				return err
+			}
 		}
-		return writeDetails(tx, obj, b, changes)
+		if plan {
+			_, err = ConfirmPlanTx(ctx, tx, projectID)
+		}
+		return err
 	})
 }
 
