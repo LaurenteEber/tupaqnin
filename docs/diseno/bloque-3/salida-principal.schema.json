@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-principal.schema.json",
   "title": "Salida fija del principal en cada paso",
-  "description": "Contrato de fichas §7 (fila «Principal, en cada paso»), en forma de esquema. La app valida esta salida antes de aplicarla (especificación §3); si no cumple, la reintenta una vez y luego queda como pendiente del agente. Cada campo cita su fuente. Los nombres van en inglés (T-1); su equivalencia con el diseño está en ../glosario.md §6. Ids: el principal escribe etiquetas cortas del proyecto (T-2, glosario §8) o, para lo que nace en esta salida, ids provisionales «new-n» declarados en ella (T-3). Cada new-n se declara una sola vez (decisión u open question con su id; sección nueva con su entrada en proposed_roles); la app comprueba esa unicidad en Go. Toda palabra clave que el modo estricto de Meta no admita (if/then, minLength, pattern, anyOf, propiedades opcionales) se omite del esquema enviado y se valida en Go (micro-prueba 0.8).",
+  "description": "Contrato de fichas §7 (fila «Principal, en cada paso»), en forma de esquema. La app valida esta salida antes de aplicarla (especificación §3); si no cumple, la reintenta una vez y luego queda como pendiente del agente. Cada campo cita su fuente. Los nombres van en inglés (T-1); su equivalencia con el diseño está en ../glosario.md §6. Ids: el principal escribe etiquetas cortas del proyecto (T-2, glosario §8) o, para lo que nace en esta salida, ids provisionales «new-n» declarados en ella (T-3). Cada new-n se declara una sola vez (decisión u open question con su id; sección nueva con su entrada en proposed_roles); la app comprueba esa unicidad en Go. Toda palabra clave que el modo estricto de Meta no admita (if/then, minLength, pattern, anyOf, propiedades opcionales) se omite del esquema enviado y se valida en Go (micro-prueba 0.8). (30-oct, rebanada 2) Suma `stretch` (B-43) y `claim_origin` en cada entrada de new_text (R-1).",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "triage_line",
+    "stretch",
     "closing_risk",
     "note"
   ],
@@ -15,6 +16,15 @@
       "description": "La línea de triaje del paso: tramo, riesgo y, si delega, la razón (fichas §8.3, D16, K-3).",
       "type": "string",
       "minLength": 1
+    },
+    "stretch": {
+      "description": "Tramo del paso (B-43, rebanada 2): la regla 0 de la app lo lee; si es «direct» y el paso toca una cifra, una cita, una sección con rol conclusion o un criterio, la app lo reclasifica a «build» y lo dice en la línea de triaje.",
+      "enum": [
+        "direct",
+        "discover",
+        "build",
+        "verify"
+      ]
     },
     "reply": {
       "description": "Respuesta al humano en la conversación, cuando su mensaje pregunta algo (R-5). Va en la conversación, nunca en el documento. Un paso que solo responde trae reply y ningún new_text; no cuenta como trabajo para la cadena (B-17).",
@@ -44,7 +54,8 @@
           "base_version",
           "anchor",
           "operation",
-          "text"
+          "text",
+          "claim_origin"
         ],
         "properties": {
           "section_id": {
@@ -71,6 +82,14 @@
           "text": {
             "description": "Markdown sin HTML crudo ni contenido invisible (especificación §3, regla 3).",
             "type": "string"
+          },
+          "claim_origin": {
+            "description": "Origen de lo que afirma este texto (R-1, rebanada 2): «material» (tu material: el pasaje va en citations y la app lo comprueba en una fuente leída) · «model_knowledge» (conocimiento del modelo, sin verificar) · «external» (fuente buscada, rebanada 3; hasta entonces se trata como sin verificar).",
+            "enum": [
+              "material",
+              "model_knowledge",
+              "external"
+            ]
           }
         },
         "if": {

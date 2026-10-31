@@ -155,6 +155,7 @@ erDiagram
 | `source_new_version` | fuente reemplazada | A-1 |
 | `role_changed` · `audience_changed` | valor anterior y nuevo | K-13 |
 | `plan_confirmed` | confirmaste o corregiste el plan del «Entendí»; copia cada «qué aborda» a su sección (rebanada 2) | R-6 · B-53 · B-54 |
+| `stop_report_seen` | abriste el informe de parada en el panel (rebanada 2); la historia es solo de agregado, así que el informe no se modifica | Estados §8 · D19 |
 | `claim_accepted` | sección · pasaje literal · tu «porque»: aceptas un párrafo sin fuente como conocimiento general; vale mientras el pasaje siga igual (rebanada 2) | R-1 |
 | `section_details_changed` | campo (`title` · `focus` · `position`), valor anterior y nuevo; solo tú; al reordenar, uno por cada sección que cambia de posición | K-17 |
 | `marked_critical` | decisión · la marcas o la desmarcas | Fichas §3 · T-5 |

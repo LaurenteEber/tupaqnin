@@ -166,4 +166,4 @@ relacion: lo usan bloque-3-especificacion.md §1, salida-principal.schema.json, 
 | conflicto entre fuentes (R-9, rebanada 3) | `source_conflict` |
 | ¿el documento pide evidencia? (B-51) | `evidence_required` (en `request`) |
 | de dónde saldrá la evidencia de una sección del plan (B-53) | `evidence_from` (salida del «Entendí») |
-| confirmaste o corregiste el plan · aceptas un párrafo sin fuente (rebanada 2) | `plan_confirmed` · `claim_accepted` (eventos) |
+| confirmaste o corregiste el plan · aceptas un párrafo sin fuente · abriste el informe de parada (rebanada 2) | `plan_confirmed` · `claim_accepted` · `stop_report_seen` (eventos) |

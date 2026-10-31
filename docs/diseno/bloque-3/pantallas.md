@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Pantallas (bocetos)
-estado: v0.6 · 30-oct · P5: decisiones que sostienen el párrafo y fuente de cada dato copiado (P-60, D7) · v0.5 · 30-oct · tarjeta del «Entendí» en la rebanada 2 (B-51, B-53) · v0.4 · 30-oct · selector «Tus proyectos» (P-48) · «+ Sección», edición del título y de «qué debe abordar», y reordenar (K-17) · v0.3 · 30-oct · precisiones U-1 a U-6, R-5 y R-8 · v0.3 · 29-oct · bocetos de la rebanada 2: «por aclarar», P6 con la defensa, avisos en el texto y la línea de vuelta (backlog-r2) · v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
+estado: v0.8 · 30-oct · dónde va cada vista de la rebanada 3 · v0.7 · 30-oct · dónde va cada vista de la rebanada 2 en las tres columnas · v0.6 · 30-oct · P5: decisiones que sostienen el párrafo y fuente de cada dato copiado (P-60, D7) · v0.5 · 30-oct · tarjeta del «Entendí» en la rebanada 2 (B-51, B-53) · v0.4 · 30-oct · selector «Tus proyectos» (P-48) · «+ Sección», edición del título y de «qué debe abordar», y reordenar (K-17) · v0.3 · 30-oct · precisiones U-1 a U-6, R-5 y R-8 · v0.3 · 29-oct · bocetos de la rebanada 2: «por aclarar», P6 con la defensa, avisos en el texto y la línea de vuelta (backlog-r2) · v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
 relacion: dibuja funcionalidades.md (v1.0) sobre bloque-3.md §4. Usa fichas §2 y §8.2, flujos §3 (firma), especificación §9 (el marco) y las decisiones B3-9 y B3-18 a B3-21. No decide reglas: solo dónde va cada cosa y qué datos pide cada vista. Es la entrada de la arquitectura
 ---
 
@@ -80,6 +80,32 @@ flowchart LR
 **Precisiones del 30-oct (`../_propuesta-30oct-fuentes-y-flujo.md`):** el título del proyecto lo propone el «Entendí» y se edita en la cabecera (U-1) · la cabecera de la conversación muestra proveedor, modelo, esfuerzo, contexto usado y lo gastado; la firma, el modelo que contrasta (U-2) · el esqueleto del marco es la única navegación entre secciones; la columna derecha muestra solo la sección elegida, sin pestañas (U-3) · una sola familia tipográfica; el documento se distingue por tamaño, interlineado y ancho (U-4) · la conversación muestra toda su historia al abrir el proyecto (U-5) · «Lo que entendí» es una sola tarjeta: lo entendido, cómo se juzga (si hay criterios), el plan con la marca «aquí se concluye», y los botones «Confirmar» y «Corregir» (no condicionan el arranque, B-17); sin menús de rol (U-6, R-8) · las respuestas del agente a tus preguntas aparecen en la conversación (R-5) · **desde la rebanada 2,** la tarjeta «Lo que entendí» suma «¿pide evidencia?» con su por qué y, en el plan, qué aborda cada sección y de dónde saldrá su evidencia; «Corregir» también confirma el plan (B-51, B-53, R-6) · **«+ Sección» (K-17, P-49):** pide título, la marca «aquí se concluye» (opcional; sin marcar, el rol lo propone el principal) y «qué debe abordar» (opcional, hasta 60 palabras); en la columna derecha, el título y «qué debe abordar» se editan con un clic bajo la cabecera de la sección; en el esqueleto del marco, cada sección tiene «subir» y «bajar» · **el selector de proyectos del marco dice «Tus proyectos ▾»;** el título del proyecto se ve y se edita solo en la cabecera (P-48). **Estas precisiones mandan sobre `boceto-ui.html`**, que es del 29-oct (letra del documento, «Entendí» con botones por caso, cabecera sin título ni modelo).
 
 **Reglas que se mantienen:** el chat no confirma nada (una tarjeta solo se cierra con opción y «porque»); nada bloquea; la firma va a pantalla completa y oculta el marco y el texto (P7); ningún id interno a la vista (regla 7). En pantallas angostas, las tres columnas se apilan.
+
+## Dónde va cada vista de la rebanada 2 (30-oct)
+
+*Los bocetos de abajo (P4, P6, avisos, línea de vuelta, defensa) son del 29-oct: valen por su contenido. Dónde va cada uno en las tres columnas lo dice esta tabla, que manda sobre su ubicación.*
+
+| Vista | Izquierda · el marco | Centro · conversación | Derecha · documento |
+|---|---|---|---|
+| «Por aclarar» (P4, 2.4) | Una línea en «Lo que te toca» que lleva a la tarjeta | La tarjeta, con sus opciones (contraste, consecuencia, riesgo), las variantes plegadas, opción + «porque» y «Aplicar» | El pasaje del que depende, subrayado, con su enlace (2.9) |
+| Informe de parada (P6, 2.5) | «Informe sin ver» en «Lo que te toca» hasta abrirlo | El informe, plegado bajo su primera línea; «Sigue», «Abordémoslo» y «Firmar» | — |
+| Preparación de la defensa (2.6) | — | Dentro del informe: cada pregunta con «sí» y «no» | — |
+| Avisos en el texto (2.9) | El estado de la sección en el esqueleto | — | Una banda bajo el título y «qué debe abordar», con los cambios sin cerrar y sus botones; los pasajes con pendiente, subrayados |
+| Línea de vuelta y «sin ver» (2.7) | La línea, arriba del marco; el punto «sin ver» en cada decisión crítica del esqueleto y el filtro | Vuelta corta: el informe pendiente arriba y, debajo, lo detectado | — |
+| Procedencia (2.11) | — | — | La marca «sin verificar» junto al párrafo; en la historia (P5), la fuente y el pasaje, o «del conocimiento del modelo, sin verificar» |
+| Plan acordado (2.12) | El esqueleto sigue el plan | La tarjeta «Lo que entendí», con «¿pide evidencia?» y, por sección, qué aborda y de dónde sale su evidencia | — |
+
+## Dónde va cada vista de la rebanada 3 (30-oct, backlog-r3)
+
+*Misma regla que la tabla de la rebanada 2: dice dónde va cada vista en las tres columnas; el contenido sale de su pieza.*
+
+| Vista | Izquierda · el marco | Centro · conversación | Derecha · documento |
+|---|---|---|---|
+| Ronda propuesta (3.2, B-64) | «Ronda por lanzar» en «Lo que te toca» | La tarjeta: pregunta, qué busca cada lector y dónde, costo estimado, «¿qué esperas encontrar?» (opcional) e «Investigar» | — |
+| Ronda en curso y digesto (3.2, 3.4) | — | La misma tarjeta: el avance de cada lector y, al terminar, el digesto (primero la respuesta, esquema con sus hallazgos), «Descartados (n)» y «Sin revisar» a la vista, «¿se redujo la duda?», «Repetir con otra pregunta» con su costo | Al abrir un pasaje, su fuente con el pasaje marcado |
+| Conflicto entre fuentes (3.4, B-66) | Una línea en «Lo que te toca» | La tarjeta de «por aclarar» con los dos pasajes como opciones | El aviso en las secciones que usan alguna de las dos fuentes (2.9) |
+| Procedencia externa y candidatas (3.5) | En la decisión desplegada, las fuentes buscadas con su enlace | — | Junto al párrafo, el origen; en la historia (P5), título, año y enlace de la fuente buscada, o «candidata, sin verificar» con «Buscarla» |
+| Juez (3.6) | «Fallas por revisar» en «Lo que te toca» | Las fallas, cada una con su riesgo, su escenario y «No aplica»; después, el resultado de la reverificación | «Auditar sección» junto a «Firmar sección»; el pasaje de cada falla, subrayado |
 
 ## P2 y P3 · versión del 28-oct (reemplazada por la disposición general)
 
