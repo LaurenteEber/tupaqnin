@@ -125,6 +125,8 @@ export function App() {
       sleep: (ms) => new Promise((resolve) => window.setTimeout(resolve, ms)),
       now: () => Date.now(),
       cancelled: () => !live,
+      // P-95: the header shows the summary again, with the judge's cost.
+      onEnd: () => void getSummary(projectID).then((s) => live && setSummary(s)),
     }).then(() => live && setDefensePreparing(false));
     return () => {
       live = false;

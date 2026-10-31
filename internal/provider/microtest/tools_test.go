@@ -392,6 +392,13 @@ type toolRun struct {
 
 func saveToolFixture(t *testing.T, name string, c toolCall) {
 	t.Helper()
+	saveFixtureIn(t, toolsFixtureDir, name, c)
+}
+
+// saveFixtureIn records one call for the fake provider in dir: its
+// items, deltas and usage, never the key.
+func saveFixtureIn(t *testing.T, dir, name string, c toolCall) {
+	t.Helper()
 	fx := provider.Fixture{Name: name, Deltas: c.deltas, Items: c.output,
 		Usage:      provider.Usage{InputTokens: c.inTokens, OutputTokens: c.outTokens, CostUSD: c.cost()},
 		DeltaDelay: c.meanDelay}
@@ -400,11 +407,11 @@ func saveToolFixture(t *testing.T, name string, c toolCall) {
 		t.Logf("fixture %s: marshal: %v", name, err)
 		return
 	}
-	if err := os.MkdirAll(toolsFixtureDir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Logf("fixture %s: mkdir: %v", name, err)
 		return
 	}
-	if err := os.WriteFile(filepath.Join(toolsFixtureDir, name+".json"), b, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name+".json"), b, 0o644); err != nil {
 		t.Logf("fixture %s: write: %v", name, err)
 	}
 }

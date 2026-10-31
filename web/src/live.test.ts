@@ -95,3 +95,23 @@ test("P-93: the selected section's editor reloads a newer text the agent wrote, 
   assert.equal(shouldReloadEditor(base, { version: 1, text: agent.text }, "", ""), false, "not newer");
   assert.equal(shouldReloadEditor({ version: 1, savedText: agent.text }, agent, agent.text, agent.text), false, "same text");
 });
+
+test("P-95: when the defense's wait ends, the header's summary is read again; not when it is cancelled", async () => {
+  for (const [preparing, left, want] of [
+    [false, false, 1], // ended
+    [true, false, 1], // cap
+    [true, true, 0], // cancelled
+  ] as const) {
+    const c = clock();
+    let summaries = 0;
+    await pollDefense<number>({
+      ...c,
+      cancelled: () => left,
+      preparing: async () => preparing,
+      conversation: async () => [],
+      onEntries: () => {},
+      onEnd: () => void summaries++,
+    });
+    assert.equal(summaries, want);
+  }
+});

@@ -24,7 +24,6 @@
 package microtest
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -51,7 +50,11 @@ const (
 	// [EL DISEÑO NO LO DICE]: where they live; the testdata of the
 	// package 3.1 creates, internal/evidence.
 	evidenceRecordingDir = "../../evidence/testdata/recordings"
-	evidenceRuns         = 5
+	// The model calls of the first valid run of part 2, for 3.2's fake
+	// reader (P-96), and the API answers that run used, beside the
+	// recordings of part 3.
+	readerFixtureDir = "../testdata/reader"
+	evidenceRuns     = 5
 	// B-65: up to 8 tool calls per reader; the model rounds are capped
 	// apart, so a run always ends.
 	readerToolCap     = 8
@@ -329,11 +332,12 @@ func collapse(s string) string { return strings.TrimSpace(spaces.ReplaceAllStrin
 // literatureRun answers one reader's tool calls and numbers its hits,
 // as the round will (B-58).
 type literatureRun struct {
-	contact  string
-	hits     []literatureHit
-	searches int
-	reads    int
-	failures []string
+	contact   string
+	responses []apiResponse // the API answers, in order, for the recordings
+	hits      []literatureHit
+	searches  int
+	reads     int
+	failures  []string
 }
 
 func (lr *literatureRun) answer(fc functionCall) string {
@@ -366,6 +370,9 @@ func (lr *literatureRun) answer(fc functionCall) string {
 			}
 		default:
 			return "error: where is openalex or arxiv"
+		}
+		if res.Err == "" {
+			lr.responses = append(lr.responses, res)
 		}
 		if res.Err != "" || err != nil {
 			lr.failures = append(lr.failures, args.Where+" "+res.Err)
@@ -582,6 +589,10 @@ func countTypes(types map[string]int) string {
 // saveRecording keeps one API answer for 3.1 (no key, no contact).
 func saveRecording(t *testing.T, name string, res apiResponse) {
 	t.Helper()
+	if c := os.Getenv("TQ_CONTACT_EMAIL"); c != "" && (strings.Contains(res.Body, c) || strings.Contains(res.URL, c)) {
+		t.Errorf("recording %s holds the contact: not saved", name)
+		return
+	}
 	b, err := json.MarshalIndent(res, "", "  ")
 	if err != nil {
 		t.Logf("recording %s: marshal: %v", name, err)
@@ -653,6 +664,7 @@ func TestMicroTestEvidence(t *testing.T) {
 		}
 		var valid int
 		var costs []float64
+		saved := false
 		for i := 1; i <= evidenceRuns; i++ {
 			run := &literatureRun{contact: contact}
 			input := []json.RawMessage{userItem(readerTask)}
@@ -710,11 +722,24 @@ func TestMicroTestEvidence(t *testing.T) {
 					open++
 				}
 			}
+			// P-96: the first valid run that used the tools is recorded for
+			// 3.2's fake reader: its model calls, then the API answers it
+			// read, in order. No key, no contact.
+			if !saved && j.valid && toolCalls > 0 {
+				for n, c := range calls {
+					saveFixtureIn(t, readerFixtureDir, fmt.Sprintf("reader-call-%d", n+1), c)
+				}
+				for n, res := range run.responses {
+					saveRecording(t, fmt.Sprintf("reader-run-%d-%s", n+1, res.Service), res)
+				}
+				saved = true
+				t.Logf("literature run %d recorded: %d model calls in internal/provider/testdata/reader, %d API answers in internal/evidence/testdata/recordings", i, len(calls), len(run.responses))
+			}
 			t.Logf("literature run %d: model calls %d · tool calls %d (search_literature ×%d, read_hit ×%d, bad args %d, args streamed in %d calls) · hits %d (open %d) · api failures %v · error %s · %s · tokens in %d out %d · cost %.6f USD · %.1f s",
 				i, len(calls), toolCalls, names["search_literature"], names["read_hit"], badArgs, streamedArgs,
 				len(run.hits), open, run.failures, failure, j, in, out, cost, secs)
 		}
-		t.Logf("literature summary: %d of %d valid · mean cost per reader %.6f USD", valid, evidenceRuns, mean(costs))
+		t.Logf("literature summary: %d of %d valid · mean cost per reader %.6f USD · recorded %v", valid, evidenceRuns, mean(costs), saved)
 	})
 
 	t.Run("3-recordings", func(t *testing.T) {
@@ -765,9 +790,6 @@ func TestMicroTestEvidence(t *testing.T) {
 			}
 			t.Logf("recording %s (%s, %q): status %d · %s · %d bytes · %.1f s · results %d · open text %d · with abstract %d · with DOI %d · titles %q",
 				q.name, q.kase, q.query, res.Status, res.ContentType, len(res.Body), res.Elapsed.Seconds(), len(hits), open, withAbstract, withDOI, titles)
-			if bytes.Contains([]byte(res.Body), []byte(contact)) {
-				t.Errorf("recording %s holds the contact", q.name)
-			}
 		}
 	})
 }

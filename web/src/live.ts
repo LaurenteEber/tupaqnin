@@ -18,6 +18,9 @@ export interface DefensePoll<E> {
   sleep: (ms: number) => Promise<void>;
   now: () => number;
   cancelled: () => boolean;
+  // P-95: when the wait ends (not when it is cancelled), the page reads
+  // again what the header shows: the summary, with what the judge spent.
+  onEnd?: () => void;
 }
 
 export type DefensePollEnd = "ended" | "cap" | "cancelled";
@@ -26,6 +29,12 @@ export type DefensePollEnd = "ended" | "cap" | "cancelled";
 // questions are written before it does, so the last refresh, read after
 // it ended, shows them) or the cap passes. A failed read is asked again.
 export async function pollDefense<E>(p: DefensePoll<E>): Promise<DefensePollEnd> {
+  const end = await waitDefense(p);
+  if (end !== "cancelled") p.onEnd?.();
+  return end;
+}
+
+async function waitDefense<E>(p: DefensePoll<E>): Promise<DefensePollEnd> {
   const deadline = p.now() + DEFENSE_POLL_CAP_MS;
   while (p.now() < deadline) {
     await p.sleep(DEFENSE_POLL_MS);

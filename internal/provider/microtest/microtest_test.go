@@ -280,7 +280,8 @@ func TestSchemaCompilesWithECMARegex(t *testing.T) {
 		t.Fatalf("read principal schema: %v", err)
 	}
 	sch := compileSchema(t, raw)
-	good := `{"triage_line":"x","closing_risk":"none","note":"n","used_decisions":["dec-1"]}`
+	// stretch is required since 2.11 (B-43, P-96).
+	good := `{"triage_line":"x","stretch":"direct","closing_risk":"none","note":"n","used_decisions":["dec-1"]}`
 	inst, err := decodeInstance(good)
 	if err != nil {
 		t.Fatalf("decode good instance: %v", err)
@@ -288,7 +289,7 @@ func TestSchemaCompilesWithECMARegex(t *testing.T) {
 	if err := validateInstance(sch, inst); err != nil {
 		t.Fatalf("a conforming output must validate: %v", err)
 	}
-	bad := `{"triage_line":"x","closing_risk":"bogus","note":"n"}`
+	bad := `{"triage_line":"x","stretch":"direct","closing_risk":"bogus","note":"n"}`
 	badInst, err := decodeInstance(bad)
 	if err != nil {
 		t.Fatalf("decode bad instance: %v", err)
@@ -309,7 +310,7 @@ func TestSchemaCompilesWithECMARegex(t *testing.T) {
 	if err := json.Unmarshal(raw, &fullDoc); err != nil {
 		t.Fatalf("decode full schema: %v", err)
 	}
-	withNulls := `{"triage_line":"x","closing_risk":"none","note":"n","used_decisions":null,"new_text":null}`
+	withNulls := `{"triage_line":"x","stretch":"direct","closing_risk":"none","note":"n","used_decisions":null,"new_text":null}`
 	inst2, err := decodeInstance(withNulls)
 	if err != nil {
 		t.Fatalf("decode nulls instance: %v", err)
