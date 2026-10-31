@@ -301,8 +301,8 @@ func (r *Runner) afterYourAnswer(ctx context.Context, projectID string, before m
 // defendInBackground prepares, apart from the answer's request, the
 // defense of each section among before that your answer left ready
 // (P-90). It keeps the turn slot rule: with a turn of the project
-// running, the defense waits for it in the runner and runs when it
-// ends (endTurn). A failure blocks nothing and is logged by code only.
+// running, the defense waits for it in the runner and runs when the
+// slot is released (P-91). A failure blocks nothing and is logged by code only.
 // [EL DISEÑO NO LO DICE]: the defense waits in memory, not in the
 // history (P-90, 2.5 proportionality): a restart in between drops it,
 // and the next stop that proposes signing the section prepares it.
@@ -319,20 +319,27 @@ func (r *Runner) defendInBackground(projectID string, before map[string]bool) {
 	r.answers.Add(1)
 	r.mu.Unlock()
 	go func() {
-		defer r.answers.Done()
-		ctx := r.ctx
-		ready, err := readyAmong(ctx, r.db, projectID, before)
+		ready, err := readyAmong(r.ctx, r.db, projectID, before)
 		if err != nil {
-			r.logAfterAnswer(ctx, "ready_sections_error")
+			r.logAfterAnswer(r.ctx, "ready_sections_error")
+			r.answers.Done()
 			return
 		}
 		r.queueDefenses(projectID, ready)
-		if !r.tryAcquireTurn(projectID) {
-			return // the running turn's end prepares it (endTurn)
-		}
-		defer r.releaseTurn(projectID)
-		r.runQueuedDefenses(ctx, projectID)
+		r.runDefensesInBackground(projectID)
 	}()
+}
+
+// runDefensesInBackground takes the project's turn slot and prepares
+// its queued defenses; with the slot held, the holder's release
+// launches them (P-91). The caller counted it in answers.
+func (r *Runner) runDefensesInBackground(projectID string) {
+	defer r.answers.Done()
+	if !r.tryAcquireTurn(projectID) {
+		return // releaseTurn launches them when the slot frees
+	}
+	defer r.releaseTurn(projectID)
+	r.runQueuedDefenses(r.ctx, projectID)
 }
 
 // logAfterAnswer logs a failure after your saved answer by its code

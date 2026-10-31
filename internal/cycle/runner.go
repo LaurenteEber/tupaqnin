@@ -317,10 +317,21 @@ func (r *Runner) tryAcquireTurn(projectID string) bool {
 	return true
 }
 
+// releaseTurn frees the project's turn slot. P-91: defenses your
+// answers queued while the slot was held (even while endTurn prepared
+// others) are launched in the background then, as in P-90, so none
+// waits for a turn that may never come.
 func (r *Runner) releaseTurn(projectID string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	delete(r.running, projectID)
+	pending := len(r.defenses[projectID]) > 0 && !r.closed
+	if pending {
+		r.answers.Add(1)
+	}
+	r.mu.Unlock()
+	if pending {
+		go r.runDefensesInBackground(projectID)
+	}
 }
 
 func (r *Runner) now() time.Time {
