@@ -104,4 +104,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "server: %v\n", err)
 		os.Exit(1)
 	}
+	// The pending waits before the batch of your edits stop with the
+	// server (B-36); a batch in flight is cancelled.
+	runner.Close()
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,6 +18,13 @@ type SignoffStarter interface {
 	SignoffExplanation(projectID, signLabel, text string) (string, error)
 	SignoffAnswers(projectID, signLabel, originAnswer, caseAnswer string) (string, error)
 	SignoffAsk(projectID, signLabel, text string) (string, error)
+}
+
+// SignoffRequester asks to sign after sending the pending batch of your
+// edits to the checker (B-36). *cycle.Runner satisfies it; without it,
+// asking to sign goes to the gate alone.
+type SignoffRequester interface {
+	RequestSignoff(ctx context.Context, projectID, sectionLabel string) (cycle.SignoffOpen, error)
 }
 
 // SignoffBlocked is the answer to asking to sign when the signoff cannot
@@ -99,7 +107,11 @@ func (s *Server) requestSignoff(w http.ResponseWriter, r *http.Request) {
 	if !s.requireProject(w, r, projectID) {
 		return
 	}
-	open, err := cycle.NewGate(s.db).RequestSignoff(r.Context(), projectID, r.PathValue("label"))
+	request := cycle.NewGate(s.db).RequestSignoff
+	if sr, ok := s.starter.(SignoffRequester); ok {
+		request = sr.RequestSignoff
+	}
+	open, err := request(r.Context(), projectID, r.PathValue("label"))
 	if err != nil {
 		signoffError(w, err)
 		return

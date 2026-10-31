@@ -1,0 +1,25 @@
+{
+  "name": "contradicts-decision",
+  "turn_kind": "checker",
+  "deltas": [
+    "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"contradicts\", \"passage\": \"Usamos solo datos de tesis, no el informe del comité.\"}], \"candidates\": [{\"type\": \"contradiction\", \"section\": \"sec-1\", \"new_passage\": \"Usamos solo datos de tesis, no el informe del comité.\", \"clashing_passage\": \"Usar el informe del comité.\", \"protected\": \"dec-1\", \"citation\": null, \"question\": \"¿Se usa el informe del comité o solo datos de tesis?\", \"options\": [{\"option\": \"Usar el informe del comité.\", \"contrast\": \"Sigue tu decisión.\", \"consequence\": \"El agente reescribe el pasaje.\", \"risk\": \"Se dejan fuera las tesis.\"}, {\"option\": \"Usar solo datos de tesis.\", \"contrast\": \"Acepta el pasaje nuevo.\", \"consequence\": \"Tu decisión pasa a una versión nueva.\", \"risk\": \"Se pierde el informe del comité.\"}]}]}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"contradicts\", \"passage\": \"Usamos solo datos de tesis, no el informe del comité.\"}], \"candidates\": [{\"type\": \"contradiction\", \"section\": \"sec-1\", \"new_passage\": \"Usamos solo datos de tesis, no el informe del comité.\", \"clashing_passage\": \"Usar el informe del comité.\", \"protected\": \"dec-1\", \"citation\": null, \"question\": \"¿Se usa el informe del comité o solo datos de tesis?\", \"options\": [{\"option\": \"Usar el informe del comité.\", \"contrast\": \"Sigue tu decisión.\", \"consequence\": \"El agente reescribe el pasaje.\", \"risk\": \"Se dejan fuera las tesis.\"}, {\"option\": \"Usar solo datos de tesis.\", \"contrast\": \"Acepta el pasaje nuevo.\", \"consequence\": \"Tu decisión pasa a una versión nueva.\", \"risk\": \"Se pierde el informe del comité.\"}]}]}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 900,
+    "output_tokens": 120,
+    "context_window": 0,
+    "cost_usd": 0
+  }
+}

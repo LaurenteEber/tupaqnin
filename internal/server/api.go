@@ -20,6 +20,13 @@ type TurnStarter interface {
 	StartUnderstandingTurn(projectID string) (string, error)
 }
 
+// EditNotifier is told each save of your edit that changed a section,
+// so the batch of your edits goes to the checker 60 s after the last
+// one (B-36). *cycle.Runner satisfies it.
+type EditNotifier interface {
+	EditSaved(projectID string)
+}
+
 // API request and response shapes (backlog 0.10). TypeScript types
 // are generated from these with tygo (web/src/api/types.ts); the API
 // only transports what Go computes (rule 5 of AGENTS.md).
@@ -304,6 +311,11 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "internal")
 	default:
+		// [EL DISEÑO NO LO DICE]: «sin cambios» counts from a save that
+		// changed the fingerprint, as the rules (B-36).
+		if n, ok := s.starter.(EditNotifier); ok && runRules {
+			n.EditSaved(projectID)
+		}
 		writeJSON(w, http.StatusOK, SectionResponse{Label: updated.Label, Version: updated.CurrentVersion})
 	}
 }

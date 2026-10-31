@@ -10,6 +10,12 @@ import type { Entry, Pending } from "./graph";
  */
 export type TurnStarter = any;
 /**
+ * EditNotifier is told each save of your edit that changed a section,
+ * so the batch of your edits goes to the checker 60 s after the last
+ * one (B-36). *cycle.Runner satisfies it.
+ */
+export type EditNotifier = any;
+/**
  * API request and response shapes (backlog 0.10). TypeScript types
  * are generated from these with tygo (web/src/api/types.ts); the API
  * only transports what Go computes (rule 5 of AGENTS.md).
@@ -381,6 +387,12 @@ export type Option = any;
  * routes that start a turn exist only when the starter does.
  */
 export type SignoffStarter = any;
+/**
+ * SignoffRequester asks to sign after sending the pending batch of your
+ * edits to the checker (B-36). *cycle.Runner satisfies it; without it,
+ * asking to sign goes to the gate alone.
+ */
+export type SignoffRequester = any;
 /**
  * SignoffBlocked is the answer to asking to sign when the signoff cannot
  * open or sign: the error code and, for pendings, the list (7a, flujos

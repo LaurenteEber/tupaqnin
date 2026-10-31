@@ -72,19 +72,162 @@ type Runner struct {
 	schema   json.RawMessage
 	schemaOK bool
 
+	// AfterFunc overrides time.AfterFunc for the wait before the batch
+	// of your edits (tests); it returns the timer's stop. Nil means
+	// time.AfterFunc.
+	AfterFunc func(d time.Duration, f func()) (stop func() bool)
+
 	// One turn per project ([EL DISEÑO NO LO DICE], see
 	// ErrTurnRunning): running holds the projects with a turn in
-	// flight, guarded by mu.
+	// flight, guarded by mu. The batch of your edits takes the same
+	// slot (B-36).
 	mu      sync.Mutex
 	running map[string]bool
+
+	// The wait before each project's batch of your edits (B-36), guarded
+	// by mu; closed stops new waits, and batches counts those running so
+	// Close waits for them. ctx is cancelled by Close.
+	waits   map[string]*editWait
+	closed  bool
+	batches sync.WaitGroup
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
+
+// editWait is one project's pending wait before its batch.
+type editWait struct{ stop func() bool }
+
+// EditBatchDelay is how long after the last save of your edit the batch
+// of your edits goes to the checker (B-36: 60 s without changes,
+// [inicial, parámetro]).
+// [EL DISEÑO NO LO DICE]: where the parameter lives; a constant, with
+// no environment variable.
+const EditBatchDelay = 60 * time.Second
 
 // NewRunner wires a runner. count is the token counter already bound
 // to the principal's model (B-5).
 func NewRunner(db *store.DB, prov provider.Provider, count memory.TokenCounter, pub TurnPublisher) *Runner {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Runner{db: db, prov: prov, count: count, pub: pub,
 		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{},
-		checker: checks.NewChecker(prov, checkerInstructions, checkerSchema)}
+		checker: NewChecker(prov), waits: map[string]*editWait{}, ctx: ctx, cancel: cancel}
+}
+
+// NewChecker returns the checker over prov with its embedded
+// instructions and fixed output (backlog-r2 2.3); the micro-test of the
+// checker records with it (P-68).
+func NewChecker(prov provider.Provider) *checks.Checker {
+	return checks.NewChecker(prov, checkerInstructions, checkerSchema)
+}
+
+// EditSaved is told each save of your edit that changed the section
+// (B-36): it (re)starts the project's wait of EditBatchDelay; when the
+// wait ends without another save, the batch of your edits goes to the
+// checker. After Close it does nothing.
+func (r *Runner) EditSaved(projectID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return
+	}
+	if w := r.waits[projectID]; w != nil {
+		w.stop()
+	}
+	w := &editWait{}
+	after := r.AfterFunc
+	if after == nil {
+		after = func(d time.Duration, f func()) func() bool { return time.AfterFunc(d, f).Stop }
+	}
+	w.stop = after(EditBatchDelay, func() {
+		r.mu.Lock()
+		if r.closed {
+			r.mu.Unlock()
+			return
+		}
+		if r.waits[projectID] == w {
+			delete(r.waits, projectID)
+		}
+		r.batches.Add(1)
+		r.mu.Unlock()
+		defer r.batches.Done()
+		r.runEditBatch(r.ctx, projectID)
+	})
+	r.waits[projectID] = w
+}
+
+// Close stops every pending wait, cancels a batch in flight and waits
+// for it to end. The runner starts no new wait afterwards.
+func (r *Runner) Close() {
+	r.mu.Lock()
+	r.closed = true
+	for id, w := range r.waits {
+		w.stop()
+		delete(r.waits, id)
+	}
+	r.mu.Unlock()
+	r.cancel()
+	r.batches.Wait()
+}
+
+// runEditBatch runs the batch of your edits when its wait ends (B-36).
+// It takes the project's turn slot: while a turn runs, nothing is sent
+// and the batch waits for its next trigger (a save, a message or asking
+// to sign).
+// [EL DISEÑO NO LO DICE]: what happens when the wait ends during a
+// turn; the smallest choice is not to re-arm the wait.
+func (r *Runner) runEditBatch(ctx context.Context, projectID string) {
+	if !r.tryAcquireTurn(projectID) {
+		return
+	}
+	defer r.releaseTurn(projectID)
+	turnID, err := newTurnID()
+	if err == nil {
+		err = r.checkYourEdits(ctx, projectID, turnID)
+	}
+	if err != nil && ctx.Err() == nil && r.Logger != nil {
+		r.Logger.Error("edit batch failed", "error", err.Error())
+	}
+}
+
+// checkYourEdits sends the batch of your edits since the checker's last
+// pass, if there is one, in one call (B-36). The caller holds the
+// project's turn slot. No transaction is open while the checker answers
+// (specification §2).
+func (r *Runner) checkYourEdits(ctx context.Context, projectID, turnID string) error {
+	edits, err := checks.YourEditsToCheck(ctx, r.db, projectID)
+	if err != nil || !edits.HasWork() {
+		return err
+	}
+	return r.checker.Check(ctx, r.db, projectID, turnID, edits)
+}
+
+// RequestSignoff is asking to sign (7a) with B-36: the batch of your
+// edits goes to the checker first, and the signoff opens (or lists what
+// blocks it) on what the checker left. With a batch pending while a
+// turn of the project runs, it answers ErrTurnRunning.
+// [EL DISEÑO NO LO DICE]: asking to sign during a turn with edits
+// unchecked; the smallest choice is to refuse it (409 turn_running), so
+// no text the checker has not seen reaches the signoff. The batch is the
+// whole project's, not only the section's (B-36 says «el lote»).
+func (r *Runner) RequestSignoff(ctx context.Context, projectID, sectionLabel string) (SignoffOpen, error) {
+	edits, err := checks.YourEditsToCheck(ctx, r.db, projectID)
+	if err != nil {
+		return SignoffOpen{}, err
+	}
+	if edits.HasWork() {
+		if !r.tryAcquireTurn(projectID) {
+			return SignoffOpen{}, ErrTurnRunning
+		}
+		turnID, err := newTurnID()
+		if err == nil {
+			err = r.checkYourEdits(ctx, projectID, turnID)
+		}
+		r.releaseTurn(projectID)
+		if err != nil {
+			return SignoffOpen{}, err
+		}
+	}
+	return r.gate.RequestSignoff(ctx, projectID, sectionLabel)
 }
 
 // tryAcquireTurn takes the project's turn slot, or reports false
@@ -585,16 +728,9 @@ func (r *Runner) runTurn(ctx context.Context, projectID, turnID, text string) er
 	}
 	// B-36: your edits since the checker's last pass go to it in one
 	// batch when you send a message, before the agent's step.
-	edits, err := checks.YourEditsToCheck(ctx, r.db, projectID)
-	if err != nil {
+	if err := r.checkYourEdits(ctx, projectID, turnID); err != nil {
 		r.fail(projectID, turnID, "turn_failed")
 		return err
-	}
-	if edits.HasWork() {
-		if err := r.checker.Check(ctx, r.db, projectID, turnID, edits); err != nil {
-			r.fail(projectID, turnID, "turn_failed")
-			return err
-		}
 	}
 	return r.runChain(ctx, projectID, turnID, text, true)
 }

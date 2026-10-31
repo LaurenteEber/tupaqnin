@@ -695,9 +695,9 @@ func openQuestion(ctx context.Context, tx *store.Tx, projectID, turnID string, c
 // yet (B-36): each section with an edit of yours after the last pass of
 // the checker over it (a probe event, or the output_retry that left it
 // «sin comprobar», whose sections include it). Its passage is the
-// section's current text. The batch runs when you send a message.
-// [EL DISEÑO NO LO DICE]: B-36's other two moments (when you ask to
-// sign, and after 60 s without changes) are not built in piece 2.3.
+// section's current text. The batch runs at B-36's three moments: when
+// you send a message, when you ask to sign and 60 s after your last
+// save (cycle.Runner, P-67).
 func YourEditsToCheck(ctx context.Context, q store.Querier, projectID string) (Change, error) {
 	change := Change{Kind: YourEdit, Actor: "human"}
 	events, err := q.EventsSince(ctx, projectID, 0)
