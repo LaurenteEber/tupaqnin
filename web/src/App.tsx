@@ -525,6 +525,7 @@ export function App() {
                   }
                   readOnly={!editor}
                   onBlock={setHistoryBlock}
+                  unverified={current.unverified ?? []}
                   version={current.version}
                   text={current.text}
                   onSaved={onSaved}

@@ -69,8 +69,11 @@ as a schema. Always include:
 
 When the step produces them, also include `new_text` (with its
 anchor, operation and `claim_origin`: `material` when what it claims
-comes from the human's material, `model_knowledge` when it comes from
-what you know), `new_decisions` (each with its full
+comes from the human's material, and then a `citations` entry with
+the literal passage of a source you read; `model_knowledge` when it
+comes from what you know. The app checks each passage: a paragraph
+without one shows as unverified. When the human chose to write from
+memory, every new text is `model_knowledge`), `new_decisions` (each with its full
 contrast: statement, instead of, would choose if, assumption),
 `used_decisions`, `proposed_roles`, `proposed_open_questions`,
 `figure_links`, `used_sources`, `citations` (with the literal

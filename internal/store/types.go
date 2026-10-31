@@ -176,6 +176,10 @@ const (
 	EventStartup                  EventType = "startup"
 	EventOutputRetry              EventType = "output_retry"
 	EventSectionDetailsChanged    EventType = "section_details_changed" // K-17
+	// EventClaimAccepted: you accept a paragraph without a source as
+	// general knowledge, with its literal passage and your «porque»
+	// (R-1, backlog-r2 2.11).
+	EventClaimAccepted EventType = "claim_accepted"
 )
 
 // Valid reports whether t is one of the table 1.3 event types.
@@ -187,7 +191,7 @@ func (t EventType) Valid() bool {
 		EventSignoffCancelled, EventBriefSignoff, EventAudienceQuestionDeclined, EventUsageChange,
 		EventSourceNewVersion, EventRoleChanged, EventAudienceChanged,
 		EventEdge, EventAnswerWithoutReason, EventActTimed, EventMarkedCritical,
-		EventProbe, EventStartup, EventOutputRetry, EventSectionDetailsChanged:
+		EventProbe, EventStartup, EventOutputRetry, EventSectionDetailsChanged, EventClaimAccepted:
 		return true
 	default:
 		return false

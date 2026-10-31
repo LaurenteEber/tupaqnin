@@ -196,6 +196,13 @@ export interface FrameSection {
   pendings: number /* int */;
   first_line: string;
   decisions: FrameDecision[];
+  /**
+   * Unverified is how many paragraphs have no verified origin (R-1,
+   * R-2): «¿en qué te basaste?» from the graph.
+   * [EL DISEÑO NO LO DICE]: what the frame shows of the provenance; a
+   * count per section, the detail is in the paragraph's history.
+   */
+  unverified: number /* int */;
 }
 /**
  * FrameCard is an open card in «Lo que te toca».
@@ -308,6 +315,74 @@ export interface Labeler {
 export interface Number {
   Raw: string;
   Value: string;
+}
+
+//////////
+// source: provenance.go
+
+/**
+ * Claim origins (glossary §11, R-1): what the principal declares for
+ * each new text. external is slice 3; until then it counts as
+ * unverified, like model_knowledge.
+ */
+export const OriginMaterial = "material";
+/**
+ * Claim origins (glossary §11, R-1): what the principal declares for
+ * each new text. external is slice 3; until then it counts as
+ * unverified, like model_knowledge.
+ */
+export const OriginModelKnowledge = "model_knowledge";
+/**
+ * Claim origins (glossary §11, R-1): what the principal declares for
+ * each new text. external is slice 3; until then it counts as
+ * unverified, like model_knowledge.
+ */
+export const OriginExternal = "external";
+/**
+ * PendingUnsourcedClaim is «afirmación sin fuente» (estados §1, R-1):
+ * only in a document that asks for evidence (B-51).
+ */
+export const PendingUnsourcedClaim = "unsourced_claim";
+/**
+ * CitedPassage is a source and the literal passage of it that backs a
+ * paragraph (R-2).
+ */
+export interface CitedPassage {
+  source: string;
+  passage: string;
+}
+/**
+ * Provenance is where one paragraph of a section's current text comes
+ * from (R-1, R-2), computed from the graph, never by a model.
+ */
+export interface Provenance {
+  /**
+   * Block is the paragraph's place in the section, from 1, as the
+   * history numbers it (B-10).
+   */
+  block: number /* int */;
+  /**
+   * Passage is the paragraph, literal.
+   */
+  passage: string;
+  /**
+   * Declared is the claim_origin the last agent step that wrote the
+   * paragraph declared; empty when no agent step wrote it.
+   */
+  declared: string;
+  /**
+   * Verified: the paragraph holds the claim of a citation whose
+   * passage is literal in a source the principal read (a comes_from
+   * edge, R-3). Only then is it «de tu material».
+   */
+  verified: boolean;
+  sources: CitedPassage[];
+  /**
+   * Accepted is your «porque» when you accepted the paragraph as
+   * general knowledge (claim_accepted) and its passage is still
+   * literal in the section.
+   */
+  accepted?: string;
 }
 
 //////////

@@ -85,6 +85,9 @@ type SectionDetail struct {
 	Pendings  []graph.Pending `json:"pendings"`
 	Figures   []LinkedAnchor  `json:"figures"`
 	Citations []LinkedAnchor  `json:"citations"`
+	// Provenance is where each paragraph comes from, computed by the app
+	// (R-1, R-2): the page marks the unverified ones.
+	Provenance []graph.Provenance `json:"provenance"`
 }
 
 // LinkedAnchor is a figure (to its decision) or a citation (to its
@@ -144,6 +147,10 @@ func (s *Server) getSection(w http.ResponseWriter, r *http.Request) {
 			}
 			*kind.out = append(*kind.out, a)
 		}
+	}
+	if detail.Provenance, err = graph.Provenances(ctx, s.db, projectID, sec.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
 	}
 	writeJSON(w, http.StatusOK, detail)
 }

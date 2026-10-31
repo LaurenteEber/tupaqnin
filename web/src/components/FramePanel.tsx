@@ -192,6 +192,11 @@ function SkeletonSection({ lang, section, titleOf, active, onSection, onHistory,
           </button>
         </span>
       )}
+      {section.unverified > 0 && (
+        // R-2: how many paragraphs have no verified origin; each one's
+        // history says where it comes from.
+        <p className="meta">{t("frame.unverified", { n: String(section.unverified) })}</p>
+      )}
       {section.first_line && <p className="first">{section.first_line}</p>}
       {section.decisions.map((d) => (
         <details

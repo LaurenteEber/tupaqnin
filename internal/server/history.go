@@ -14,6 +14,9 @@ type BlockHistoryView struct {
 	Section string        `json:"section"`
 	Block   int           `json:"block"`
 	Entries []graph.Entry `json:"entries"`
+	// Provenance is «¿en qué te basaste?» for the block, from the graph
+	// (R-2): its source and passage, or unverified.
+	Provenance graph.Provenance `json:"provenance"`
 }
 
 // GET /api/projects/{projectID}/sections/{label}/history?block={n}.
@@ -39,11 +42,16 @@ func (s *Server) getBlockHistory(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
+	provenance, err := graph.BlockProvenance(r.Context(), s.db, projectID, label, block)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
 	if err := s.recordSeen(r, projectID, entries); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	writeJSON(w, http.StatusOK, BlockHistoryView{Section: label, Block: block, Entries: entries})
+	writeJSON(w, http.StatusOK, BlockHistoryView{Section: label, Block: block, Entries: entries, Provenance: provenance})
 }
 
 // recordSeen records decision_seen with history for each decision

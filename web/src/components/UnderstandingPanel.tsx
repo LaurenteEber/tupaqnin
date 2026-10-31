@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { confirmCase, correctCase, getUnderstanding, putSectionRole } from "../api/client";
+import { confirmCase, correctCase, getUnderstanding, putEvidenceRequired, putSectionRole } from "../api/client";
 import type { CaseView, SectionRoleView, UnderstandingView } from "../api/types";
 import { translate, type Lang } from "../i18n";
 
@@ -69,6 +69,17 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
   // P-43: a failed understanding shows as failed, also after a reload
   // (Go reads it from the events).
   const failed = view?.status === "agent_pending";
+  async function toggleEvidence(required: boolean) {
+    if (!projectID) return;
+    setBusy(true);
+    try {
+      await putEvidenceRequired(projectID, required);
+      await changed();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const empty = !view || (view.understood === "" && view.cases.length === 0 && view.sections.length === 0);
   if (empty) {
     return (
@@ -167,6 +178,33 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
             ))}
           </ul>
         </>
+      )}
+
+      {view.evidence_required && (
+        // «¿Pide evidencia?» (B-51): proposed by the «Entendí», corrected
+        // here; with yes, a paragraph without a verified source blocks
+        // the signoff (R-1).
+        <p className="evidence">
+          {correcting ? (
+            <label>
+              <input
+                type="checkbox"
+                checked={view.evidence_required.value}
+                onChange={() => void toggleEvidence(!view.evidence_required!.value)}
+              />
+              {t("understanding.evidence_required")}
+            </label>
+          ) : (
+            <>
+              {t("understanding.evidence_required")}{" "}
+              <b>{t(view.evidence_required.value ? "understanding.evidence.yes" : "understanding.evidence.no")}</b>
+            </>
+          )}
+          {view.evidence_required.why && <> · {view.evidence_required.why}</>}
+          {view.evidence_required.state === "proposed" && (
+            <span className="meta"> · {t("understanding.role_state.proposed")}</span>
+          )}
+        </p>
       )}
 
       <div className="row">

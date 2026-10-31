@@ -31,6 +31,8 @@ type UnderstandingView struct {
 	Understood string            `json:"understood"`
 	Cases      []CaseView        `json:"cases"`
 	Sections   []SectionRoleView `json:"sections"`
+	// EvidenceRequired is nil until the «Entendí» proposes it (B-51).
+	EvidenceRequired *EvidenceRequiredView `json:"evidence_required,omitempty"`
 }
 
 type SectionRoleView struct {
@@ -98,6 +100,10 @@ func (s *Server) getUnderstanding(w http.ResponseWriter, r *http.Request) {
 		case str(data, "result") == "agent_pending":
 			view.Status = "agent_pending"
 		}
+	}
+	if ev, ok, err := cycle.StoredEvidenceRequired(r.Context(), s.db, projectID); err == nil && ok {
+		v := EvidenceRequiredView(ev)
+		view.EvidenceRequired = &v
 	}
 	writeJSON(w, http.StatusOK, view)
 }

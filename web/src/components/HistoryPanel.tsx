@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { getBlockHistory, getDecisionHistory, markCritical } from "../api/client";
-import type { Entry } from "../api/graph";
+import { acceptClaim, getBlockHistory, getDecisionHistory, markCritical } from "../api/client";
+import type { Entry, Provenance } from "../api/graph";
 import { translate, type Lang } from "../i18n";
 
 // P5 (backlog-r1 1.6): how a block came to be, newest first: who, when,
@@ -26,6 +26,10 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [entries, setEntries] = useState<Entry[] | null>(null);
+  // «¿En qué te basaste?» (R-2): the block's provenance, from the graph.
+  const [provenance, setProvenance] = useState<Provenance | null>(null);
+  const [reason, setReason] = useState("");
+  const [acceptError, setAcceptError] = useState("");
   const panel = useRef<HTMLDivElement>(null);
 
   // The panel opens below the editor, inside a scrolling column: bring
@@ -38,9 +42,32 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
 
   useEffect(() => {
     setEntries(null);
-    const load = decision ? getDecisionHistory(projectID, decision) : getBlockHistory(projectID, label, block);
-    void load.then((v) => setEntries(v.entries), () => setEntries([]));
+    setProvenance(null);
+    if (decision) {
+      void getDecisionHistory(projectID, decision).then((v) => setEntries(v.entries), () => setEntries([]));
+      return;
+    }
+    void getBlockHistory(projectID, label, block).then(
+      (v) => {
+        setEntries(v.entries);
+        setProvenance(v.provenance);
+      },
+      () => setEntries([]),
+    );
   }, [projectID, label, block, decision, reload]);
+
+  async function accept() {
+    if (!provenance) return;
+    setAcceptError("");
+    try {
+      await acceptClaim(projectID, label, provenance.passage, reason);
+      setReason("");
+      setReload((n) => n + 1);
+      onMarked?.();
+    } catch (e) {
+      setAcceptError((e as Error).message);
+    }
+  }
 
   async function toggleCritical(decisionLabel: string, marked: boolean) {
     try {
@@ -59,6 +86,53 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
           : t("history.title", { section: name, block: String(block) })}
       </h2>
       <button type="button" onClick={onClose}>{t("history.close")}</button>
+      {provenance && (
+        <div className="provenance">
+          {provenance.verified ? (
+            <>
+              <b>{t("provenance.material")}</b>
+              <ul>
+                {provenance.sources.map((src, i) => (
+                  <li key={i}>
+                    {t("history.source")}: {src.source} · «{src.passage}»
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>
+              <b>
+                {t(
+                  provenance.declared === "model_knowledge"
+                    ? "provenance.model_knowledge"
+                    : "provenance.unverified_long",
+                )}
+              </b>
+              {provenance.accepted && (
+                <>
+                  {" · "}
+                  {t("provenance.accepted")}: «{provenance.accepted}»
+                </>
+              )}
+            </p>
+          )}
+          {!provenance.verified && !provenance.accepted && (
+            <div className="provenance-accept">
+              <input
+                type="text"
+                value={reason}
+                placeholder={t("provenance.reason_placeholder")}
+                aria-label={t("provenance.reason_placeholder")}
+                onChange={(e) => setReason(e.target.value)}
+              />
+              <button type="button" className="small" disabled={!reason.trim()} onClick={() => void accept()}>
+                {t("provenance.accept")}
+              </button>
+              {acceptError && <p className="turn-error">{t(`provenance.error.${acceptError}`)}</p>}
+            </div>
+          )}
+        </div>
+      )}
       {entries && entries.length === 0 && <p>{t("history.empty")}</p>}
       <ul>
         {entries?.map((e, i) => (

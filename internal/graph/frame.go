@@ -97,6 +97,11 @@ type FrameSection struct {
 	Pendings  int             `json:"pendings"`
 	FirstLine string          `json:"first_line"`
 	Decisions []FrameDecision `json:"decisions"`
+	// Unverified is how many paragraphs have no verified origin (R-1,
+	// R-2): «¿en qué te basaste?» from the graph.
+	// [EL DISEÑO NO LO DICE]: what the frame shows of the provenance; a
+	// count per section, the detail is in the paragraph's history.
+	Unverified int `json:"unverified"`
 }
 
 // FrameCard is an open card in «Lo que te toca».
@@ -253,6 +258,15 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		text := bodyString(sec, "text")
 		fs := FrameSection{Label: sec.Label, Title: bodyString(sec, "title"), Status: status,
 			Pendings: len(pendings), FirstLine: firstSentence(text), Decisions: []FrameDecision{}}
+		provenance, err := Provenances(ctx, db, projectID, sec.ID)
+		if err != nil {
+			return Frame{}, err
+		}
+		for _, p := range provenance {
+			if !p.Verified {
+				fs.Unverified++
+			}
+		}
 		blocks := Blocks(text)
 		signed, hasSignature, err := CurrentSignoff(ctx, db, projectID, sec.ID)
 		if err != nil {

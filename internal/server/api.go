@@ -49,6 +49,9 @@ type SectionView struct {
 	State    string `json:"state"`
 	Pendings int    `json:"pendings"`
 	Text     string `json:"text"`
+	// Unverified are the paragraphs (blocks, from 1) without a verified
+	// origin: the page marks them «sin verificar» (R-1).
+	Unverified []int `json:"unverified"`
 }
 
 type PutSectionRequest struct {
@@ -222,8 +225,20 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "internal")
 			return
 		}
+		provenance, err := graph.Provenances(r.Context(), s.db, projectID, obj.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+		unverified := []int{}
+		for _, p := range provenance {
+			if !p.Verified {
+				unverified = append(unverified, p.Block)
+			}
+		}
 		views = append(views, SectionView{Label: obj.Label, Title: str(bodyMap(obj), "title"), Focus: str(bodyMap(obj), "focus"),
-			Version: obj.CurrentVersion, State: string(status), Pendings: len(pendings), Text: sectionText(obj)})
+			Version: obj.CurrentVersion, State: string(status), Pendings: len(pendings), Text: sectionText(obj),
+			Unverified: unverified})
 	}
 	writeJSON(w, http.StatusOK, views)
 }

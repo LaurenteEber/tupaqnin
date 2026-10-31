@@ -129,6 +129,15 @@ func SectionStatus(ctx context.Context, db store.Querier, projectID, label strin
 	for _, c := range codes {
 		pendings = append(pendings, Pending{Kind: PendingInternalCodes, About: c})
 	}
+	// «Afirmación sin fuente» (R-1, backlog-r2 2.11): computed from the
+	// current text, only when the document asks for evidence (B-51).
+	unsourced, err := UnsourcedClaims(ctx, db, projectID, section.ID)
+	if err != nil {
+		return "", nil, err
+	}
+	for _, passage := range unsourced {
+		pendings = append(pendings, Pending{Kind: PendingUnsourcedClaim, About: passage})
+	}
 	if malformedOutputOpen(events) {
 		pendings = append(pendings, Pending{Kind: PendingMalformedOutput})
 	}

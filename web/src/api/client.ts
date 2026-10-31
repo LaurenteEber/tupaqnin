@@ -17,6 +17,7 @@ import type {
   SummaryView,
   TodoView,
   UnderstandingView,
+  EvidenceRequiredView,
 } from "./types";
 import type { Frame, SignoffView } from "./graph";
 
@@ -251,6 +252,29 @@ export async function claimEditor(projectID: string): Promise<boolean> {
 // decision_seen (history) in Go.
 export async function getBlockHistory(projectID: string, label: string, block: number): Promise<BlockHistoryView> {
   return json(await fetch(`/api/projects/${projectID}/sections/${label}/history?block=${block}`));
+}
+
+// R-1 (backlog-r2 2.11): you accept a paragraph without a source as
+// general knowledge with your «porque»; Go checks the «porque» and that
+// the passage is a paragraph of the section, and records claim_accepted.
+export async function acceptClaim(projectID: string, label: string, passage: string, reason: string): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/sections/${label}/claims/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ passage, reason }),
+  });
+  if (!res.ok) throw new Error(await errorCode(res));
+}
+
+// B-51: «Corregir» on «¿pide evidencia?»; Go leaves your value confirmed.
+export async function putEvidenceRequired(projectID: string, required: boolean): Promise<EvidenceRequiredView> {
+  return json(
+    await fetch(`/api/projects/${projectID}/request/evidence`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ required }),
+    }),
+  );
 }
 
 // P-41 (30-oct): the history of a decision with no point in the text,

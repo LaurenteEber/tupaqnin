@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
@@ -26,6 +26,7 @@ export function SectionEditor({
   heading,
   readOnly,
   onBlock,
+  unverified,
   version,
   text,
   onSaved,
@@ -38,6 +39,9 @@ export function SectionEditor({
   heading: ReactNode;
   readOnly: boolean;
   onBlock: (block: number) => void;
+  // The paragraphs without a verified origin, by block from 1 (R-1):
+  // each shows «sin verificar» at its end. Go computes them.
+  unverified: number[];
   version: number;
   text: string;
   onSaved: (label: string, version: number, text: string) => void;
@@ -110,8 +114,23 @@ export function SectionEditor({
     };
   }, []);
 
+  // The mark goes after each unverified paragraph of the editor, which is
+  // block n (B-10): a rule per paragraph, with the label from the i18n
+  // catalog through a custom property. Labels and block numbers only.
+  // [EL DISEÑO NO LO DICE]: how the mark looks; a small note at the end
+  // of the paragraph, in the colour of what is pending.
+  const markRule =
+    unverified.length > 0
+      ? unverified
+          .map((n) => `.section-editor[data-section="${label}"] .section-editor-content > p:nth-child(${n})::after`)
+          .join(",\n") +
+        " { content: var(--unverified-label); margin-left: 0.5em; font-size: 0.75em; color: var(--todo); background: var(--todo-soft); border-radius: 4px; padding: 0 4px; }"
+      : "";
+  const markLabel = { "--unverified-label": JSON.stringify(translate(lang, "provenance.unverified")) } as CSSProperties;
+
   return (
-    <div className="section-editor" onBlur={() => void saveRef.current()}>
+    <div className="section-editor" data-section={label} style={markLabel} onBlur={() => void saveRef.current()}>
+      {markRule && <style>{markRule}</style>}
       <div className="section-editor-head">
         <div className="section-editor-title">{heading}</div>
         <SaveStatus lang={lang} register={(fn) => (status.current = fn)} />

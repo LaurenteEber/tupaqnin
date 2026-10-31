@@ -34,10 +34,12 @@ const (
 	// otherCardReason answers any other card that blocks the signoff
 	// (P-56).
 	otherCardReason = "Porque mi criterio pide solo estudios de campo y así lo revisará el comité."
-	explanation     = "La embotellada trae 1,5 veces más partículas que la de grifo, comparando los estudios elegidos."
-	originAnswer    = "Del supuesto de que el conteo depende del tamaño mínimo que cada estudio puede ver: con filtros distintos no se cuenta lo mismo."
-	caseAnswer      = "Solo los comparo desde el tamaño mínimo que ambos ven; si no, la diferencia sale del filtro y no del agua."
-	maxRounds       = 4
+	// acceptReason accepts a paragraph «sin verificar» (R-1, 2.11).
+	acceptReason = "Porque lo comparé con las fuentes del caso y lo sostengo yo."
+	explanation  = "La embotellada trae 1,5 veces más partículas que la de grifo, comparando los estudios elegidos."
+	originAnswer = "Del supuesto de que el conteo depende del tamaño mínimo que cada estudio puede ver: con filtros distintos no se cuenta lo mismo."
+	caseAnswer   = "Solo los comparo desde el tamaño mínimo que ambos ven; si no, la diferencia sale del filtro y no del agua."
+	maxRounds    = 4
 	// caseFigure is the datum of case 5: 1,5 times, not 60.
 	caseFigure = "1,5"
 	// ruleWord marks the comparison rule (P-55), compared without case
@@ -354,9 +356,18 @@ func (w *walk) toSignoff() (string, string, bool) {
 	var detail server.SectionDetail
 	w.do("6 open cards", http.MethodGet, w.api("/sections/"+ruleSection.Label), nil, http.StatusOK, &detail)
 	for _, p := range detail.Pendings {
-		if p.Kind == graph.PendingOpenCard {
+		switch p.Kind {
+		case graph.PendingOpenCard:
 			w.do("6 open cards", http.MethodPost, w.api("/cards/"+p.About+"/answer"),
 				map[string]any{"option": "keep", "reason": otherCardReason}, http.StatusOK, nil)
+		case graph.PendingUnsourcedClaim:
+			// [EL DISEÑO NO LO DICE] (2.11): the slice-1 recording of case 5
+			// proposes evidence_required but writes without reading or
+			// citing, so R-1 leaves its paragraphs «sin verificar». The
+			// jury accepts them with a «porque» (R-1); piece 2.10 records
+			// the slice-2 stretch of case 5 again.
+			w.do("6 unsourced claims", http.MethodPost, w.api("/sections/"+ruleSection.Label+"/claims/accept"),
+				map[string]any{"passage": p.About, "reason": acceptReason}, http.StatusNoContent, nil)
 		}
 	}
 	var view graph.SignoffView

@@ -330,3 +330,64 @@ func proposeEvidenceRequired(ctx context.Context, tx *store.Tx, projectID string
 	}
 	return err
 }
+
+// ErrNoRequest: the project has no request yet.
+var ErrNoRequest = errors.New("cycle: the project has no request")
+
+// ConfirmEvidenceRequired is «Corregir» on «¿pide evidencia?» (B-51,
+// backlog-r2 2.11): your value, confirmed, with the shape of the role.
+// The «Entendí»'s why stays; a later «Entendí» no longer changes it
+// (proposeEvidenceRequired). It returns the stored value.
+// [EL DISEÑO NO LO DICE]: the event; state_changed by you on the
+// request, like the agent's proposal, with to: confirmed.
+func ConfirmEvidenceRequired(ctx context.Context, db *store.DB, projectID string, value bool) (EvidenceRequiredState, error) {
+	var out EvidenceRequiredState
+	err := db.Write(ctx, projectID, func(tx *store.Tx) error {
+		requests, err := tx.ListObjects(ctx, projectID, store.ObjectRequest)
+		if err != nil {
+			return err
+		}
+		if len(requests) == 0 {
+			return ErrNoRequest
+		}
+		req := requests[0]
+		b := bodyOf(req)
+		cur, _ := b["evidence_required"].(map[string]any)
+		why, _ := cur["why"].(string)
+		out = EvidenceRequiredState{Value: value, Why: why, State: "confirmed"}
+		b["evidence_required"] = map[string]any{"value": value, "why": why, "state": "confirmed"}
+		_, err = tx.UpdateObject(req.ID, req.CurrentVersion, req.State, b,
+			store.EventInput{Type: store.EventStateChanged, Actor: "human",
+				Data: map[string]any{"label": req.Label, "field": "evidence_required", "to": "confirmed"}})
+		if errors.Is(err, store.ErrNoChange) {
+			return nil
+		}
+		return err
+	})
+	return out, err
+}
+
+// EvidenceRequiredState is evidence_required as the request keeps it
+// (B-51): the value, the «Entendí»'s why and proposed · confirmed.
+type EvidenceRequiredState struct {
+	Value bool   `json:"value"`
+	Why   string `json:"why"`
+	State string `json:"state"`
+}
+
+// StoredEvidenceRequired reads evidence_required from the request; ok
+// is false until the «Entendí» proposes it.
+func StoredEvidenceRequired(ctx context.Context, db *store.DB, projectID string) (EvidenceRequiredState, bool, error) {
+	requests, err := db.ListObjects(ctx, projectID, store.ObjectRequest)
+	if err != nil || len(requests) == 0 {
+		return EvidenceRequiredState{}, false, err
+	}
+	var b struct {
+		EvidenceRequired *EvidenceRequiredState `json:"evidence_required"`
+	}
+	_ = json.Unmarshal(requests[0].Body, &b)
+	if b.EvidenceRequired == nil {
+		return EvidenceRequiredState{}, false, nil
+	}
+	return *b.EvidenceRequired, true, nil
+}
