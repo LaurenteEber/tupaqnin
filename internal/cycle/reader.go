@@ -371,8 +371,13 @@ func (r *Runner) runRound(ctx context.Context, projectID, roundID, publishTurn s
 	if err := r.writeRoundEnd(ctx, projectID, round, body, "open"); err != nil {
 		return err
 	}
-	// Backlog-r3 3.3: when the readers end, the app checks each finding.
-	return r.VerifyFindings(ctx, projectID, round.Label)
+	// Backlog-r3 3.3: when the readers end, the app checks each finding;
+	// 3.4: then the principal digests them and the round closes, while
+	// the round still shows running.
+	if err := r.VerifyFindings(ctx, projectID, round.Label); err != nil {
+		return err
+	}
+	return r.Digest(ctx, projectID, round.Label)
 }
 
 // writeRoundEnd is the round's one write when its readers end: their

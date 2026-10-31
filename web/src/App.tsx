@@ -561,6 +561,13 @@ export function App() {
                 rawStream={rawStream}
                 errorCode={errorCode}
                 defensePreparing={defensePreparing}
+                onRoundAct={(turnID) => {
+                  // Backlog-r3 3.4: a repeated round shows its card and is
+                  // followed; a round left to clarify shows in the cards.
+                  void refreshConversation(projectID);
+                  bumpFrame();
+                  if (turnID) watchTurn(turnID);
+                }}
                 disabled={!editor || working}
                 onAnswerAudience={(label, answer) => {
                   // P-86: the question keeps showing with its new state.

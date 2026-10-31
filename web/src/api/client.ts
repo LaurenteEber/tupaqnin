@@ -1,6 +1,8 @@
 import type {
   RoundCard,
   StartRoundResponse,
+  RepeatRoundResponse,
+  LeaveRoundOpenResponse,
   AnswerCardResponse,
   BlockHistoryView,
   DecisionHistoryView,
@@ -612,4 +614,15 @@ export async function getRound(projectID: string, label: string): Promise<RoundC
 
 export async function startRound(projectID: string): Promise<StartRoundResponse> {
   return json(await post(`/api/projects/${projectID}/rounds`));
+}
+
+// Backlog-r3 3.4: «Repetir con otra pregunta» and «dejarlo por aclarar»,
+// each your click. On a refusal they throw the API's error code
+// (digest.error.<code> in the i18n catalog).
+export async function repeatRound(projectID: string, label: string, question: string): Promise<RepeatRoundResponse> {
+  return signoffJSON(await post(`/api/projects/${projectID}/rounds/${label}/repeat`, { question }));
+}
+
+export async function leaveRoundOpen(projectID: string, label: string): Promise<LeaveRoundOpenResponse> {
+  return signoffJSON(await post(`/api/projects/${projectID}/rounds/${label}/leave-open`));
 }

@@ -115,6 +115,21 @@ type RoundBody struct {
 	Findings []FindingCheck `json:"findings,omitempty"`
 	// Stopped says why the round launched no reader (project_cap).
 	Stopped string `json:"stopped,omitempty"`
+	// The digest (backlog-r3 3.4, B-63): the numbered findings the
+	// principal received, the coverage inventory (A-5), the digest's
+	// status and output, reduced_doubt, and how its contradictions were
+	// routed (B-66). Written once, when the round closes.
+	DigestFindings    []DigestedFinding `json:"digest_findings,omitempty"`
+	CoverageInventory []CoverageEntry   `json:"coverage_inventory,omitempty"`
+	DigestStatus      string            `json:"digest_status,omitempty"`
+	Digest            *DigestOutput     `json:"digest,omitempty"`
+	ReducedDoubt      string            `json:"reduced_doubt,omitempty"`
+	Conflicts         []RoundConflict   `json:"conflicts,omitempty"`
+	// ScopeQuestionID is the scope «por aclarar» you opened with
+	// «dejarlo por aclarar» (flujos §2), and Repeats the round this one
+	// repeats with another question (both ids).
+	ScopeQuestionID string `json:"scope_question_id,omitempty"`
+	Repeats         string `json:"repeats,omitempty"`
 }
 
 // ReaderResult is one reader's end: its output (salida-lector, as the
@@ -267,12 +282,17 @@ func (p *project) applyResearchRequest(tx *store.Tx, turnID string, out stepOutp
 }
 
 // EstimatedRoundCost is a round's estimated cost before it runs (B-65
-// [inferencia]): the mean reader cost 3.0 measured, per reader.
-// [EL DISEÑO NO LO DICE]: the digest is not in the estimate until 3.4
-// builds it.
+// [inferencia]): the mean reader cost 3.0 measured, per reader, plus
+// the digest's.
+// [EL DISEÑO NO LO DICE]: the digest's estimate, EstimatedDigestCostUSD,
+// which no run measured yet (make microtest-digest logs it).
 func EstimatedRoundCost(parts int) float64 {
-	return float64(parts) * EstimatedReaderCostUSD
+	return float64(parts)*EstimatedReaderCostUSD + EstimatedDigestCostUSD
 }
+
+// EstimatedDigestCostUSD is the digest call's estimate, one reader's
+// mean ([inicial] until a Meta run measures it).
+const EstimatedDigestCostUSD = EstimatedReaderCostUSD
 
 // premiseText is the request's premise, literal: the round's expectation
 // (K-5; B-64: «tu idea o la premisa del pedido»). "" when there is none.

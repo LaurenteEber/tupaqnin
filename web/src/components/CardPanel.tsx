@@ -139,7 +139,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
                 checked={chosen[q.label] === i}
                 onChange={() => setChosen((prev) => ({ ...prev, [q.label]: i }))}
               />
-              {o.keep ? t("oq.keep", { what: o.option }) : o.option}
+              {o.keep ? t("oq.keep", { what: o.option }) : o.code ? t(`oq.scope.${o.code}`) : o.option}
               {o.contrast && <span className="meta"> · {t("oq.contrast")}: {o.contrast}</span>}
               {o.consequence && <span className="meta"> · {t("oq.consequence")}: {o.consequence}</span>}
               {o.risk && <span className="meta"> · {t("oq.risk")}: {o.risk}</span>}

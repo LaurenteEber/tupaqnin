@@ -1,4 +1,4 @@
-.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence
+.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence microtest-digest
 
 run:
 	go run ./cmd/tupaqnin
@@ -67,3 +67,10 @@ microtest-judge-defense:
 # reader strict output, plus OpenAlex and arXiv recordings. Eber runs this.
 microtest-evidence:
 	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestEvidence -count=1 -v -timeout 30m
+
+# Real digest outputs for the digest tests (backlog-r3 3.4), recorded
+# into internal/provider/testdata/digest/ only when each scenario's
+# digest is what its test needs. Same keychain key as microtest. Eber
+# runs this.
+microtest-digest:
+	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestDigest -count=1 -v

@@ -203,7 +203,7 @@ func TestB59_EachFindingIsVerifiedOnItsOwn(t *testing.T) {
 		finding("fact", ptr("En 2023 los conteos fueron 80 veces mayores."), ptr("src-1"), nil, nil))
 	db, _ := oneReaderRound(t, evidence.NewReplay(), true, out)
 	round, body := onlyRound(t, db)
-	if round.State != "open" || len(body.Findings) != 3 {
+	if round.State != "closed" || len(body.Findings) != 3 {
 		t.Fatalf("round %s, findings %+v", round.State, body.Findings)
 	}
 	webs := webSources(t, db)

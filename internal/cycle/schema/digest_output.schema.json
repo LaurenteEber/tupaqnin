@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-digesto.schema.json",
+  "title": "Salida fija del principal en el digesto",
+  "description": "Contrato de fichas §7 (fila «Principal · digesto»), en forma de esquema. El principal recibe solo los hallazgos que la app ya verificó (entra · no verificado), numerados; los descartados y el inventario los arma la app y no pasan por aquí (B-63). El principal no reescribe pasajes: los nombra por su número. Rebanada 3 (backlog-r3, pieza 3.4).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "answer",
+    "outline",
+    "findings",
+    "expectation_contrast",
+    "reduced_doubt",
+    "contradictions"
+  ],
+  "properties": {
+    "answer": {
+      "description": "Primero la respuesta (regla 6): qué se encontró sobre la pregunta, en dos frases.",
+      "$ref": "#/$defs/text"
+    },
+    "outline": {
+      "description": "Esquema del digesto: una línea por idea, en orden.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "findings": {
+      "description": "Los hallazgos que usa el esquema, por su número en la lista que dio la app, con la línea del esquema a la que sirven.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding",
+          "outline_line"
+        ],
+        "properties": {
+          "finding": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "outline_line": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "expectation_contrast": {
+      "anyOf": [
+        {
+          "description": "Si diste tu expectativa de la ronda: qué coincidió y qué no (K-5). Si no la diste: null.",
+          "$ref": "#/$defs/text"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reduced_doubt": {
+      "enum": [
+        "yes",
+        "partly",
+        "no"
+      ]
+    },
+    "contradictions": {
+      "description": "Pares de hallazgos que se contradicen, entre lectores o entre fuentes (flujos §2, R-9). No se resuelven: se muestran.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_a",
+          "finding_b",
+          "about"
+        ],
+        "properties": {
+          "finding_a": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "finding_b": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "about": {
+            "description": "Sobre qué chocan, en una línea.",
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

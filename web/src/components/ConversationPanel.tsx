@@ -8,7 +8,7 @@ import { RoundCard } from "./RoundCard";
 // events), then the turn in flight as it streams. When a turn ends the
 // page refetches the history and drops the stream, so nothing shows
 // twice.
-export function ConversationPanel({ lang, projectID, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience, defensePreparing }: {
+export function ConversationPanel({ lang, projectID, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience, defensePreparing, onRoundAct }: {
   lang: Lang;
   // The project, for a round's card (backlog-r3 3.2).
   projectID: string;
@@ -29,6 +29,8 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
   onAnswerAudience?: (label: string, answer: "yes" | "no") => void;
   // P-92: a defense after your answer is being prepared.
   defensePreparing?: boolean;
+  // Backlog-r3 3.4: your click on a round's digest (repeat: its turn).
+  onRoundAct?: (turnID: string) => void;
 }) {
   const t = (key: string) => translate(lang, key);
 
@@ -57,7 +59,7 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
         i === lastReport && report ? (
           <div key={`${e.created_at}-${i}`}>{report}</div>
         ) : (
-          <Entry key={`${e.created_at}-${i}`} lang={lang} projectID={projectID} entry={e} disabled={disabled} onAnswerAudience={onAnswerAudience} />
+          <Entry key={`${e.created_at}-${i}`} lang={lang} projectID={projectID} entry={e} disabled={disabled} onAnswerAudience={onAnswerAudience} onRoundAct={onRoundAct} />
         ),
       )}
 
@@ -102,12 +104,13 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
   );
 }
 
-function Entry({ lang, projectID, entry, disabled, onAnswerAudience }: {
+function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct }: {
   lang: Lang;
   projectID: string;
   entry: ConversationEntry;
   disabled?: boolean;
   onAnswerAudience?: (label: string, answer: "yes" | "no") => void;
+  onRoundAct?: (turnID: string) => void;
 }) {
   const t = (key: string) => translate(lang, key);
   switch (entry.kind) {
@@ -115,7 +118,7 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience }: {
       return <div className="msg me">{entry.text}</div>;
     case "round":
       // Backlog-r3 3.2 (B-64): the round card, read from Go.
-      return entry.label ? <RoundCard lang={lang} projectID={projectID} label={entry.label} /> : null;
+      return entry.label ? <RoundCard lang={lang} projectID={projectID} label={entry.label} onAct={onRoundAct} /> : null;
     case "card_answered":
       return (
         <p className="meta answered">

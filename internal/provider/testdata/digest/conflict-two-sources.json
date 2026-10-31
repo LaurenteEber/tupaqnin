@@ -1,0 +1,24 @@
+{
+  "name": "conflict-two-sources",
+  "turn_kind": "digest",
+  "deltas": [],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"answer\": \"Las dos fuentes chocan sobre los conteos de 2023: una dice que fueron 60 veces mayores y la otra que fueron similares. No se puede decidir sin ti.\", \"outline\": [\"Una fuente da conteos 60 veces mayores.\", \"Otra fuente da conteos similares.\"], \"findings\": [{\"finding\": 1, \"outline_line\": 1}, {\"finding\": 2, \"outline_line\": 2}], \"expectation_contrast\": \"No se puede contrastar: las fuentes no coinciden entre sí.\", \"reduced_doubt\": \"no\", \"contradictions\": [{\"finding_a\": 1, \"finding_b\": 2, \"about\": \"Cuánto mayores fueron los conteos de 2023\"}]}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "context_window": 0,
+    "cost_usd": 0.002
+  },
+  "delta_delay": 0
+}

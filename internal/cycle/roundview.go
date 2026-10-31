@@ -35,6 +35,26 @@ type RoundView struct {
 	// Stopped says why no reader was launched (project_cap).
 	Stopped string      `json:"stopped,omitempty"`
 	Hits    []HitRecord `json:"hits"`
+	// The digest (backlog-r3 3.4): its status, reduced_doubt, the
+	// principal's part, and the app's (B-63): «Descartados (n)», the
+	// unverified, «Sin revisar» by reader; «Repetir con otra pregunta»
+	// with its cost when the doubt was not reduced, and the scope «por
+	// aclarar» you opened, by label.
+	DigestStatus string         `json:"digest_status,omitempty"`
+	ReducedDoubt string         `json:"reduced_doubt,omitempty"`
+	Digest       *DigestView    `json:"digest,omitempty"`
+	Discarded    []FindingView  `json:"discarded"`
+	Unverified   []FindingView  `json:"unverified"`
+	Coverage     []CoverageView `json:"coverage"`
+	// Unused are the findings the principal received and its digest
+	// does not use (all of them when there is no digest), and
+	// ReaderContradictions every reader finding of kind contradiction,
+	// whatever the principal returned (flujos §2: never resolved in
+	// silence).
+	Unused               []FindingView `json:"unused"`
+	ReaderContradictions []FindingView `json:"reader_contradictions"`
+	Repeat               *RepeatOffer  `json:"repeat,omitempty"`
+	ScopeQuestion        string        `json:"scope_question,omitempty"`
 }
 
 // RoundPartView is one reader of the card.
@@ -117,6 +137,9 @@ func (r *Runner) Round(ctx context.Context, projectID, label string) (RoundView,
 		v.Parts = append(v.Parts, pv)
 	}
 	v.Running = live != nil
+	if err := r.digestView(ctx, projectID, body, labeler, &v); err != nil {
+		return RoundView{}, err
+	}
 	return v, nil
 }
 
@@ -131,18 +154,19 @@ func (r *Runner) Round(ctx context.Context, projectID, label string) (RoundView,
 // [EL DISEÑO NO LO DICE]: the doubt and the scope of such a round; both
 // empty, the request carries the question.
 func (r *Runner) StartRound(projectID string) (label, turnID string, err error) {
-	if !r.tryAcquireTurn(projectID) {
-		return "", "", ErrTurnRunning
-	}
-	ctx := context.Background()
-	request, err := r.requestText(ctx, projectID)
-	if err == nil && request == "" {
-		err = errors.New("cycle: the project has no request")
-	}
-	var sources []store.Object
-	if err == nil {
-		var all []store.Object
-		all, err = r.db.ListObjects(ctx, projectID, store.ObjectSource)
+	return r.startRoundWith(projectID, nil, func(ctx context.Context) (RoundBody, error) {
+		request, err := r.requestText(ctx, projectID)
+		if err == nil && request == "" {
+			err = errors.New("cycle: the project has no request")
+		}
+		if err != nil {
+			return RoundBody{}, err
+		}
+		all, err := r.db.ListObjects(ctx, projectID, store.ObjectSource)
+		if err != nil {
+			return RoundBody{}, err
+		}
+		var sources []store.Object
 		for _, s := range all {
 			// [EL DISEÑO NO LO DICE]: «si el proyecto tiene material»
 			// (B-72) counts your material, not the external sources
@@ -151,12 +175,6 @@ func (r *Runner) StartRound(projectID string) (label, turnID string, err error) 
 				sources = append(sources, s)
 			}
 		}
-	}
-	if err == nil {
-		turnID, err = newTurnID()
-	}
-	var roundID string
-	if err == nil {
 		parts := []RoundPart{{Question: request, Where: []string{"openalex"},
 			Sources: []RoundPartSource{}, Queries: []string{}}}
 		if len(sources) > 0 {
@@ -170,17 +188,39 @@ func (r *Runner) StartRound(projectID string) (label, turnID string, err error) 
 		if len(parts) > 1 {
 			reason = "independent_parts"
 		}
+		return RoundBody{Kind: "research", Question: request, DelegationReason: reason, Parts: parts,
+			References: []namedReference{}, EstimatedCostUSD: EstimatedRoundCost(len(parts))}, nil
+	})
+}
+
+// startRoundWith creates a round from your act, open, with the body
+// build returns once the project's turn slot is taken (P-20:
+// ErrTurnRunning while one runs; its expectation and turn are set
+// here), and runs it in the background in that slot. extra goes in the
+// creation event's data.
+func (r *Runner) startRoundWith(projectID string, extra map[string]any, build func(context.Context) (RoundBody, error)) (label, turnID string, err error) {
+	if !r.tryAcquireTurn(projectID) {
+		return "", "", ErrTurnRunning
+	}
+	ctx := context.Background()
+	body, err := build(ctx)
+	if err == nil {
+		turnID, err = newTurnID()
+	}
+	var roundID string
+	if err == nil {
 		err = r.db.Write(ctx, projectID, func(tx *store.Tx) error {
 			expectation, err := premiseText(tx)
 			if err != nil {
 				return err
 			}
-			body := RoundBody{Kind: "research", Question: request, DelegationReason: reason, Parts: parts,
-				References: []namedReference{}, Expectation: expectation,
-				EstimatedCostUSD: EstimatedRoundCost(len(parts)), TurnID: turnID}
+			body.Expectation, body.TurnID = expectation, turnID
+			data := map[string]any{"to": "open", "kind": "research"}
+			for k, v := range extra {
+				data[k] = v
+			}
 			obj, err := tx.CreateObject(store.ObjectRound, "open", body, store.EventInput{
-				Type: store.EventStateChanged, Actor: "human", TurnID: turnID,
-				Data: map[string]any{"to": "open", "kind": "research"},
+				Type: store.EventStateChanged, Actor: "human", TurnID: turnID, Data: data,
 			})
 			roundID, label = obj.ID, obj.Label
 			return err

@@ -18,3 +18,10 @@ func WaitAfterAnswersForTest(r *Runner) { r.answers.Wait() }
 // ValidateReaderOutput checks a hand-made reader output against
 // salida-lector, as the app does.
 func ValidateReaderOutput(text string) []string { return validateReaderOutput(text) }
+
+// ValidateDigestOutput checks a digest output against salida-digesto
+// only (backlog-r3 3.4).
+func ValidateDigestOutput(text string) []string {
+	errs, _ := validateDigestSchema(text)
+	return errs
+}

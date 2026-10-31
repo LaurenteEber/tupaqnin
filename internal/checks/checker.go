@@ -17,9 +17,18 @@ import (
 )
 
 // Passage is one new text of a change, with the id of its section.
+// In a round's digest (backlog-r3 3.4, flujos §2: «el digesto es un fin
+// de paso») Section is the round's id and each passage is a finding the
+// digest uses: Kind is the reader's kind (fact, assumption,
+// contradiction), Source the id of its source ("" when it has none) and
+// Note the reader's note, its classification (flujos §2: «cada
+// clasificación de un lector cuenta como pasaje»).
 type Passage struct {
 	Section string
 	Text    string
+	Kind    string
+	Source  string
+	Note    string
 }
 
 // Probe is one closed question the app builds from the graph (bloque-2
@@ -411,6 +420,12 @@ func Brief(ctx context.Context, q store.Querier, projectID string, change Change
 		if err != nil {
 			return "", err
 		}
+		if sec.Type == store.ObjectRound {
+			if err := roundBrief(ctx, q, projectID, sec, change, line); err != nil {
+				return "", err
+			}
+			continue
+		}
 		line("## New passage of section %s «%s»", sec.Label, bodyText(sec, "title"))
 		for _, text := range bySection[id] {
 			line("%s", graph.Delimit(graph.DataPassage, text))
@@ -638,6 +653,9 @@ func Apply(ctx context.Context, db *store.DB, projectID, turnID string, change C
 				"new_passage": cand.NewPassage, "clashing_passage": cand.ClashingPassage, "protected": cand.Protected,
 				"citation": cand.Citation, "question": cand.Question, "options": cand.Options, "declared": wasDeclared}
 			present := len(graph.Compare(bodyText(sec, "text")).Find(cand.NewPassage)) > 0
+			if sec.Type == store.ObjectRound {
+				present = len(roundPassagesWith(change, sec.ID, cand.NewPassage)) > 0
+			}
 			switch {
 			case !present:
 				data["discarded"] = true // B-50: the text changed while the checker answered
@@ -668,6 +686,27 @@ func Apply(ctx context.Context, db *store.DB, projectID, turnID string, change C
 // have declared it, so the mark is false.
 func openQuestion(ctx context.Context, tx *store.Tx, projectID, turnID string, change Change, sec store.Object, cand Candidate) (string, error) {
 	dependsOn := []string{sec.ID}
+	extra := map[string]any{"section_id": sec.ID}
+	if sec.Type == store.ObjectRound {
+		// A digest's passage is in no section yet: the «por aclarar»
+		// blocks the sections that use the source of the finding it
+		// names (B-66, by the same uses edge).
+		// [EL DISEÑO NO LO DICE]: what a digest's doubtful term or
+		// contradiction blocks; the sections that use its source, none
+		// when no section uses it yet.
+		var sources []string
+		for _, p := range roundPassagesWith(change, sec.ID, cand.NewPassage) {
+			if p.Source != "" {
+				sources = append(sources, p.Source)
+			}
+		}
+		using, err := SectionsUsing(ctx, tx, projectID, sources)
+		if err != nil {
+			return "", err
+		}
+		dependsOn = using
+		extra = map[string]any{"round_id": sec.ID}
+	}
 	var protectedID, premiseID string
 	if prot := str(cand.Protected); prot != "" {
 		obj, err := tx.GetObject(ctx, projectID, prot)
@@ -689,15 +728,87 @@ func openQuestion(ctx context.Context, tx *store.Tx, projectID, turnID string, c
 	}
 	oq, err := Open(ctx, tx, OpenQuestion{Question: str(cand.Question), Options: options, DependsOn: dependsOn,
 		Premise: premiseID,
-		Extra: map[string]any{"origin": "checker", "kind": cand.Type, "protected_id": protectedID, "section_id": sec.ID,
+		Extra: withExtra(extra, map[string]any{"origin": "checker", "kind": cand.Type, "protected_id": protectedID,
 			"new_passage": cand.NewPassage, "clashing_passage": str(cand.ClashingPassage),
-			"undeclared_by_agent": change.Kind == AgentStep},
+			"undeclared_by_agent": change.Kind == AgentStep}),
 		Event: store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: string(provider.RoleChecker), TurnID: turnID,
 			Data: map[string]any{"via": "checker"}}})
 	if err != nil {
 		return "", err
 	}
 	return oq.Label, nil
+}
+
+func withExtra(a, b map[string]any) map[string]any {
+	for k, v := range b {
+		a[k] = v
+	}
+	return a
+}
+
+// roundPassagesWith are the passages of a round's digest in the change
+// whose text or note holds passage, literal as the app compares.
+func roundPassagesWith(change Change, roundID, passage string) []Passage {
+	var out []Passage
+	for _, p := range change.Passages {
+		if p.Section != roundID {
+			continue
+		}
+		if len(graph.Compare(p.Text).Find(passage)) > 0 || p.Note != "" && len(graph.Compare(p.Note).Find(passage)) > 0 {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// roundBrief is the part of the checker's brief for a round's digest
+// (backlog-r3 3.4): each finding the digest uses, with its kind and its
+// source, and the reader's note, all between the passage markers
+// (P-83).
+func roundBrief(ctx context.Context, q store.Querier, projectID string, round store.Object, change Change, line func(string, ...any)) error {
+	line("## New passages of the digest of round %s (section: %s)", round.Label, round.Label)
+	line("Each is a reader's finding: a literal passage of its source, with its kind and the reader's note, which is its classification.")
+	for _, p := range change.Passages {
+		if p.Section != round.ID {
+			continue
+		}
+		source := "none"
+		if p.Source != "" {
+			src, err := q.GetObject(ctx, projectID, p.Source)
+			if err != nil {
+				return err
+			}
+			source = src.Label
+		}
+		line("- Finding of kind %s, source %s:", p.Kind, source)
+		line("%s", graph.Delimit(graph.DataPassage, p.Text))
+		if p.Note != "" {
+			line("  Reader's note:")
+			line("%s", graph.Delimit(graph.DataPassage, p.Note))
+		}
+	}
+	line("")
+	return nil
+}
+
+// SectionsUsing are the ids of the sections with a current uses edge to
+// any of sources (fichas §9), in the order found, each once.
+func SectionsUsing(ctx context.Context, q store.Querier, projectID string, sources []string) ([]string, error) {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, src := range sources {
+		edges, err := q.EdgesTo(ctx, projectID, src)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range edges {
+			if e.Type == store.EdgeUses && !seen[e.FromID] {
+				seen[e.FromID] = true
+				out = append(out, e.FromID)
+			}
+		}
+	}
+	return out, nil
 }
 
 // YourEditsToCheck is the batch of your edits the checker has not judged

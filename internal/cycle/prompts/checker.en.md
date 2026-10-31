@@ -19,6 +19,13 @@ decided.
   section label. Judge only these passages.
 - **New citations:** for each new citation, the claim in the text and
   the literal passage of the source it cites.
+- **New passages of a round's digest:** when the agent digested a
+  round of readers, the findings it uses, each a literal passage of its
+  source with its kind and the reader's note (its classification). The
+  round's label (for example `rnd-1`) stands where a section's would:
+  use it as `section`. A reader that classifies a case with a term of
+  a criterion counts as a new passage too: a `doubtful_term` applies
+  to it as to the document's text.
 
 ## Your fixed output
 

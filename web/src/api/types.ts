@@ -385,6 +385,12 @@ export interface OpenQuestionOption {
   consequence: string;
   risk: string;
   keep: boolean;
+  /**
+   * Code is an option the app wrote, which the page translates: a
+   * scope «por aclarar»'s (backlog-r3 3.4: complete_review ·
+   * declare_limit).
+   */
+  code?: string;
 }
 /**
  * OpenQuestionView is an open «por aclarar» as P4 [2] reads it.
@@ -519,6 +525,27 @@ export interface SourceView {
  */
 export type RoundRunner = any;
 /**
+ * RepeatRoundRequest is «otra pregunta» for POST /rounds/{label}/repeat.
+ */
+export interface RepeatRoundRequest {
+  question: string;
+}
+/**
+ * RepeatRoundResponse is the round your click created, the turn to
+ * follow it on and its estimated cost.
+ */
+export interface RepeatRoundResponse {
+  label: string;
+  turn_id: string;
+  estimated_cost_usd: number /* float64 */;
+}
+/**
+ * LeaveRoundOpenResponse is the scope «por aclarar» it opened, by label.
+ */
+export interface LeaveRoundOpenResponse {
+  open_question: string;
+}
+/**
  * StartRoundResponse is the round POST /rounds created and the turn to
  * follow it on (its stream).
  */
@@ -545,6 +572,95 @@ export interface RoundCard {
   running: boolean;
   stopped?: string;
   hits: RoundCardHit[];
+  /**
+   * The digest (backlog-r3 3.4, B-63), as Go computed it.
+   */
+  digest_status?: string;
+  reduced_doubt?: string;
+  digest?: RoundDigest;
+  discarded: RoundFinding[];
+  unverified: RoundFinding[];
+  coverage: RoundCoverage[];
+  /**
+   * Unused are the findings the digest does not use, and
+   * ReaderContradictions every reader contradiction, always shown
+   * (flujos §2).
+   */
+  unused: RoundFinding[];
+  reader_contradictions: RoundFinding[];
+  repeat?: RoundRepeat;
+  scope_question?: string;
+}
+/**
+ * RoundFinding is one finding as the card shows it (cycle.FindingView):
+ * its number in the digest (0 if none), reader, kind, passage and note
+ * as written, its source by label with its title and URL, and its
+ * verification with why.
+ */
+export interface RoundFinding {
+  n: number /* int */;
+  part: number /* int */;
+  finding: number /* int */;
+  kind: string;
+  passage: string;
+  note?: string;
+  source?: string;
+  source_title?: string;
+  source_url?: string;
+  hit?: string;
+  reference?: string;
+  verification: string;
+  reason?: string;
+  access?: string;
+  open_question?: string;
+}
+/**
+ * RoundDigest is the principal's part: first the answer, the outline
+ * with its findings, the contrast and the contradictions.
+ */
+export interface RoundDigest {
+  answer: string;
+  outline: RoundDigestLine[];
+  expectation_contrast?: string;
+  contradictions: RoundContradiction[];
+}
+/**
+ * RoundDigestLine is one outline line and the findings it uses.
+ */
+export interface RoundDigestLine {
+  text: string;
+  findings: RoundFinding[];
+}
+/**
+ * RoundContradiction is a contradiction shown, never resolved, and the
+ * «por aclarar» it opened, if any.
+ */
+export interface RoundContradiction {
+  a: RoundFinding;
+  b: RoundFinding;
+  about: string;
+  same_source: boolean;
+  open_question?: string;
+}
+/**
+ * RoundCoverage is one reader's «Sin revisar» (A-5): how many sources
+ * and results it was given and which it left unread, and its gaps.
+ */
+export interface RoundCoverage {
+  part: number /* int */;
+  status: string;
+  reason?: string;
+  sources: number /* int */;
+  sources_unread: string[];
+  hits: number /* int */;
+  hits_unread: string[];
+  gaps: string[];
+}
+/**
+ * RoundRepeat is «Repetir con otra pregunta» with its estimated cost.
+ */
+export interface RoundRepeat {
+  estimated_cost_usd: number /* float64 */;
 }
 /**
  * RoundCardPart is one reader: what it searches, where, and how it goes

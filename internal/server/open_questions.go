@@ -20,6 +20,10 @@ type OpenQuestionOption struct {
 	Consequence string `json:"consequence"`
 	Risk        string `json:"risk"`
 	Keep        bool   `json:"keep"`
+	// Code is an option the app wrote, which the page translates: a
+	// scope «por aclarar»'s (backlog-r3 3.4: complete_review ·
+	// declare_limit).
+	Code string `json:"code,omitempty"`
 }
 
 // OpenQuestionView is an open «por aclarar» as P4 [2] reads it.
@@ -71,7 +75,7 @@ func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Obj
 		m, _ := o.(map[string]any)
 		keep, _ := m["keep"].(bool)
 		view.Options = append(view.Options, OpenQuestionOption{Option: str(m, "option"), Contrast: str(m, "contrast"),
-			Consequence: str(m, "consequence"), Risk: str(m, "risk"), Keep: keep})
+			Consequence: str(m, "consequence"), Risk: str(m, "risk"), Keep: keep, Code: str(m, "code")})
 	}
 	variants, _ := b["variants"].([]any)
 	for _, v := range variants {

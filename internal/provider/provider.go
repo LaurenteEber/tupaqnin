@@ -39,6 +39,9 @@ const (
 	// TurnReader is one reader of a round (backlog-r3 3.2): its calls
 	// carry the round's turn id and no principal instance (B-62).
 	TurnReader TurnKind = "reader"
+	// TurnDigest is the principal's digest of a round (backlog-r3 3.4):
+	// in its live instance, at its usual effort, with salida-digesto.
+	TurnDigest TurnKind = "digest"
 )
 
 // Provider is one model backend. onDelta may be nil; when set, it is
@@ -86,6 +89,10 @@ type Request struct {
 	// 3.2), so the fake can pick a recording by part; 0 for every other
 	// call. Meta ignores it.
 	Part int
+	// DigestExpectation says whether a digest call's round has an
+	// expectation (K-5), so the fake can answer a digest call it has no
+	// recording for (see Fake.Respond); Meta ignores it.
+	DigestExpectation bool
 }
 
 // ReportDecision is one decision the app lists for the stop report: its
@@ -270,7 +277,8 @@ func NewFake(fixtures ...Fixture) *Fake {
 func (f *Fake) pick(kind TurnKind, part int) (Fixture, bool) {
 	var matching []Fixture
 	for _, fx := range f.fixtures {
-		if (kind == TurnChecker || kind == TurnStopReport || kind == TurnJudgeDefense || kind == TurnReader) && fx.TurnKind != kind {
+		if (kind == TurnChecker || kind == TurnStopReport || kind == TurnJudgeDefense || kind == TurnReader ||
+			kind == TurnDigest) && fx.TurnKind != kind {
 			continue
 		}
 		if kind == TurnReader && fx.Part != 0 && fx.Part != part {
@@ -308,6 +316,9 @@ func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 	}
 	if !ok && req.TurnKind == TurnJudgeDefense {
 		fx, ok = plainDefenseFixture(req.DefenseSection), true
+	}
+	if !ok && req.TurnKind == TurnDigest {
+		fx, ok = plainDigestFixture(req.DigestExpectation), true
 	}
 	if !ok {
 		return Response{}, &ProviderError{Code: "no_fixtures", Type: "fake"}
@@ -395,6 +406,26 @@ func plainDefenseFixture(section string) Fixture {
 	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
 		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
 	return Fixture{Name: "judge-defense-plain", TurnKind: TurnJudgeDefense, Items: []json.RawMessage{item}}
+}
+
+// plainDigestFixture is the fake's answer to a digest call without a
+// digest recording: a one-line outline that uses no finding, the doubt
+// reduced only in part, and the contrast only when the round has an
+// expectation (K-5), so a fake without digest recordings (most tests,
+// TQ_PROVIDER=fake) still closes its rounds.
+// [EL DISEÑO NO LO DICE]: what the fake answers without a recording; as
+// with the stop report, an error would leave every round open.
+func plainDigestFixture(expectation bool) Fixture {
+	var contrast any
+	if expectation {
+		contrast = "The findings do not settle the expectation."
+	}
+	text, _ := json.Marshal(map[string]any{"answer": "The readers' findings are listed below.",
+		"outline": []string{"What the readers found."}, "findings": []any{}, "expectation_contrast": contrast,
+		"reduced_doubt": "partly", "contradictions": []any{}})
+	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
+		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
+	return Fixture{Name: "digest-plain", TurnKind: TurnDigest, Items: []json.RawMessage{item}}
 }
 
 // CountTokens counts 1 token per 4 characters of input (B-5).

@@ -450,6 +450,9 @@ func changesSince(objects []store.Object, delivered map[string]int) []Change {
 		if obj.Type == store.ObjectOpenQuestion {
 			text = openQuestionLine(b, obj.State)
 		}
+		if obj.Type == store.ObjectRound {
+			text = roundLine(b, obj.State)
+		}
 		if obj.Type == store.ObjectAudienceQuestion {
 			text = audienceQuestionLine(b, obj.State, labels[b.str("section_id")])
 		}
@@ -477,8 +480,27 @@ func openQuestionLine(b body, state string) string {
 	if i, ok := b["chosen_option"].(float64); ok && int(i) >= 0 && int(i) < len(options) {
 		if opt, ok := options[int(i)].(map[string]any); ok {
 			chosen, _ := opt["option"].(string)
+			if b.str("origin") == "digest" {
+				// P-83: a conflict's options are passages of sources
+				// (backlog-r3 3.4, B-66): data, between the markers.
+				chosen = "\n" + graph.Delimit(graph.DataSource, chosen)
+			}
 			line += " → chosen: " + chosen
 		}
+	}
+	return line
+}
+
+// roundLine is a round as the principal reads it in what changed
+// (backlog-r3 3.4): its question, its state and, once digested, whether
+// the doubt was reduced. Never its body: the readers' outputs and the
+// results hold text of sources and APIs, which reaches the principal
+// only through the digest, between the markers (P-83).
+// [EL DISEÑO NO LO DICE]: the line's shape.
+func roundLine(b body, state string) string {
+	line := fmt.Sprintf("Round (%s): %s", state, b.str("question"))
+	if d := b.str("reduced_doubt"); d != "" {
+		line += " · doubt reduced: " + d
 	}
 	return line
 }
@@ -520,6 +542,9 @@ func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) 
 			section = sec.Label
 		}
 		text = audienceQuestionLine(b, obj.State, section)
+	}
+	if obj.Type == store.ObjectRound {
+		text = roundLine(b, obj.State)
 	}
 	if text == "" {
 		raw, err := json.Marshal(b)

@@ -86,9 +86,17 @@ type gatedProvider struct {
 	once    sync.Once
 	mu      sync.Mutex
 	readers []provider.Request
+	// others are the calls that are not a reader's (the digest's and the
+	// checker's, backlog-r3 3.4), in order.
+	others []provider.Request
 }
 
 func (g *gatedProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
+	if req.TurnKind != provider.TurnReader {
+		g.mu.Lock()
+		g.others = append(g.others, req)
+		g.mu.Unlock()
+	}
 	if req.TurnKind == provider.TurnReader {
 		g.mu.Lock()
 		g.readers = append(g.readers, req)
@@ -99,6 +107,19 @@ func (g *gatedProvider) Respond(ctx context.Context, req provider.Request, onDel
 		}
 	}
 	return g.inner.Respond(ctx, req, onDelta)
+}
+
+// callsOf are the calls of a turn kind that is not a reader's.
+func (g *gatedProvider) callsOf(kind provider.TurnKind) []provider.Request {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var out []provider.Request
+	for _, r := range g.others {
+		if r.TurnKind == kind {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 func (g *gatedProvider) readerCalls() []provider.Request {
@@ -188,8 +209,10 @@ func TestB64_ValidResearchRequestCreatesOpenRoundAndLaunchesReaders(t *testing.T
 	db, runner, g := newRoundRunner(t, false, fixtures...)
 	runDiscover(t, runner, step)
 
+	// Backlog-r3 3.4: once its readers end and the principal digests,
+	// the round closes.
 	round, body := onlyRound(t, db)
-	if round.State != "open" || body.Kind != "research" || body.DelegationReason != "independent_parts" {
+	if round.State != "closed" || body.Kind != "research" || body.DelegationReason != "independent_parts" {
 		t.Fatalf("round: %s %+v", round.State, body)
 	}
 	if len(body.Readers) != 2 {
@@ -226,7 +249,7 @@ func TestB64_ValidResearchRequestCreatesOpenRoundAndLaunchesReaders(t *testing.T
 		t.Fatalf("step_ended: %v", data[0])
 	}
 	view, err := runner.Round(context.Background(), "p1", round.Label)
-	if err != nil || view.Running || view.SpentUSD <= 0 || view.EstimatedCostUSD != 2*cycle.EstimatedReaderCostUSD ||
+	if err != nil || view.Running || view.SpentUSD <= 0 || view.EstimatedCostUSD != cycle.EstimatedRoundCost(2) || view.EstimatedCostUSD <= 2*cycle.EstimatedReaderCostUSD ||
 		view.Parts[0].Status != cycle.ReaderReturned || view.Parts[0].Findings == 0 || view.Parts[0].Sources[0].Label != "src-1" {
 		t.Fatalf("view: %+v", view)
 	}
@@ -419,12 +442,16 @@ func TestB62_WhatAReaderReadsIsNotInDelivery(t *testing.T) {
 	if body.Readers[0].Status != cycle.ReaderReturned || body.Readers[0].ToolCalls != 2 {
 		t.Fatalf("reader: %+v", body.Readers[0])
 	}
+	// Backlog-r3 3.4: the digest, in the principal's live instance, reads
+	// what changed (the round) like any step; the source the reader read
+	// is never in delivery via read.
+	src, _ := object(t, db, "src-1")
 	var n int
-	if err := db.Reader.QueryRow(`SELECT COUNT(*) FROM delivery WHERE via = 'read'`).Scan(&n); err != nil {
+	if err := db.Reader.QueryRow(`SELECT COUNT(*) FROM delivery WHERE via = 'read' AND object_id = ?`, src.ID).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	if n != 0 {
-		t.Fatalf("delivery rows via read: %d", n)
+		t.Fatalf("delivery rows via read of src-1: %d", n)
 	}
 }
 
