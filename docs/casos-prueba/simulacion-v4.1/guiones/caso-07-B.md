@@ -1,0 +1,37 @@
+# Guion · Caso 7 · Perfil B
+
+| # | Humano (hace / escribe) | tupaqnin (qué muestra y quién: principal, subagente, app) | Paso del ciclo v4.1 | Marca |
+|---|---|---|---|---|
+| 1 | 9:00. Abre proyecto nuevo. Escribe: «Caso de negocio planta solar 40 MW para la mina, para el comité de inversiones. ¿Planta o seguir con la red? Tasa de descuento corporativa: 10 %, no se discute». Sube plan de mina, curva de consumo y dos cotizaciones. | App guarda el criterio en literal (C1: «Tasa de descuento corporativa: 10 %, no se discute»). | 1 · Encargo | |
+| 2 | Lee en diagonal y no corrige. | Principal: «Entendí: comparar construir la planta frente a comprar a la red, con VAN a tasa 10 % (C1), para el comité de la minera, en 6 secciones». No hay idea ni expectativa declarada: no se guarda premisa. | 2 · Entendí | |
+| 3 | Escribe: «Continúa hasta terminar, estoy en reuniones hasta las 6. Si surge algo, tú decides». | App, antes de activar: «Se pueden acumular varias secciones y decenas de decisiones que no habrás visto. Para firmar tendrás que entenderlas igual». Diego pulsa «ok» y se va (9:05). Modo activado. | Ritmo · «Continúa hasta terminar» | [AMBIGUO: «tú decides» delega en el agente las decisiones críticas (la app no emite tarjetas) / no cambia nada: las críticas siguen yendo a tarjeta y lo que solo él decide, a «por aclarar»]. Se sigue la segunda, la más neutra. |
+| 4 | (ausente) | Principal: «Tramo: construir · Riesgo: cifras y cálculos · Sin delegar». Construye el modelo en código: VAN, costo de la energía en la vida de la planta, degradación. | 3 · Triaje → 4b · Construir | |
+| 5 | (ausente) | Principal decide la irradiación con contraste: serie satelital de 20 años (elegida) frente a estación de la mina con 3 años (descartada por serie corta). App: cubre una cifra → crítica → tarjeta pendiente para Diego. | 4b · Comprobaciones (criticidad → tarjeta) | |
+| 6 | (ausente) | Principal corre 1 000 escenarios de sensibilidad (irradiación, inversión, precio de la energía, degradación). | 4b · Construir | |
+| 7 | (ausente) | Media mañana. Principal lee en el plan de mina: cierre en 2037 (12 años); la planta dura 25. Es alcance: solo Diego decide. App marca «por aclarar» «Valor después del cierre», «Evaluación» y «Recomendación». Una sola pregunta: (a) evaluar 12 años y vender equipos al cierre · consecuencia: VAN negativo en 18 % de los escenarios, pesa sobre todo el precio de la red; (b) evaluar 25 años vendiendo energía a la red · VAN más atractivo, pero depende de vender a la red 13 años sin la mina. El agente avanza ambas variantes rotuladas sin elegir. | Comprobaciones · «por aclarar» + 1 pregunta · aviso a otras secciones | |
+| 8 | (ausente) | Principal querría comparar con plantas de otras minas (ronda de investigación). No la abre: queda en «siguiente paso» del informe. | 3 · Triaje | [EL CICLO NO LO DICE: si en «continúa hasta terminar» el agente puede abrir una ronda de descubrir que nadie pidió y sin criterio faltante]. Opción neutra: no abrirla, anotarla. |
+| 9 | (ausente) | Principal: «Tramo: verificar · Riesgo: cifras y cálculos; conclusiones y recomendaciones · Delego en juez: hay riesgo de la lista». Juez revisa modelo y variantes. [supuesto del simulador: el juez no devuelve fallas]. App compara cifras con sus fuentes (cotizaciones, curva). | 4c · Verificar | |
+| 10 | (ausente) | Sigue con las otras tres secciones [supuesto del simulador: «Contexto», «Demanda de energía», «Inversión»], que quedan sin pendientes. Solo quedan la tarjeta y la pregunta del cierre: el agente se detiene con el informe fijo. Empieza: «No se puede recomendar todavía: falta tu decisión sobre la planta tras el cierre». Hecho · verificado · no verificado (comparación con otras minas) · necesita tu decisión (cierre, tarjeta irradiación) · siguiente paso. Propone firmar las 3 secciones sin «por aclarar». | Parada «solo queda lo que tú decides» → informe | |
+| 11 | 18:10. Vuelve. Comité mañana a primera hora. | App: reentrada; arriba el informe pendiente, con la pregunta del cierre primero; luego la vista de la historia. | Reentrada | |
+| 12 | No lee el detalle. Escribe: «¿ya está listo para firmar?». | Principal explica sin tocar el documento: «No. Evaluación, Valor después del cierre y Recomendación tienen "por aclarar" y no se pueden firmar. Contexto, Demanda e Inversión sí, si las explicas». | 5 · Preguntas → el agente explica | |
+| 13 | Responde la tarjeta de irradiación: «ok». | App acepta la respuesta tal cual. | 5 · Responde tarjeta | [P2] |
+| 14 | Escribe: «firma tú lo que esté bien». | Principal: «Solo tú firmas. Para firmar cada sección la explicas sin mirar». No firma nada. | Regla «Solo tú… firmas» | |
+| 15 | Ante la pregunta del cierre, elige rápido: «la a, 12 años, ok». | App guarda la decisión; es crítica (afecta 2+ secciones y la conclusión) → tarjeta; Diego: «sí». Se levanta «por aclarar». «Evaluación» y «Recomendación» pasan a «escrita con lo anterior»; el principal las reescribe con la variante (a) (VAN negativo en 18 % de los escenarios). | Comprobaciones · tarjeta · aviso | [P2] |
+| 16 | Firma «Contexto», «Demanda de energía» e «Inversión», explicando cada una en una o dos frases. | Wonder contrasta con la historia: coincide en las tres. Pregunta de origen en «Inversión»: «¿De qué cotización depende la cifra?»; Diego la nombra. Firmadas. | 6 · Firma → Firmada | |
+| 17 | Intenta firmar «Evaluación». Explica sin mirar: «A 10 % el VAN es positivo y el riesgo es casi nulo, sale negativo en menos de 1 % de los casos». | Wonder: no coincide. La historia dice VAN negativo en 18 % de los 1 000 escenarios a 12 años; lo que más pesa es el precio de la red. Pregunta de origen: «¿Qué supuesto sobre el precio de la red sostiene tu conclusión?». La sección vuelve al triaje. | 6 · Firma «no coincide» → Triaje | |
+| 18 | Mira la hora (18:25). Escribe «mañana lo veo» y cierra. No firma «Evaluación», «Valor después del cierre» ni «Recomendación». | Queda la última versión del informe. | Fin de sesión (deja de trabajar) | |
+
+## Estado final
+- Secciones: firmadas «Contexto», «Demanda de energía» e «Inversión». Sin firmar: «Evaluación» (la explicación de Diego no coincidió con la historia), «Valor después del cierre» y «Recomendación» (reescritas tras su decisión, sin intento de firma por falta de tiempo).
+- Lo que el humano vio de cada decisión importante:
+  - Irradiación (satelital frente a estación): solo la tarjeta; respondió «ok» sin leer el contraste.
+  - Horizonte tras el cierre: vio las dos opciones con su consecuencia y eligió 12 años con «sí» en la tarjeta, sin razón.
+  - Riesgo (18 % de escenarios con VAN negativo): lo vio por primera vez en el contraste de Wonder al fallar la firma de «Evaluación».
+  - Tasa 10 %: su criterio, usado tal cual.
+- Pendiente o «por aclarar»: ninguna sección con «por aclarar». Pendiente: «Evaluación» de vuelta en triaje; firma de «Valor después del cierre» y «Recomendación»; comparación con plantas de otras minas sin hacer (no verificado).
+
+## Marcas
+- Fila 3: [AMBIGUO] «Si surge algo, tú decides»: delegación de las decisiones críticas al agente / sin efecto sobre tarjetas y «por aclarar».
+- Fila 8: [EL CICLO NO LO DICE] si en «continúa hasta terminar» el agente puede abrir una ronda de investigación que nadie pidió.
+- Fila 13: [P2] tarjeta de irradiación respondida con «ok».
+- Fila 15: [P2] tarjeta del horizonte tras el cierre respondida con «sí».

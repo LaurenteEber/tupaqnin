@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-juez-verificacion.schema.json",
+  "title": "Salida fija del juez en la verificación",
+  "description": "Contrato de fichas §7 (fila «Juez»), en forma de esquema: una ronda de fallas y, después del único lote de corrección, una sola reverificación (bloque-1 §4, ciclo acotado). En la primera llamada «recheck» va vacío; en la reverificación, «flaws» va vacío. Rebanada 3 (backlog-r3, pieza 3.6). La preparación de la defensa tiene su propio esquema (salida-juez-defensa).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flaws",
+    "recheck"
+  ],
+  "properties": {
+    "flaws": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "section",
+          "passage",
+          "risk",
+          "scenario"
+        ],
+        "properties": {
+          "section": {
+            "$ref": "#/$defs/label"
+          },
+          "passage": {
+            "description": "Pasaje literal de la sección donde está la falla.",
+            "$ref": "#/$defs/text"
+          },
+          "risk": {
+            "enum": [
+              "figures_and_calculations",
+              "sources_and_citations",
+              "conclusions_and_recommendations",
+              "contradicts_confirmed",
+              "third_party_effect",
+              "unverifiable"
+            ]
+          },
+          "scenario": {
+            "description": "Escenario en pasos: cómo falla ante el destinatario. Las sugerencias solo informan.",
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
+    },
+    "recheck": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "flaw",
+          "verdict",
+          "passage"
+        ],
+        "properties": {
+          "flaw": {
+            "description": "Número de la falla en la lista que dio la app.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "verdict": {
+            "enum": [
+              "resolved",
+              "still_open"
+            ]
+          },
+          "passage": {
+            "anyOf": [
+              {
+                "description": "Si sigue abierta: el pasaje literal vigente donde sigue. Si no: null.",
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "Etiqueta corta de un objeto del proyecto (T-2). No admite «new-n» (regla 4 en Go).",
+      "type": "string",
+      "pattern": "^[a-z]{2,5}-[1-9][0-9]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
