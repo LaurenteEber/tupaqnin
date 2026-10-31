@@ -141,6 +141,26 @@ export interface AudienceQuestion {
 }
 
 //////////
+// source: delimit.go
+
+/**
+ * Kinds of delimited text.
+ */
+export const DataSource = "source"; // a source's text, in a tool result or a brief
+/**
+ * Kinds of delimited text.
+ */
+export const DataPassage = "passage"; // a new passage of the document, for the checker
+/**
+ * Kinds of delimited text.
+ */
+export const DataSection = "section"; // a section's current text, for the judge and Wonder
+/**
+ * Kinds of delimited text.
+ */
+export const DataExplanation = "explanation"; // the person's explanation, for Wonder
+
+//////////
 // source: frame.go
 
 /**

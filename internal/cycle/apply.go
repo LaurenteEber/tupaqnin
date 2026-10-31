@@ -146,6 +146,9 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 		return ApplyResult{}, err
 	}
 	plan, errs := p.validate(out)
+	if p.versionErr != nil {
+		return ApplyResult{}, p.versionErr
+	}
 	if len(errs) > 0 {
 		return ApplyResult{Errors: errs}, nil
 	}
@@ -218,6 +221,10 @@ type project struct {
 	// (backlog-r2 2.3): the citations the step created and its change.
 	newCitations []string
 	change       checks.Change
+	// versionText reads the text of a stored version of an object, for
+	// P-84; versionErr keeps the first error it met.
+	versionText func(id string, version int) (string, bool)
+	versionErr  error
 }
 
 func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, error) {
@@ -243,6 +250,23 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 	}
 	p := &project{labels: labeler, byID: make(map[string]store.Object, len(objects)),
 		edgesOut: make(map[string][]store.Edge), inSignoff: inSignoff, planConfirmed: planConfirmed}
+	p.versionText = func(id string, version int) (string, bool) {
+		versions, err := g.db.Versions(ctx, projectID, id)
+		if err != nil {
+			if p.versionErr == nil {
+				p.versionErr = err
+			}
+			return "", false
+		}
+		for _, v := range versions {
+			if v.Version == version {
+				var b map[string]any
+				_ = json.Unmarshal(v.Body, &b)
+				return bodyStr(b, "text"), true
+			}
+		}
+		return "", false
+	}
 	for _, obj := range objects {
 		p.byID[obj.ID] = obj
 		// R-3: only a source the principal read can hold a figure or a
@@ -305,6 +329,10 @@ type edit struct {
 type sectionPlan struct {
 	ref         string // label, or new-n for a section born in this output
 	baseVersion int
+	// readVersion and readText are the section's version and text when
+	// the step was validated; the write is conditioned on them (P-84).
+	readVersion int
+	readText    string
 	base        string // NFC base text
 	edits       []edit
 	result      string
@@ -573,11 +601,18 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 						message: lockedMessage(item.SectionID, signing)})
 					continue
 				}
-				if obj.CurrentVersion != item.BaseVersion { // B-11
-					fail(path+"/base_version", "%s", errStale{label: item.SectionID}.Error())
-					continue
+				// B-11 looks at the text only (P-84, T-4, K-17): a version
+				// that changed the title, focus, position or role but kept
+				// the text of the version read does not make it stale.
+				current := bodyStr(bodyOf(obj), "text")
+				if obj.CurrentVersion != item.BaseVersion {
+					if text, ok := p.versionText(obj.ID, item.BaseVersion); !ok || text != current {
+						fail(path+"/base_version", "%s", errStale{label: item.SectionID}.Error())
+						continue
+					}
 				}
-				sp.base = graph.Compare(bodyStr(bodyOf(obj), "text")).Orig
+				sp.readVersion, sp.readText = obj.CurrentVersion, current
+				sp.base = graph.Compare(current).Orig
 			}
 			bySection[item.SectionID] = sp
 			pl.sections = append(pl.sections, sp)
@@ -880,12 +915,24 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 			written[obj.ID], resultText[obj.ID] = true, sp.result
 			continue
 		}
-		obj, _ := p.object(sp.ref)
+		read, _ := p.object(sp.ref)
+		// P-84: a version written after the read that kept the text and
+		// the state (title, focus, position, role) does not make the step
+		// stale; the write keeps those details and is conditioned on the
+		// version read here, in the transaction.
+		obj, err := tx.Object(read.ID)
+		if err != nil {
+			return nil, err
+		}
+		if obj.CurrentVersion != sp.readVersion &&
+			(obj.State != read.State || bodyStr(bodyOf(obj), "text") != sp.readText) {
+			return nil, errStale{label: sp.ref} // B-11: changed after the step was read
+		}
 		b := bodyOf(obj)
 		b["text"] = sp.result
 		// [EL DISEÑO NO LO DICE]: the event of the agent's text change is
 		// not named; edit with actor agent, like the human's (estados §8).
-		_, err := tx.UpdateObject(obj.ID, sp.baseVersion, obj.State, b, stepEvent(store.EventEdit))
+		_, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, obj.State, b, stepEvent(store.EventEdit))
 		if errors.Is(err, store.ErrVersionConflict) {
 			return nil, errStale{label: sp.ref} // B-11: changed after the step was read
 		}

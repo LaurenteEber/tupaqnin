@@ -1,6 +1,11 @@
 package graph
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
+)
 
 // P-83 (prompt-injection defense): text from a source, a tool result or
 // the document reaches a model between fixed markers, one marker per
@@ -29,9 +34,9 @@ const (
 // Delimit wraps text between the begin and end markers of its kind.
 // [EL DISEÑO NO LO DICE]: the markers' shape and how a text that holds
 // one is handled. A marker inside the text is neutralized
-// deterministically: every «<<<BEGIN» becomes «<< <BEGIN» and every
-// «<<<END» becomes «<< <END», so the text can never close (or open) a
-// block; nothing else changes, and the stored text never does.
+// deterministically (P-88): every run of three «<» is broken with a
+// space, so the text can never close (or open) a block; nothing else
+// changes, and the stored text never does.
 func Delimit(kind, text string) string {
 	text = NeutralizeMarkers(text)
 	if !strings.HasSuffix(text, "\n") {
@@ -40,14 +45,47 @@ func Delimit(kind, text string) string {
 	return markerBegin + " " + kind + ">>>\n" + text + markerEnd + " " + kind + ">>>"
 }
 
-// NeutralizeMarkers breaks every marker start inside text (see Delimit).
+// NeutralizeMarkers breaks every «<<<» inside text, as NFKC reads it
+// (P-88): a rune whose NFKC form is «<» (the full-width «＜», the small
+// form «﹤») counts as «<», and a space goes before every third one in
+// a row, in the original text. Every other rune is copied as it is, so
+// a passage between the markers is still literal; a text without three
+// in a row comes back unchanged. «<» has no case, so the word after it
+// does not matter.
 func NeutralizeMarkers(text string) string {
-	text = strings.ReplaceAll(text, markerBegin, "<< <BEGIN")
-	return strings.ReplaceAll(text, markerEnd, "<< <END")
+	var b strings.Builder
+	copied, run := 0, 0
+	for i, r := range text {
+		if !isLessThan(r) {
+			run = 0
+			continue
+		}
+		run++
+		if run == 3 {
+			b.WriteString(text[copied:i])
+			b.WriteByte(' ')
+			copied, run = i, 1
+		}
+	}
+	if copied == 0 {
+		return text
+	}
+	b.WriteString(text[copied:])
+	return b.String()
 }
 
 // HasMarker reports whether text holds the start of a marker, as a
-// model that echoed one would write it.
+// model that echoed one would write it: «<<<BEGIN» or «<<<END» after
+// NFKC normalization, in any case (P-88).
 func HasMarker(text string) bool {
-	return strings.Contains(text, markerBegin) || strings.Contains(text, markerEnd)
+	folded := strings.ToLower(norm.NFKC.String(text))
+	return strings.Contains(folded, "<<<begin") || strings.Contains(folded, "<<<end")
+}
+
+// isLessThan reports whether r is «<» once NFKC-normalized.
+func isLessThan(r rune) bool {
+	if r < utf8.RuneSelf {
+		return r == '<'
+	}
+	return norm.NFKC.String(string(r)) == "<"
 }

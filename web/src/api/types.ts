@@ -245,6 +245,12 @@ export interface ConversationEntry {
   status?: string;
   stop_reason?: string;
   /**
+   * StoppedWithoutReport marks the step that ended a chain with no
+   * stop report (P-75 (b)): it shows «El agente se detuvo: …» with
+   * its stop reason (P-85, B-24).
+   */
+  stopped_without_report?: boolean;
+  /**
    * Stretch is the step's stretch as the app settled it (B-43);
    * Reclassified says why rule 0 moved a direct step to build, shown
    * with the triage line.

@@ -25,6 +25,10 @@ type ConversationEntry struct {
 	// Status is accepted or agent_pending for a step or understanding.
 	Status     string `json:"status,omitempty"`
 	StopReason string `json:"stop_reason,omitempty"`
+	// StoppedWithoutReport marks the step that ended a chain with no
+	// stop report (P-75 (b)): it shows «El agente se detuvo: …» with
+	// its stop reason (P-85, B-24).
+	StoppedWithoutReport bool `json:"stopped_without_report,omitempty"`
 	// Stretch is the step's stretch as the app settled it (B-43);
 	// Reclassified says why rule 0 moved a direct step to build, shown
 	// with the triage line.
@@ -48,6 +52,14 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
+	}
+	// P-85: the turns whose chain ended in a stop report; a step that
+	// ended any other chain shows why it stopped itself.
+	reported := map[string]bool{}
+	for _, ev := range events {
+		if ev.Type == store.EventStopReport {
+			reported[ev.TurnID] = true
+		}
 	}
 	out := []ConversationEntry{}
 	for _, ev := range events {
@@ -74,8 +86,13 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 		case ev.Type == store.EventOutputRetry && str(data, "result") == "agent_pending":
 			// [EL DISEÑO NO LO DICE]: a step left pending for the agent
 			// writes no step_ended (B-24 names step_ended); its stop reason
-			// is read from the output_retry that ended it.
+			// is read from the output_retry that ended it. P-85: the
+			// step's gate writes it without turn_kind (only the
+			// understanding names its kind), so none means a step.
 			entry.Kind, entry.Status = str(data, "turn_kind"), "agent_pending"
+			if entry.Kind == "" {
+				entry.Kind = "step"
+			}
 			if entry.Kind == "step" {
 				entry.StopReason = "agent_pending"
 			}
@@ -96,6 +113,9 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			}
 		default:
 			continue
+		}
+		if entry.Kind == "step" && entry.StopReason != "" && !reported[ev.TurnID] {
+			entry.StoppedWithoutReport = true
 		}
 		out = append(out, entry)
 	}

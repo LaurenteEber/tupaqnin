@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -74,5 +75,49 @@ func TestU2_SummaryShowsTheModel(t *testing.T) {
 	got := decode[server.SummaryView](t, do(t, h, http.MethodGet, "/api/projects/"+projectID+"/summary", nil))
 	if got.Model != "muse-spark-1.3" || got.Effort != "medium" || got.ContextWindow != 1_048_576 {
 		t.Fatalf("summary: %+v", got)
+	}
+}
+
+// P-85 (B-24, P-75 (b)): a chain that stops with the agent pending and
+// no stop report still says why it stopped. The step's output_retry, as
+// the gate writes it, becomes a step entry that carries the line; a
+// stop with its report leaves the line to the report.
+func TestP85_AStopWithoutReportShowsTheAgentStoppedLine(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	ctx := context.Background()
+	gate := cycle.NewGate(db)
+	if _, err := gate.Reject(ctx, projectID, "t1", 1, []string{"/new_text/0/base_version: stale"}); err != nil {
+		t.Fatalf("reject 1: %v", err)
+	}
+	if _, err := gate.Reject(ctx, projectID, "t1", 2, []string{"/new_text/0/base_version: stale"}); err != nil {
+		t.Fatalf("reject 2: %v", err)
+	}
+	err := db.Write(ctx, projectID, func(tx *store.Tx) error {
+		events := []store.EventInput{
+			{Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal", TurnID: "t2",
+				Data: map[string]any{"turn_kind": "step", "triage_line": "Escribo.", "stop_reason": "no_work"}},
+			{Type: store.EventStopReport, Actor: "agent", AgentRole: "principal", TurnID: "t2",
+				Data: map[string]any{"stop_reason": "no_work", "answer": "Paré."}},
+		}
+		for _, ev := range events {
+			if _, err := tx.AppendEvent(ev); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("seed events: %v", err)
+	}
+	got := decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, "/api/projects/"+projectID+"/conversation", nil))
+	if len(got) != 3 {
+		t.Fatalf("entries: %+v, want the pending step, the step and its report", got)
+	}
+	if got[0].Kind != "step" || got[0].Status != "agent_pending" || got[0].StopReason != "agent_pending" || !got[0].StoppedWithoutReport {
+		t.Fatalf("pending step: %+v, want a step that shows «El agente se detuvo»", got[0])
+	}
+	if got[1].Kind != "step" || got[1].StoppedWithoutReport {
+		t.Fatalf("step with report: %+v, want the line left to the report", got[1])
 	}
 }

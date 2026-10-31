@@ -455,3 +455,64 @@ func TestP46_InsertedTextIsASeparateParagraph(t *testing.T) {
 		t.Fatalf("text:\n%q\nwant\n%q", body["text"], want)
 	}
 }
+
+// bumpSec1 writes a new version of sec-1 through fn, as the person's
+// confirmation or edit would between the agent's read and its output.
+func bumpSec1(t *testing.T, db *store.DB, ev store.EventInput, fn func(b map[string]any)) {
+	t.Helper()
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		obj, err := tx.GetObject(context.Background(), "p1", "sec-1")
+		if err != nil {
+			return err
+		}
+		var b map[string]any
+		_ = json.Unmarshal(obj.Body, &b)
+		fn(b)
+		_, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, obj.State, b, ev)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("bump sec-1: %v", err)
+	}
+}
+
+// P-84 (T-4, K-17, U-6): confirming the plan copies the focus and
+// confirms the role, two versions that leave the text as it was; a step
+// written on the version before them still applies, against the
+// current version, and keeps the focus and the role.
+func TestP84_ConfirmingThePlanBetweenTheReadAndTheStepDoesNotRejectIt(t *testing.T) {
+	db := seedStepProject(t)
+	human := store.EventInput{Type: store.EventSectionDetailsChanged, Actor: "human"}
+	bumpSec1(t, db, human, func(b map[string]any) { b["focus"] = "Qué estudios entran." })
+	bumpSec1(t, db, store.EventInput{Type: store.EventRoleChanged, Actor: "human"}, func(b map[string]any) {
+		b["role"] = map[string]any{"value": "results", "state": "confirmed"}
+		b["title"] = "Síntesis final"
+	})
+	out := strings.Replace(string(stepFile(t, "stale")), `"base_version": 0`, `"base_version": 1`, 1)
+	applied := applyRecorded(t, db, json.RawMessage(out))
+	if !applied.Applied {
+		t.Fatalf("not applied: %v", applied.Errors)
+	}
+	obj, b := object(t, db, "sec-1")
+	if b["text"] != "La síntesis compara estudios. Los estudios usan filtros. Fin." || obj.CurrentVersion != 4 {
+		t.Fatalf("sec-1 version %d text %q, want version 4 with the step applied", obj.CurrentVersion, b["text"])
+	}
+	role, _ := b["role"].(map[string]any)
+	if b["focus"] != "Qué estudios entran." || b["title"] != "Síntesis final" || role["state"] != "confirmed" {
+		t.Fatalf("sec-1 body %v, want the confirmed focus, title and role kept", b)
+	}
+}
+
+// B-11 still holds: a change of the text between the read and the
+// output rejects the step, and the section keeps the person's text.
+func TestB11_ATextChangeBetweenTheReadAndTheStepStillRejectsIt(t *testing.T) {
+	db := seedStepProject(t)
+	bumpSec1(t, db, store.EventInput{Type: store.EventEdit, Actor: "human"}, func(b map[string]any) {
+		b["text"] = "La síntesis compara estudios. Los estudios usan filtros. Cierre. Escrito por la persona."
+	})
+	out := strings.Replace(string(stepFile(t, "stale")), `"base_version": 0`, `"base_version": 1`, 1)
+	requireRejected(t, applyRecorded(t, db, json.RawMessage(out)), "sec-1 changed since the version you read")
+	if _, b := object(t, db, "sec-1"); b["text"] != "La síntesis compara estudios. Los estudios usan filtros. Cierre. Escrito por la persona." {
+		t.Fatalf("sec-1 text %q, want the person's text", b["text"])
+	}
+}

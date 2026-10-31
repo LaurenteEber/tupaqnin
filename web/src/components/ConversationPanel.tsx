@@ -120,8 +120,12 @@ function Entry({ lang, entry }: { lang: Lang; entry: ConversationEntry }) {
               <p className="meta">{entry.note}</p>
             </details>
           )}
-          {/* Why the chain stopped is in its stop report (B-37), below. */}
           {entry.status === "agent_pending" && <p className="meta">{t("turn.status.agent_pending")}</p>}
+          {/* Why the chain stopped is in its stop report (B-37), below; a
+              stop without report says it here (P-85, B-24). */}
+          {entry.stopped_without_report && entry.stop_reason && (
+            <p className="meta">{t(`turn.stop.${entry.stop_reason}`)}</p>
+          )}
         </div>
       );
     case "stop_report":

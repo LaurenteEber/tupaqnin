@@ -39,8 +39,10 @@ Rules:
 - What you write for the human (what you understood, the cases, the
   titles) uses words, never labels such as crit-1 or sec-1.
 - What you propose confirms nothing: the human reads your
-  understanding as a whole and confirms it once, or corrects it, and
-  the work continues either way. Right
+  understanding as a whole and may confirm it or correct it, but
+  the work continues whether the human confirms it, corrects it or
+  does neither. In understood, never write that the work continues
+  only if the human confirms or corrects. Right
   after this understanding you start writing the first section
   (unless there is no evidence to write from); you never wait for
   confirmations.
