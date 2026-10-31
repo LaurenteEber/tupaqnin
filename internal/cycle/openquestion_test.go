@@ -334,8 +334,11 @@ func TestE2_OpenQuestionOnYourDecisionKeepsItFirstAndAnotherOptionReplacesIt(t *
 	if dec, _ := object(t, db, "dec-1"); dec.State != "superseded" {
 		t.Fatalf("dec-1: %s, want superseded", dec.State)
 	}
+	// The born decision says the chosen option, whatever the checker
+	// wrote (a recording from Meta words it otherwise, P-71).
+	chosen, _ := opts[2].(map[string]any)
 	dec, db3 := object(t, db, "dec-3")
-	if dec.State != "human" || db3["statement"] != "Usar solo datos de tesis." ||
+	if dec.State != "human" || db3["statement"] != chosen["option"] ||
 		db3["instead_of"] != "Usar el informe del comité." || db3["reason"] != reason || db3["origin"] != "human" {
 		t.Fatalf("dec-3: %s %v", dec.State, db3)
 	}
