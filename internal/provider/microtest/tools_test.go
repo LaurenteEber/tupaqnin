@@ -162,6 +162,9 @@ type toolCall struct {
 	argDeltas int
 	inTokens  int
 	outTokens int
+	// usage is the response's usage object as Meta sent it (counts
+	// only, never content), for what the micro-tests report.
+	usage     json.RawMessage
 	elapsed   time.Duration
 	meanDelay time.Duration
 }
@@ -183,6 +186,13 @@ func callWithTools(apiKey string, tools []map[string]any, format json.RawMessage
 		body["text"] = map[string]any{"format": map[string]any{
 			"type": "json_schema", "name": "principal_output", "strict": true, "schema": format}}
 	}
+	return postResponses(apiKey, body)
+}
+
+// postResponses sends one streamed Responses call with body and reads
+// its stream. It never fails the test; an error keeps only its code and
+// param (T-10).
+func postResponses(apiKey string, body map[string]any) toolCall {
 	payload, _ := json.Marshal(body)
 	var call toolCall
 	start := time.Now()
@@ -237,12 +247,9 @@ func callWithTools(apiKey string, tools []map[string]any, format json.RawMessage
 			Delta    string          `json:"delta"`
 			Item     json.RawMessage `json:"item"`
 			Response *struct {
-				Output []json.RawMessage `json:"output"`
-				Usage  struct {
-					InputTokens  int `json:"input_tokens"`
-					OutputTokens int `json:"output_tokens"`
-				} `json:"usage"`
-				Error *struct {
+				Output   []json.RawMessage `json:"output"`
+				UsageRaw json.RawMessage   `json:"usage"`
+				Error    *struct {
 					Code string `json:"code"`
 				} `json:"error"`
 			} `json:"response"`
@@ -270,8 +277,13 @@ func callWithTools(apiKey string, tools []map[string]any, format json.RawMessage
 		case "response.completed":
 			if ev.Response != nil {
 				call.output = ev.Response.Output
-				call.inTokens = ev.Response.Usage.InputTokens
-				call.outTokens = ev.Response.Usage.OutputTokens
+				call.usage = ev.Response.UsageRaw
+				var usage struct {
+					InputTokens  int `json:"input_tokens"`
+					OutputTokens int `json:"output_tokens"`
+				}
+				_ = json.Unmarshal(ev.Response.UsageRaw, &usage)
+				call.inTokens, call.outTokens = usage.InputTokens, usage.OutputTokens
 			}
 		}
 	}
