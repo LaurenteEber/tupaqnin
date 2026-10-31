@@ -197,12 +197,17 @@ func CallJudgeDefense(ctx context.Context, prov provider.Provider, db *store.DB,
 // judge call, and each question and each «no cubre» becomes an open
 // audience question with its about edge, in one transaction. The judge
 // failing twice leaves its output_retry and nothing else.
-// [EL DISEÑO NO LO DICE]: every stop that proposes signing the section
-// prepares it again; the judge's entries keep its literal text, a «no
-// cubre» marked not_covered in the body.
+// P-76 (fichas §2 «one round»): a stop prepares it again only when the
+// section's text has another fingerprint than at the last preparation;
+// otherwise no judge call, and its open questions keep showing.
+// [EL DISEÑO NO LO DICE]: the judge's entries keep its literal text, a
+// «no cubre» marked not_covered in the body.
 func (r *Runner) prepareDefense(ctx context.Context, projectID, turnID, section string) error {
 	needed, err := graph.DefenseNeeded(ctx, r.db, projectID, section)
 	if err != nil || !needed {
+		return err
+	}
+	if same, err := sameTextAsLastDefense(ctx, r.db, projectID, section); err != nil || same {
 		return err
 	}
 	out, ok, err := CallJudgeDefense(ctx, r.prov, r.db, projectID, turnID, section)
@@ -244,6 +249,43 @@ func (r *Runner) prepareDefense(ctx context.Context, projectID, turnID, section 
 		}
 		return nil
 	})
+}
+
+// sameTextAsLastDefense reports whether the section's text has the
+// fingerprint it had at its last defense preparation (P-76), derived
+// from the history, which only grows: the last preparation is the last
+// audience question the judge opened about the section, and the text it
+// was prepared on is the section's version just before that event.
+// [EL DISEÑO NO LO DICE]: a preparation is one that opened questions; a
+// judge that failed twice prepared nothing, so the next stop tries again.
+func sameTextAsLastDefense(ctx context.Context, db *store.DB, projectID, label string) (bool, error) {
+	sec, err := db.GetObject(ctx, projectID, label)
+	if err != nil {
+		return false, err
+	}
+	events, err := db.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		return false, err
+	}
+	version, prepared := 0, 0
+	for _, ev := range events {
+		if ev.ObjectID == sec.ID && ev.NewVersion > 0 {
+			version = ev.NewVersion
+			continue
+		}
+		if ev.Type != store.EventStateChanged || ev.AgentRole != string(provider.RoleJudge) {
+			continue
+		}
+		var data map[string]any
+		_ = json.Unmarshal(ev.Data, &data)
+		if data["to"] == "open" && data["section"] == sec.Label {
+			prepared = version
+		}
+	}
+	if prepared == 0 {
+		return false, nil
+	}
+	return sameSectionText(ctx, db, projectID, sec, prepared)
 }
 
 // AnswerAudienceQuestion answers an open audience question (estados §9,
