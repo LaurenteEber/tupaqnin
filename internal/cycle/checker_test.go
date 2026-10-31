@@ -3,6 +3,7 @@ package cycle_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -148,14 +149,17 @@ func TestB2x7_ContradictsOnThePremiseOpensAnOpenQuestionUndeclaredByTheAgent(t *
 	sec, _ := object(t, db, "sec-1")
 	prem, _ := object(t, db, "prem-1")
 	if body["undeclared_by_agent"] != true || body["origin"] != "checker" || body["kind"] != "contradiction" ||
-		body["protected_id"] != prem.ID || body["section_id"] != sec.ID || body["new_passage"] != newText ||
-		!strings.HasPrefix(body["question"].(string), "¿El agua del grifo") {
+		body["protected_id"] != prem.ID || body["section_id"] != sec.ID ||
+		// A literal passage of what was written and a question (fichas §3,
+		// B-44); a recording from Meta may quote less or word it otherwise
+		// (P-71).
+		!literalIn(body["new_passage"], newText) || strings.TrimSpace(fmt.Sprint(body["question"])) == "" {
 		t.Fatalf("oq-1 body: %v", body)
 	}
 	// The app's «mantener» on the premise first (estados §6, 2.4), then
 	// the checker's two.
-	if opts, _ := body["options"].([]any); len(opts) != 3 || opts[0].(map[string]any)["keep"] != true {
-		t.Fatalf("oq-1 options: %v, want keep plus the checker's two", body["options"])
+	if opts, _ := body["options"].([]any); len(opts) < 3 || opts[0].(map[string]any)["keep"] != true {
+		t.Fatalf("oq-1 options: %v, want keep plus the checker's two or more (B-44)", body["options"])
 	}
 	if deps := anyStrings(body["depends_on"]); len(deps) != 1 || deps[0] != sec.ID {
 		t.Fatalf("oq-1 depends_on: %v, want the section (the premise is not a decision)", deps)
@@ -505,4 +509,10 @@ func TestB44_EmbeddedCheckerSchemaIsTheDesignSchema(t *testing.T) {
 	if string(embedded) != string(design) {
 		t.Fatal("embedded schema differs from docs/diseno/bloque-3/salida-comprobador.schema.json")
 	}
+}
+
+// literalIn reports a non-empty passage found literally in text (P-71).
+func literalIn(passage any, text string) bool {
+	p, _ := passage.(string)
+	return strings.TrimSpace(p) != "" && strings.Contains(text, p)
 }

@@ -248,8 +248,8 @@ func TestE6_ChangingTheContradictedPremiseCreatesItsNewVersionAndProbesTheCurren
 	}
 	_, body := object(t, db, "oq-1")
 	opts, _ := body["options"].([]any)
-	if len(opts) != 3 {
-		t.Fatalf("oq-1 options: %v, want keep plus the checker's two", opts)
+	if len(opts) < 3 {
+		t.Fatalf("oq-1 options: %v, want keep plus the checker's two or more (B-44, P-71)", opts)
 	}
 	keep, _ := opts[0].(map[string]any)
 	if keep["keep"] != true || keep["option"] != checkerPremise {

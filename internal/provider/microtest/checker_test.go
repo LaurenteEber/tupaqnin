@@ -22,6 +22,7 @@ package microtest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -211,26 +212,59 @@ func candidateTypes(out checks.CheckerOutput) []string {
 	return got
 }
 
-// contradiction: one contradiction candidate on protected in sec-1, over
-// passage, with its question starting as the tests read it and two
-// options.
-func contradiction(out checks.CheckerOutput, protected, passage, questionPrefix string) bool {
+// contradiction: one contradiction candidate on protected in sec-1,
+// with a question and the options of B-44. What the design asks and
+// nothing more (P-71): its new passage is literal in what was written
+// (fichas §3: «pasajes literales»), the question is not empty (the
+// design fixes no wording), and there are two options or more (B-44).
+// One candidate only is the scenario's: the cycle tests read oq-1 as
+// this one.
+func contradiction(out checks.CheckerOutput, protected, written string) bool {
 	if len(out.Candidates) != 1 {
 		return false
 	}
 	c := out.Candidates[0]
-	return c.Type == "contradiction" && c.Section == "sec-1" && c.NewPassage == passage &&
-		c.Protected != nil && *c.Protected == protected && c.Question != nil &&
-		strings.HasPrefix(*c.Question, questionPrefix) && len(c.Options) == 2
+	return c.Type == "contradiction" && c.Section == "sec-1" &&
+		strings.TrimSpace(c.NewPassage) != "" && strings.Contains(written, c.NewPassage) &&
+		c.Protected != nil && *c.Protected == protected &&
+		c.Question != nil && strings.TrimSpace(*c.Question) != "" && len(c.Options) >= 2
 }
 
-func keepChecker(t *testing.T, rec *recorder, name string, ok bool) {
+// logJudgment shows what Meta answered when it is not the scenario's
+// (P-71): the verdict of each probe, and the type, passage and number of
+// options of each candidate.
+func logJudgment(t *testing.T, name string, out checks.CheckerOutput) {
+	t.Helper()
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s: what Meta answered\n", name)
+	for _, p := range out.Probes {
+		passage := ""
+		if p.Passage != nil {
+			passage = *p.Passage
+		}
+		fmt.Fprintf(&b, "  probe %s: %s «%s»\n", p.Protected, p.Verdict, passage)
+	}
+	if len(out.Candidates) == 0 {
+		b.WriteString("  no candidates\n")
+	}
+	for _, c := range out.Candidates {
+		protected := ""
+		if c.Protected != nil {
+			protected = " on " + *c.Protected
+		}
+		fmt.Fprintf(&b, "  candidate %s%s in %s: «%s» · %d options\n", c.Type, protected, c.Section, c.NewPassage, len(c.Options))
+	}
+	t.Log(b.String())
+}
+
+func keepChecker(t *testing.T, rec *recorder, name string, out checks.CheckerOutput, ok bool) {
 	t.Helper()
 	if ok {
 		saveChecker(t, rec, name)
-	} else {
-		t.Logf("%s: the judgment is not the scenario's; not saved (the hand-made one stays)", name)
+		return
 	}
+	t.Logf("%s: the judgment is not the scenario's; not saved (the hand-made one stays)", name)
+	logJudgment(t, name, out)
 }
 
 func TestMicroTestChecker(t *testing.T) {
@@ -243,29 +277,29 @@ func TestMicroTestChecker(t *testing.T) {
 	// A contradiction of the premise (TestB2x7_ContradictsOnThePremise…).
 	const tap = "El agua del grifo es igual de segura que la embotellada."
 	if rec, out, ok := judge(t, meta, tap); ok {
-		keepChecker(t, rec, "contradicts-premise",
-			onlyVerdict(out, "prem-1", checks.VerdictContradicts) && contradiction(out, "prem-1", tap, "¿El agua del grifo"))
+		keepChecker(t, rec, "contradicts-premise", out,
+			onlyVerdict(out, "prem-1", checks.VerdictContradicts) && contradiction(out, "prem-1", tap))
 	}
 
 	// The same passage judged «doubt» (TestB2x7_DoubtAlsoOpens…): saved
 	// only if the checker doubts instead of contradicting.
 	if rec, out, ok := judge(t, meta, tap); ok {
-		keepChecker(t, rec, "doubt-premise",
-			onlyVerdict(out, "prem-1", checks.VerdictDoubt) && contradiction(out, "prem-1", tap, ""))
+		keepChecker(t, rec, "doubt-premise", out,
+			onlyVerdict(out, "prem-1", checks.VerdictDoubt) && contradiction(out, "prem-1", tap))
 	}
 
 	// A contradiction of your decision dec-1 (TestP68_…).
 	const thesis = "Usamos solo datos de tesis, no el informe del comité."
 	if rec, out, ok := judge(t, meta, thesis); ok {
-		keepChecker(t, rec, "contradicts-decision",
-			onlyVerdict(out, "dec-1", checks.VerdictContradicts) && contradiction(out, "dec-1", thesis, ""))
+		keepChecker(t, rec, "contradicts-decision", out,
+			onlyVerdict(out, "dec-1", checks.VerdictContradicts) && contradiction(out, "dec-1", thesis))
 	}
 
 	// «Relato del proceso» (TestB15_ProcessNarrative…).
 	const narrative = "Tras la revisión del martes, ajustamos el filtro."
 	if rec, out, ok := judge(t, meta, narrative); ok {
 		got := candidateTypes(out)
-		keepChecker(t, rec, "process-narrative", allNo(out) && len(got) == 1 && got[0] == "process_narrative:"+narrative)
+		keepChecker(t, rec, "process-narrative", out, allNo(out) && len(got) == 1 && got[0] == "process_narrative:"+narrative)
 	}
 
 	// Two candidates, one of which leaves the text while the checker
@@ -273,7 +307,7 @@ func TestMicroTestChecker(t *testing.T) {
 	const kept = "Usamos solo filtros finos."
 	if rec, out, ok := judge(t, meta, narrative+" "+kept); ok {
 		got := strings.Join(candidateTypes(out), " | ")
-		keepChecker(t, rec, "discarded-passage", allNo(out) &&
+		keepChecker(t, rec, "discarded-passage", out, allNo(out) &&
 			got == "process_narrative:"+narrative+" | written_without_decision:"+kept)
 	}
 }
