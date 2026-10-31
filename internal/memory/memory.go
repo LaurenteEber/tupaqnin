@@ -532,6 +532,9 @@ func (m *Memory) agentPendings(ctx context.Context, projectID string, sections [
 			if p.About != "" {
 				line += ": " + p.About
 			}
+			if p.Cause != "" { // passage_not_found or does_not_support (backlog-r2 2.3)
+				line += " (" + p.Cause + ")"
+			}
 			if passage := pendingPassage(b.str("text"), p); passage != "" {
 				line += " · passage: «" + passage + "»"
 			}

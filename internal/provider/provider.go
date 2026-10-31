@@ -21,14 +21,16 @@ const (
 )
 
 // TurnKind is the kind of turn a call belongs to: the understanding
-// (1.2), an agent step, or a signoff with Wonder (B-13). The fake
-// picks its recording by it (P-29); Meta ignores it.
+// (1.2), an agent step, a signoff with Wonder (B-13) or the checker's
+// judgment of a change (backlog-r2 2.3). The fake picks its recording
+// by it (P-29); Meta ignores it.
 type TurnKind string
 
 const (
 	TurnUnderstanding TurnKind = "understanding"
 	TurnStep          TurnKind = "step"
 	TurnSignoff       TurnKind = "signoff"
+	TurnChecker       TurnKind = "checker"
 )
 
 // Provider is one model backend. onDelta may be nil; when set, it is
@@ -60,6 +62,10 @@ type Request struct {
 	// Tools are the function tools the model may call (R-3), a JSON
 	// array of Responses API tool definitions; nil sends none.
 	Tools json.RawMessage
+	// ProbeLabels are the labels of a checker call's probes, in order,
+	// so the fake can answer a checker call it has no recording for
+	// (see Fake.Respond); Meta ignores it, like TurnKind.
+	ProbeLabels []string
 }
 
 // Response is one completed call: every raw output item, the joined
@@ -216,10 +222,14 @@ func NewFake(fixtures ...Fixture) *Fake {
 }
 
 // pick returns the next fixture for the turn kind, or false when no
-// fixture serves it.
+// fixture serves it. A checker call only gets checker recordings: a
+// recording without a kind predates the checker and is the principal's.
 func (f *Fake) pick(kind TurnKind) (Fixture, bool) {
 	var matching []Fixture
 	for _, fx := range f.fixtures {
+		if kind == TurnChecker && fx.TurnKind != TurnChecker {
+			continue
+		}
 		if kind == "" || fx.TurnKind == "" || fx.TurnKind == kind {
 			matching = append(matching, fx)
 		}
@@ -238,6 +248,9 @@ var _ Provider = (*Fake)(nil)
 // and returns its recorded items byte-for-byte.
 func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (Response, error) {
 	fx, ok := f.pick(req.TurnKind)
+	if !ok && req.TurnKind == TurnChecker {
+		fx, ok = noFindingsFixture(req.ProbeLabels), true
+	}
 	if !ok {
 		return Response{}, &ProviderError{Code: "no_fixtures", Type: "fake"}
 	}
@@ -269,6 +282,24 @@ func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 		return Response{}, err
 	}
 	return resp, nil
+}
+
+// noFindingsFixture is the fake's answer to a checker call without a
+// checker recording: every probe «no» and no candidates, so a fake
+// without checker recordings (most tests, TQ_PROVIDER=fake) runs the
+// checker without finding anything.
+// [EL DISEÑO NO LO DICE]: what the fake answers without a recording;
+// the signoff errors instead, but an error here would leave every
+// section «sin comprobar» (B-50).
+func noFindingsFixture(labels []string) Fixture {
+	probes := make([]map[string]any, 0, len(labels))
+	for _, l := range labels {
+		probes = append(probes, map[string]any{"protected": l, "verdict": "no", "passage": nil})
+	}
+	text, _ := json.Marshal(map[string]any{"probes": probes, "candidates": []any{}})
+	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
+		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
+	return Fixture{Name: "checker-no-findings", TurnKind: TurnChecker, Items: []json.RawMessage{item}}
 }
 
 // CountTokens counts 1 token per 4 characters of input (B-5).

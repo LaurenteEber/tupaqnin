@@ -85,6 +85,14 @@ type Change struct {
 	Changed []string
 	Actor   string
 	TurnID  string
+
+	// For the checker (backlog-r2 2.3): the change's new passages by
+	// section, the ids of the citations it created, and the labels its
+	// proposed open questions depend on, which tell whether the principal
+	// had declared what the checker finds (B2-7).
+	Passages     []Passage
+	NewCitations []string
+	Declared     []string
 }
 
 // Finding is one thing a rule found. Section is a label; About is what

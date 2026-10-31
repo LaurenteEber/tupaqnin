@@ -1,0 +1,25 @@
+{
+  "name": "malformed",
+  "turn_kind": "checker",
+  "deltas": [
+    "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"maybe\", \"passage\": null}]}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"maybe\", \"passage\": null}]}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 900,
+    "output_tokens": 20,
+    "context_window": 0,
+    "cost_usd": 0
+  }
+}

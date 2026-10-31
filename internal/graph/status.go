@@ -29,6 +29,21 @@ const (
 	// Slice 2 (glossary §9, backlog-r2 2.1).
 	PendingTextWithoutDecision = "text_without_decision"
 	PendingInternalCodes       = "internal_codes"
+	// From the checker (glossary §9, backlog-r2 2.3, B-50).
+	PendingProcessNarrative = "process_narrative"
+	// PendingUnchecked is «sin comprobar» (B-50): the checker failed
+	// twice on a change of the section.
+	// [EL DISEÑO NO LO DICE]: the glossary has no code name for it; this
+	// is the smallest English one.
+	PendingUnchecked = "unchecked"
+)
+
+// Causes of «fuente que no sostiene» (backlog-r2 2.3): the passage is
+// not literal in its source (the app), or it is and does not support
+// the claim (the checker, A-2).
+const (
+	CausePassageNotFound = "passage_not_found"
+	CauseDoesNotSupport  = "does_not_support"
 )
 
 // Pending is one thing a section lacks: its kind and what it is about,
@@ -40,6 +55,9 @@ type Pending struct {
 	// place among the critical decisions, from 1 (P-62, as P-59); 0
 	// elsewhere.
 	Number int `json:"number,omitempty"`
+	// Cause tells the two causes of source_not_supporting apart
+	// (CausePassageNotFound, CauseDoesNotSupport); empty on other kinds.
+	Cause string `json:"cause,omitempty"`
 }
 
 // SectionStatus is the one function every view uses for a section's
@@ -86,12 +104,18 @@ func SectionStatus(ctx context.Context, db store.Querier, projectID, label strin
 		return "", nil, err
 	}
 	for _, c := range citations {
-		pendings = append(pendings, Pending{Kind: PendingSourceNotSupporting, About: c})
+		pendings = append(pendings, Pending{Kind: PendingSourceNotSupporting, About: c, Cause: CausePassageNotFound})
 	}
 
 	events, err := db.EventsSince(ctx, projectID, 0)
 	if err != nil {
 		return "", nil, err
+	}
+	// The checker's (backlog-r2 2.3): its candidates while their passage
+	// is literal in the text, and «sin comprobar» (B-50).
+	pendings = append(pendings, checkerPendings(events, section)...)
+	if uncheckedOpen(events, section.Label) {
+		pendings = append(pendings, Pending{Kind: PendingUnchecked})
 	}
 	// «Escrito sin decisión» (rule 2, B-42) and «códigos internos»
 	// (rule 5), slice 2.

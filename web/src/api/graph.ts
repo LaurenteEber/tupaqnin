@@ -26,6 +26,52 @@ export interface OpenChange {
 }
 
 //////////
+// source: checker.go
+
+/**
+ * Candidate types of the checker's fixed output
+ * (salida-comprobador.schema.json, fichas §7).
+ */
+export const CandidateContradiction = "contradiction";
+/**
+ * Candidate types of the checker's fixed output
+ * (salida-comprobador.schema.json, fichas §7).
+ */
+export const CandidateDoubtfulTerm = "doubtful_term";
+/**
+ * Candidate types of the checker's fixed output
+ * (salida-comprobador.schema.json, fichas §7).
+ */
+export const CandidateProcessNarrative = "process_narrative";
+/**
+ * Candidate types of the checker's fixed output
+ * (salida-comprobador.schema.json, fichas §7).
+ */
+export const CandidateWrittenWithoutDecision = "written_without_decision";
+/**
+ * Candidate types of the checker's fixed output
+ * (salida-comprobador.schema.json, fichas §7).
+ */
+export const CandidateSourceNotSupporting = "source_not_supporting";
+/**
+ * Candidate types of the checker's fixed output
+ * (salida-comprobador.schema.json, fichas §7).
+ */
+export const CandidateExceedsReviewed = "exceeds_reviewed";
+/**
+ * What a probe event records in its data.kind (backlog-r2 2.3): the
+ * verdict of one probe, or one candidate (stored «en probe con kind:
+ * candidate»).
+ */
+export const ProbeKindProbe = "probe";
+/**
+ * What a probe event records in its data.kind (backlog-r2 2.3): the
+ * verdict of one probe, or one candidate (stored «en probe con kind:
+ * candidate»).
+ */
+export const ProbeKindCandidate = "candidate";
+
+//////////
 // source: critical.go
 
 /**
@@ -535,6 +581,29 @@ export const PendingTextWithoutDecision = "text_without_decision";
  */
 export const PendingInternalCodes = "internal_codes";
 /**
+ * From the checker (glossary §9, backlog-r2 2.3, B-50).
+ */
+export const PendingProcessNarrative = "process_narrative";
+/**
+ * PendingUnchecked is «sin comprobar» (B-50): the checker failed
+ * twice on a change of the section.
+ * [EL DISEÑO NO LO DICE]: the glossary has no code name for it; this
+ * is the smallest English one.
+ */
+export const PendingUnchecked = "unchecked";
+/**
+ * Causes of «fuente que no sostiene» (backlog-r2 2.3): the passage is
+ * not literal in its source (the app), or it is and does not support
+ * the claim (the checker, A-2).
+ */
+export const CausePassageNotFound = "passage_not_found";
+/**
+ * Causes of «fuente que no sostiene» (backlog-r2 2.3): the passage is
+ * not literal in its source (the app), or it is and does not support
+ * the claim (the checker, A-2).
+ */
+export const CauseDoesNotSupport = "does_not_support";
+/**
  * Pending is one thing a section lacks: its kind and what it is about,
  * by label or by the number in the text.
  */
@@ -547,6 +616,11 @@ export interface Pending {
    * elsewhere.
    */
   number?: number /* int */;
+  /**
+   * Cause tells the two causes of source_not_supporting apart
+   * (CausePassageNotFound, CauseDoesNotSupport); empty on other kinds.
+   */
+  cause?: string;
 }
 
 //////////

@@ -170,6 +170,7 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
                   {p.kind === "open_card"
                     ? p.number !== undefined && p.number > 0 && <> · {t("signoff.decision_number", { n: String(p.number) })}</>
                     : p.about && <> · «{p.about}»</>}
+                  {p.cause && <> · {t(`pending.cause.${p.cause}`)}</>}
                 </li>
               ))}
             </ul>

@@ -83,6 +83,13 @@ const (
 	ContrasterFallbackEffort = EffortXHigh
 )
 
+// The checker judges each step with Spark 1.3 at effort low, in one
+// call with a clean context (backlog-r2 2.3, fichas §7).
+const (
+	CheckerModel  = ModelSpark13
+	CheckerEffort = EffortLow
+)
+
 // Known reports whether the model is in this file (B-20 (c): a model
 // that is not here is not available).
 func Known(model string) bool {

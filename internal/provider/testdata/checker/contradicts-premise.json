@@ -1,0 +1,25 @@
+{
+  "name": "contradicts-premise",
+  "turn_kind": "checker",
+  "deltas": [
+    "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"contradicts\", \"passage\": \"El agua del grifo es igual de segura que la embotellada.\"}, {\"protected\": \"dec-1\", \"verdict\": \"no\", \"passage\": null}], \"candidates\": [{\"type\": \"contradiction\", \"section\": \"sec-1\", \"new_passage\": \"El agua del grifo es igual de segura que la embotellada.\", \"clashing_passage\": \"El agua embotellada es más segura que la del grifo.\", \"protected\": \"prem-1\", \"citation\": null, \"question\": \"¿El agua del grifo es igual de segura que la embotellada, o mantienes tu premisa?\", \"options\": [{\"option\": \"Mantener la premisa: la embotellada es más segura.\", \"contrast\": \"Sigue tu premisa tal como la escribiste.\", \"consequence\": \"El agente reescribe el pasaje para no contradecirla.\", \"risk\": \"Si los datos nuevos la desmienten, el documento defiende algo que no sostiene.\"}, {\"option\": \"Cambiar la premisa: ambas son igual de seguras.\", \"contrast\": \"Acepta lo que dice el pasaje nuevo.\", \"consequence\": \"La premisa pasa a una versión nueva y lo escrito con ella se revisa.\", \"risk\": \"Se pierde la tesis de partida del documento.\"}]}]}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"contradicts\", \"passage\": \"El agua del grifo es igual de segura que la embotellada.\"}, {\"protected\": \"dec-1\", \"verdict\": \"no\", \"passage\": null}], \"candidates\": [{\"type\": \"contradiction\", \"section\": \"sec-1\", \"new_passage\": \"El agua del grifo es igual de segura que la embotellada.\", \"clashing_passage\": \"El agua embotellada es más segura que la del grifo.\", \"protected\": \"prem-1\", \"citation\": null, \"question\": \"¿El agua del grifo es igual de segura que la embotellada, o mantienes tu premisa?\", \"options\": [{\"option\": \"Mantener la premisa: la embotellada es más segura.\", \"contrast\": \"Sigue tu premisa tal como la escribiste.\", \"consequence\": \"El agente reescribe el pasaje para no contradecirla.\", \"risk\": \"Si los datos nuevos la desmienten, el documento defiende algo que no sostiene.\"}, {\"option\": \"Cambiar la premisa: ambas son igual de seguras.\", \"contrast\": \"Acepta lo que dice el pasaje nuevo.\", \"consequence\": \"La premisa pasa a una versión nueva y lo escrito con ella se revisa.\", \"risk\": \"Se pierde la tesis de partida del documento.\"}]}]}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 900,
+    "output_tokens": 120,
+    "context_window": 0,
+    "cost_usd": 0
+  }
+}

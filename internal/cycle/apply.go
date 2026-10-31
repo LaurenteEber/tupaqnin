@@ -98,6 +98,9 @@ type ApplyResult struct {
 	// Reclassified says why a direct step became build, nil otherwise.
 	Stretch      string
 	Reclassified []string
+	// Change is the applied change, for the checker, which judges it
+	// after the step's transaction (backlog-r2 2.3).
+	Change checks.Change
 }
 
 // errStale is a section that changed since the version the agent read
@@ -180,7 +183,7 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 		rejected = append(rejected, c["message"].(string))
 	}
 	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Work: work,
-		Stretch: p.stretch, Reclassified: p.reclassified}, nil
+		Stretch: p.stretch, Reclassified: p.reclassified, Change: p.change}, nil
 }
 
 // beforeApplyWrite runs between ApplyStep's read and its write; tests
@@ -202,6 +205,10 @@ type project struct {
 	sources        []store.Object
 	// inSignoff are the sections with a signoff in progress (B-14).
 	inSignoff map[string]bool
+	// newCitations and change are what the checker judges after the step
+	// (backlog-r2 2.3): the citations the step created and its change.
+	newCitations []string
+	change       checks.Change
 }
 
 func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, error) {
@@ -975,6 +982,7 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		if err != nil {
 			return nil, err
 		}
+		p.newCitations = append(p.newCitations, cit.ID)
 		src, _ := p.object(c.SourceID)
 		if p.wasRead(src.ID) && len(graph.Compare(bodyStr(bodyOf(src), "text")).Find(c.Passage)) > 0 {
 			if err := edges.add(store.EdgeComesFrom, cit.ID, src.ID, ""); err != nil {
@@ -1244,6 +1252,25 @@ func (p *project) runRules(tx *store.Tx, turnID string, out stepOutput, pl *plan
 	for _, sp := range pl.sections {
 		for _, e := range sp.edits {
 			change.Texts = append(change.Texts, e.text)
+			change.Passages = append(change.Passages, checks.Passage{Section: resolve(sp.ref), Text: e.text})
+		}
+	}
+	change.NewCitations = p.newCitations
+	// What the step's proposed open questions depend on, by label: what
+	// the principal declared, for «no lo declaró el agente» (B2-7).
+	var openQuestions []struct {
+		DependsOn []string `json:"depends_on"`
+	}
+	_ = json.Unmarshal(out.ProposedOpenQuestions, &openQuestions)
+	for _, q := range openQuestions {
+		for _, dep := range q.DependsOn {
+			if isNew(dep) {
+				if obj, err := tx.Object(ids[dep]); err == nil {
+					change.Declared = append(change.Declared, obj.Label)
+				}
+				continue
+			}
+			change.Declared = append(change.Declared, dep)
 		}
 	}
 	for i := range out.FigureLinks {
@@ -1273,6 +1300,7 @@ func (p *project) runRules(tx *store.Tx, turnID string, out stepOutput, pl *plan
 	if err != nil {
 		return err
 	}
+	p.change = change
 	data["stretch"] = out.Stretch
 	p.stretch = out.Stretch
 	withoutDecision, decided, warned := []string{}, []string{}, []any{}

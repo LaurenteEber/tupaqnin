@@ -226,3 +226,33 @@ func TestP29_AppFixturesDeclareTheirTurnKind(t *testing.T) {
 		}
 	}
 }
+
+// P-29, backlog-r2 2.3: a checker call gets only checker recordings,
+// never a recording without a kind (those are the principal's); without
+// one, the fake judges every probe «no» with no candidates.
+func TestP29_CheckerCallGetsOnlyCheckerRecordings(t *testing.T) {
+	kindless := messageFixture("principal", "p", 0)
+	checker := messageFixture("checker", "c", 0)
+	checker.TurnKind = provider.TurnChecker
+	respond := func(f *provider.Fake, kind provider.TurnKind) string {
+		t.Helper()
+		resp, err := f.Respond(context.Background(), provider.Request{Model: provider.CheckerModel,
+			TurnKind: kind, ProbeLabels: []string{"req-1", "prem-1"}}, nil)
+		if err != nil {
+			t.Fatalf("Respond(%s): %v", kind, err)
+		}
+		return resp.Text
+	}
+	f := provider.NewFake(kindless, checker)
+	if got := respond(f, provider.TurnChecker); got != "c" {
+		t.Fatalf("checker call: %q, want the checker recording", got)
+	}
+	if got := respond(f, provider.TurnStep); got != "p" {
+		t.Fatalf("step call: %q, want the kindless recording, as before", got)
+	}
+	got := respond(provider.NewFake(kindless), provider.TurnChecker)
+	want := `{"candidates":[],"probes":[{"passage":null,"protected":"req-1","verdict":"no"},{"passage":null,"protected":"prem-1","verdict":"no"}]}`
+	if got != want {
+		t.Fatalf("checker call without a checker recording: %s, want %s", got, want)
+	}
+}

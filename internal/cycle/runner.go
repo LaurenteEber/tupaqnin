@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/memory"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -21,6 +22,15 @@ import (
 
 //go:embed prompts/principal.en.md
 var principalInstructions string
+
+// The checker's instructions (a draft Eber reviews) and its fixed
+// output, a copy of salida-comprobador.schema.json (backlog-r2 2.3).
+//
+//go:embed prompts/checker.en.md
+var checkerInstructions string
+
+//go:embed schema/checker_output.schema.json
+var checkerSchema []byte
 
 // liveConversationWindow is how long the principal keeps its
 // conversation: its last step was less than 2 h ago (B-7, [inicial]).
@@ -58,6 +68,7 @@ type Runner struct {
 	pub      TurnPublisher
 	gate     *Gate
 	memory   *memory.Memory
+	checker  *checks.Checker
 	schema   json.RawMessage
 	schemaOK bool
 
@@ -72,7 +83,8 @@ type Runner struct {
 // to the principal's model (B-5).
 func NewRunner(db *store.DB, prov provider.Provider, count memory.TokenCounter, pub TurnPublisher) *Runner {
 	return &Runner{db: db, prov: prov, count: count, pub: pub,
-		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{}}
+		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{},
+		checker: checks.NewChecker(prov, checkerInstructions, checkerSchema)}
 }
 
 // tryAcquireTurn takes the project's turn slot, or reports false
@@ -571,6 +583,19 @@ func (r *Runner) runTurn(ctx context.Context, projectID, turnID, text string) er
 	if err != nil {
 		return err
 	}
+	// B-36: your edits since the checker's last pass go to it in one
+	// batch when you send a message, before the agent's step.
+	edits, err := checks.YourEditsToCheck(ctx, r.db, projectID)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
+	}
+	if edits.HasWork() {
+		if err := r.checker.Check(ctx, r.db, projectID, turnID, edits); err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+	}
 	return r.runChain(ctx, projectID, turnID, text, true)
 }
 
@@ -665,6 +690,14 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			return err
 		}
 		last, lastApplied, lastText = result, applied, outText
+		// The checker judges the applied step outside its transaction, in
+		// one call (backlog-r2 2.3); what it finds enters the next triage.
+		if result.Status == StatusAccepted && applied.Applied && applied.Change.HasWork() {
+			if err := r.checker.Check(ctx, r.db, projectID, turnID, applied.Change); err != nil {
+				r.fail(projectID, turnID, "turn_failed")
+				return err
+			}
+		}
 		notice = ""
 		if len(applied.Rejected) > 0 {
 			notice = strings.Join(applied.Rejected, "\n")

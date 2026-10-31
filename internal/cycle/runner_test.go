@@ -178,16 +178,24 @@ func TestB7_TurnEndToEndWithTheFakeLeavesTheHistoryInOrder(t *testing.T) {
 }
 
 // captureProvider records what was actually sent to the provider
-// and what it answered, so tests compare against the real calls.
+// and what it answered, so tests compare against the real calls. The
+// checker's calls (backlog-r2 2.3) are kept apart, in checker.
 type captureProvider struct {
-	inner provider.Provider
-	mu    sync.Mutex
-	sent  [][]json.RawMessage
-	got   []provider.Response
-	tools []json.RawMessage
+	inner   provider.Provider
+	mu      sync.Mutex
+	sent    [][]json.RawMessage
+	got     []provider.Response
+	tools   []json.RawMessage
+	checker []provider.Request
 }
 
 func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
+	if req.TurnKind == provider.TurnChecker {
+		c.mu.Lock()
+		c.checker = append(c.checker, req)
+		c.mu.Unlock()
+		return c.inner.Respond(ctx, req, onDelta)
+	}
 	c.mu.Lock()
 	c.sent = append(c.sent, append([]json.RawMessage{}, req.Input...))
 	c.tools = append(c.tools, req.Tools)

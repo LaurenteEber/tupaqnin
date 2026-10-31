@@ -1,0 +1,25 @@
+{
+  "name": "process-narrative",
+  "turn_kind": "checker",
+  "deltas": [
+    "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"no\", \"passage\": null}], \"candidates\": [{\"type\": \"process_narrative\", \"section\": \"sec-1\", \"new_passage\": \"Tras la revisión del martes, ajustamos el filtro.\", \"clashing_passage\": null, \"protected\": null, \"citation\": null, \"question\": null, \"options\": null}]}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"no\", \"passage\": null}], \"candidates\": [{\"type\": \"process_narrative\", \"section\": \"sec-1\", \"new_passage\": \"Tras la revisión del martes, ajustamos el filtro.\", \"clashing_passage\": null, \"protected\": null, \"citation\": null, \"question\": null, \"options\": null}]}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 900,
+    "output_tokens": 120,
+    "context_window": 0,
+    "cost_usd": 0
+  }
+}
