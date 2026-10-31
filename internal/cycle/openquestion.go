@@ -29,6 +29,9 @@ type OpenQuestionAnswer struct {
 	PremiseChanged bool
 	// Premise is the premise's label when the question kept or changed it.
 	Premise string
+	// DefensePreparing: the answer left a section ready whose defense is
+	// now being prepared in the background (P-92).
+	DefensePreparing bool
 }
 
 // AnswerOpenQuestion answers an open «por aclarar» (estados §4, backlog-r2
@@ -216,5 +219,7 @@ func (r *Runner) AnswerOpenQuestion(ctx context.Context, projectID, label string
 	if err != nil {
 		return answer, err
 	}
-	return answer, r.afterYourAnswer(ctx, projectID, before, answer.PremiseChanged)
+	defenses := r.defensesToPrepare(ctx, projectID, before)
+	answer.DefensePreparing = len(defenses) > 0 // P-92
+	return answer, r.afterYourAnswer(ctx, projectID, defenses, answer.PremiseChanged)
 }

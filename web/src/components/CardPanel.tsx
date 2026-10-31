@@ -14,7 +14,8 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
   lang: Lang;
   projectID: string;
   refreshKey: number | string;
-  onAnswered: () => void;
+  // P-92: whether your answer left a defense being prepared.
+  onAnswered: (defensePreparing: boolean) => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [cards, setCards] = useState<CardView[]>([]);
@@ -40,10 +41,10 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
     const option = card.own_edit ? null : options[card.label];
     if (!card.own_edit && !option) return;
     try {
-      await answerCard(projectID, card.label, option ?? null, reasons[card.label] ?? "");
+      const res = await answerCard(projectID, card.label, option ?? null, reasons[card.label] ?? "");
       setErrors((prev) => ({ ...prev, [card.label]: "" }));
       await refresh();
-      onAnswered();
+      onAnswered(res.defense_preparing === true);
     } catch (e) {
       const code = e instanceof Error && e.message === "http_422" ? "invalid_reason"
         : e instanceof Error && e.message === "http_409" ? "card_closed" : "failed";
@@ -56,10 +57,10 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
     const option = chosen[q.label];
     if (option === undefined) return;
     try {
-      await answerOpenQuestion(projectID, q.label, option, reasons[q.label] ?? "");
+      const res = await answerOpenQuestion(projectID, q.label, option, reasons[q.label] ?? "");
       setErrors((prev) => ({ ...prev, [q.label]: "" }));
       await refresh();
-      onAnswered();
+      onAnswered(res.defense_preparing === true);
     } catch (e) {
       const code = e instanceof Error && e.message === "http_422" ? "invalid_reason"
         : e instanceof Error && e.message === "http_409" ? "question_closed" : "failed";

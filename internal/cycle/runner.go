@@ -87,6 +87,9 @@ type Runner struct {
 	// defenses are the sections, by project, whose defense waits for
 	// the turn slot (P-86), guarded by mu.
 	defenses map[string][]string
+	// preparing counts, by project, the queued defenses being prepared
+	// now (P-92), guarded by mu.
+	preparing map[string]int
 
 	// The wait before each project's batch of your edits (B-36), guarded
 	// by mu; closed stops new waits, and batches counts those running so
@@ -116,7 +119,7 @@ const EditBatchDelay = 60 * time.Second
 func NewRunner(db *store.DB, prov provider.Provider, count memory.TokenCounter, pub TurnPublisher) *Runner {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Runner{db: db, prov: prov, count: count, pub: pub,
-		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{},
+		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{}, preparing: map[string]int{},
 		checker: NewChecker(prov), waits: map[string]*editWait{}, ctx: ctx, cancel: cancel}
 }
 

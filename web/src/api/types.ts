@@ -162,6 +162,11 @@ export interface AnswerCardResponse {
   card: string;
   decision: string;
   new_decision?: string;
+  /**
+   * DefensePreparing: your answer left a section ready and its defense
+   * is being prepared in the background (P-92).
+   */
+  defense_preparing?: boolean;
 }
 /**
  * CardAnswerer answers a card and then prepares the defense of the
@@ -398,6 +403,11 @@ export interface OpenQuestionView {
 export interface AnswerOpenQuestionResponse {
   open_question: string;
   new_decision?: string;
+  /**
+   * DefensePreparing: your answer left a section ready and its defense
+   * is being prepared in the background (P-92).
+   */
+  defense_preparing?: boolean;
 }
 /**
  * AnswerOpenQuestionRequest answers a «por aclarar» (backlog-r2 2.4):
@@ -552,7 +562,19 @@ export interface SummaryView {
   effort: string;
   context_used_tokens: number /* int */;
   context_window: number /* int */;
+  /**
+   * DefensePreparing: a defense after your answer is queued or being
+   * prepared (P-92); the page asks again until it ends.
+   * [EL DISEÑO NO LO DICE]: where the page reads that the preparation
+   * ended; this field of the summary, which it already reads.
+   */
+  defense_preparing: boolean;
 }
+/**
+ * DefensePreparer reports a defense in preparation (P-92); the runner
+ * does.
+ */
+export type DefensePreparer = any;
 
 //////////
 // source: server.go

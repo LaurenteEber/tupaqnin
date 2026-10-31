@@ -34,6 +34,7 @@ import { StopReportPanel } from "./components/StopReportPanel";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { initialLang, translate, type Lang } from "./i18n";
+import { pollDefense, sendErrorCode, startsStep } from "./live";
 
 export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
@@ -54,6 +55,9 @@ export function App() {
   const [requestText, setRequestText] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [working, setWorking] = useState(false);
+  // P-92: a defense after your answer is being prepared in the
+  // background: the conversation says so and refreshes by itself.
+  const [defensePreparing, setDefensePreparing] = useState(false);
   // Only one tab edits (backlog-r1 1.5): this tab holds the editor
   // lease, renewed every 15 s, or stays read-only.
   const [editor, setEditor] = useState(true);
@@ -102,8 +106,30 @@ export function App() {
   }, [projectID]);
 
   useEffect(() => {
-    if (projectID) void getSummary(projectID).then(setSummary);
+    if (!projectID) return;
+    void getSummary(projectID).then((s) => {
+      setSummary(s);
+      if (s.defense_preparing) setDefensePreparing(true); // e.g. after a reload (P-92)
+    });
   }, [projectID, understandingKey]);
+
+  // P-92: while the defense is prepared, ask every few seconds (with a
+  // cap) until it ends; leaving the project stops asking.
+  useEffect(() => {
+    if (!projectID || !defensePreparing) return;
+    let live = true;
+    void pollDefense({
+      preparing: async () => (await getSummary(projectID)).defense_preparing,
+      conversation: () => getConversation(projectID),
+      onEntries: setConversation,
+      sleep: (ms) => new Promise((resolve) => window.setTimeout(resolve, ms)),
+      now: () => Date.now(),
+      cancelled: () => !live,
+    }).then(() => live && setDefensePreparing(false));
+    return () => {
+      live = false;
+    };
+  }, [projectID, defensePreparing]);
 
   const refreshConversation = useCallback(async (project: string) => {
     setConversation(await getConversation(project));
@@ -128,6 +154,7 @@ export function App() {
     clearStream();
     setConversation([]);
     setRequestText("");
+    setDefensePreparing(false);
     setProjectID(created.project_id);
     setMenuOpen(false);
     await refreshProjects();
@@ -142,6 +169,9 @@ export function App() {
     setWorking(true);
     subscribeTurn(projectID, turn_id, {
       onDelta: (delta) => {
+        // P-93: a new step's triage line means the step before it was
+        // applied: the selected section's editor takes its new text.
+        if (startsStep(delta)) void refreshSections(projectID);
         if (delta.field === "raw") {
           setRawStream((prev) => prev + delta.text);
           return;
@@ -249,6 +279,7 @@ export function App() {
       setConversation([]);
       setRequestText("");
       setErrorCode("");
+      setDefensePreparing(false);
       setProjectID(id);
     }
     setMenuOpen(false);
@@ -302,8 +333,10 @@ export function App() {
 
   // fromReport: «Sigue» and «Abordémoslo» go through the report's route,
   // as messages of yours with the button's text.
-  async function send(text: string, fromReport = false) {
-    if (!projectID) return;
+  // It resolves whether the message went out (P-94: the input keeps
+  // your text otherwise).
+  async function send(text: string, fromReport = false): Promise<boolean> {
+    if (!projectID) return false;
     await saveRef.current(); // always save before sending (§2)
     clearStream();
     setErrorCode("");
@@ -312,12 +345,14 @@ export function App() {
       ({ turn_id } = await (fromReport ? continueFromStopReport : postMessage)(projectID, text));
     } catch (e) {
       // [EL DISEÑO NO LO DICE] 409 turn_running: a turn of this
-      // project is already running; the message was not sent.
-      setErrorCode(e instanceof Error && e.message === "http_409" ? "turn_running" : "turn_failed");
-      return;
+      // project is already running; the message was not sent. With the
+      // defense line in view, it is the defense's (P-94).
+      setErrorCode(sendErrorCode(e, defensePreparing));
+      return false;
     }
     void refreshConversation(projectID); // your message, from the history
     watchTurn(turn_id);
+    return true;
   }
 
   const current = sections.find((s) => s.label === selected);
@@ -501,6 +536,7 @@ export function App() {
                 stream={stream}
                 rawStream={rawStream}
                 errorCode={errorCode}
+                defensePreparing={defensePreparing}
                 disabled={!editor || working}
                 onAnswerAudience={(label, answer) => {
                   // P-86: the question keeps showing with its new state.
@@ -527,9 +563,10 @@ export function App() {
                 lang={lang}
                 projectID={projectID}
                 refreshKey={`${understandingKey}-${frameTick}`}
-                onAnswered={() => {
+                onAnswered={(defense) => {
                   void refreshSections(projectID);
                   void refreshConversation(projectID); // the answered card (U-5)
+                  if (defense) setDefensePreparing(true); // P-92
                 }}
               />
             )}

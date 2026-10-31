@@ -39,6 +39,9 @@ type OpenQuestionView struct {
 type AnswerOpenQuestionResponse struct {
 	OpenQuestion string `json:"open_question"`
 	NewDecision  string `json:"new_decision,omitempty"`
+	// DefensePreparing: your answer left a section ready and its defense
+	// is being prepared in the background (P-92).
+	DefensePreparing bool `json:"defense_preparing,omitempty"`
 }
 
 // AnswerOpenQuestionRequest answers a «por aclarar» (backlog-r2 2.4):
@@ -135,6 +138,7 @@ func (s *Server) answerOpenQuestion(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "internal")
 	default:
-		writeJSON(w, http.StatusOK, AnswerOpenQuestionResponse{OpenQuestion: got.OpenQuestion, NewDecision: got.NewDecision})
+		writeJSON(w, http.StatusOK, AnswerOpenQuestionResponse{OpenQuestion: got.OpenQuestion, NewDecision: got.NewDecision,
+			DefensePreparing: got.DefensePreparing})
 	}
 }

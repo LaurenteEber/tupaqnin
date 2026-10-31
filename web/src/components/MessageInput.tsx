@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { translate, type Lang } from "../i18n";
+import { textAfterSend } from "../live";
 
 // The single text entry of the app (B3-14): today it only accepts
 // text. Voice, when it arrives, plugs into this same component and
@@ -11,7 +12,8 @@ export function MessageInput({
 }: {
   lang: Lang;
   disabled: boolean;
-  onSend: (text: string) => Promise<void>;
+  // Resolves whether the message went out (P-94).
+  onSend: (text: string) => Promise<boolean>;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -21,8 +23,9 @@ export function MessageInput({
     if (value === "" || sending) return;
     setSending(true);
     try {
-      await onSend(value);
-      setText("");
+      const sent = await onSend(value);
+      // P-94: a message that did not go out stays in the input.
+      setText((prev) => textAfterSend(prev, sent));
     } finally {
       setSending(false);
     }

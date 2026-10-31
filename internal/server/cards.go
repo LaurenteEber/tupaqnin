@@ -53,6 +53,9 @@ type AnswerCardResponse struct {
 	Card        string `json:"card"`
 	Decision    string `json:"decision"`
 	NewDecision string `json:"new_decision,omitempty"`
+	// DefensePreparing: your answer left a section ready and its defense
+	// is being prepared in the background (P-92).
+	DefensePreparing bool `json:"defense_preparing,omitempty"`
 }
 
 func (s *Server) cardView(r *http.Request, projectID string, card store.Object) (CardView, error) {
@@ -196,7 +199,7 @@ func (s *Server) answerCard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 	default:
 		writeJSON(w, http.StatusOK, AnswerCardResponse{Card: answer.Card, Decision: answer.Decision,
-			NewDecision: answer.NewDecision})
+			NewDecision: answer.NewDecision, DefensePreparing: answer.DefensePreparing})
 	}
 }
 

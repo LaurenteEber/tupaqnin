@@ -7,7 +7,7 @@ import { translate, type Lang } from "../i18n";
 // events), then the turn in flight as it streams. When a turn ends the
 // page refetches the history and drops the stream, so nothing shows
 // twice.
-export function ConversationPanel({ lang, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience }: {
+export function ConversationPanel({ lang, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience, defensePreparing }: {
   lang: Lang;
   entries: ConversationEntry[];
   // The sent request already shows as your first message, with its
@@ -24,6 +24,8 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
   // after your answer, with no stop report.
   disabled?: boolean;
   onAnswerAudience?: (label: string, answer: "yes" | "no") => void;
+  // P-92: a defense after your answer is being prepared.
+  defensePreparing?: boolean;
 }) {
   const t = (key: string) => translate(lang, key);
 
@@ -56,6 +58,10 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
         ),
       )}
 
+      {defensePreparing && (
+        <p className="working" aria-live="polite">{t("conversation.defense_preparing")}</p>
+      )}
+
       {(working || stream.length > 0 || errorCode) && (
         <div className="turn-panel" aria-live="polite">
           {working && <p className="working">{t("turn.working")}</p>}
@@ -84,7 +90,7 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
           {errorCode && (
             <p className="turn-error">
               {t(`stream.error.${errorCode}`)}
-              {errorCode !== "turn_running" && <> {t("turn.write_to_agent")}</>}
+              {errorCode !== "turn_running" && errorCode !== "turn_running_defense" && <> {t("turn.write_to_agent")}</>}
             </p>
           )}
         </div>

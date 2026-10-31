@@ -82,6 +82,10 @@ func TestP86_TheAudienceQuestionsShowInTheConversationAndBlockNothing(t *testing
 	if rec.Code != http.StatusOK {
 		t.Fatalf("answer card: %d %s", rec.Code, rec.Body.String())
 	}
+	// P-92: the answer says a defense is being prepared.
+	if got := decode[server.AnswerCardResponse](t, rec); !got.DefensePreparing {
+		t.Fatalf("answer: %+v, want defense_preparing", got)
+	}
 	// P-90: the defense runs in the background; its questions show when
 	// the conversation updates.
 	var got, questions []server.ConversationEntry
@@ -96,6 +100,11 @@ func TestP86_TheAudienceQuestionsShowInTheConversationAndBlockNothing(t *testing
 		if len(questions) >= 4 || time.Now().After(deadline) {
 			break
 		}
+	}
+	// P-92: once they show, the summary says the preparation ended.
+	runner.Close()
+	if sum := decode[server.SummaryView](t, do(t, h, http.MethodGet, base+"/summary", nil)); sum.DefensePreparing {
+		t.Fatalf("summary after the defense: %+v, want defense_preparing false", sum)
 	}
 	if len(questions) != 4 {
 		t.Fatalf("conversation: %+v, want the judge's 3 questions and 1 «no cubre»", got)

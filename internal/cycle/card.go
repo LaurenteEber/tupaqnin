@@ -37,6 +37,9 @@ type CardAnswer struct {
 	Card        string // label
 	Decision    string // label of the card's decision
 	NewDecision string // label of the human decision born with "other" (B-16)
+	// DefensePreparing: the answer left a section ready whose defense is
+	// now being prepared in the background (P-92).
+	DefensePreparing bool
 }
 
 // AnswerCard answers an open card (estados §2 and §3, fichas §3
@@ -251,5 +254,7 @@ func (r *Runner) AnswerCard(ctx context.Context, projectID, cardLabel, option, r
 	if err != nil {
 		return answer, err
 	}
-	return answer, r.afterYourAnswer(ctx, projectID, before, false)
+	defenses := r.defensesToPrepare(ctx, projectID, before)
+	answer.DefensePreparing = len(defenses) > 0 // P-92
+	return answer, r.afterYourAnswer(ctx, projectID, defenses, false)
 }

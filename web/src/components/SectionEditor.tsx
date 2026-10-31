@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -9,6 +9,7 @@ import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import { saveSection } from "../api/client";
 import { translate, type Lang } from "../i18n";
+import { shouldReloadEditor } from "../live";
 
 // The minimal editor (backlog 0.10): TipTap 3 over the section's
 // Markdown text. Only document/paragraph/text nodes are enabled, so
@@ -74,12 +75,10 @@ export function SectionEditor({
 }) {
   const base = useRef({ version, savedText: text });
   const status = useRef<((kind: string) => void) | null>(null);
-
-  useEffect(() => {
-    if (version > base.current.version && text === base.current.savedText) {
-      base.current = { version, savedText: text };
-    }
-  }, [version, text]);
+  // The editor's text as it last loaded or saved (P-93): equal to what
+  // it holds now means you have not typed since.
+  const shown = useRef<string | null>(null);
+  const [, setLoads] = useState(0);
 
   // The paragraphs the editor opens with, and their separators by the
   // index each paragraph carries (`data-block`, P-78).
@@ -90,13 +89,35 @@ export function SectionEditor({
   const editor = useEditor({
     editable: !readOnly,
     extensions: [Document, BlockParagraph, Text, WarningUnderlines],
-    content: initial.current.map((p, i) => `<p data-block="${i}">${escapeHTML(p.text)}</p>`).join(""),
+    content: paragraphsHTML(initial.current),
     editorProps: {
       attributes: { class: "section-editor-content" },
     },
   });
 
   const currentText = () => (editor ? joinParagraphs(editor.state.doc, separators) : text);
+
+  useEffect(() => {
+    if (editor && shown.current === null) shown.current = currentText();
+  }, [editor]);
+
+  useEffect(() => {
+    if (version > base.current.version && text === base.current.savedText) {
+      base.current = { version, savedText: text };
+      return;
+    }
+    // P-93: a newer text written meanwhile (the agent's step) loads
+    // into the editor, unless you typed since it last loaded or saved.
+    if (!editor || shown.current === null) return;
+    if (shouldReloadEditor(base.current, { version, text }, currentText(), shown.current)) {
+      const next = editorParagraphs(text, paragraphs);
+      initial.current = next;
+      editor.commands.setContent(paragraphsHTML(next), { emitUpdate: false });
+      base.current = { version, savedText: text };
+      shown.current = joinParagraphs(editor.state.doc, next.map((p) => p.separator));
+      setLoads((n) => n + 1); // the separators come from the new paragraphs
+    }
+  }, [editor, version, text]);
 
   useEffect(() => {
     editor?.setEditable(!readOnly);
@@ -132,10 +153,12 @@ export function SectionEditor({
     const result = await saveSection(projectID, label, base.current.version, value);
     if (result.kind === "saved") {
       base.current = { version: result.version, savedText: value };
+      shown.current = value;
       status.current?.("saved");
       onSaved(label, result.version, value);
     } else if (result.kind === "unchanged") {
       base.current = { version: base.current.version, savedText: value };
+      shown.current = value;
       status.current?.("saved");
     } else if (result.kind === "conflict") {
       status.current?.("conflict");
@@ -206,6 +229,10 @@ export function SectionEditor({
       />
     </div>
   );
+}
+
+function paragraphsHTML(paragraphs: GoParagraph[]): string {
+  return paragraphs.map((p, i) => `<p data-block="${i}">${escapeHTML(p.text)}</p>`).join("");
 }
 
 // editorParagraphs are the paragraphs the editor opens with: Go's when

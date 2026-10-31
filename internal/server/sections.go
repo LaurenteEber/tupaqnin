@@ -176,6 +176,17 @@ type SummaryView struct {
 	Effort            string `json:"effort"`
 	ContextUsedTokens int    `json:"context_used_tokens"`
 	ContextWindow     int    `json:"context_window"`
+	// DefensePreparing: a defense after your answer is queued or being
+	// prepared (P-92); the page asks again until it ends.
+	// [EL DISEÑO NO LO DICE]: where the page reads that the preparation
+	// ended; this field of the summary, which it already reads.
+	DefensePreparing bool `json:"defense_preparing"`
+}
+
+// DefensePreparer reports a defense in preparation (P-92); the runner
+// does.
+type DefensePreparer interface {
+	DefensePreparing(projectID string) bool
 }
 
 // GET /api/projects/{projectID}/summary
@@ -195,6 +206,9 @@ func (s *Server) getSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := SummaryView{SpentUSD: spent, CapUSD: s.projectCap}
+	if p, ok := s.starter.(DefensePreparer); ok {
+		view.DefensePreparing = p.DefensePreparing(projectID)
+	}
 	if err := s.modelInfo(r, projectID, &view); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
