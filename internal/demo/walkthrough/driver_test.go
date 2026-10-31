@@ -51,14 +51,21 @@ const (
 
 // hasRuleWord reports whether text names ruleWord, ignoring case and
 // accents.
-func hasRuleWord(text string) bool {
-	var b strings.Builder
-	for _, r := range norm.NFD.String(strings.ToLower(text)) {
-		if !unicode.Is(unicode.Mn, r) {
-			b.WriteRune(r)
+func hasRuleWord(text string) bool { return namesWord(text, ruleWord) }
+
+// namesWord reports whether text contains word, ignoring case and
+// accents (P-82).
+func namesWord(text, word string) bool {
+	fold := func(s string) string {
+		var b strings.Builder
+		for _, r := range norm.NFD.String(strings.ToLower(s)) {
+			if !unicode.Is(unicode.Mn, r) {
+				b.WriteRune(r)
+			}
 		}
+		return b.String()
 	}
-	return strings.Contains(b.String(), ruleWord)
+	return strings.Contains(fold(text), fold(word))
 }
 
 // syncStarter runs each turn before the request returns, so every act
@@ -506,13 +513,24 @@ func field(key string, want any) func(map[string]any) bool {
 // coincides, and the signed section. The history seen counts only when
 // the block's history showed a decision (P-58). The run with Meta stops
 // after Wonder's first round, so it leaves out the last afterFirstRound.
+// chainStopped is where the chain stops (P-82): since slice 2 a stop
+// ends with a stop_report, which carries the reason (B-37, refined on
+// 31-oct); a step_ended with stop_reason (no_work, step_limit) still
+// counts.
+func chainStopped(ev store.Event) bool {
+	if ev.Type == store.EventStopReport {
+		return true
+	}
+	return is(store.EventStepEnded, "agent", func(d map[string]any) bool { return d["stop_reason"] != nil })(ev)
+}
+
 func stepEvents(signed string, historyDecision bool) ([]func(store.Event) bool, []string) {
 	want := []func(store.Event) bool{
 		is(store.EventHumanMessage, "human", nil),
 		is(store.EventStepEnded, "agent", field("turn_kind", "understanding")),
 		is(store.EventEdit, "agent", nil),
 		is(store.EventStateChanged, "app", field("to", "open")),
-		is(store.EventStepEnded, "agent", func(d map[string]any) bool { return d["stop_reason"] != nil }),
+		chainStopped,
 		is(store.EventDecisionSeen, "human", field("seen_via", "card")),
 		is(store.EventDecisionSeen, "human", field("seen_via", "history")),
 		is(store.EventStateChanged, "human", field("signoff_step", "requested")),
@@ -522,7 +540,7 @@ func stepEvents(signed string, historyDecision bool) ([]func(store.Event) bool, 
 	}
 	names := []string{
 		"1-2 request (human_message)", "3 understanding (step_ended)", "4 agent text (edit)", "4 card opened (state_changed)",
-		"4 chain stopped (step_ended with stop_reason)", "5 card answered (decision_seen card)", "5 history (decision_seen history)",
+		"4 chain stopped (stop_report, or step_ended with stop_reason)", "5 card answered (decision_seen card)", "5 history (decision_seen history)",
 		"6 signoff requested", "6 Wonder names what is missing (signoff_case, not coinciding)",
 		"6 signoff coincides (signoff_case)", "6 section signed (state_changed)",
 	}

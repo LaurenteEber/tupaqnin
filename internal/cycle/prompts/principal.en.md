@@ -106,6 +106,8 @@ understanding cases (a pilot, a laboratory trial), do not decide it,
 not even as a decision: propose an open question on that inclusion or
 exclusion and leave the case out of your conclusions until it is
 answered.
+An open question's `depends_on` names the sections (or decisions)
+that depend on the answer, never a criterion.
 
 Anything you deliberately leave for later goes in `deferred`
 (`what`, `why`). Do not bury it in the note: the note is context,

@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -141,31 +140,27 @@ func TestDemoCheckSlice2(t *testing.T) {
 	w.do("7 campo", http.MethodGet, w.api("/todo"), nil, http.StatusOK, &todo)
 	var campo server.OpenQuestionView
 	var open []string
+	// P-82: an open question depends on sections or decisions, never on
+	// a criterion (the app rejects one). What counts is an open «por
+	// aclarar» that names the pilot or «campo» (case- and
+	// accent-insensitive) and blocks «Estudios incluidos», where the pilot
+	// is classified.
 	for _, q := range todo.OpenQuestions {
 		open = append(open, q.Question)
-		obj, err := w.db.GetObject(ctx, w.project, q.Label)
-		if err != nil {
-			w.fail("7 campo", "open question %s: %v", q.Label, err)
-		}
-		var body map[string]any
-		_ = json.Unmarshal(obj.Body, &body)
-		id, _ := body["protected_id"].(string)
-		if id == "" {
+		if !namesWord(q.Question, "piloto") && !namesWord(q.Question, "campo") {
 			continue
 		}
-		prot, err := w.db.GetObject(ctx, w.project, id)
-		if err != nil {
-			continue
+		for _, sec := range q.Sections {
+			if namesWord(sec.Title, "Estudios incluidos") {
+				campo = q
+			}
 		}
-		var pb map[string]any
-		_ = json.Unmarshal(prot.Body, &pb)
-		if text, _ := pb["text"].(string); prot.Type == store.ObjectCriterion && strings.Contains(text, "campo") {
-			campo = q
+		if campo.Label != "" {
 			break
 		}
 	}
-	if campo.Label == "" || len(campo.Sections) == 0 {
-		w.fail("7 campo", "no open «por aclarar» on the criterion «campo» blocking a section; open: %q", open)
+	if campo.Label == "" {
+		w.fail("7 campo", "no open «por aclarar» naming the pilot or «campo» that blocks «Estudios incluidos»; open: %q", open)
 	}
 
 	// Its sections cannot be signed while it is open.
