@@ -408,6 +408,168 @@
         }
       }
     },
+    "research_request": {
+      "description": "Solicitud de una ronda de lectores (B-57, rebanada 3): solo en un paso con stretch «discover»; la app la valida (razón, 1 a 3 partes, fuentes que existen) y, si vale, crea la ronda y la lanza sola (B-64); si no vale, aplica el resto del paso sin la ronda y deja el motivo en step_ended. Sin solicitud, se omite.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "doubt",
+        "delegation_reason",
+        "scope",
+        "parts",
+        "references"
+      ],
+      "properties": {
+        "question": {
+          "description": "La pregunta de la ronda (bloque-1 §4).",
+          "type": "string"
+        },
+        "doubt": {
+          "description": "La duda que la ronda reduce (flujos §2).",
+          "type": "string"
+        },
+        "delegation_reason": {
+          "description": "Por qué delega (fichas §8.3): no cabe en una pasada o tiene partes independientes. «Riesgo o auditoría» no va aquí: es el juez (3.6).",
+          "enum": [
+            "too_much_to_read",
+            "independent_parts"
+          ]
+        },
+        "scope": {
+          "description": "Qué cubre y qué no (bloque-1 §4).",
+          "type": "string"
+        },
+        "parts": {
+          "description": "Una parte por lector, de 1 a 3 (B-65; el tope de 3 lo valida la app, como en la 2.4).",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "question",
+              "sources",
+              "where",
+              "queries"
+            ],
+            "properties": {
+              "question": {
+                "description": "La pregunta de ese lector.",
+                "type": "string"
+              },
+              "sources": {
+                "description": "Fuentes del proyecto que lee, con para qué (bloque-1 §4).",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "source_id",
+                    "what_for"
+                  ],
+                  "properties": {
+                    "source_id": {
+                      "$ref": "#/$defs/label"
+                    },
+                    "what_for": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "where": {
+                "description": "Dónde busca: tu material, OpenAlex o arXiv (B-55; la búsqueda web de Meta no entra, micro-prueba 3.0).",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "enum": [
+                    "project",
+                    "openalex",
+                    "arxiv"
+                  ]
+                }
+              },
+              "queries": {
+                "description": "Consultas sugeridas para search_literature.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "references": {
+          "description": "Candidatas que buscar (B-69): posición, desde 1, en named_references de esta misma salida.",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "named_references": {
+      "description": "Candidatas (R-2, B-69, rebanada 3): lo que el paso nombra sin cita, con lo que sepa de ella, para que la app la pueda buscar (B-59 d). Nunca cuentan como fuente. Sin candidatas, se omite.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text",
+          "title",
+          "authors",
+          "year",
+          "doi"
+        ],
+        "properties": {
+          "text": {
+            "description": "Cómo la nombra el texto.",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authors": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
     "note": {
       "description": "Nota corta para el bloque 2, marcada «del agente»: qué intentó, qué descartó y qué piensa hacer después (B2-1). Se guarda completa; la capa 3 y el arranque usan sus primeras 80 palabras `[inicial]`, marcadas «recortada». No se rechaza por largo (T-6).",
       "type": "string",
