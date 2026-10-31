@@ -1,0 +1,61 @@
+{
+  "name": "reader-call-2",
+  "deltas": [
+    "Revisaré los textos sobre límites de detección y comparabilidad."
+  ],
+  "items": [
+    {
+      "encrypted_content": "Q-PaDgFwmhE5n4BfuLpG9ybhUaYox8K2cfISYxxZ-ewpxQgNNB7-T2HeNmaNAXVf7W1LK4JQBNSSDum2I5afhoaKDfl3zwscQKQaDRfhefKvXPqNUqRbFoai_kFuEFrVs6NtlhHGjNVvTaeXdFchTKsq813CNjLYh5j73wk_V70haXoJLn5mWXtowx8_lp41Ggt7WRnDsmlbl6Wx5DeLUQWtIfdAiUlq0tKvsZ-hVXDObAmQqRJtBIt54iztN0fPi3F26mGHg-DuBJCyuNY3wBt6YjMS1Oqn58GkTBAvrj5iwS_PXQiWqVlRJ70ZESsSPlO-QgDi0FMwhi2mDlol2MzrqfTA23kyY7fFGpZ1oLNMpBKlyTRF5TkuizUqyMtdeg4vVGmgAAX7k6YTarDscRVg7qDMUcX4UVeobw32gddQXBPQPi_w0OuJPBkjOQ6NcZGpGZgTQ6vc9-mCYVyr6ogaFaFQ6aJZlgpOxZFwfEbbTWrlxdileYRDBqp0DgU8QcqllT6SPjkTeoR4wyq7v0ai25_EtybBeiwiCanrHdtuUb6e6_Ok40pybBa8rRGRe_qqMcSrON3eGMsvEgklPKSce2Af76QNNON8bEuSVqFsmqmcZ3MHS3HunZ42xQYNdfR4OScrwznc6PVAFRrj-q73Ju8doFBQzHlNa1moewO5fqub5HzSutrM_UdGMWv_YXgny7gWJ6XzC268VVTroxsBS_Miz6ov1oIJj_SRWTVlnhOV5ednemp03oNvlp3FUCvfkkKJp9cAeuGqC-cJjdvy-s8PE79QlPNaC7bxfWrrYA7QyD-w-ToXbsfbuR7AqgFvNKS9JodWGfl7-hw6LJ7-2gtblpKHL8Z6YV3VPVtiraE2oyk8UuCGQdaufc6DdHGxynZ1eF0YTOtFze07_HNBwsTkjihsyJI9R21ZHLm2gAt7sncggdz8lJ2uQeU132nwzyCFR7viKdYaBNnxa6rinU_lWqYCng-6gLFmi8QWS_2NULx6YjF8uPZIHiaqXqQK078OUaGwly7MXstcLwa2no1dxiRz_iXzDSKTMmru2EMx1chfCP6egptdAmTqwlGYIfK2v_aJYgjrP0P2EfOE2URzhmLm2QyaDZIM07yjwMe_kxdd0R5penWE9KM84XJ6P5DQtCSw9ymADGY0fVSiRExxcocNlTBgCX0Mns4V683OtK4iXkwjruVSVugxSKQkiWDdw5d0dwiwEbsgM0eGKfrI92ybgQ4AfrU58k4SRYTp-OqJ8p4TSUoPneu5QitlZ1LGi_91XnsAgpfl4LgwPdzB8jTqirjToQPsEW1_dcybG68JilFd5XKG7qJQBwcC-QOyxVg63aN4Z4wJPwGgUEGvgR4gmoee3biKSASzkHyDmTR_mZWmuJ6D6njcNhkYPfW7H8JRVnqEVA",
+      "id": "rs_6ae6459216b0ed4075284fb5:rs_01a1937fc63470f788ca954b6fe02626",
+      "status": "completed",
+      "summary": [],
+      "type": "reasoning"
+    },
+    {
+      "content": [
+        {
+          "annotations": [],
+          "logprobs": [],
+          "text": "Revisaré los textos sobre límites de detección y comparabilidad.",
+          "type": "output_text"
+        }
+      ],
+      "id": "rs_01a1937fc675750c98f84ab09b635135",
+      "phase": "commentary",
+      "role": "assistant",
+      "status": "completed",
+      "type": "message"
+    },
+    {
+      "arguments": "{\"hit\":\"hit-2\",\"start\":null}",
+      "call_id": "call_01a1937fc6b671288f9c3e9e52f2f4c1",
+      "id": "fc_01a1937fc6b671288f9c3e9e52f2f4c1",
+      "name": "read_hit",
+      "status": "completed",
+      "type": "function_call"
+    },
+    {
+      "arguments": "{\"hit\":\"hit-5\",\"start\":null}",
+      "call_id": "call_01a1937fc71f7270b1f84a6c471652be",
+      "id": "fc_01a1937fc71f7270b1f84a6c471652be",
+      "name": "read_hit",
+      "status": "completed",
+      "type": "function_call"
+    },
+    {
+      "arguments": "{\"hit\":\"hit-6\",\"start\":null}",
+      "call_id": "call_01a1937fc7897306b3a7495760f0f5b2",
+      "id": "fc_01a1937fc7897306b3a7495760f0f5b2",
+      "name": "read_hit",
+      "status": "completed",
+      "type": "function_call"
+    }
+  ],
+  "usage": {
+    "input_tokens": 2706,
+    "output_tokens": 223,
+    "context_window": 0,
+    "cost_usd": 0.00433025
+  },
+  "delta_delay": 0
+}

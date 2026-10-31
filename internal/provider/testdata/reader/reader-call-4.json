@@ -1,0 +1,36 @@
+{
+  "name": "reader-call-4",
+  "deltas": null,
+  "items": [
+    {
+      "encrypted_content": "Q-PaDgHumShmDE61KPYBR319tvETxHh-jA7nsaLwSabIvkbBslI5stdF3QRWm0k-oU-HzsKVMWxuB4sQ6z9TaRdskk1HzT9_QvkhfvuqXdWXBKyyLkCeEdu4d3QFT7zgYGoZIEdq5zozL-FQZNshiMkfOaks_BX9wZqNMAOpghKcOqf3TRKpbCYW85hdkEFo6nN1WBqeKmDJx_E1jx07cPHxsnlmfY3mUPNdTAKyGEXtBrZr-WMBcoYG-atLM18IuJhqM5StTScwC50gytUYr74DDhiQBrJ2jw-XwVOM-Iy6wn9e58mL_kguCpIyCNUUlCif0qnURH77giVPf4Wr_ObvN7mqJEtqbmMJTk0ZYJUzqJBdxaeO1k1FbHIwY9EI7Oq9rV_1exjDeqU6_UhaQ_t0HhQhffTYx2eDjZjzt23Bs30Kz_pRrNid1T01wxisFtEPMnInybREnlbuC_PAfUxYNkOSThhxAKMh3zR3KUaPzOmFSjx1L976R99NkdXSj3RWvpCKshqfS_C1NKmwApzYX_ZZNDmxy4EhcNgT8N5pH_9dLtlTFM-kKy0VH9U0BwifpXT4Fv1b2hYXvH8WZc6YkjgWpyLGWIT_zCNvZcV6fka2j33by2jQf29CatSVonCxixaslz-I43aqEd5vewW0jDd1DVIfT964cqUsDWLkQvUTcTNq8QTsKVdBmPqhjC5ff8wC1VhesFhoF-itSajuoN2tcKtxGB1ex6lsJ1QYQrxnMZyoGDf9SGnwliQzBrlWv0NCDN4CGiJ_mwa-k21nfRqkOGDsJGcDyjwLN9Ocv0mX8KT2AYDdEArCFpdceGX37GwrqIawWIHbN2_7VhBLxDfuIPLyZ5CZRKBsd8sPyvmAQTugkZSG53SqMoRPAS-PGA9v6APqxXc0A5Ei86Ufk2iBhK-QNLsPYFGXK11QB-XNZ6uGYk89EYB_fFgViGgzMVb-ZdvRLGBWSz5fhyYQHL04p6YOtplzX0ZgotMRNlmT4u9UUXc2NzeIlEiIwV-3_IDJVW64FcRFmae0fG6Zd_eont-4LSu-SfiZlsbzYQEjcXEkhw8iF1y9x1DNwHygD-r72dcq3kgW2OKA-aOR6sxvEjUJxF9de8jvrprr8HsNXTuWTYpv46hWh9CJbOT-3L6oA4uUxIUuFcsjCkCkfKDgmguhQvG3VnjNd51dCO-qKl6fxU7hJQRDqrocI5WaWdCFFPJdeDMOvPnQs_BDwxrpLE2kMZM4W33J64KPlMuoTOQeSmK46PgDdbFC0IjwGyxnFYapM1qitooZTElX05ohQcmNICe2oj3T7qTLPSKPALblVJy5oiqpU0c15Ir4un0oPZaqFQ864nbK6oeBcaYN1ohKnv0Bsa63IXngtUawgN-AcNIxh1ALVDsdLZKhm7KPDMaHqk1nSg",
+      "id": "rs_6ae645954ec472498d1c4277:rs_01a1937fd19072c78ae5df9ac217da3a",
+      "status": "completed",
+      "summary": [],
+      "type": "reasoning"
+    },
+    {
+      "arguments": "{\"hit\":\"hit-3\",\"start\":null}",
+      "call_id": "call_01a1937fd1c173cc84ee97df3988380a",
+      "id": "fc_01a1937fd1c173cc84ee97df3988380a",
+      "name": "read_hit",
+      "status": "completed",
+      "type": "function_call"
+    },
+    {
+      "arguments": "{\"hit\":\"hit-15\",\"start\":null}",
+      "call_id": "call_01a1937fd2447681830f077068e86724",
+      "id": "fc_01a1937fd2447681830f077068e86724",
+      "name": "read_hit",
+      "status": "completed",
+      "type": "function_call"
+    }
+  ],
+  "usage": {
+    "input_tokens": 4898,
+    "output_tokens": 141,
+    "context_window": 0,
+    "cost_usd": 0.006721749999999999
+  },
+  "delta_delay": 0
+}

@@ -1,0 +1,45 @@
+{
+  "name": "reader-call-1",
+  "deltas": [
+    "Buscaré métodos de detección y tamaños mínimos para sustentar esta rebanada."
+  ],
+  "items": [
+    {
+      "encrypted_content": "Q-PaDgH_IxqK8NqvRC5EDsofCSdQcVrUOZCrwcg-F_eG63VT6CIf6NK1jZbitokHNQR3NPf75KV-ny-qBpPL7Kj754_zYwQ0nSA_-yb1bbVo0kxTQYRn65LWKsGg6RPLSXHwltxhBWfbRYUHtJLWHecM3vvKmFzOCd93wJbloIABz_wtyEaPMH9-BlMl6SXkS_c6IeweVcEgipct5fInUryhDJNABhLy29Rhs7mpnecOJB4iXazanlYakX75d8G2sqyGBmiGVOxn3NnzFgT11QsjG0f3fVRH8vatbqxM5PyWKu0b8STbznF-LEQrIMVdT7nhNfBqtas1LR8Z3eQPDSjb7QL7RGPQzSHZ-SSaqRWGXmRKYZrQWnGeoqWrKSdQPYu3bTsdOMDP7WNhv_U1zlW-cFCOkz1jZThlDfysYZLUnG5uGYAuXnX-kFcW6YGzKmwU_p2Egr9dl5-KOxoiLCJskk1K_FcQzebiU9ZhJIOITuKewrZ99dl3GbKJcbfcS_4_mCOgf2e-BOZ0HUY-W6LnMXZHqu9k1flZom6asAEKzRkPdVCqBkCSgecOfd9UetpcRhyK3v3c6b4HpdnZ3eVv4cNHdDnI9goqecF5zUhpOx7lu3uCHS9ErFMZ9CWvXTzYf6tpSgW8c1-hV-w_B2QKe-AGFDtEPMzZESBEOhZs--8KJ-y6Z0HGPMhRpkHYfbzQvN4CwfCQtV983sf9qWESjl0QKg5BDKLOvd7oUtDnKx5HqsYpCfh--_kMtRttGncqXhIXZpMbeZTpudo2zHWYyH_HQixG9Y69nnHpVk1LjTMCJ0d18iYjtY5UkXKXxvJbZli5N6iILNRlPKjHReKrxvNKT6rLp9CvUIGEfIu1QTi02bv5DyM8nJpykHvALw2rjVNkSPCzt2kKNC94OQO99ThCDLorBzOdwUxoKvRYMY8sAcV34pBP2FIFAqY2TNe2vNN5M4ik5lehUYBceUrTfPvrMOLrMtjoa-KXBRLozX4NNQYgB92WijjG_lfRptNdyR88zNHbz2rAfST-tPJmgCV6oh5RudipW0iK_BEftKFeq-Vz0M3D2VB6g-XmC7s1ATWquZt4BsUKF0i0Sx3PXaTkChdBgsU9KT2plUtySXjeFfrAzKhYAg__dy5uMyQ2pXU73IeO1q68_Uge3m5PG6KLknAXXvDBOUI6OWYApKITc9yZiExLKOoI75aWkqCGE9I9FhcwiYZ0lb0xjr_ZTf2JQ-1kHmFcyuEzFziHA9rVP0Q2osIgoBraJRl8MLLkS9vtMFA7geSJcPse9uBLZs8UJc1Qt7mEu1OBzqJdnnPFAKh_9OKig1c6G70hB9jKTIQ8y0Z3EgDVJ8L0-yeK1eD-shaiifQc-8wqf7vXV8zBY2i4GUYZFQGuhBDotTTrbcSqMb3XqOyxlQ",
+      "id": "rs_6ae64590eff296f5b2494804:rs_01a1937fbc5a7797a105abe9269635a0",
+      "status": "completed",
+      "summary": [],
+      "type": "reasoning"
+    },
+    {
+      "content": [
+        {
+          "annotations": [],
+          "logprobs": [],
+          "text": "Buscaré métodos de detección y tamaños mínimos para sustentar esta rebanada.",
+          "type": "output_text"
+        }
+      ],
+      "id": "rs_01a1937fbd157039861230afcd4c1e76",
+      "phase": "commentary",
+      "role": "assistant",
+      "status": "completed",
+      "type": "message"
+    },
+    {
+      "arguments": "{\"query\":\"microplastics drinking water detection methods FTIR Raman minimum size\",\"where\":\"openalex\",\"year_from\":2018}",
+      "call_id": "call_01a1937fbdc070f58bcfc2644c747123",
+      "id": "fc_01a1937fbdc070f58bcfc2644c747123",
+      "name": "search_literature",
+      "status": "completed",
+      "type": "function_call"
+    }
+  ],
+  "usage": {
+    "input_tokens": 1915,
+    "output_tokens": 158,
+    "context_window": 0,
+    "cost_usd": 0.00306525
+  },
+  "delta_delay": 0
+}
