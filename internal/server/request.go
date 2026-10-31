@@ -81,6 +81,15 @@ type SourceView struct {
 	Filename    string `json:"filename"`
 	MediaType   string `json:"media_type"`
 	Fingerprint string `json:"fingerprint"`
+	// An external source (kind web, B-61) adds what the registry or the
+	// search gave: url, doi, title, authors, year and access (full_text ·
+	// abstract · none). Empty for your material.
+	URL     string   `json:"url,omitempty"`
+	DOI     string   `json:"doi,omitempty"`
+	Title   string   `json:"title,omitempty"`
+	Authors []string `json:"authors,omitempty"`
+	Year    int      `json:"year,omitempty"`
+	Access  string   `json:"access,omitempty"`
 }
 
 type sourceBody struct {
@@ -89,6 +98,31 @@ type sourceBody struct {
 	MediaType   string `json:"media_type"`
 	Text        string `json:"text"`
 	Fingerprint string `json:"fingerprint"`
+}
+
+// webSourceBody is the rest of an external source's body (B-61).
+type webSourceBody struct {
+	URL     string   `json:"url"`
+	DOI     string   `json:"doi"`
+	Title   string   `json:"title"`
+	Authors []string `json:"authors"`
+	Year    int      `json:"year"`
+	Access  string   `json:"access"`
+}
+
+// sourceView is the view of one source, with the external fields of a
+// web source (B-61).
+func sourceView(src store.Object) SourceView {
+	var b sourceBody
+	_ = json.Unmarshal(src.Body, &b)
+	v := SourceView{Label: src.Label, Version: src.CurrentVersion, Kind: b.Kind, Filename: b.Filename,
+		MediaType: b.MediaType, Fingerprint: b.Fingerprint}
+	if b.Kind == graph.SourceKindWeb {
+		var w webSourceBody
+		_ = json.Unmarshal(src.Body, &w)
+		v.URL, v.DOI, v.Title, v.Authors, v.Year, v.Access = w.URL, w.DOI, w.Title, w.Authors, w.Year, w.Access
+	}
+	return v
 }
 
 func bodyMap(obj store.Object) map[string]any {
@@ -218,10 +252,14 @@ func (s *Server) requestView(r *http.Request, projectID string) (RequestView, bo
 	}
 	sources, _ := s.db.ListObjects(r.Context(), projectID, store.ObjectSource)
 	for _, src := range sources {
-		var b sourceBody
-		_ = json.Unmarshal(src.Body, &b)
-		view.Sources = append(view.Sources, SourceView{Label: src.Label, Version: src.CurrentVersion,
-			Kind: b.Kind, Filename: b.Filename, MediaType: b.MediaType, Fingerprint: b.Fingerprint})
+		v := sourceView(src)
+		if v.Kind == graph.SourceKindWeb {
+			// [EL DISEÑO NO LO DICE]: the request lists your material;
+			// an external source that entered from a round (B-61) is
+			// not part of it.
+			continue
+		}
+		view.Sources = append(view.Sources, v)
 	}
 	// P-31: by number (src-2 before src-10), not by label text.
 	sort.SliceStable(view.Sources, func(i, j int) bool {
@@ -493,6 +531,22 @@ func (s *Server) uploadSource(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/projects/{projectID}/sources/{label}/download: the source
 // text served as a download (B3-22 row 7).
+// GET /api/projects/{projectID}/sources/{label} (backlog-r3 3.3): one
+// source's view; an external one carries url, doi, title, authors,
+// year and access (B-61). The text is read with …/download.
+func (s *Server) getSource(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	obj, err := s.db.GetObject(r.Context(), projectID, r.PathValue("label"))
+	if err != nil || obj.Type != store.ObjectSource {
+		writeError(w, http.StatusNotFound, "source_not_found")
+		return
+	}
+	writeJSON(w, http.StatusOK, sourceView(obj))
+}
+
 func (s *Server) downloadSource(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {

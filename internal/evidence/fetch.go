@@ -325,7 +325,7 @@ func (c *Client) FetchText(ctx context.Context, rawURL string) (Text, error) {
 	case "text/html":
 		out.Text = htmlText(res.body)
 	case "application/pdf":
-		text, err := pdfextract.Extract(ctx, res.body)
+		text, err := c.extractPDF(ctx, res.body)
 		if err != nil {
 			return Text{}, fmt.Errorf("evidence: pdf: %w", err)
 		}
@@ -336,6 +336,37 @@ func (c *Client) FetchText(ctx context.Context, rawURL string) (Text, error) {
 		out.Text = strings.ToValidUTF8(string(res.body), string(utf8.RuneError))
 	}
 	return out, nil
+}
+
+// PDFWait is how long FetchText waits for the PDF extractor when
+// another extraction holds it (backlog-r3 3.3: it waits its turn, with
+// its deadline, instead of getting ErrBusy). [EL DISEÑO NO LO DICE]:
+// the deadline; the extractor's own timeout, the longest the running
+// extraction can last.
+const PDFWait = pdfextract.Timeout
+
+// pdfPoll is how often FetchText asks the extractor again while it
+// waits.
+const pdfPoll = 100 * time.Millisecond
+
+// extractPDF runs the child-process extractor (B-9) and, while another
+// extraction holds it (pdfextract admits one at a time), waits its turn
+// until pdfWait passes or ctx ends.
+func (c *Client) extractPDF(ctx context.Context, data []byte) (string, error) {
+	deadline := time.Now().Add(c.pdfWait)
+	for {
+		text, err := c.pdfExtract(ctx, data)
+		if !errors.Is(err, pdfextract.ErrBusy) || !time.Now().Before(deadline) {
+			return text, err
+		}
+		t := time.NewTimer(pdfPoll)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return "", ctx.Err()
+		case <-t.C:
+		}
+	}
 }
 
 func contains(list []string, s string) bool {

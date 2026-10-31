@@ -497,6 +497,17 @@ export interface SourceView {
   filename: string;
   media_type: string;
   fingerprint: string;
+  /**
+   * An external source (kind web, B-61) adds what the registry or the
+   * search gave: url, doi, title, authors, year and access (full_text ·
+   * abstract · none). Empty for your material.
+   */
+  url?: string;
+  doi?: string;
+  title?: string;
+  authors?: string[];
+  year?: number /* int */;
+  access?: string;
 }
 
 //////////

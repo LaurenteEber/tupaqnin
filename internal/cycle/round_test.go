@@ -468,6 +468,10 @@ func (e *injectingEvidence) FetchText(context.Context, string) (evidence.Text, e
 	return evidence.Text{}, evidence.ErrUnavailable
 }
 
+func (e *injectingEvidence) Lookup(context.Context, evidence.Reference) (evidence.Record, error) {
+	return evidence.Record{}, evidence.ErrUnavailable
+}
+
 // P-83: a search result saying «ignore previous instructions» reaches
 // the reader between the data markers, and the return keeps its fixed
 // shape.

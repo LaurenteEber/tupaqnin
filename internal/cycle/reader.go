@@ -48,6 +48,7 @@ const readHitChunk = 3000
 type Evidence interface {
 	SearchLiterature(ctx context.Context, q evidence.Query) ([]evidence.Hit, error)
 	FetchText(ctx context.Context, rawURL string) (evidence.Text, error)
+	Lookup(ctx context.Context, ref evidence.Reference) (evidence.Record, error)
 }
 
 // Errors that cut a reader before its next call (B-65).
@@ -156,18 +157,74 @@ type roundRun struct {
 	hits      []HitRecord
 	abstracts []string
 	texts     map[int]string // read_hit's text by hit number, fetched once
+	// downloads are the round's downloads by URL, shared by read_hit and
+	// VerifyFindings, so a page is fetched once and a URL never gets
+	// more than one retry in the whole round («No hacer», 3.3).
+	downloads map[string]*download
 	status    []string
 	reasons   []string
 	toolCalls []int
 }
 
 func newRoundRun(parts int) *roundRun {
-	rr := &roundRun{texts: map[int]string{}, status: make([]string, parts),
+	rr := &roundRun{texts: map[int]string{}, downloads: map[string]*download{}, status: make([]string, parts),
 		reasons: make([]string, parts), toolCalls: make([]int, parts)}
 	for i := range rr.status {
 		rr.status[i] = ReaderPending
 	}
 	return rr
+}
+
+// maxDownloadAttempts is a URL's first attempt and its one retry, in the
+// whole round (backlog-r3 3.3, «No hacer»).
+const maxDownloadAttempts = 2
+
+// download is one URL an API gave, downloaded in the round: its text,
+// or that the page does not exist, or that it failed after its
+// attempts. mu is held while it downloads, so a second caller waits for
+// the first's result instead of downloading again.
+type download struct {
+	mu       sync.Mutex
+	attempts int
+	done     bool
+	text     string
+	notFound bool
+}
+
+// download returns the round's download of url.
+func (rr *roundRun) download(url string) *download {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	d, ok := rr.downloads[url]
+	if !ok {
+		d = &download{}
+		rr.downloads[url] = d
+	}
+	return d
+}
+
+// fetch makes at most perCall attempts of this call, and never more
+// than maxDownloadAttempts in the round; a successful download, a page
+// that does not exist, or a failure that will not pass is final and
+// reused.
+func (d *download) fetch(ctx context.Context, ev Evidence, url string, perCall int) fetched {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for i := 0; i < perCall && !d.done && d.attempts < maxDownloadAttempts; i++ {
+		d.attempts++
+		t, err := ev.FetchText(ctx, url)
+		switch {
+		case err == nil:
+			d.text, d.done = strings.TrimSpace(t.Text), true
+		case errors.Is(err, evidence.ErrNotFound):
+			d.notFound, d.done = true, true
+		case errors.Is(err, evidence.ErrUnavailable), errors.Is(err, evidence.ErrTimeout):
+			// May pass: a later attempt, within the budget, can try.
+		default:
+			d.done = true
+		}
+	}
+	return fetched{text: d.text, notFound: d.notFound}
 }
 
 func (rr *roundRun) set(part int, status, reason string, calls int) {
@@ -183,7 +240,8 @@ func (rr *roundRun) register(part int, hits []evidence.Hit) []HitRecord {
 	out := make([]HitRecord, 0, len(hits))
 	for _, h := range hits {
 		rec := HitRecord{Label: fmt.Sprintf("hit-%d", len(rr.hits)+1), Part: part, Service: h.Service, ID: h.ID,
-			Title: h.Title, Authors: h.Authors, Year: h.Year, DOI: h.DOI, URL: h.URL, OpenText: h.OpenText}
+			Title: h.Title, Authors: h.Authors, Year: h.Year, DOI: h.DOI, URL: h.URL, OpenText: h.OpenText,
+			Abstract: h.Abstract}
 		if rec.Authors == nil {
 			rec.Authors = []string{}
 		}
@@ -282,6 +340,13 @@ func (r *Runner) runRound(ctx context.Context, projectID, roundID, publishTurn s
 		r.mu.Unlock()
 	}()
 
+	// B-59 (d): the round's references are looked up by the app, without
+	// a reader, before the readers start.
+	body.Findings = r.lookupRoundReferences(ctx, body.References, rr)
+	rr.mu.Lock()
+	body.Hits = append([]HitRecord{}, rr.hits...)
+	rr.mu.Unlock()
+
 	budget := &roundBudget{capUSD: r.roundCap(), projectCap: r.projectCap(), projectSpent: spent}
 	briefs := make([]string, len(body.Parts))
 	for i := range body.Parts {
@@ -303,7 +368,11 @@ func (r *Runner) runRound(ctx context.Context, projectID, roundID, publishTurn s
 	rr.mu.Lock()
 	body.Hits = append([]HitRecord{}, rr.hits...)
 	rr.mu.Unlock()
-	return r.writeRoundEnd(ctx, projectID, round, body, "open")
+	if err := r.writeRoundEnd(ctx, projectID, round, body, "open"); err != nil {
+		return err
+	}
+	// Backlog-r3 3.3: when the readers end, the app checks each finding.
+	return r.VerifyFindings(ctx, projectID, round.Label)
 }
 
 // writeRoundEnd is the round's one write when its readers end: their
@@ -548,9 +617,7 @@ func (r *Runner) readHit(ctx context.Context, rr *roundRun, label string, start 
 	rr.mu.Unlock()
 	if !cached {
 		if h.OpenText && h.URL != "" {
-			if t, err := r.evidenceClient().FetchText(ctx, h.URL); err == nil && strings.TrimSpace(t.Text) != "" {
-				text = t.Text
-			}
+			text = rr.download(h.URL).fetch(ctx, r.evidenceClient(), h.URL, 1).text
 		}
 		if text == "" {
 			text = abstract
@@ -568,8 +635,10 @@ func (r *Runner) readHit(ctx context.Context, rr *roundRun, label string, start 
 		from = min(*start, len(runes))
 	}
 	to := min(from+readHitChunk, len(runes))
-	return fmt.Sprintf("%s (%s, %d), characters %d-%d of %d:\n%s", label, h.Title, h.Year, from, to, len(runes),
-		graph.Delimit(graph.DataSource, string(runes[from:to])))
+	// P-83: the title comes from an API and the text from a page: both
+	// go between the markers; the app's header stays outside.
+	return fmt.Sprintf("%s, %d, characters %d-%d of %d. Title:\n%s\nText:\n%s", label, h.Year, from, to, len(runes),
+		graph.Delimit(graph.DataSearchResult, h.Title), graph.Delimit(graph.DataSource, string(runes[from:to])))
 }
 
 // readerBrief is a reader's brief, assembled by the app with the
@@ -669,6 +738,26 @@ func (r *Runner) readerBrief(ctx context.Context, projectID, roundLabel string, 
 	line("## 5. Sources of the project")
 	if len(spec.Sources) == 0 {
 		line("None assigned.")
+	}
+	var found []HitRecord
+	for _, h := range body.Hits {
+		if h.Part == 0 {
+			found = append(found, h)
+		}
+	}
+	if len(found) > 0 {
+		// B-59 (d): the round's references the app found, as results.
+		line("References of the round the app found in the registry (read them with read_hit):")
+		var list strings.Builder
+		for _, h := range found {
+			doi := h.DOI
+			if doi == "" {
+				doi = "none"
+			}
+			fmt.Fprintf(&list, "%s · %s · %d · DOI %s\n", h.Label, h.Title, h.Year, doi)
+		}
+		// P-83: titles come from an API: data, between the markers.
+		line("%s", graph.Delimit(graph.DataSearchResult, list.String()))
 	}
 	for _, s := range spec.Sources {
 		name := ""

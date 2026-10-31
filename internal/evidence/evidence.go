@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/LaurenteEber/tupaqnin/internal/pdfextract"
 )
 
 // Services. A reader's `where` is openalex or arxiv (B-55, P-97);
@@ -159,6 +161,12 @@ type Client struct {
 	arxivLast time.Time
 	// noSpacing is set only by NewReplay, which never reaches arXiv.
 	noSpacing bool
+
+	// pdfExtract is the PDF extractor (pdfextract.Extract) and pdfWait
+	// how long FetchText waits for it while it is busy; tests replace
+	// them.
+	pdfExtract func(ctx context.Context, data []byte) (string, error)
+	pdfWait    time.Duration
 }
 
 // New builds a Client with its own HTTP client (B-60).
@@ -174,6 +182,8 @@ func New(opts Options) *Client {
 	}
 	c.lookupIP = defaultLookup
 	c.dialIP = defaultDial
+	c.pdfExtract = pdfextract.Extract
+	c.pdfWait = PDFWait
 	c.http = c.newHTTPClient()
 	return c
 }

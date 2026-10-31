@@ -824,3 +824,41 @@ func TestB58_MalformedDOIIsNotQueried(t *testing.T) {
 		t.Errorf("malformed DOIs made %d requests, want 0", n)
 	}
 }
+
+// Backlog-r3 3.3: FetchText waits its turn for the PDF extractor, with
+// its deadline, instead of getting ErrBusy (pdfextract admits one
+// extraction at a time).
+func TestB9_FetchTextWaitsForTheBusyPDFExtractor(t *testing.T) {
+	t.Parallel()
+	f, c := pageNet(t)
+	f.serve("pdf.example", "93.184.216.28", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		_, _ = w.Write([]byte("%PDF-1.4"))
+	})
+	var mu sync.Mutex
+	busy := 2
+	c.pdfExtract = func(context.Context, []byte) (string, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if busy > 0 {
+			busy--
+			return "", pdfextract.ErrBusy
+		}
+		return "Extracted after waiting", nil
+	}
+	text, err := c.FetchText(context.Background(), "http://pdf.example/paper.pdf")
+	if err != nil || text.Text != "Extracted after waiting" {
+		t.Fatalf("FetchText: %q, %v", text.Text, err)
+	}
+
+	// Past its deadline it gives up with ErrBusy.
+	c.pdfExtract = func(context.Context, []byte) (string, error) { return "", pdfextract.ErrBusy }
+	c.pdfWait = 150 * time.Millisecond
+	start := time.Now()
+	if _, err := c.FetchText(context.Background(), "http://pdf.example/paper.pdf"); !errors.Is(err, pdfextract.ErrBusy) {
+		t.Fatalf("always busy: %v", err)
+	}
+	if waited := time.Since(start); waited < 150*time.Millisecond || waited > 3*time.Second {
+		t.Fatalf("waited %v", waited)
+	}
+}

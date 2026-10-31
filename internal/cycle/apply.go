@@ -259,6 +259,12 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 	if err != nil {
 		return nil, err
 	}
+	// B-62: an external (web) source also counts as read when the
+	// principal received it in a digest (via = digest).
+	digested, err := g.db.DeliveredObjectIDs(ctx, projectID, store.ViaDigest)
+	if err != nil {
+		return nil, err
+	}
 	planConfirmed, err := PlanConfirmed(ctx, g.db, projectID)
 	if err != nil {
 		return nil, err
@@ -286,7 +292,7 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 		p.byID[obj.ID] = obj
 		// R-3: only a source the principal read can hold a figure or a
 		// citation (specification §3, «Precisiones del 30-oct»).
-		if obj.Type == store.ObjectSource && read[obj.ID] {
+		if obj.Type == store.ObjectSource && (read[obj.ID] || digested[obj.ID] && bodyStr(bodyOf(obj), "kind") == graph.SourceKindWeb) {
 			p.sources = append(p.sources, obj)
 		}
 		if obj.Type == store.ObjectDecision || obj.Type == store.ObjectFigure ||

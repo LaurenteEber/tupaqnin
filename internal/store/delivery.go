@@ -10,6 +10,9 @@ const (
 	ViaStartup = "startup"
 	ViaRead    = "read"
 	ViaNotice  = "notice"
+	// ViaDigest: a source the principal received in a round's digest
+	// (B-62). For an external (web) source it counts as read (2.11).
+	ViaDigest = "digest"
 )
 
 // Delivery is one delivered record: an object version handed to a
@@ -76,8 +79,14 @@ func (db *DB) LatestDeliveries(ctx context.Context, projectID string) (map[strin
 // read in the project (via = read): a figure or citation must be
 // literal in a source read (R-3, specification §3).
 func (db *DB) ReadObjectIDs(ctx context.Context, projectID string) (map[string]bool, error) {
+	return db.DeliveredObjectIDs(ctx, projectID, ViaRead)
+}
+
+// DeliveredObjectIDs returns the ids of the objects any principal
+// instance received in the project through via.
+func (db *DB) DeliveredObjectIDs(ctx context.Context, projectID, via string) (map[string]bool, error) {
 	rows, err := db.Reader.QueryContext(ctx,
-		`SELECT DISTINCT object_id FROM delivery WHERE project_id = ? AND via = ?`, projectID, ViaRead)
+		`SELECT DISTINCT object_id FROM delivery WHERE project_id = ? AND via = ?`, projectID, via)
 	if err != nil {
 		return nil, fmt.Errorf("read objects: %w", err)
 	}

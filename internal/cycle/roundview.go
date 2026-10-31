@@ -141,7 +141,16 @@ func (r *Runner) StartRound(projectID string) (label, turnID string, err error) 
 	}
 	var sources []store.Object
 	if err == nil {
-		sources, err = r.db.ListObjects(ctx, projectID, store.ObjectSource)
+		var all []store.Object
+		all, err = r.db.ListObjects(ctx, projectID, store.ObjectSource)
+		for _, s := range all {
+			// [EL DISEÑO NO LO DICE]: «si el proyecto tiene material»
+			// (B-72) counts your material, not the external sources
+			// earlier rounds brought in (B-61).
+			if bodyStr(bodyOf(s), "kind") != graph.SourceKindWeb {
+				sources = append(sources, s)
+			}
+		}
 	}
 	if err == nil {
 		turnID, err = newTurnID()

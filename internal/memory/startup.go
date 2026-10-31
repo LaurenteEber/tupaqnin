@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -452,8 +453,13 @@ func changesSince(objects []store.Object, delivered map[string]int) []Change {
 		if obj.Type == store.ObjectAudienceQuestion {
 			text = audienceQuestionLine(b, obj.State, labels[b.str("section_id")])
 		}
+		line := firstLine(text)
+		if obj.Type == store.ObjectSource && b.str("kind") == graph.SourceKindWeb {
+			// P-83, B-58: an external source's text is data from a page.
+			line = graph.Delimit(graph.DataSource, line)
+		}
 		out = append(out, Change{Label: obj.Label, Type: string(obj.Type),
-			Version: obj.CurrentVersion, State: obj.State, FirstLine: firstLine(text)})
+			Version: obj.CurrentVersion, State: obj.State, FirstLine: line})
 	}
 	return out
 }

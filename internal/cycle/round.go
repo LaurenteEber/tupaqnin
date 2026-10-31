@@ -109,6 +109,10 @@ type RoundBody struct {
 	// registry, written in one write when they end (backlog-r3 3.2).
 	Readers []ReaderResult `json:"readers,omitempty"`
 	Hits    []HitRecord    `json:"hits,omitempty"`
+	// Findings is each finding's verification and reason (backlog-r3
+	// 3.3, B-59): the app's own (the round's references) when the round
+	// starts, the readers' when they end.
+	Findings []FindingCheck `json:"findings,omitempty"`
 	// Stopped says why the round launched no reader (project_cap).
 	Stopped string `json:"stopped,omitempty"`
 }
@@ -149,6 +153,9 @@ type HitRecord struct {
 	DOI      string   `json:"doi"`
 	URL      string   `json:"url"`
 	OpenText bool     `json:"open_text"`
+	// Abstract is the API's abstract, kept for the verification of
+	// findings (B-59 b); the card does not show it.
+	Abstract string `json:"abstract,omitempty"`
 }
 
 // rejectResearch leaves why a research request created no round in

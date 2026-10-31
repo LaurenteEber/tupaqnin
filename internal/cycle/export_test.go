@@ -14,3 +14,7 @@ func HoldTurnForTest(r *Runner, projectID string) (end func()) {
 // WaitAfterAnswersForTest waits for the defenses after your answers
 // running in the background (P-90).
 func WaitAfterAnswersForTest(r *Runner) { r.answers.Wait() }
+
+// ValidateReaderOutput checks a hand-made reader output against
+// salida-lector, as the app does.
+func ValidateReaderOutput(text string) []string { return validateReaderOutput(text) }

@@ -26,16 +26,26 @@ const maxSearchMatches = 20
 const sourceCardLines = 2
 
 // sourceCard is the card of one source in the index (R-3): title,
-// type, length and first lines, computed by the app.
+// type, length and first lines, computed by the app. An external (web)
+// source's title and first lines come from an API and a downloaded
+// page: they reach the model only between the source markers (P-83,
+// B-58); the app's own part of the card stays outside.
 func sourceCard(b body) string {
 	text := b.str("text")
+	web := b.str("kind") == graph.SourceKindWeb
 	title := b.str("filename")
+	if title == "" && web {
+		title = b.str("title")
+	}
 	if title == "" {
 		title = firstLine(text)
 	}
 	kind := b.str("kind")
 	if mt := b.str("media_type"); mt != "" {
 		kind += ", " + mt
+	}
+	if a := b.str("access"); web && a != "" {
+		kind += ", access " + a
 	}
 	paragraphs := graph.Blocks(text)
 	var first []string
@@ -46,6 +56,11 @@ func sourceCard(b body) string {
 		if len(first) == sourceCardLines {
 			break
 		}
+	}
+	if web {
+		return fmt.Sprintf("external source · %s · %d paragraphs, %d words · title and first lines:\n%s",
+			kind, len(paragraphs), len(strings.Fields(text)),
+			graph.Delimit(graph.DataSource, title+"\n"+strings.Join(first, " / ")))
 	}
 	return fmt.Sprintf("%s · %s · %d paragraphs, %d words · first lines: %s",
 		title, kind, len(paragraphs), len(strings.Fields(text)), strings.Join(first, " / "))
@@ -118,7 +133,13 @@ func (m *Memory) readSource(ctx context.Context, projectID, instanceID, label, s
 		if src.Label != label {
 			continue
 		}
-		paragraphs := graph.Blocks(decodeBody(src).str("text"))
+		b := decodeBody(src)
+		if b.str("kind") == graph.SourceKindWeb && b.str("access") == graph.AccessNone {
+			// B-61: an external source «no verificado» is stored without
+			// text; reading it reads nothing and records nothing.
+			return fmt.Sprintf("%s is not accessible: the app could not get its text, so it cannot be quoted.", src.Label), nil
+		}
+		paragraphs := graph.Blocks(b.str("text"))
 		from, to := parseSpan(span, len(paragraphs))
 		// P-83: the paragraphs go between the source markers; the
 		// header is the app's and stays outside.
