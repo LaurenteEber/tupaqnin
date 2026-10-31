@@ -1,4 +1,4 @@
-.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense
+.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence
 
 run:
 	go run ./cmd/tupaqnin
@@ -16,9 +16,10 @@ build:
 # The web app (backlog 0.10): installs dependencies and builds the
 # React+Vite+TipTap frontend into internal/server/static, which the
 # Go binary embeds. Run once before `make run` for the browser UI.
+# The UI tests (pnpm test: node --test, P-92..P-94) run first.
 # pnpm with the frozen lockfile and pinned versions only (B-19).
 web:
-	cd web && pnpm install --frozen-lockfile && pnpm run build
+	cd web && pnpm install --frozen-lockfile && pnpm test && pnpm run build
 
 # Regenerates web/src/api/types.ts from the Go API shapes with tygo
 # (pinned as a go.mod tool directive, B-19).
@@ -61,3 +62,8 @@ microtest-checker:
 # Real judge outputs for the defense tests (backlog-r2 2.6).
 microtest-judge-defense:
 	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestJudgeDefense -count=1 -v
+
+# Evidence micro-test (backlog-r3 3.0): web_search and own tools with the
+# reader strict output, plus OpenAlex and arXiv recordings. Eber runs this.
+microtest-evidence:
+	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestEvidence -count=1 -v -timeout 30m
