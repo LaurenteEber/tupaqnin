@@ -34,6 +34,8 @@ const (
 	// otherCardReason answers any other card that blocks the signoff
 	// (P-56).
 	otherCardReason = "Porque mi criterio pide solo estudios de campo y así lo revisará el comité."
+	// keepReason answers a «por aclarar» keeping what was decided (P-79).
+	keepReason = "Porque la regla de comparación ya está decidida y el texto debe seguirla."
 	// acceptReason accepts a paragraph «sin verificar» (R-1, 2.11).
 	acceptReason = "Porque lo comparé con las fuentes del caso y lo sostengo yo."
 	explanation  = "La embotellada trae 1,5 veces más partículas que la de grifo, comparando los estudios elegidos."
@@ -360,6 +362,11 @@ func (w *walk) toSignoff() (string, string, bool) {
 		case graph.PendingOpenCard:
 			w.do("6 open cards", http.MethodPost, w.api("/cards/"+p.About+"/answer"),
 				map[string]any{"option": "keep", "reason": otherCardReason}, http.StatusOK, nil)
+		case graph.PendingOpenQuestion:
+			// P-79: an open «por aclarar» blocks the signoff too (2.4); the
+			// jury answers it from «Te toca», keeping what was decided,
+			// with a «porque».
+			w.keepOpenQuestion(p.About)
 		case graph.PendingUnsourcedClaim:
 			// [EL DISEÑO NO LO DICE] (2.11): the slice-1 recording of case 5
 			// proposes evidence_required but writes without reading or
@@ -400,6 +407,29 @@ func (w *walk) wonderFirstRound(sign string) {
 		w.fail("6 Wonder first round", "want a critical decision missing_in_explanation and a new case; "+
 			"critical %q, verdicts %+v, open case %q", view.CriticalDecisions, view.Verdicts, view.OpenCase)
 	}
+}
+
+// keepOpenQuestion answers an open «por aclarar» from «Te toca» with
+// its «mantener» option and a «porque» (P-79). The app adds «mantener»
+// first when the question protects the premise or a decision (2.4).
+func (w *walk) keepOpenQuestion(label string) {
+	var todo server.TodoView
+	w.do("6 open questions", http.MethodGet, w.api("/todo"), nil, http.StatusOK, &todo)
+	for _, q := range todo.OpenQuestions {
+		if q.Label != label {
+			continue
+		}
+		for i, opt := range q.Options {
+			if opt.Keep {
+				w.do("6 open questions", http.MethodPost, w.api("/open-questions/"+label+"/answer"),
+					map[string]any{"option": i, "reason": keepReason}, http.StatusOK, nil)
+				return
+			}
+		}
+		w.fail("6 open questions", "«por aclarar» %s has no «mantener» option: %+v", label, q.Options)
+		return
+	}
+	w.fail("6 open questions", "«por aclarar» %s blocks the signoff but is not in «Te toca»", label)
 }
 
 // signAfterRounds answers Wonder until the signoff coincides, signs

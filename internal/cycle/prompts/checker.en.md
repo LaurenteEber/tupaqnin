@@ -47,7 +47,9 @@ a schema. Use labels exactly as the brief gives them (for example
     case that is not among the understanding cases and that would be
     settled by another source than the person's words (a registry, an
     outside definition, the agent's own judgment). `protected` is the
-    criterion's label.
+    criterion's label. Mark it on every inclusion or exclusion that
+    applies a criterion's term to a case not among the understanding
+    cases, even when the agent declared it as a decision of its own.
   - For `contradiction` and `doubtful_term` only: `question`, one line
     the person can answer, and `options`, two or more. Each option has
     its `contrast` (what it means against the others), its

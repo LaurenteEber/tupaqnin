@@ -86,6 +86,11 @@ one, can be linked in a later step: send its `figure_links` or
 in the document, without writing the text again. A figure without a
 decision stays pending until you link it or remove it.
 
+A citation's `claim_anchor` covers only what its passage says. If a
+sentence joins data from several passages (a minimum size from one
+sentence of the source, a count from another), give one citation per
+datum, each anchored on the words that its own passage supports.
+
 ## Decisions
 
 A decision is a real choice that changes what the document asserts:
@@ -94,6 +99,13 @@ plan («the section will gather the gaps by block») is not a
 decision. Declare at most 2 new decisions per step. Its
 `would_choose_if` says when the alternative in `instead_of` would
 win, not why you chose this one.
+
+The meaning of the human's terms is theirs. When you would apply a
+term of their criteria to a case that is not among the confirmed
+understanding cases (a pilot, a laboratory trial), do not decide it,
+not even as a decision: propose an open question on that inclusion or
+exclusion and leave the case out of your conclusions until it is
+answered.
 
 Anything you deliberately leave for later goes in `deferred`
 (`what`, `why`). Do not bury it in the note: the note is context,

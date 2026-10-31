@@ -1,4 +1,4 @@
-.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check
+.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense
 
 run:
 	go run ./cmd/tupaqnin
@@ -51,3 +51,13 @@ microtest-signoff:
 # replays with the fake. Same keychain key as microtest. Eber runs this.
 demo-check:
 	TQ_PROVIDER=meta META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/demo/walkthrough/ -run TestDemoCheck -count=1 -v -timeout 30m
+
+# Real checker outputs for the checker tests (backlog-r2 2.3, P-68),
+# recorded into internal/provider/testdata/checker/ only when the
+# judgment matches each scenario. Same keychain key as microtest. Eber runs this.
+microtest-checker:
+	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestChecker -count=1 -v
+
+# Real judge outputs for the defense tests (backlog-r2 2.6).
+microtest-judge-defense:
+	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestJudgeDefense -count=1 -v
