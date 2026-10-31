@@ -39,3 +39,19 @@ func TestB20a_AssentListMatchesTheCatalog(t *testing.T) {
 		}
 	}
 }
+
+// P-66, B-20 (a) refined on 31-oct (T-1): a «porque» made only of
+// assents, joined or separated by punctuation, is not valid; one that
+// adds anything else is.
+func TestP66_OnlyAssentsJoinedByPunctuationAreNotAReason(t *testing.T) {
+	for _, reason := range []string{"ok, dale", "sí, sí", "ok dale", "Sí. De acuerdo!", "ok,dale", "yes; sure", "listo, de acuerdo, bien"} {
+		if cycle.ValidReason(reason) {
+			t.Errorf("ValidReason(%q) = true, want false", reason)
+		}
+	}
+	for _, reason := range []string{"12 años, ok", "ok, dale, porque compara igual", "de acuerdo con el comité", "sí, 7"} {
+		if !cycle.ValidReason(reason) {
+			t.Errorf("ValidReason(%q) = false, want true", reason)
+		}
+	}
+}
