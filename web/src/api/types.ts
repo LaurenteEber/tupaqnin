@@ -592,6 +592,28 @@ export interface StopReportView {
    */
   audience_questions: AudienceQuestion[];
   defense_failed: boolean;
+  /**
+   * Detected is what the app detected since this report, your edits
+   * included (B-48 b): the short return shows it under the report.
+   */
+  detected: DetectedView[];
+  /**
+   * OpensConversation: the report is unseen and there is no return
+   * line, so the conversation opens with it on top (short return,
+   * backlog-r2 2.7). Go decides it, with the frame's clock.
+   */
+  opens_conversation: boolean;
+}
+/**
+ * DetectedView is a graph.Detected with its section named by title.
+ */
+export interface DetectedView {
+  kind: string;
+  actor: string;
+  section?: SectionRef;
+  text?: string;
+  to?: string;
+  count: number /* int */;
 }
 /**
  * ContinueStopReportRequest is «Sigue» or «Abordémoslo»: the button's

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getFrame, markDecisionSeen } from "../api/client";
-import type { Frame, FrameDecision, FrameSection } from "../api/graph";
+import type { Frame, FrameDecision, FrameSection, ReturnLine } from "../api/graph";
 import { translate, type Lang } from "../i18n";
 
 // What «Te toca» leads to: a card, the understanding's cases or a
@@ -16,7 +16,10 @@ export type TodoTarget =
 // for, how it is judged, its skeleton with the critical decisions and
 // what is yours to do. Go computes all of it; this panel only shows it.
 // Expanding a decision records decision_seen (frame); scrolling does not.
-export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onTodo, onReorder }: {
+// Slice 2 (backlog-r2 2.7): the return line above it after 3 days or
+// more (M-2), the exact «sin ver» dot and the filter «solo lo que no
+// viste», all computed in Go.
+export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onDecisionHistory, onTodo, onReorder }: {
   lang: Lang;
   projectID: string;
   refreshKey: string;
@@ -24,6 +27,8 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   selected: string;
   onSection: (section: string) => void;
   onHistory: (section: string, block: number) => void;
+  // A decision that covers no figure opens its own history (P-41).
+  onDecisionHistory: (section: string, decision: string) => void;
   onTodo: (target: TodoTarget) => void;
   // P-49: «subir» and «bajar» send the whole new order; absent in a
   // read-only tab.
@@ -31,6 +36,7 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [frame, setFrame] = useState<Frame | null>(null);
+  const [unseenOnly, setUnseenOnly] = useState(false);
 
   const refresh = useCallback(async () => {
     if (projectID) setFrame(await getFrame(projectID));
@@ -38,6 +44,7 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
 
   useEffect(() => {
     setFrame(null);
+    setUnseenOnly(false);
   }, [projectID]);
 
   useEffect(() => {
@@ -90,8 +97,13 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
     todos.push({ key: "stop", text: t("frame.todo.stop_report"), tag: "", target: { kind: "stop_report" } });
   }
 
+  const decisionProps = { lang, titleOf, onSection, onHistory, onDecisionHistory, onTodo, onExpand: expanded };
+
   return (
     <div className="frame">
+      {frame.return_line && (
+        <ReturnLineBox lang={lang} line={frame.return_line} titleOf={titleOf} onSection={onSection} />
+      )}
       <div className="fsec">
         <h4>{t("frame.purpose")}</h4>
         <p className="lit">«{frame.purpose.request_text}»</p>
@@ -128,13 +140,31 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
 
       <div className="fsec">
         <h4>{t("frame.skeleton")}</h4>
+        {frame.sections.length > 0 && (
+          <button type="button" className="link" aria-pressed={unseenOnly} onClick={() => setUnseenOnly(!unseenOnly)}>
+            {unseenOnly ? t("frame.unseen_all") : t("frame.unseen_only")}
+          </button>
+        )}
         {frame.sections.length === 0 ? (
           <p className="meta">{t("frame.skeleton_empty")}</p>
+        ) : unseenOnly ? (
+          // The filter (§9): Go orders it, more sections first.
+          frame.unseen.length === 0 ? (
+            <p className="meta">{t("frame.unseen_none")}</p>
+          ) : (
+            <ul className="skel">
+              {frame.unseen.map((u) => (
+                <li key={u.decision.label} className="sec">
+                  <button type="button" className="t" onClick={() => onSection(u.section)}>{titleOf(u.section)}</button>
+                  <DecisionItem {...decisionProps} section={u.section} decision={u.decision} />
+                </li>
+              ))}
+            </ul>
+          )
         ) : (
           <ul className="skel">
             {frame.sections.map((s, i) => (
-              <SkeletonSection key={s.label} lang={lang} section={s} titleOf={titleOf} active={s.label === selected}
-                onSection={onSection} onHistory={onHistory} onTodo={onTodo} onExpand={expanded}
+              <SkeletonSection key={s.label} {...decisionProps} section={s} active={s.label === selected}
                 onMove={onReorder && ((dir) => {
                   const labels = frame.sections.map((x) => x.label);
                   [labels[i], labels[i + dir]] = [labels[i + dir], labels[i]];
@@ -146,9 +176,9 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
         )}
       </div>
 
-      <div className="fsec">
+      <div className="fsec" id="frame-todo">
         <h4>
-          {t("frame.todo")} <span>{todos.length > 0 ? todos.length : ""}</span>
+          {t("frame.todo")} <span>{frame.todo.count > 0 ? frame.todo.count : ""}</span>
         </h4>
         <ul className="tlist">
           {todos.length === 0 && <li className="meta">{t("frame.todo_empty")}</li>}
@@ -165,19 +195,24 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   );
 }
 
-function SkeletonSection({ lang, section, titleOf, active, onSection, onHistory, onTodo, onExpand, onMove, first, last }: {
+type DecisionProps = {
   lang: Lang;
+  titleOf: (label: string) => string;
+  onSection: (section: string) => void;
+  onHistory: (section: string, block: number) => void;
+  onDecisionHistory: (section: string, decision: string) => void;
+  onTodo: (target: TodoTarget) => void;
+  onExpand: (d: FrameDecision) => void;
+};
+
+function SkeletonSection({ section, active, onMove, first, last, ...props }: DecisionProps & {
   section: FrameSection;
   onMove?: (dir: -1 | 1) => void;
   first: boolean;
   last: boolean;
   active: boolean;
-  titleOf: (label: string) => string;
-  onSection: (section: string) => void;
-  onHistory: (section: string, block: number) => void;
-  onTodo: (target: TodoTarget) => void;
-  onExpand: (d: FrameDecision) => void;
 }) {
+  const { lang, titleOf, onSection } = props;
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   return (
     <li className={`sec${active ? " active" : ""}`}>
@@ -206,47 +241,105 @@ function SkeletonSection({ lang, section, titleOf, active, onSection, onHistory,
       )}
       {section.first_line && <p className="first">{section.first_line}</p>}
       {section.decisions.map((d) => (
-        <details
-          key={d.label}
-          className="dec"
-          onToggle={(e) => {
-            if ((e.currentTarget as HTMLDetailsElement).open) onExpand(d);
-          }}
-        >
-          <summary>
-            {!d.seen && <span className="dot" title={t("frame.unseen")} />}
-            <span className="ico">{t(`frame.icon.${d.icon}`)}</span>
-            <span>{d.statement}</span>
-          </summary>
-          <div className="decbody">
-            <div><b>{t("card.instead_of")}:</b> {d.instead_of}</div>
-            {d.would_choose_if && <div><b>{t("card.would_choose_if")}:</b> {d.would_choose_if}</div>}
-            <div>
-              <b>{t("frame.your_reason")}:</b>{" "}
-              {d.reason ? <>«{d.reason}»</> : <span className="no">{t("frame.not_answered")}</span>}
-            </div>
-            {d.signoff_explanation && (
-              <div><b>{t("frame.signoff_explanation")}:</b> «{d.signoff_explanation}»</div>
-            )}
-            <div><b>{t("card.sections")}:</b> {d.sections.map(titleOf).join(" · ")}</div>
-            <div className="links">
-              {d.block > 0 && (
-                <button type="button" className="link" onClick={() => onHistory(section.label, d.block)}>
-                  {t("frame.history")}
-                </button>
-              )}
-              <button type="button" className="link" onClick={() => onSection(section.label)}>
-                {t("frame.to_text")}
-              </button>
-              {d.card && (
-                <button type="button" className="link" onClick={() => onTodo({ kind: "card", label: d.card! })}>
-                  {t("frame.answer")}
-                </button>
-              )}
-            </div>
-          </div>
-        </details>
+        <DecisionItem key={d.label} {...props} section={section.label} decision={d} />
       ))}
     </li>
+  );
+}
+
+// A critical decision of the skeleton: the dot if no decision_seen
+// exists for it (B3-9), and its card when expanded (§9). Its link opens
+// its paragraph's history (P5) or, when it covers no figure, its own
+// (GET /decisions/{label}/history, P-41).
+function DecisionItem({ lang, section, decision: d, titleOf, onSection, onHistory, onDecisionHistory, onTodo, onExpand }:
+  DecisionProps & { section: string; decision: FrameDecision }) {
+  const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
+  return (
+    <details
+      className="dec"
+      onToggle={(e) => {
+        if ((e.currentTarget as HTMLDetailsElement).open) onExpand(d);
+      }}
+    >
+      <summary>
+        {!d.seen && <span className="dot" title={t("frame.unseen")} />}
+        <span className="ico">{t(`frame.icon.${d.icon}`)}</span>
+        <span>{d.statement}</span>
+      </summary>
+      <div className="decbody">
+        <div><b>{t("card.instead_of")}:</b> {d.instead_of}</div>
+        {d.would_choose_if && <div><b>{t("card.would_choose_if")}:</b> {d.would_choose_if}</div>}
+        <div>
+          <b>{t("frame.your_reason")}:</b>{" "}
+          {d.reason ? <>«{d.reason}»</> : <span className="no">{t("frame.not_answered")}</span>}
+        </div>
+        {d.signoff_explanation && (
+          <div><b>{t("frame.signoff_explanation")}:</b> «{d.signoff_explanation}»</div>
+        )}
+        <div><b>{t("card.sections")}:</b> {d.sections.map(titleOf).join(" · ")}</div>
+        <div className="links">
+          {d.block > 0 ? (
+            <button type="button" className="link" onClick={() => onHistory(section, d.block)}>
+              {t("frame.history")}
+            </button>
+          ) : (
+            <button type="button" className="link" onClick={() => onDecisionHistory(section, d.label)}>
+              {t("frame.decision_history")}
+            </button>
+          )}
+          <button type="button" className="link" onClick={() => onSection(section)}>
+            {t("frame.to_text")}
+          </button>
+          {d.card && (
+            <button type="button" className="link" onClick={() => onTodo({ kind: "card", label: d.card! })}>
+              {t("frame.answer")}
+            </button>
+          )}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+// The return line (M-2), above the frame after 3 days or more: where
+// you left off, what changed (with the history of the sections that
+// changed) and what is yours. Go computes the numbers; it never blocks.
+function ReturnLineBox({ lang, line, titleOf, onSection }: {
+  lang: Lang;
+  line: ReturnLine;
+  titleOf: (label: string) => string;
+  onSection: (section: string) => void;
+}) {
+  const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
+  const act = t(`return.act.${line.act}`);
+  const what = line.act_about ? t("return.act_about", { act, about: line.act_about }) : act;
+  return (
+    <div className="fsec return-line">
+      <h4>{t("return.title", { n: String(line.days) })}</h4>
+      <p>{line.section ? t("return.left_in", { section: titleOf(line.section), act: what }) : t("return.left", { act: what })}</p>
+      <p>
+        {t("return.changed", { n: String(line.changes) })}
+        {line.changed_sections.length > 0 && (
+          <>
+            {" → "}
+            <button type="button" className="link" onClick={() => onSection(line.changed_sections[0])}>
+              {t("return.to_history")}
+            </button>
+          </>
+        )}
+      </p>
+      <p>
+        {t("return.todo", { n: String(line.todo) })}
+        {line.todo > 0 && (
+          <>
+            {" → "}
+            <button type="button" className="link"
+              onClick={() => document.getElementById("frame-todo")?.scrollIntoView({ block: "nearest", behavior: "smooth" })}>
+              {t("return.to_todo")}
+            </button>
+          </>
+        )}
+      </p>
+    </div>
   );
 }

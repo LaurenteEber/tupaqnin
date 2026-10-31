@@ -53,7 +53,15 @@ export function App() {
   // lease, renewed every 15 s, or stays read-only.
   const [editor, setEditor] = useState(true);
   const [summary, setSummary] = useState<SummaryView | null>(null);
-  const [historyBlock, setHistoryBlock] = useState(0);
+  const [historyBlockValue, setHistoryBlockValue] = useState(0);
+  // A decision that covers no figure: its own history (P-41), opened
+  // from the frame (backlog-r2 2.7). Showing a block clears it.
+  const [historyDecision, setHistoryDecision] = useState("");
+  const historyBlock = historyBlockValue;
+  const setHistoryBlock = useCallback((block: number) => {
+    setHistoryBlockValue(block);
+    setHistoryDecision("");
+  }, []);
   // The frame refetches when the understanding, the cards or the
   // sections change.
   const [frameTick, setFrameTick] = useState(0);
@@ -260,6 +268,14 @@ export function App() {
     }
   }
 
+  // P-41 from the frame (backlog-r2 2.7): the decision's own history,
+  // in the right column, with the section it is listed under.
+  function openDecisionHistory(label: string, decision: string) {
+    openSection(label);
+    setHistoryDecision(decision);
+    window.setTimeout(() => reach("history"), 0);
+  }
+
   // U-3: the frame is the one navigation between sections.
   function openSection(label: string, block = 0) {
     if (label !== selected) setSignBlocked(null);
@@ -369,6 +385,7 @@ export function App() {
                 selected={selected}
                 onSection={(label) => openSection(label)}
                 onHistory={(label, block) => openSection(label, block)}
+                onDecisionHistory={openDecisionHistory}
                 onTodo={onTodo}
                 onReorder={editor ? (labels) => void reorder(labels) : undefined}
               />
@@ -564,7 +581,7 @@ export function App() {
               )}
               <p className="hint">{t("doc.paragraph_hint")}</p>
 
-              {current && historyBlock > 0 && (
+              {current && (historyBlock > 0 || historyDecision) && (
                 <div id="history">
                   <HistoryPanel
                     lang={lang}
@@ -572,6 +589,7 @@ export function App() {
                     label={current.label}
                     name={sectionName(current)}
                     block={historyBlock}
+                    decision={historyDecision || undefined}
                     onClose={() => setHistoryBlock(0)}
                     onMarked={() => {
                       // Marking can open a card and change the frame (T-5).

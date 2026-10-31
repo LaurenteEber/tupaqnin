@@ -264,6 +264,21 @@ export interface FrameTodo {
   unconfirmed_cases: number /* int */;
   ready_to_sign: string[];
   stop_report_unseen: boolean;
+  /**
+   * Count is how many lines «Lo que te toca» shows: each card, each
+   * «por aclarar», each section to sign, the unseen report, and the
+   * understanding's unconfirmed cases as one line (backlog-r2 2.7).
+   */
+  count: number /* int */;
+}
+/**
+ * FrameUnseen is one item of the filter «solo lo que no viste» (§9):
+ * a critical decision with no decision_seen, under the first section
+ * of the skeleton that shows it (its Block is that section's).
+ */
+export interface FrameUnseen {
+  section: string;
+  decision: FrameDecision;
 }
 /**
  * Frame is the project's frame (M-1, specification §9), in its order:
@@ -274,6 +289,14 @@ export interface Frame {
   criteria: FrameCriterion[];
   sections: FrameSection[];
   todo: FrameTodo;
+  /**
+   * ReturnLine is M-2's line above the frame; nil on shorter returns.
+   */
+  return_line?: ReturnLine;
+  /**
+   * Unseen is the filter «solo lo que no viste», already ordered.
+   */
+  unseen: FrameUnseen[];
 }
 
 //////////
@@ -439,6 +462,71 @@ export interface Provenance {
    * literal in the section.
    */
   accepted?: string;
+}
+
+//////////
+// source: reentry.go
+
+/**
+ * ReturnLine is the return line (M-2, spec §9): where you left off (the
+ * last section and your last act), what changed (state changes since
+ * your last event, with a link to their history) and what is yours to
+ * do (the lines of «Lo que te toca»). It never blocks.
+ */
+export interface ReturnLine {
+  /**
+   * Days since your last event, whole days.
+   */
+  days: number /* int */;
+  /**
+   * Section is the label of the last section your acts touched, "" if
+   * none did.
+   */
+  section: string;
+  /**
+   * Act is the kind of your last act; ActAbout its literal object (a
+   * decision's statement, a question), when it has one.
+   */
+  act: string;
+  act_about?: string;
+  /**
+   * Changes counts the state changes since your last event;
+   * ChangedSections are the sections among them, in document order.
+   */
+  changes: number /* int */;
+  changed_sections: string[];
+  /**
+   * Todo is the number of your pendings: FrameTodo.Count.
+   */
+  todo: number /* int */;
+}
+/**
+ * Detected is one thing the app detected since the last stop report,
+ * your edits included (B-48 b): the short return shows them under the
+ * unseen report. Never an internal id: sections by label, the rest by
+ * their literal text.
+ */
+export interface Detected {
+  /**
+   * Kind is edit · section_state · decision_state · usage_change ·
+   * source_new_version · open_question · card.
+   */
+  kind: string;
+  /**
+   * Actor is human · agent · app.
+   */
+  actor: string;
+  section?: string;
+  text?: string;
+  /**
+   * To is the new state of a section_state or decision_state.
+   */
+  to?: string;
+  /**
+   * Count is how many edits by the same actor on the same section it
+   * groups; 1 for the rest.
+   */
+  count: number /* int */;
 }
 
 //////////

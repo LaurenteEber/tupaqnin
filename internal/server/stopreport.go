@@ -61,6 +61,23 @@ type StopReportView struct {
 	// shape twice at this stop (fichas §7: visible, blocking nothing).
 	AudienceQuestions []graph.AudienceQuestion `json:"audience_questions"`
 	DefenseFailed     bool                     `json:"defense_failed"`
+	// Detected is what the app detected since this report, your edits
+	// included (B-48 b): the short return shows it under the report.
+	Detected []DetectedView `json:"detected"`
+	// OpensConversation: the report is unseen and there is no return
+	// line, so the conversation opens with it on top (short return,
+	// backlog-r2 2.7). Go decides it, with the frame's clock.
+	OpensConversation bool `json:"opens_conversation"`
+}
+
+// DetectedView is a graph.Detected with its section named by title.
+type DetectedView struct {
+	Kind    string      `json:"kind"`
+	Actor   string      `json:"actor"`
+	Section *SectionRef `json:"section,omitempty"`
+	Text    string      `json:"text,omitempty"`
+	To      string      `json:"to,omitempty"`
+	Count   int         `json:"count"`
 }
 
 // sectionRef names a section by its current title; a label that is not
@@ -137,6 +154,28 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 	for _, o := range report.Open {
 		view.Open = append(view.Open, StopReportOpenItem{Kind: o.Kind, Label: o.Label, Text: o.Text})
 	}
+	// The short return (B-48 b): what was detected since this report,
+	// and whether the conversation opens with it (unseen, no return line).
+	detected, err := graph.DetectedSinceStop(ctx, s.db, projectID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	view.Detected = []DetectedView{}
+	for _, d := range detected {
+		dv := DetectedView{Kind: d.Kind, Actor: d.Actor, Text: d.Text, To: d.To, Count: d.Count}
+		if d.Section != "" {
+			ref := s.sectionRef(ctx, projectID, d.Section)
+			dv.Section = &ref
+		}
+		view.Detected = append(view.Detected, dv)
+	}
+	events, err := s.db.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	view.OpensConversation = !report.Seen && !graph.ReturnDue(events, s.now(), s.returnAfter)
 	writeJSON(w, http.StatusOK, view)
 }
 

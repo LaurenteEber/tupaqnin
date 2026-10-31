@@ -18,3 +18,13 @@ func TestB4_DevStreamRouteIsAbsentWithoutTheTag(t *testing.T) {
 		t.Fatalf("GET /api/dev/stream-test without devroutes: got %d, want 404", rec.Code)
 	}
 }
+
+// Without devroutes the server's clock cannot be moved (B-4).
+func TestM2_DevClockIsAbsentWithoutTheTag(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/dev/clock", nil)
+	rec := httptest.NewRecorder()
+	server.New(nil).ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST /api/dev/clock without devroutes: got %d, want 404", rec.Code)
+	}
+}

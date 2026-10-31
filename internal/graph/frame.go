@@ -2,7 +2,9 @@ package graph
 
 import (
 	"context"
+	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/yuin/goldmark/ast"
@@ -51,6 +53,11 @@ type FrameLayers struct {
 	Criteria         []FrameCriterion `json:"criteria"`
 	UnconfirmedCases []string         `json:"unconfirmed_cases"`
 	StopReportUnseen bool             `json:"stop_report_unseen"`
+	// Now and ReturnAfter decide the return line (M-2, B-48 a): it is
+	// there when ReturnAfter or more passed between your last event and
+	// Now. A zero Now computes no line. Injected, so tests never sleep.
+	Now         time.Time     `json:"-"`
+	ReturnAfter time.Duration `json:"-"`
 }
 
 // FrameDecision is a current critical decision under a section: the
@@ -127,6 +134,18 @@ type FrameTodo struct {
 	UnconfirmedCases int                 `json:"unconfirmed_cases"`
 	ReadyToSign      []string            `json:"ready_to_sign"`
 	StopReportUnseen bool                `json:"stop_report_unseen"`
+	// Count is how many lines «Lo que te toca» shows: each card, each
+	// «por aclarar», each section to sign, the unseen report, and the
+	// understanding's unconfirmed cases as one line (backlog-r2 2.7).
+	Count int `json:"count"`
+}
+
+// FrameUnseen is one item of the filter «solo lo que no viste» (§9):
+// a critical decision with no decision_seen, under the first section
+// of the skeleton that shows it (its Block is that section's).
+type FrameUnseen struct {
+	Section  string        `json:"section"`
+	Decision FrameDecision `json:"decision"`
 }
 
 // Frame is the project's frame (M-1, specification §9), in its order:
@@ -136,6 +155,10 @@ type Frame struct {
 	Criteria []FrameCriterion `json:"criteria"`
 	Sections []FrameSection   `json:"sections"`
 	Todo     FrameTodo        `json:"todo"`
+	// ReturnLine is M-2's line above the frame; nil on shorter returns.
+	ReturnLine *ReturnLine `json:"return_line,omitempty"`
+	// Unseen is the filter «solo lo que no viste», already ordered.
+	Unseen []FrameUnseen `json:"unseen"`
 }
 
 // ComputeFrame is frame(project): the frame from the working state's
@@ -214,6 +237,9 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		decision FrameDecision
 		anchors  map[string][]string // section id → anchors of its figures
 		in       map[string]bool
+		usedIn   int // sections it is used_in (the filter's order, §9)
+		first    int // index of the first skeleton section showing it
+		shown    *FrameDecision
 	}
 	var items []*item
 	for _, dec := range decisions {
@@ -228,6 +254,9 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		}
 		for _, e := range out {
 			if e.Type == store.EdgeUsedIn && byID[e.ToID].Type == store.ObjectSection {
+				if !it.in[e.ToID] {
+					it.usedIn++
+				}
 				it.in[e.ToID] = true
 			}
 		}
@@ -299,11 +328,57 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 				d.SignoffExplanation = signed.Explanation
 			}
 			fs.Decisions = append(fs.Decisions, d)
+			if it.shown == nil {
+				it.first, it.shown = len(f.Sections), &d
+			}
 		}
 		f.Sections = append(f.Sections, fs)
 		if status == StatusReady {
 			f.Todo.ReadyToSign = append(f.Todo.ReadyToSign, sec.Label)
 		}
+	}
+
+	// The filter «solo lo que no viste» (§9): the critical decisions
+	// with no decision_seen, more used_in edges first and, at equal
+	// number, in document order (the first section showing each, then
+	// the order of the skeleton under it).
+	var unseen []*item
+	for _, it := range items {
+		if !it.decision.Seen && it.shown != nil {
+			unseen = append(unseen, it)
+		}
+	}
+	sort.SliceStable(unseen, func(i, j int) bool {
+		if unseen[i].usedIn != unseen[j].usedIn {
+			return unseen[i].usedIn > unseen[j].usedIn
+		}
+		return unseen[i].first < unseen[j].first
+	})
+	f.Unseen = []FrameUnseen{}
+	for _, it := range unseen {
+		f.Unseen = append(f.Unseen, FrameUnseen{Section: f.Sections[it.first].Label, Decision: *it.shown})
+	}
+
+	f.Todo.Count = len(f.Todo.Cards) + len(f.Todo.OpenQuestions) + len(f.Todo.ReadyToSign)
+	if f.Todo.UnconfirmedCases > 0 {
+		f.Todo.Count++
+	}
+	if f.Todo.StopReportUnseen {
+		f.Todo.Count++
+	}
+	if !layers.Now.IsZero() {
+		after := layers.ReturnAfter
+		if after <= 0 {
+			after = ReturnAfter()
+		}
+		line, err := returnLine(ctx, db, projectID, events, byID, sections, layers.Now, after)
+		if err != nil {
+			return Frame{}, err
+		}
+		if line != nil {
+			line.Todo = f.Todo.Count
+		}
+		f.ReturnLine = line
 	}
 	return f, nil
 }

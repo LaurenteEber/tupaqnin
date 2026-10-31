@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -83,6 +84,10 @@ type Server struct {
 	projectCap float64
 	// providerName is shown in the summary (U-2): meta or fake.
 	providerName string
+	// now and returnAfter decide the return line (M-2, B-48 a); tests
+	// inject the clock instead of sleeping.
+	now         func() time.Time
+	returnAfter time.Duration
 }
 
 // Option configures the API server.
@@ -95,6 +100,14 @@ func WithProjectCap(usd float64) Option { return func(s *Server) { s.projectCap 
 // WithProvider names the model provider shown in the summary (U-2;
 // TQ_PROVIDER).
 func WithProvider(name string) Option { return func(s *Server) { s.providerName = name } }
+
+// WithClock sets the clock the return line reads (M-2); tests use it
+// to come back days later without sleeping.
+func WithClock(now func() time.Time) Option { return func(s *Server) { s.now = now } }
+
+// WithReturnAfter sets M-2's threshold [inicial, parámetro]; the
+// default is graph.ReturnAfter() (3 days).
+func WithReturnAfter(d time.Duration) Option { return func(s *Server) { s.returnAfter = d } }
 
 // Hub returns the hub turn runners publish stream events to.
 func (s *Server) Hub() *Hub { return s.hub }
@@ -125,7 +138,8 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 	if hub == nil {
 		hub = NewHub()
 	}
-	s := &Server{hub: hub, logger: logger, db: db, starter: starter, editors: newEditors(), projectCap: 3}
+	s := &Server{hub: hub, logger: logger, db: db, starter: starter, editors: newEditors(), projectCap: 3,
+		now: time.Now, returnAfter: graph.ReturnAfter()}
 	for _, opt := range opts {
 		opt(s)
 	}

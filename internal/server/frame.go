@@ -23,7 +23,9 @@ func (s *Server) getFrame(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	frame, err := graph.ComputeFrame(r.Context(), s.db, projectID, frameLayers(st))
+	layers := frameLayers(st)
+	layers.Now, layers.ReturnAfter = s.now(), s.returnAfter
+	frame, err := graph.ComputeFrame(r.Context(), s.db, projectID, layers)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
