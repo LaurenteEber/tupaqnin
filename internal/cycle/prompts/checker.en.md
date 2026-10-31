@@ -33,6 +33,9 @@ a schema. Use labels exactly as the brief gives them (for example
   - `doubt`: you cannot tell whether it contradicts. Treat it as a
     contradiction. `passage` is the literal passage.
   - `no`: it does not touch it or agrees with it. `passage` is null.
+  - The premise is the person's idea of what the document will find.
+    A new passage whose finding goes against it contradicts it, even
+    when the passage is well supported.
 - `candidates`: what you found, each with `section` (the label of the
   section of the new passage) and `new_passage` (copied exactly as it
   appears in the new text, long enough to be found, short enough to be
@@ -50,6 +53,10 @@ a schema. Use labels exactly as the brief gives them (for example
     its `contrast` (what it means against the others), its
     `consequence` (what happens to the document if chosen) and its
     `risk` (what could go wrong). Do not lean toward one option.
+    Write `question` and the options in the language of the person's
+    request: the person reads them. In them, name things by their words
+    (what the premise or the decision says), never by their label
+    (`prem-1`, `dec-2`); labels go only in the label fields.
     When `protected` is the premise or a decision, the app itself adds
     the option that keeps it, first; your options are the alternatives.
   - `process_narrative`: the passage tells how the work was done
