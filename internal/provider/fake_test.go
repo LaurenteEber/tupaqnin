@@ -256,3 +256,43 @@ func TestP29_CheckerCallGetsOnlyCheckerRecordings(t *testing.T) {
 		t.Fatalf("checker call without a checker recording: %s, want %s", got, want)
 	}
 }
+
+// P-29, backlog-r2 2.6: a judge's defense call gets only judge
+// recordings, never a principal's recording without a kind; without one,
+// the fake asks three plain questions on the section it prepares, in
+// the judge's fixed shape.
+func TestP29_JudgeDefenseCallGetsOnlyJudgeRecordings(t *testing.T) {
+	kindless := messageFixture("principal", "p", 0)
+	judge := messageFixture("judge", "j", 0)
+	judge.TurnKind = provider.TurnJudgeDefense
+	respond := func(f *provider.Fake, kind provider.TurnKind) string {
+		t.Helper()
+		resp, err := f.Respond(context.Background(), provider.Request{Model: provider.JudgeDefenseModel,
+			TurnKind: kind, DefenseSection: "sec-2"}, nil)
+		if err != nil {
+			t.Fatalf("Respond(%s): %v", kind, err)
+		}
+		return resp.Text
+	}
+	if got := respond(provider.NewFake(kindless, judge), provider.TurnJudgeDefense); got != "j" {
+		t.Fatalf("judge call: %q, want the judge recording", got)
+	}
+	if got := respond(provider.NewFake(kindless, judge), provider.TurnStep); got != "p" {
+		t.Fatalf("step call: %q, want the kindless recording, as before", got)
+	}
+	var out struct {
+		AudienceQuestions []struct{ Question, Section string } `json:"audience_questions"`
+		NotCovered        []any                                `json:"not_covered"`
+	}
+	if err := json.Unmarshal([]byte(respond(provider.NewFake(kindless), provider.TurnJudgeDefense)), &out); err != nil {
+		t.Fatalf("judge call without a recording: %v", err)
+	}
+	if len(out.AudienceQuestions) != 3 || out.NotCovered == nil || len(out.NotCovered) != 0 {
+		t.Fatalf("judge call without a recording: %+v", out)
+	}
+	for _, q := range out.AudienceQuestions {
+		if q.Section != "sec-2" || q.Question == "" {
+			t.Fatalf("question %+v, want one on sec-2", q)
+		}
+	}
+}

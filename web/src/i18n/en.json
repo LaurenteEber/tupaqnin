@@ -337,5 +337,12 @@
   "stop_report.next": "Next",
   "stop_report.continue": "Continue",
   "stop_report.address": "Let's address it",
-  "stop_report.sign": "Sign «{section}»"
+  "stop_report.sign": "Sign «{section}»",
+  "stop_report.defense": "Preparing the defense · likely questions of your reader",
+  "stop_report.defense.not_covered": "Not covered: {text}",
+  "stop_report.defense.hint": "«Yes» becomes an instruction of yours for the agent's next turn; «No» stays in the history as not addressed, decided by you. They never block signing.",
+  "stop_report.defense.yes": "Yes",
+  "stop_report.defense.no": "No",
+  "stop_report.defense.failed": "The defense could not be prepared at this stop; signing is not blocked.",
+  "stop_report.defense.error": "Your answer was not saved; try again."
 }

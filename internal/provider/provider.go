@@ -22,8 +22,9 @@ const (
 
 // TurnKind is the kind of turn a call belongs to: the understanding
 // (1.2), an agent step, a signoff with Wonder (B-13) or the checker's
-// judgment of a change (backlog-r2 2.3) or the principal's stop report
-// (backlog-r2 2.5). The fake picks its recording by it (P-29); Meta
+// judgment of a change (backlog-r2 2.3), the principal's stop report
+// (backlog-r2 2.5) or the judge's defense preparation at the stop
+// (backlog-r2 2.6). The fake picks its recording by it (P-29); Meta
 // ignores it.
 type TurnKind string
 
@@ -33,6 +34,7 @@ const (
 	TurnSignoff       TurnKind = "signoff"
 	TurnChecker       TurnKind = "checker"
 	TurnStopReport    TurnKind = "stop_report"
+	TurnJudgeDefense  TurnKind = "judge_defense"
 )
 
 // Provider is one model backend. onDelta may be nil; when set, it is
@@ -72,6 +74,10 @@ type Request struct {
 	// (B-39), so the fake can answer a stop report call it has no
 	// recording for (see Fake.Respond); Meta ignores it.
 	ReportDecisions []ReportDecision
+	// DefenseSection is the label of the section a defense call prepares
+	// (backlog-r2 2.6), so the fake can answer a judge call it has no
+	// recording for (see Fake.Respond); Meta ignores it.
+	DefenseSection string
 }
 
 // ReportDecision is one decision the app lists for the stop report: its
@@ -237,11 +243,12 @@ func NewFake(fixtures ...Fixture) *Fake {
 // pick returns the next fixture for the turn kind, or false when no
 // fixture serves it. A checker call only gets checker recordings: a
 // recording without a kind predates the checker and is the principal's.
-// A stop report call likewise only gets stop report recordings.
+// A stop report call and a judge's defense call likewise only get
+// recordings of their own kind.
 func (f *Fake) pick(kind TurnKind) (Fixture, bool) {
 	var matching []Fixture
 	for _, fx := range f.fixtures {
-		if (kind == TurnChecker || kind == TurnStopReport) && fx.TurnKind != kind {
+		if (kind == TurnChecker || kind == TurnStopReport || kind == TurnJudgeDefense) && fx.TurnKind != kind {
 			continue
 		}
 		if kind == "" || fx.TurnKind == "" || fx.TurnKind == kind {
@@ -267,6 +274,9 @@ func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 	}
 	if !ok && req.TurnKind == TurnStopReport {
 		fx, ok = plainReportFixture(req.ReportDecisions), true
+	}
+	if !ok && req.TurnKind == TurnJudgeDefense {
+		fx, ok = plainDefenseFixture(req.DefenseSection), true
 	}
 	if !ok {
 		return Response{}, &ProviderError{Code: "no_fixtures", Type: "fake"}
@@ -336,6 +346,24 @@ func plainReportFixture(decisions []ReportDecision) Fixture {
 	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
 		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
 	return Fixture{Name: "stop-report-plain", TurnKind: TurnStopReport, Items: []json.RawMessage{item}}
+}
+
+// plainDefenseFixture is the fake's answer to a judge's defense call
+// without a judge recording: three plain questions on the section and
+// nothing uncovered, so a fake without judge recordings (most tests,
+// TQ_PROVIDER=fake) still prepares the defense.
+// [EL DISEÑO NO LO DICE]: what the fake answers without a recording; as
+// with the stop report, an error would leave every defense failed.
+func plainDefenseFixture(section string) Fixture {
+	questions := make([]map[string]any, 0, 3)
+	for _, q := range []string{"What is this section's main claim based on?",
+		"What would change the conclusion?", "What does the work leave out?"} {
+		questions = append(questions, map[string]any{"question": q, "section": section})
+	}
+	text, _ := json.Marshal(map[string]any{"audience_questions": questions, "not_covered": []any{}})
+	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
+		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
+	return Fixture{Name: "judge-defense-plain", TurnKind: TurnJudgeDefense, Items: []json.RawMessage{item}}
 }
 
 // CountTokens counts 1 token per 4 characters of input (B-5).

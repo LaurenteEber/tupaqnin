@@ -176,6 +176,7 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("GET /api/projects/{projectID}/stop-report", s.getStopReport)
 		mux.HandleFunc("POST /api/projects/{projectID}/stop-report/seen", s.postStopReportSeen)
 		mux.HandleFunc("POST /api/projects/{projectID}/stop-report/continue", s.postStopReportContinue)
+		mux.HandleFunc("POST /api/projects/{projectID}/audience-questions/{label}/answer", s.answerAudienceQuestion)
 		mux.HandleFunc("GET /api/projects/{projectID}/frame", s.getFrame)
 		mux.HandleFunc("POST /api/projects/{projectID}/frame/decisions/{label}/seen", s.postFrameDecisionSeen)
 		// P7, the signoff (backlog-r1 1.7, B-13, B-14).

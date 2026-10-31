@@ -504,9 +504,10 @@ func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, 
 		}
 	}
 
-	return r.db.Write(ctx, projectID, func(tx *store.Tx) error {
+	var report StopReport
+	err = r.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		var err error
-		report := StopReport{StopReason: reason, Section: section, Decisions: decisions,
+		report = StopReport{StopReason: reason, Section: section, Decisions: decisions,
 			Done: []string{}, Unseen: []ReportUnseen{}}
 		if ok {
 			report.Answer, report.Next = out.Answer, out.Next
@@ -542,4 +543,13 @@ func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, 
 			AgentRole: "principal", TurnID: turnID, Data: report})
 		return err
 	})
+	if err != nil {
+		return err
+	}
+	// The defense, at the stop that proposes signing (backlog-r2 2.6),
+	// after the report and outside its transaction.
+	if report.ProposeSignoff && report.Section != "" {
+		return r.prepareDefense(ctx, projectID, turnID, report.Section)
+	}
+	return nil
 }

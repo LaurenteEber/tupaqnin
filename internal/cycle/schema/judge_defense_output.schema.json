@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-juez-defensa.schema.json",
+  "title": "Salida fija del juez en la preparación de la defensa",
+  "description": "Contrato de fichas §7 (fila «Juez», en la parada), en forma de esquema. Una sola ronda con el destinatario en mente (fichas §8.2). Cada entrada nace como pregunta del destinatario abierta (estados §9), con su arista «sobre» a la sección; no bloquea la firma.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audience_questions",
+    "not_covered"
+  ],
+  "properties": {
+    "audience_questions": {
+      "description": "3 a 5 preguntas probables del destinatario [inicial].",
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "question",
+          "section"
+        ],
+        "properties": {
+          "question": {
+            "$ref": "#/$defs/text"
+          },
+          "section": {
+            "$ref": "#/$defs/label"
+          }
+        }
+      }
+    },
+    "not_covered": {
+      "description": "Lo que el trabajo no cubre y el destinatario podría pedir.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "statement",
+          "section"
+        ],
+        "properties": {
+          "statement": {
+            "$ref": "#/$defs/text"
+          },
+          "section": {
+            "$ref": "#/$defs/label"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "Etiqueta corta de un objeto que ya existe en el proyecto (T-2, glosario §8). No admite «new-n»; lo rechaza la regla 4 en Go (espec. §3), porque RE2 no admite lookahead.",
+      "type": "string",
+      "pattern": "^[a-z]{2,5}-[1-9][0-9]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

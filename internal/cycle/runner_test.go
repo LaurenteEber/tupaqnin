@@ -193,12 +193,21 @@ type captureProvider struct {
 	// like the checker's so sent counts the steps only.
 	reports   []provider.Request
 	reportGot []provider.Response
+	// judges are the judge's defense calls (backlog-r2 2.6), kept apart
+	// too.
+	judges []provider.Request
 }
 
 func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
 	if req.TurnKind == provider.TurnChecker {
 		c.mu.Lock()
 		c.checker = append(c.checker, req)
+		c.mu.Unlock()
+		return c.inner.Respond(ctx, req, onDelta)
+	}
+	if req.TurnKind == provider.TurnJudgeDefense {
+		c.mu.Lock()
+		c.judges = append(c.judges, req)
 		c.mu.Unlock()
 		return c.inner.Respond(ctx, req, onDelta)
 	}

@@ -427,9 +427,18 @@ func (m *Memory) ChangesSinceDelivery(ctx context.Context, projectID string) ([]
 // changesSince compares a snapshot of objects against the last
 // delivered version of each.
 func changesSince(objects []store.Object, delivered map[string]int) []Change {
+	labels := make(map[string]string, len(objects))
+	for _, obj := range objects {
+		labels[obj.ID] = obj.Label
+	}
 	var out []Change
 	for _, obj := range objects {
 		if v, ok := delivered[obj.ID]; ok && v == obj.CurrentVersion {
+			continue
+		}
+		// An audience question reaches the principal only once you
+		// answered «sí»: then it is your instruction (estados §9).
+		if obj.Type == store.ObjectAudienceQuestion && obj.State != "addressed" {
 			continue
 		}
 		b := decodeBody(obj)
@@ -439,6 +448,9 @@ func changesSince(objects []store.Object, delivered map[string]int) []Change {
 		}
 		if obj.Type == store.ObjectOpenQuestion {
 			text = openQuestionLine(b, obj.State)
+		}
+		if obj.Type == store.ObjectAudienceQuestion {
+			text = audienceQuestionLine(b, obj.State, labels[b.str("section_id")])
 		}
 		out = append(out, Change{Label: obj.Label, Type: string(obj.Type),
 			Version: obj.CurrentVersion, State: obj.State, FirstLine: firstLine(text)})
@@ -465,6 +477,25 @@ func openQuestionLine(b body, state string) string {
 	return line
 }
 
+// audienceQuestionLine is an audience question as the principal reads
+// it (backlog-r2 2.6): once you answered «sí», your instruction to
+// address it in its section; labels only (rule 7).
+// [EL DISEÑO NO LO DICE]: the line's shape; an open or declined question
+// is not an instruction, so it never enters what changed.
+func audienceQuestionLine(b body, state, section string) string {
+	what := "this likely question of the audience"
+	if b.boolean("not_covered") {
+		what = "this, which the work does not cover"
+	}
+	switch state {
+	case "addressed":
+		return fmt.Sprintf("Instruction of the person: address in %s %s: «%s»", section, what, b.str("question"))
+	case "declined":
+		return fmt.Sprintf("The person decided not to address in %s %s: «%s»", section, what, b.str("question"))
+	}
+	return fmt.Sprintf("Not answered by the person yet, on %s, %s: «%s»", section, what, b.str("question"))
+}
+
 // Read returns the current text of one object by label, with its
 // version, and records the delivery (via = read) for the instance.
 func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) (Item, error) {
@@ -476,6 +507,13 @@ func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) 
 	text := b.str("text")
 	if text == "" {
 		text = b.str("statement")
+	}
+	if obj.Type == store.ObjectAudienceQuestion {
+		section := ""
+		if sec, err := m.db.GetObject(ctx, projectID, b.str("section_id")); err == nil {
+			section = sec.Label
+		}
+		text = audienceQuestionLine(b, obj.State, section)
 	}
 	if text == "" {
 		raw, err := json.Marshal(b)

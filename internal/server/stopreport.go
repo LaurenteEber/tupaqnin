@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -54,6 +55,12 @@ type StopReportView struct {
 	NotVerified     []StopReportCitation `json:"not_verified"`
 	Open            []StopReportOpenItem `json:"open"`
 	PrincipalFailed bool                 `json:"principal_failed"`
+	// AudienceQuestions are the open audience questions of the report's
+	// section (backlog-r2 2.6, P6 «preparación de la defensa»), each
+	// answered «sí» or «no»; DefenseFailed says the judge failed its
+	// shape twice at this stop (fichas §7: visible, blocking nothing).
+	AudienceQuestions []graph.AudienceQuestion `json:"audience_questions"`
+	DefenseFailed     bool                     `json:"defense_failed"`
 }
 
 // sectionRef names a section by its current title; a label that is not
@@ -88,13 +95,26 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 	view := StopReportView{Seen: report.Seen, CreatedAt: report.CreatedAt, StopReason: string(report.StopReason),
 		ProposeSignoff: report.ProposeSignoff, Answer: report.Answer, Done: report.Done, Next: report.Next,
 		Decisions: []StopReportDecision{}, Verified: []StopReportCitation{}, NotVerified: []StopReportCitation{},
-		Open: []StopReportOpenItem{}, PrincipalFailed: report.PrincipalFailed}
+		Open: []StopReportOpenItem{}, PrincipalFailed: report.PrincipalFailed,
+		AudienceQuestions: []graph.AudienceQuestion{}}
 	if view.Done == nil {
 		view.Done = []string{}
 	}
 	if report.Section != "" {
 		ref := s.sectionRef(ctx, projectID, report.Section)
 		view.Section = &ref
+		qs, err := graph.OpenAudienceQuestions(ctx, s.db, projectID, report.Section)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+		if qs != nil {
+			view.AudienceQuestions = qs
+		}
+		if view.DefenseFailed, err = cycle.DefenseFailedSince(ctx, s.db, projectID, report.Seq); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
 	}
 	gists := map[string]string{}
 	for _, u := range report.Unseen {

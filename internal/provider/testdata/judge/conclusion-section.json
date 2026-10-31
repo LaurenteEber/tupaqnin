@@ -1,0 +1,25 @@
+{
+  "name": "conclusion-section",
+  "turn_kind": "judge_defense",
+  "deltas": [
+    "{\"audience_questions\": [{\"question\": \"¿Por qué comparar solo estudios con el mismo tamaño de partícula?\", \"section\": \"sec-1\"}, {\"question\": \"¿Cuántos estudios quedan después de aplicar esa regla?\", \"section\": \"sec-1\"}, {\"question\": \"¿Qué cambiaría si se incluyeran los conteos tal cual?\", \"section\": \"sec-1\"}, {\"question\": \"¿La conclusión vale para el agua de pozo?\", \"section\": \"sec-1\"}], \"not_covered\": [{\"statement\": \"El agua de pozo no está en la comparación.\", \"section\": \"sec-1\"}]}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"audience_questions\": [{\"question\": \"¿Por qué comparar solo estudios con el mismo tamaño de partícula?\", \"section\": \"sec-1\"}, {\"question\": \"¿Cuántos estudios quedan después de aplicar esa regla?\", \"section\": \"sec-1\"}, {\"question\": \"¿Qué cambiaría si se incluyeran los conteos tal cual?\", \"section\": \"sec-1\"}, {\"question\": \"¿La conclusión vale para el agua de pozo?\", \"section\": \"sec-1\"}], \"not_covered\": [{\"statement\": \"El agua de pozo no está en la comparación.\", \"section\": \"sec-1\"}]}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1200,
+    "output_tokens": 180,
+    "context_window": 0,
+    "cost_usd": 0
+  }
+}

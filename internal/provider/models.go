@@ -90,6 +90,13 @@ const (
 	CheckerEffort = EffortLow
 )
 
+// The judge prepares the defense at the stop with Spark 1.3 at effort
+// high, in one call with a clean context (backlog-r2 2.6, fichas §7).
+const (
+	JudgeDefenseModel  = ModelSpark13
+	JudgeDefenseEffort = EffortHigh
+)
+
 // Known reports whether the model is in this file (B-20 (c): a model
 // that is not here is not available).
 func Known(model string) bool {

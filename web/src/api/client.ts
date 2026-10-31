@@ -20,6 +20,7 @@ import type {
   UnderstandingView,
   EvidenceRequiredView,
   StopReportView,
+  AnswerAudienceQuestionResponse,
 } from "./types";
 import type { Frame, SignoffView } from "./graph";
 
@@ -451,6 +452,16 @@ export async function getStopReport(projectID: string): Promise<StopReportView |
 export async function markStopReportSeen(projectID: string): Promise<void> {
   const res = await post(`/api/projects/${projectID}/stop-report/seen`);
   if (!res.ok) throw new Error(`http_${res.status}`);
+}
+
+// 5b: answering an audience question of the defense (backlog-r2 2.6):
+// «sí» → addressed, «no» → declined; it opens no turn.
+export async function answerAudienceQuestion(
+  projectID: string,
+  label: string,
+  answer: "yes" | "no",
+): Promise<AnswerAudienceQuestionResponse> {
+  return json(await post(`/api/projects/${projectID}/audience-questions/${label}/answer`, { answer }));
 }
 
 // «Sigue» and «Abordémoslo» are messages of yours with the button's text.

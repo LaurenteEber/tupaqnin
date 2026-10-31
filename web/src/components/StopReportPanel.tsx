@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getStopReport, markStopReportSeen } from "../api/client";
+import { answerAudienceQuestion, getStopReport, markStopReportSeen } from "../api/client";
 import type { StopReportView } from "../api/types";
 import { translate, type Lang } from "../i18n";
 
@@ -7,7 +7,9 @@ import { translate, type Lang } from "../i18n";
 // under its first line. Everything comes from Go: why it stopped, the
 // section and whether to propose signing it, what is verified, what is
 // yours. Opening it counts as seen (B-40); folded does not. Never a
-// label on screen: sections by title, decisions by statement.
+// label on screen: sections by title, decisions by statement. The
+// defense (backlog-r2 2.6, 5b) lists the open audience questions of the
+// section with «Sí» and «No»; they never block «Firmar».
 export function StopReportPanel({ lang, projectID, refreshKey, disabled, onContinue, onSign, onSeen }: {
   lang: Lang;
   projectID: string;
@@ -21,6 +23,7 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [report, setReport] = useState<StopReportView | null>(null);
+  const [answerError, setAnswerError] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -43,6 +46,16 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
       onSeen();
     } catch {
       // Not recorded: it stays unseen and opening it again retries.
+    }
+  }
+
+  async function answer(label: string, value: "yes" | "no") {
+    setAnswerError(false);
+    try {
+      await answerAudienceQuestion(projectID, label, value);
+      await load();
+    } catch {
+      setAnswerError(true);
     }
   }
 
@@ -105,6 +118,27 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
         </details>
       )}
       {report.next && <p className="triage">{t("stop_report.next")}: {report.next}</p>}
+      {report.audience_questions.length > 0 && (
+        <div className="note">
+          <p className="meta">{t("stop_report.defense")}</p>
+          <ul>
+            {report.audience_questions.map((q) => (
+              <li key={q.label}>
+                {q.not_covered ? t("stop_report.defense.not_covered", { text: q.question }) : q.question}{" "}
+                <button type="button" className="small" disabled={disabled} onClick={() => void answer(q.label, "yes")}>
+                  {t("stop_report.defense.yes")}
+                </button>{" "}
+                <button type="button" className="small" disabled={disabled} onClick={() => void answer(q.label, "no")}>
+                  {t("stop_report.defense.no")}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="meta">{t("stop_report.defense.hint")}</p>
+          {answerError && <p className="meta">{t("stop_report.defense.error")}</p>}
+        </div>
+      )}
+      {report.defense_failed && <p className="meta">{t("stop_report.defense.failed")}</p>}
       <div className="empty-actions">
         <button type="button" disabled={disabled} onClick={() => onContinue(continueText)}>{continueText}</button>
         <button type="button" disabled={disabled} onClick={() => onContinue(addressText)}>{addressText}</button>

@@ -107,6 +107,22 @@ export const ReasonTwoOrMoreSections: Reason = "two_or_more_sections";
 export const ReasonHumanMarked: Reason = "human_marked";
 
 //////////
+// source: defense.go
+
+/**
+ * AudienceQuestion is one audience question as the stop report shows it
+ * (P6, estados §9): the judge's literal question, or what the work does
+ * not cover, its state and the label of the section it is about.
+ */
+export interface AudienceQuestion {
+  label: string;
+  state: string;
+  question: string;
+  not_covered: boolean;
+  section: string;
+}
+
+//////////
 // source: frame.go
 
 /**

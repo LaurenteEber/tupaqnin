@@ -337,5 +337,12 @@
   "stop_report.next": "Siguiente",
   "stop_report.continue": "Sigue",
   "stop_report.address": "Abordémoslo",
-  "stop_report.sign": "Firmar «{section}»"
+  "stop_report.sign": "Firmar «{section}»",
+  "stop_report.defense": "Preparación de la defensa · preguntas probables de tu lector",
+  "stop_report.defense.not_covered": "No cubre: {text}",
+  "stop_report.defense.hint": "«Sí» la vuelve una instrucción tuya para el siguiente turno del agente; «No» queda en la historia como no abordado, decidido por ti. Nunca bloquean la firma.",
+  "stop_report.defense.yes": "Sí",
+  "stop_report.defense.no": "No",
+  "stop_report.defense.failed": "No se pudo preparar la defensa en esta parada; la firma no queda bloqueada.",
+  "stop_report.defense.error": "Tu respuesta no se guardó; inténtalo de nuevo."
 }
