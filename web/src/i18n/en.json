@@ -324,6 +324,7 @@
   "turn.stop.human_only": "The agent stopped: only what you decide is left.",
   "stop_report.title": "The agent stopped",
   "stop_report.title_section": "The agent stopped · {section}",
+  "stop_report.incomplete": "Incomplete report",
   "stop_report.unseen": "not seen",
   "stop_report.no_answer": "The agent could not write the report; what the app computed is below.",
   "stop_report.done": "Done ({n})",

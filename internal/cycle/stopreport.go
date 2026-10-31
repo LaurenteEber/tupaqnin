@@ -419,7 +419,8 @@ func reportRequest(reason StopReason, section, title string, clear bool, decisio
 // No transaction is open while the principal answers (specification §2).
 // [EL DISEÑO NO LO DICE]: the call goes in the principal's conversation
 // (same instance, kept in model_call), with its tools and no streaming;
-// after two failures the report keeps the app's part (PrincipalFailed).
+// after two failures the report keeps the app's part (PrincipalFailed)
+// and leaves no agent pending (P-75 (c)).
 func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, reason StopReason) error {
 	touched, err := graph.TouchedSinceStop(ctx, r.db, projectID)
 	if err != nil {
@@ -489,10 +490,11 @@ func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, 
 			ok = true
 			break
 		}
+		// P-75 (c): the report's retry leaves no agent pending (estados
+		// §1 ties those to a section; the report writes in none): after
+		// two failures the stop_report keeps the app's part and says it
+		// is incomplete (PrincipalFailed).
 		data := map[string]any{"turn_kind": "stop_report", "attempt": attempt, "errors": errs}
-		if attempt >= 2 {
-			data["result"] = "agent_pending"
-		}
 		if err := r.gate.append(ctx, projectID, store.EventInput{Type: store.EventOutputRetry,
 			Actor: "agent", AgentRole: "principal", TurnID: turnID, Data: data}); err != nil {
 			return err

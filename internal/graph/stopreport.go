@@ -130,6 +130,94 @@ func TouchedSinceStop(ctx context.Context, q store.Querier, projectID string) ([
 	return out, nil
 }
 
+// WorkSinceStop reports whether the agent did work since the last stop
+// report (P-75 (b)): a step of the chain whose step_ended does not say
+// no_work. Fichas §2 names three entries for a stop; a chain without
+// work (answering a question is none, R-5) stops but asks for no report.
+// [EL DISEÑO NO LO DICE]: «work» is B-17's: a step with new text or new
+// decisions, which ApplyChainStep records by leaving no_work out of its
+// step_ended; the understanding is not a step of the chain.
+func WorkSinceStop(ctx context.Context, q store.Querier, projectID string) (bool, error) {
+	events, err := q.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		return false, err
+	}
+	since := LastStopSeq(events)
+	for _, ev := range events {
+		if ev.Seq <= since || ev.Type != store.EventStepEnded {
+			continue
+		}
+		var data struct {
+			TurnKind   string `json:"turn_kind"`
+			StopReason string `json:"stop_reason"`
+		}
+		_ = json.Unmarshal(ev.Data, &data)
+		if data.TurnKind == "step" && data.StopReason != "no_work" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// PendingRejections are the messages for the agent of what its last
+// step did not apply (B-14 texts on a section in signoff or signed,
+// B-54 new sections, rule 7 closes), while no later step of the chain
+// has ended: the next step the principal takes carries them once, even
+// when the chain stopped right after the rejected step (P-75). Read
+// from step_ended's not_applied, in the order and without the repeats
+// of ApplyResult.Rejected.
+// [EL DISEÑO NO LO DICE]: «delivered» is a later step_ended of a step;
+// a step that is left pending for the agent does not consume them.
+func PendingRejections(ctx context.Context, q store.Querier, projectID string) ([]string, error) {
+	events, err := q.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		return nil, err
+	}
+	var last *store.Event
+	for i := range events {
+		if events[i].Type != store.EventStepEnded {
+			continue
+		}
+		var data struct {
+			TurnKind string `json:"turn_kind"`
+		}
+		_ = json.Unmarshal(events[i].Data, &data)
+		if data.TurnKind == "step" {
+			last = &events[i]
+		}
+	}
+	if last == nil {
+		return nil, nil
+	}
+	type withMessage struct {
+		Message string `json:"message"`
+	}
+	var data struct {
+		NotApplied struct {
+			NewSections    []withMessage `json:"new_sections"`
+			NewText        []withMessage `json:"new_text"`
+			HandledChanges []withMessage `json:"handled_changes"`
+		} `json:"not_applied"`
+	}
+	_ = json.Unmarshal(last.Data, &data)
+	var out []string
+	seen := map[string]bool{}
+	for _, list := range [][]withMessage{data.NotApplied.NewSections, data.NotApplied.NewText} {
+		for _, r := range list {
+			if r.Message != "" && !seen[r.Message] {
+				seen[r.Message] = true
+				out = append(out, r.Message)
+			}
+		}
+	}
+	for _, r := range data.NotApplied.HandledChanges {
+		if r.Message != "" {
+			out = append(out, r.Message)
+		}
+	}
+	return out, nil
+}
+
 // SectionClear reports whether a section could be signed now: it has
 // text, is not signed, and has no pendings and no open changes (fichas
 // §2, Parada: «si no queda ningún pendiente ni cambio sin cerrar»).

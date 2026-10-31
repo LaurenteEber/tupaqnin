@@ -129,6 +129,7 @@ function Entry({ lang, entry }: { lang: Lang; entry: ConversationEntry }) {
       return (
         <div className="agent-step">
           <p className="meta">{t(`turn.stop.${entry.stop_reason}`)}</p>
+          {entry.incomplete && <p className="meta">{t("stop_report.incomplete")}</p>}
           {entry.text && <p className="reply">{entry.text}</p>}
         </div>
       );

@@ -168,10 +168,11 @@ func TestB7_TurnEndToEndWithTheFakeLeavesTheHistoryInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ModelCalls: %v", err)
 	}
-	// Two turns, each one step and its stop report (B-37): one instance,
-	// 4 calls; the report goes in the same conversation.
-	if len(calls) != 4 {
-		t.Fatalf("model calls of the instance: got %d, want 4", len(calls))
+	// Two turns of one step each: the first with work ends in its stop
+	// report (B-37), in the same conversation; the second does no work
+	// and asks for none (P-75 (b)). One instance, 3 calls.
+	if len(calls) != 3 {
+		t.Fatalf("model calls of the instance: got %d, want 3", len(calls))
 	}
 	if !strings.Contains(string(calls[1].InputItems), "fixture-encrypted-content") {
 		t.Fatal("second call did not resend the first call's raw items byte-for-byte")
@@ -261,13 +262,13 @@ func TestB7_ConversationRebuildsFromLastCallOnlyWithThreeMessages(t *testing.T) 
 	}
 	// What the third call must send: exactly what the last call before
 	// it sent, plus what it answered, plus the new message. Nothing
-	// from the first call may appear twice. The last call is the second
-	// turn's stop report, in the same conversation (backlog-r2 2.5).
-	if len(cap.reports) != 3 {
-		t.Fatalf("report calls: got %d, want 3", len(cap.reports))
+	// from the first call may appear twice. The steps do no work, so no
+	// turn asks for a stop report (P-75 (b)).
+	if len(cap.reports) != 0 {
+		t.Fatalf("report calls: got %d, want 0", len(cap.reports))
 	}
-	want := append([]json.RawMessage{}, cap.reports[1].Input...)
-	want = append(want, cap.reportGot[1].RawItems...)
+	want := append([]json.RawMessage{}, cap.sent[1]...)
+	want = append(want, cap.got[1].RawItems...)
 	want = append(want, userItemForTest("third message"))
 	got := cap.sent[2]
 	if len(got) != len(want) {

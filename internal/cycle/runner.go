@@ -831,14 +831,14 @@ const (
 // get ContinueMessage. The chain stops at a step without new text or
 // new decisions, at a step left pending for the agent, at the limit, or
 // when the app decides to stop after a step and its checks (ShouldStop);
-// every stop ends with the stop report (B-37, backlog-r2 2.5).
+// every stop ends with the stop report (B-37, backlog-r2 2.5), unless
+// the agent did no work since the last stop (P-75 (b)).
 func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, human bool) error {
 	filter := newFieldFilter(stepStreamKeys)
 	var last StepResult
 	var lastApplied ApplyResult
 	var lastText string
 	reason := StopStepLimit
-	var notice string // B-14: what the last step could not write, for the agent
 	for n := 1; n <= MaxChainSteps; n++ {
 		message := ContinueMessage
 		if n == 1 && human {
@@ -856,6 +856,15 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 					strings.Join(pendings, "\n- ") + "\n\n" + message
 			}
 		}
+		// B-14: what the agent's last step could not write reaches the
+		// next step it takes, read from the history so it survives a
+		// stop right after that step and a restart (P-75).
+		rejections, err := graph.PendingRejections(ctx, r.db, projectID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+		notice := strings.Join(rejections, "\n")
 		if notice != "" {
 			message = notice + "\n\n" + message
 		}
@@ -868,8 +877,14 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		switch {
 		case started && n == 1 && human:
 			// The startup already carries this message as the current
-			// task (block 2 §3), so it is not appended again.
+			// task (block 2 §3), so it is not appended again; a pending
+			// rejection (B-14) goes after it, once.
+			// [EL DISEÑO NO LO DICE]: the startup has no place for it; it
+			// goes as one more message after the startup.
 			input = startupInput
+			if notice != "" {
+				input = append(input, userItem(notice))
+			}
 		case started:
 			input = append(startupInput, userItem(message))
 		default:
@@ -904,10 +919,6 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 				return err
 			}
 		}
-		notice = ""
-		if len(applied.Rejected) > 0 {
-			notice = strings.Join(applied.Rejected, "\n")
-		}
 		if result.Status != StatusAccepted {
 			reason = StopAgentPending
 			break
@@ -939,9 +950,18 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 	// checker are known only after the step's step_ended was written
 	// (history only grows), so the stop_report carries every reason and
 	// step_ended keeps only the cuts known when the step is applied.
-	if err := r.writeStopReport(ctx, projectID, turnID, reason); err != nil {
+	// P-75 (b): a chain that did no work since the last stop (answering
+	// a question is none) stops without asking for a report.
+	work, err := graph.WorkSinceStop(ctx, r.db, projectID)
+	if err != nil {
 		r.fail(projectID, turnID, "turn_failed")
 		return err
+	}
+	if work {
+		if err := r.writeStopReport(ctx, projectID, turnID, reason); err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
 	}
 	r.publishChainStep(projectID, turnID, last, lastApplied, lastText, reason)
 	return nil

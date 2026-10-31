@@ -152,3 +152,36 @@ func TestB37_WithTheFakeTheTurnShowsP6AndSigueOpensAnotherTurn(t *testing.T) {
 		t.Fatalf("human messages: %q", texts)
 	}
 }
+
+// P-75 (c): a report whose principal failed twice is exposed as
+// incomplete by Go, in GET /stop-report (principal_failed) and in the
+// conversation (incomplete); a well-formed one is not.
+func TestP75_AFailedReportIsIncompleteInTheRoutesAndAWellFormedOneIsNot(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	base := "/api/projects/" + projectID
+	for _, report := range []cycle.StopReport{
+		{StopReason: cycle.StopNoWork, Answer: "Paré.", Done: []string{}, Unseen: []cycle.ReportUnseen{}},
+		{StopReason: cycle.StopNoWork, Done: []string{}, Unseen: []cycle.ReportUnseen{}, PrincipalFailed: true},
+	} {
+		if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+			_, err := tx.AppendEvent(store.EventInput{Type: store.EventStopReport, Actor: "agent", AgentRole: "principal", Data: report})
+			return err
+		}); err != nil {
+			t.Fatalf("seed report: %v", err)
+		}
+	}
+	view := decode[server.StopReportView](t, do(t, h, http.MethodGet, base+"/stop-report", nil))
+	if !view.PrincipalFailed {
+		t.Fatalf("GET /stop-report: %+v, want principal_failed", view)
+	}
+	var reports []server.ConversationEntry
+	for _, e := range decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, base+"/conversation", nil)) {
+		if e.Kind == "stop_report" {
+			reports = append(reports, e)
+		}
+	}
+	if len(reports) != 2 || reports[0].Incomplete || !reports[1].Incomplete {
+		t.Fatalf("conversation stop reports: %+v, want the second incomplete only", reports)
+	}
+}

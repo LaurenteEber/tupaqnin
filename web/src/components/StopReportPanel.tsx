@@ -59,6 +59,8 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
         <span className="reply" style={{ display: "block" }}>{first}</span>
       </summary>
       <p className="meta">{t(`turn.stop.${report.stop_reason}`)}</p>
+      {/* P-75 (c): Go says the principal's part failed; the app's part follows. */}
+      {report.principal_failed && <p className="meta">{t("stop_report.incomplete")}</p>}
       <details className="note">
         <summary>{t("stop_report.done", { n: String(report.done.length) })}</summary>
         <ul>{report.done.map((d, i) => <li key={i}>{d}</li>)}</ul>

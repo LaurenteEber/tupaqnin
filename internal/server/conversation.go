@@ -30,7 +30,10 @@ type ConversationEntry struct {
 	// with the triage line.
 	Stretch      string   `json:"stretch,omitempty"`
 	Reclassified []string `json:"reclassified,omitempty"`
-	CreatedAt    string   `json:"created_at"`
+	// Incomplete marks a stop report whose principal failed twice: it
+	// keeps the app's part only (P-75 (c), B-41).
+	Incomplete bool   `json:"incomplete,omitempty"`
+	CreatedAt  string `json:"created_at"`
 }
 
 // GET /api/projects/{projectID}/conversation: the whole conversation,
@@ -81,6 +84,7 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			}
 		case ev.Type == store.EventStopReport:
 			entry.Kind, entry.Text, entry.StopReason = "stop_report", str(data, "answer"), str(data, "stop_reason")
+			entry.Incomplete, _ = data["principal_failed"].(bool)
 		case ev.Type == store.EventActTimed && ev.Actor == "human":
 			obj, err := s.db.GetObject(r.Context(), projectID, ev.ObjectID)
 			if err != nil || obj.Type != store.ObjectCard {

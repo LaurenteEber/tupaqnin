@@ -193,6 +193,19 @@ func eventData(ev store.Event) map[string]any {
 	return data
 }
 
+// LeavesAgentPending reports whether an output_retry left its output
+// pending for the agent (fichas §7). The stop report's never does
+// (P-75 (c)): estados §1 ties the agent's pendings to a section and the
+// report writes in none; a history written before P-75 may still carry
+// one with result agent_pending, and it is ignored.
+func LeavesAgentPending(ev store.Event) bool {
+	if ev.Type != store.EventOutputRetry {
+		return false
+	}
+	data := eventData(ev)
+	return data["result"] == "agent_pending" && data["turn_kind"] != "stop_report"
+}
+
 // malformedOutputOpen is «retorno sin la forma fija» (B-15): the last
 // output_retry that left the step pending for the agent, until the next
 // valid step end.
@@ -203,7 +216,7 @@ func malformedOutputOpen(events []store.Event) bool {
 	for _, ev := range events {
 		switch ev.Type {
 		case store.EventOutputRetry:
-			if eventData(ev)["result"] == "agent_pending" {
+			if LeavesAgentPending(ev) {
 				open = true
 			}
 		case store.EventStepEnded:

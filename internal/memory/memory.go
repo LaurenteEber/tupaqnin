@@ -444,7 +444,7 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 	}
 	// An agent pending counts only while no later step has ended.
 	for i, ev := range events {
-		if ev.Type != store.EventOutputRetry || i < lastStepEnded {
+		if !graph.LeavesAgentPending(ev) || i < lastStepEnded { // P-75 (c)
 			continue
 		}
 		var data struct {

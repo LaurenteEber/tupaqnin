@@ -324,6 +324,7 @@
   "turn.stop.human_only": "El agente se detuvo: solo queda lo que tú decides.",
   "stop_report.title": "El agente se detuvo",
   "stop_report.title_section": "El agente se detuvo · {section}",
+  "stop_report.incomplete": "Informe incompleto",
   "stop_report.unseen": "sin ver",
   "stop_report.no_answer": "El agente no pudo escribir el informe; abajo está lo que calculó la app.",
   "stop_report.done": "Hecho ({n})",

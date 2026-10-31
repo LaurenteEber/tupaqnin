@@ -228,6 +228,11 @@ export interface ConversationEntry {
    */
   stretch?: string;
   reclassified?: string[];
+  /**
+   * Incomplete marks a stop report whose principal failed twice: it
+   * keeps the app's part only (P-75 (c), B-41).
+   */
+  incomplete?: boolean;
   created_at: string;
 }
 export interface RenameProjectRequest {
