@@ -213,9 +213,11 @@ func (c *Client) download(ctx context.Context, rawURL string, allowed []string) 
 	if err := c.checkURL(ctx, u); err != nil {
 		return response{}, err
 	}
-	if err := c.waitArxiv(ctx, u.Hostname()); err != nil {
+	release, err := c.waitArxiv(ctx, u.Hostname())
+	if err != nil {
 		return response{}, err
 	}
+	defer release()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return response{}, ErrBlocked
@@ -270,23 +272,28 @@ func transportError(ctx context.Context, err error) error {
 }
 
 // waitArxiv keeps at most one arXiv request every ArxivSpacing (B-60).
-func (c *Client) waitArxiv(ctx context.Context, host string) error {
+func (c *Client) waitArxiv(ctx context.Context, host string) (release func(), err error) {
 	if !c.isArxiv(host) {
-		return nil
+		return func() {}, nil
 	}
+	// arXiv requests go one at a time and the 3 s count from the end of
+	// the previous one, so arXiv never sees two closer than 3 s, however
+	// long a request took to arrive (B-60).
 	c.arxivMu.Lock()
-	defer c.arxivMu.Unlock()
 	if wait := ArxivSpacing - time.Since(c.arxivLast); !c.arxivLast.IsZero() && wait > 0 {
 		t := time.NewTimer(wait)
 		defer t.Stop()
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			c.arxivMu.Unlock()
+			return nil, ctx.Err()
 		case <-t.C:
 		}
 	}
-	c.arxivLast = time.Now()
-	return nil
+	return func() {
+		c.arxivLast = time.Now()
+		c.arxivMu.Unlock()
+	}, nil
 }
 
 // isArxiv covers the API host and arxiv.org itself (its PDFs).
