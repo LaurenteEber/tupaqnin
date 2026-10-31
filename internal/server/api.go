@@ -255,7 +255,8 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 
 // PUT /api/projects/{projectID}/sections/{label} with
 // {base_version, text} → 200 (new version), 204 (no change, B-3) or
-// 409 (stale base version, specification §2).
+// 409 (stale base version, specification §2: one whose text is no
+// longer the current text, P-84).
 func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	label := r.PathValue("label")
@@ -278,24 +279,27 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "read_only_tab")
 		return
 	}
-	var body map[string]any
-	_ = json.Unmarshal(current.Body, &body)
-	if body == nil {
-		body = make(map[string]any)
+	// P-84 (T-4: the base is the text): a base version older than the
+	// current one whose stored text is the current text (the plan
+	// confirmed, a title, focus, position or role changed meanwhile) is
+	// accepted against the current version; a changed text keeps the 409.
+	currentText := str(bodyMap(current), "text")
+	if req.BaseVersion != current.CurrentVersion {
+		same, err := s.sameTextAtVersion(r, projectID, current.ID, req.BaseVersion, currentText)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+		if !same {
+			writeError(w, http.StatusConflict, "version_conflict")
+			return
+		}
 	}
 	// The section fingerprint replaces B-3's comparison (specification
 	// §4): the same content, whatever its formatting, is no change.
-	if req.BaseVersion == current.CurrentVersion &&
-		fingerprint.Section(req.Text) == fingerprint.Section(str(body, "text")) {
+	if fingerprint.Section(req.Text) == fingerprint.Section(currentText) {
 		w.WriteHeader(http.StatusNoContent)
 		return
-	}
-	body["text"] = req.Text
-	// Your edit on a signed section moves it to changed_since_signoff
-	// (estados §1: your edit rules).
-	state := current.State
-	if state == "signed" {
-		state = "changed_since_signoff"
 	}
 	// Your edit of a section in signoff cancels the signoff in progress
 	// (K-16, B-14: signoff_cancelled, edited), in the same transaction.
@@ -305,23 +309,35 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The app's rules 1 to 5 run on each save that changes the
-	// fingerprint (B-36), in the same transaction (backlog-r2 2.1).
-	baseText := str(bodyMap(current), "text")
-	runRules := fingerprint.Section(req.Text) != fingerprint.Section(baseText)
-
 	var updated store.Object
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
-		var err error
-		updated, err = tx.UpdateObject(current.ID, req.BaseVersion, state, body,
+		// P-84: re-read in the transaction; a version written since the
+		// read above that kept the text keeps your edit, which keeps its
+		// details and is conditioned on the version re-read here.
+		obj, err := tx.Object(current.ID)
+		if err != nil {
+			return err
+		}
+		if obj.CurrentVersion != current.CurrentVersion && str(bodyMap(obj), "text") != currentText {
+			return store.ErrVersionConflict
+		}
+		body := bodyMap(obj)
+		body["text"] = req.Text
+		// Your edit on a signed section moves it to changed_since_signoff
+		// (estados §1: your edit rules).
+		state := obj.State
+		if state == "signed" {
+			state = "changed_since_signoff"
+		}
+		updated, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, state, body,
 			store.EventInput{Type: store.EventEdit, Actor: "human"})
 		if err != nil {
 			return err
 		}
-		if runRules {
-			if _, err := cycle.CheckYourEdit(r.Context(), tx, current.ID, baseText); err != nil {
-				return err
-			}
+		// The app's rules 1 to 5 run on each save that changes the
+		// fingerprint (B-36), in the same transaction (backlog-r2 2.1).
+		if _, err := cycle.CheckYourEdit(r.Context(), tx, current.ID, currentText); err != nil {
+			return err
 		}
 		if !inSignoff {
 			return nil
@@ -338,11 +354,30 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	default:
 		// [EL DISEÑO NO LO DICE]: «sin cambios» counts from a save that
 		// changed the fingerprint, as the rules (B-36).
-		if n, ok := s.starter.(EditNotifier); ok && runRules {
+		if n, ok := s.starter.(EditNotifier); ok {
 			n.EditSaved(projectID)
 		}
 		writeJSON(w, http.StatusOK, SectionResponse{Label: updated.Label, Version: updated.CurrentVersion})
 	}
+}
+
+// sameTextAtVersion reports whether the stored version of a section has
+// text as its text (P-84). Versions only grow, so it is read outside
+// the write's transaction.
+func (s *Server) sameTextAtVersion(r *http.Request, projectID, objectID string, version int, text string) (bool, error) {
+	versions, err := s.db.Versions(r.Context(), projectID, objectID)
+	if err != nil {
+		return false, err
+	}
+	for _, v := range versions {
+		if v.Version != version {
+			continue
+		}
+		var b map[string]any
+		_ = json.Unmarshal(v.Body, &b)
+		return str(b, "text") == text, nil
+	}
+	return false, nil
 }
 
 // POST /api/projects/{projectID}/messages with {text} → {turn_id}

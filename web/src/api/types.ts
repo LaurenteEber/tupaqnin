@@ -164,6 +164,11 @@ export interface AnswerCardResponse {
   new_decision?: string;
 }
 /**
+ * CardAnswerer answers a card and then prepares the defense of the
+ * section the answer left ready (P-86); the runner does.
+ */
+export type CardAnswerer = any;
+/**
  * MarkCriticalRequest marks or unmarks a decision as critical (fichas
  * §2, Tu turno).
  */
@@ -226,13 +231,15 @@ export interface PutEvidenceRequest {
  * ConversationEntry is one item of the conversation as the person reads
  * it (U-5): a message of theirs, the end of an agent step with its
  * triage line, reply (R-5), note and stop reason (B-24), the end of the
- * understanding, a card they answered, or a stop report (P6, backlog-r2
+ * understanding, a card they answered, a stop report (P6, backlog-r2
  * 2.5: its first line and why the chain stopped; GET /stop-report has
- * the last one complete). Never an internal id.
+ * the last one complete), or an audience question of a defense
+ * prepared without a stop (P-86). Never an internal id.
  */
 export interface ConversationEntry {
   /**
-   * Kind is message · step · understanding · card_answered · stop_report.
+   * Kind is message · step · understanding · card_answered ·
+   * stop_report · audience_question.
    */
   kind: string;
   text?: string;
@@ -262,6 +269,16 @@ export interface ConversationEntry {
    * keeps the app's part only (P-75 (c), B-41).
    */
   incomplete?: boolean;
+  /**
+   * An audience question (P-86): Text is the judge's literal question
+   * or what the work does not cover (NotCovered), Label answers it
+   * (POST /audience-questions/{label}/answer), State is its current
+   * state (open, addressed, declined) and Section its section's title.
+   */
+  label?: string;
+  state?: string;
+  not_covered?: boolean;
+  section?: string;
   created_at: string;
 }
 export interface RenameProjectRequest {
@@ -392,7 +409,8 @@ export interface AnswerOpenQuestionRequest {
 }
 /**
  * OpenQuestionAnswerer answers a «por aclarar» and, when the premise
- * changed, probes the current text against it (B-46). *cycle.Runner
+ * changed, probes the current text against it (B-46), then prepares
+ * the defense of the section the answer left ready (P-86). *cycle.Runner
  * satisfies it; without it, the gate answers alone.
  */
 export type OpenQuestionAnswerer = any;

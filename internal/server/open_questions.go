@@ -49,7 +49,8 @@ type AnswerOpenQuestionRequest struct {
 }
 
 // OpenQuestionAnswerer answers a «por aclarar» and, when the premise
-// changed, probes the current text against it (B-46). *cycle.Runner
+// changed, probes the current text against it (B-46), then prepares
+// the defense of the section the answer left ready (P-86). *cycle.Runner
 // satisfies it; without it, the gate answers alone.
 type OpenQuestionAnswerer interface {
 	AnswerOpenQuestion(ctx context.Context, projectID, label string, option *int, reason string) (cycle.OpenQuestionAnswer, error)

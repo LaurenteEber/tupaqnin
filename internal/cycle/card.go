@@ -239,3 +239,19 @@ func (g *Gate) cardOpenedAt(ctx context.Context, projectID, cardID string) (time
 	}
 	return time.Now(), nil
 }
+
+// AnswerCard is the gate's answer plus, when it leaves a section ready
+// (P-86: you answered its last card), the defense of that section,
+// prepared as at the stop that proposes signing it (defendReadyByYou).
+// The answer stands whatever the defense does.
+func (r *Runner) AnswerCard(ctx context.Context, projectID, cardLabel, option, reason string) (CardAnswer, error) {
+	before, err := r.sectionsNotReady(ctx, projectID)
+	if err != nil {
+		return CardAnswer{}, err
+	}
+	answer, err := r.gate.AnswerCard(ctx, projectID, cardLabel, option, reason)
+	if err != nil {
+		return answer, err
+	}
+	return answer, r.afterYourAnswer(ctx, projectID, before, false)
+}

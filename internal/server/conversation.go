@@ -12,11 +12,13 @@ import (
 // ConversationEntry is one item of the conversation as the person reads
 // it (U-5): a message of theirs, the end of an agent step with its
 // triage line, reply (R-5), note and stop reason (B-24), the end of the
-// understanding, a card they answered, or a stop report (P6, backlog-r2
+// understanding, a card they answered, a stop report (P6, backlog-r2
 // 2.5: its first line and why the chain stopped; GET /stop-report has
-// the last one complete). Never an internal id.
+// the last one complete), or an audience question of a defense
+// prepared without a stop (P-86). Never an internal id.
 type ConversationEntry struct {
-	// Kind is message · step · understanding · card_answered · stop_report.
+	// Kind is message · step · understanding · card_answered ·
+	// stop_report · audience_question.
 	Kind       string `json:"kind"`
 	Text       string `json:"text,omitempty"`
 	TriageLine string `json:"triage_line,omitempty"`
@@ -36,7 +38,15 @@ type ConversationEntry struct {
 	Reclassified []string `json:"reclassified,omitempty"`
 	// Incomplete marks a stop report whose principal failed twice: it
 	// keeps the app's part only (P-75 (c), B-41).
-	Incomplete bool   `json:"incomplete,omitempty"`
+	Incomplete bool `json:"incomplete,omitempty"`
+	// An audience question (P-86): Text is the judge's literal question
+	// or what the work does not cover (NotCovered), Label answers it
+	// (POST /audience-questions/{label}/answer), State is its current
+	// state (open, addressed, declined) and Section its section's title.
+	Label      string `json:"label,omitempty"`
+	State      string `json:"state,omitempty"`
+	NotCovered bool   `json:"not_covered,omitempty"`
+	Section    string `json:"section,omitempty"`
 	CreatedAt  string `json:"created_at"`
 }
 
@@ -87,8 +97,8 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			// [EL DISEÑO NO LO DICE]: a step left pending for the agent
 			// writes no step_ended (B-24 names step_ended); its stop reason
 			// is read from the output_retry that ended it. P-85: the
-			// step's gate writes it without turn_kind (only the
-			// understanding names its kind), so none means a step.
+			// step's gate writes turn_kind step; the events written
+			// before without it are a step too.
 			entry.Kind, entry.Status = str(data, "turn_kind"), "agent_pending"
 			if entry.Kind == "" {
 				entry.Kind = "step"
@@ -102,6 +112,21 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 		case ev.Type == store.EventStopReport:
 			entry.Kind, entry.Text, entry.StopReason = "stop_report", str(data, "answer"), str(data, "stop_reason")
 			entry.Incomplete, _ = data["principal_failed"].(bool)
+		case ev.Type == store.EventStateChanged && ev.AgentRole == string(provider.RoleJudge) &&
+			str(data, "to") == "open" && !reported[ev.TurnID]:
+			// P-86: the questions of a defense prepared after your answer,
+			// with no stop report; those of a stop show in its report.
+			aq, err := s.db.GetObject(r.Context(), projectID, ev.ObjectID)
+			if err != nil || aq.Type != store.ObjectAudienceQuestion {
+				continue
+			}
+			b := bodyMap(aq)
+			entry.Kind, entry.Label, entry.State = "audience_question", aq.Label, aq.State
+			entry.Text = str(b, "question")
+			entry.NotCovered, _ = b["not_covered"].(bool)
+			if sec, err := s.db.GetObject(r.Context(), projectID, str(data, "section")); err == nil {
+				entry.Section = str(bodyMap(sec), "title")
+			}
 		case ev.Type == store.EventActTimed && ev.Actor == "human":
 			obj, err := s.db.GetObject(r.Context(), projectID, ev.ObjectID)
 			if err != nil || obj.Type != store.ObjectCard {

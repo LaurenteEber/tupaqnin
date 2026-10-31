@@ -206,19 +206,17 @@ func (g *Gate) applyKept(ctx context.Context, tx *store.Tx, body map[string]any,
 // The gate queued it in the history (P-72): with the slot free it runs
 // now; with a turn of the project running it stays queued, its sections
 // «sin comprobar», and runs when that turn ends or at the next B-36
-// trigger (runQueuedProbes). The answer stands either way.
+// trigger (runQueuedProbes). Then, when the answer left a section ready
+// (P-86: its last «por aclarar»), its defense (defendReadyByYou). The
+// answer stands either way.
 func (r *Runner) AnswerOpenQuestion(ctx context.Context, projectID, label string, option *int, reason string) (OpenQuestionAnswer, error) {
+	before, err := r.sectionsNotReady(ctx, projectID)
+	if err != nil {
+		return OpenQuestionAnswer{}, err
+	}
 	answer, err := r.gate.AnswerOpenQuestion(ctx, projectID, label, option, reason)
-	if err != nil || !answer.PremiseChanged {
-		return answer, err
-	}
-	if !r.tryAcquireTurn(projectID) {
-		return answer, nil
-	}
-	defer r.releaseTurn(projectID)
-	turnID, err := newTurnID()
 	if err != nil {
 		return answer, err
 	}
-	return answer, r.runQueuedProbes(ctx, projectID, turnID)
+	return answer, r.afterYourAnswer(ctx, projectID, before, answer.PremiseChanged)
 }

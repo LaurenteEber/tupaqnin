@@ -84,6 +84,9 @@ type Runner struct {
 	// slot (B-36).
 	mu      sync.Mutex
 	running map[string]bool
+	// defenses are the sections, by project, whose defense waits for
+	// the turn slot (P-86), guarded by mu.
+	defenses map[string][]string
 
 	// The wait before each project's batch of your edits (B-36), guarded
 	// by mu; closed stops new waits, and batches counts those running so
@@ -264,6 +267,8 @@ func (r *Runner) endTurn(ctx context.Context, projectID, turnID string) {
 	if err := r.runQueuedProbes(ctx, projectID, turnID); err != nil && ctx.Err() == nil && r.Logger != nil {
 		r.Logger.Error("queued probe failed", "error", err.Error())
 	}
+	// P-86: the defenses your answers left waiting during the turn.
+	r.runQueuedDefenses(ctx, projectID)
 }
 
 // RequestSignoff is asking to sign (7a) with B-36: the batch of your

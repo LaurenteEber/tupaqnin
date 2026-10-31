@@ -160,7 +160,7 @@ type signoffIndex struct {
 	created  map[string]int
 }
 
-func loadSignoffs(ctx context.Context, db *store.DB, projectID string) (*signoffIndex, []store.Event, error) {
+func loadSignoffs(ctx context.Context, db store.Querier, projectID string) (*signoffIndex, []store.Event, error) {
 	objects, err := db.ListObjects(ctx, projectID, store.ObjectSignoff)
 	if err != nil {
 		return nil, nil, err
@@ -258,8 +258,9 @@ func ActiveSignoff(ctx context.Context, db *store.DB, projectID, sectionID strin
 }
 
 // SectionsInSignoff returns the ids of the sections with a signoff in
-// progress (B-14: an agent step that touches one is rejected there).
-func SectionsInSignoff(ctx context.Context, db *store.DB, projectID string) (map[string]bool, error) {
+// progress (B-14: an agent step that touches one is rejected there);
+// in a transaction too (P-89: the step's write checks it again).
+func SectionsInSignoff(ctx context.Context, db store.Querier, projectID string) (map[string]bool, error) {
 	idx, _, err := loadSignoffs(ctx, db, projectID)
 	if err != nil {
 		return nil, err

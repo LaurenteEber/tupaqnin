@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -249,6 +250,137 @@ func (r *Runner) prepareDefense(ctx context.Context, projectID, turnID, section 
 		}
 		return nil
 	})
+}
+
+// sectionsNotReady are the labels of the project's sections that could
+// not be signed now (graph.SectionClear), read before your answer so
+// defendReadyByYou knows which ones your answer left ready (P-86).
+func (r *Runner) sectionsNotReady(ctx context.Context, projectID string) (map[string]bool, error) {
+	sections, err := graph.OrderedSections(ctx, r.db, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, sec := range sections {
+		ok, err := graph.SectionClear(ctx, r.db, projectID, sec.Label)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			out[sec.Label] = true
+		}
+	}
+	return out, nil
+}
+
+// afterYourAnswer runs, in the project's turn slot, what your answer
+// to a card or a «por aclarar» leaves to do: the queued probes when you
+// changed the premise (P-72), then the defense of each section your
+// answer left ready (P-86, backlog-r2 2.6, fichas §8.2), with the
+// conditions and the P-76 rule of prepareDefense. The judge is called
+// after the answer's transaction, never inside one. A probe's failure
+// is returned, as before; the defense's is logged by code only, since
+// it blocks nothing.
+// [EL DISEÑO NO LO DICE]: with a turn of the project running, the
+// defense waits in the runner, in memory, and runs when that turn ends
+// (endTurn), as P-72's probes do; a restart in between drops it, and
+// the next stop that proposes signing the section prepares it. It runs
+// in the answer's request, as the premise's probe does.
+func (r *Runner) afterYourAnswer(ctx context.Context, projectID string, before map[string]bool, probes bool) error {
+	if !r.tryAcquireTurn(projectID) {
+		ready, err := readyAmong(ctx, r.db, projectID, before)
+		if err != nil {
+			return err
+		}
+		r.queueDefenses(projectID, ready)
+		return nil
+	}
+	defer r.releaseTurn(projectID)
+	if probes {
+		turnID, err := newTurnID()
+		if err != nil {
+			return err
+		}
+		if err := r.runQueuedProbes(ctx, projectID, turnID); err != nil {
+			return err
+		}
+	}
+	ready, err := readyAmong(ctx, r.db, projectID, before)
+	if err != nil {
+		return err
+	}
+	r.queueDefenses(projectID, ready)
+	r.runQueuedDefenses(ctx, projectID)
+	return nil
+}
+
+// readyAmong are the labels, among those given, of the sections that
+// could be signed now, in the project's order.
+func readyAmong(ctx context.Context, db *store.DB, projectID string, labels map[string]bool) ([]string, error) {
+	sections, err := graph.OrderedSections(ctx, db, projectID)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, sec := range sections {
+		if !labels[sec.Label] {
+			continue
+		}
+		ok, err := graph.SectionClear(ctx, db, projectID, sec.Label)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, sec.Label)
+		}
+	}
+	return out, nil
+}
+
+// queueDefenses keeps the sections whose defense waits for the turn
+// slot (P-86), each once.
+func (r *Runner) queueDefenses(projectID string, labels []string) {
+	if len(labels) == 0 {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.defenses == nil {
+		r.defenses = map[string][]string{}
+	}
+	for _, label := range labels {
+		if !slices.Contains(r.defenses[projectID], label) {
+			r.defenses[projectID] = append(r.defenses[projectID], label)
+		}
+	}
+}
+
+// runQueuedDefenses prepares the defense of each queued section still
+// ready, with a turn id of its own, so the conversation shows its
+// questions apart from any stop report (P-86). The caller holds the
+// project's turn slot.
+func (r *Runner) runQueuedDefenses(ctx context.Context, projectID string) {
+	r.mu.Lock()
+	labels := r.defenses[projectID]
+	delete(r.defenses, projectID)
+	r.mu.Unlock()
+	if len(labels) == 0 {
+		return
+	}
+	turnID, err := newTurnID()
+	for _, label := range labels {
+		if err != nil {
+			break
+		}
+		var ok bool
+		if ok, err = graph.SectionClear(ctx, r.db, projectID, label); err != nil || !ok {
+			continue
+		}
+		err = r.prepareDefense(ctx, projectID, turnID, label)
+	}
+	if err != nil && ctx.Err() == nil && r.Logger != nil {
+		r.Logger.Error("defense after your answer failed", "error", err.Error())
+	}
 }
 
 // sameTextAsLastDefense reports whether the section's text has the

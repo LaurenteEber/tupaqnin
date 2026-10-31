@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -119,5 +120,63 @@ func TestP85_AStopWithoutReportShowsTheAgentStoppedLine(t *testing.T) {
 	}
 	if got[1].Kind != "step" || got[1].StoppedWithoutReport {
 		t.Fatalf("step with report: %+v, want the line left to the report", got[1])
+	}
+}
+
+// P-85 (Eber, 31-oct): the step's rejection writes turn_kind «step» in
+// its output_retry from now on, and the conversation still shows it as
+// the pending step that says why it stopped.
+func TestP85_RejectWritesTurnKindStep(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	ctx := context.Background()
+	gate := cycle.NewGate(db)
+	for attempt := 1; attempt <= 2; attempt++ {
+		if _, err := gate.Reject(ctx, projectID, "t1", attempt, []string{"/new_text/0/base_version: stale"}); err != nil {
+			t.Fatalf("reject %d: %v", attempt, err)
+		}
+	}
+	events, err := db.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		t.Fatalf("EventsSince: %v", err)
+	}
+	retries := 0
+	for _, ev := range events {
+		if ev.Type != store.EventOutputRetry {
+			continue
+		}
+		retries++
+		var data map[string]any
+		_ = json.Unmarshal(ev.Data, &data)
+		if data["turn_kind"] != "step" {
+			t.Fatalf("output_retry %s, want turn_kind step", ev.Data)
+		}
+	}
+	if retries != 2 {
+		t.Fatalf("output_retry events: %d, want 2", retries)
+	}
+	got := decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, "/api/projects/"+projectID+"/conversation", nil))
+	if len(got) != 1 || got[0].Kind != "step" || got[0].Status != "agent_pending" || got[0].StopReason != "agent_pending" {
+		t.Fatalf("entries: %+v, want the pending step", got)
+	}
+}
+
+// P-85 kept: an output_retry written before the change, without
+// turn_kind, still shows as the pending step.
+func TestP85_AnOldRejectionWithoutTurnKindStillShows(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	ctx := context.Background()
+	err := db.Write(ctx, projectID, func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventOutputRetry, Actor: "agent", AgentRole: "principal",
+			TurnID: "t1", Data: map[string]any{"attempt": 2, "errors": []string{"x"}, "result": "agent_pending"}})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	got := decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, "/api/projects/"+projectID+"/conversation", nil))
+	if len(got) != 1 || got[0].Kind != "step" || got[0].StopReason != "agent_pending" || !got[0].StoppedWithoutReport {
+		t.Fatalf("entries: %+v, want the old pending step", got)
 	}
 }

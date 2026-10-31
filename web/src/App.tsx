@@ -4,6 +4,7 @@ import {
   continueFromStopReport,
   createProject,
   getSummary,
+  answerAudienceQuestion,
   getConversation,
   getSection,
   listProjects,
@@ -500,6 +501,13 @@ export function App() {
                 stream={stream}
                 rawStream={rawStream}
                 errorCode={errorCode}
+                disabled={!editor || working}
+                onAnswerAudience={(label, answer) => {
+                  // P-86: the question keeps showing with its new state.
+                  void answerAudienceQuestion(projectID, label, answer)
+                    .catch(() => undefined)
+                    .then(() => refreshConversation(projectID));
+                }}
                 report={
                   <StopReportPanel
                     lang={lang}

@@ -202,3 +202,41 @@ func TestK17_EditingDetailsOutsideThePlanDoesNotConfirmIt(t *testing.T) {
 		t.Fatalf("sec-2 focus: %q, want none", f)
 	}
 }
+
+// P-84 (T-4, Eber 31-oct): your edit from a tab that read sec-1 before
+// the plan was confirmed is accepted, since confirming changed the focus
+// and not the text; the write keeps the focus and lands on the current
+// version.
+func TestP84_YourEditOnAStaleTabAfterThePlanIsConfirmedIsAccepted(t *testing.T) {
+	h, _, base := withPlan(t)
+	before := decode[server.SectionDetail](t, do(t, h, http.MethodGet, base+"/sections/sec-1", nil))
+	if rec := do(t, h, http.MethodPost, base+"/plan/confirm", nil); rec.Code != http.StatusOK {
+		t.Fatalf("confirm plan: %d", rec.Code)
+	}
+	rec := do(t, h, http.MethodPut, base+"/sections/sec-1",
+		map[string]any{"base_version": before.Version, "text": "Solo estudios de campo."})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("save from the stale tab: %d %s, want 200", rec.Code, rec.Body.String())
+	}
+	after := decode[server.SectionDetail](t, do(t, h, http.MethodGet, base+"/sections/sec-1", nil))
+	if after.Text != "Solo estudios de campo." || after.Focus != "Qué estudios cuentan como de campo." ||
+		after.Version != before.Version+2 {
+		t.Fatalf("sec-1 after: %+v, want your text on the confirmed version with its focus", after)
+	}
+}
+
+// P-84 kept: when the text changed since the tab read it, your edit
+// still gets 409 version_conflict.
+func TestP84_YourEditAfterATextChangeIsStill409(t *testing.T) {
+	h, _, base := withPlan(t)
+	before := decode[server.SectionDetail](t, do(t, h, http.MethodGet, base+"/sections/sec-1", nil))
+	if rec := do(t, h, http.MethodPut, base+"/sections/sec-1",
+		map[string]any{"base_version": before.Version, "text": "Primera."}); rec.Code != http.StatusOK {
+		t.Fatalf("first save: %d %s", rec.Code, rec.Body.String())
+	}
+	rec := do(t, h, http.MethodPut, base+"/sections/sec-1",
+		map[string]any{"base_version": before.Version, "text": "Desde la pestaña vieja."})
+	if rec.Code != http.StatusConflict || decode[map[string]string](t, rec)["error"] != "version_conflict" {
+		t.Fatalf("stale save: %d %s, want 409 version_conflict", rec.Code, rec.Body.String())
+	}
+}

@@ -90,10 +90,12 @@ func (g *Gate) EndStep(ctx context.Context, projectID, turnID string, attempt in
 
 // Reject records an output that did not pass (the fixed shape, or rules
 // 2 to 6, which count as the retry): output_retry, then retry at
-// attempt 1 and agent_pending at attempt 2 (fichas §7).
+// attempt 1 and agent_pending at attempt 2 (fichas §7). P-85 (Eber,
+// 31-oct): it names its turn_kind, step; the events written before
+// without it are still read as the step's.
 func (g *Gate) Reject(ctx context.Context, projectID, turnID string, attempt int, errs []string) (StepResult, error) {
 	status := StatusRetry
-	data := map[string]any{"attempt": attempt, "errors": errs}
+	data := map[string]any{"turn_kind": "step", "attempt": attempt, "errors": errs}
 	if attempt >= 2 {
 		status = StatusAgentPending
 		data["result"] = "agent_pending"

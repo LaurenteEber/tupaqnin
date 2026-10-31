@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -150,6 +151,12 @@ func (s *Server) getTodo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, todo)
 }
 
+// CardAnswerer answers a card and then prepares the defense of the
+// section the answer left ready (P-86); the runner does.
+type CardAnswerer interface {
+	AnswerCard(ctx context.Context, projectID, cardLabel, option, reason string) (cycle.CardAnswer, error)
+}
+
 // POST /api/projects/{projectID}/cards/{label}/answer with
 // {option: keep · other, reason}.
 // [EL DISEÑO NO LO DICE]: the status codes; 422 invalid_reason (the
@@ -169,7 +176,11 @@ func (s *Server) answerCard(w http.ResponseWriter, r *http.Request) {
 	if req.Option != nil {
 		option = *req.Option
 	}
-	answer, err := cycle.NewGate(s.db).AnswerCard(r.Context(), projectID, r.PathValue("label"), option, req.Reason)
+	answerCard := cycle.NewGate(s.db).AnswerCard
+	if a, ok := s.starter.(CardAnswerer); ok {
+		answerCard = a.AnswerCard // P-86: the runner prepares the defense
+	}
+	answer, err := answerCard(r.Context(), projectID, r.PathValue("label"), option, req.Reason)
 	switch {
 	case errors.Is(err, cycle.ErrCardNotFound):
 		writeError(w, http.StatusNotFound, "card_not_found")

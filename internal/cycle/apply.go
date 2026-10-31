@@ -185,6 +185,10 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	if errors.As(err, &stale) {
 		return ApplyResult{Errors: []string{stale.Error()}}, nil
 	}
+	var locked errLocked
+	if errors.As(err, &locked) {
+		return ApplyResult{Errors: []string{locked.Error()}}, nil
+	}
 	if err != nil {
 		return ApplyResult{}, err
 	}
@@ -387,6 +391,26 @@ type rejectedText struct {
 	section string
 	text    string
 	message string
+}
+
+// errLocked is a section whose signoff started, or that was signed,
+// between the step's validation and its write (P-89, B-14): the whole
+// step is rejected, since its transaction rolls back, and retried once.
+// [EL DISEÑO NO LO DICE]: the whole step, not only that text, is
+// rejected at the write; the retry validates again and then rejects
+// only that text (lockedMessage).
+type errLocked struct {
+	label   string
+	signing bool
+}
+
+func (e errLocked) Error() string {
+	if e.signing {
+		return fmt.Sprintf("%s started being signed by the person after you read it: your step was not applied. "+
+			"Do not write in %s while it is being signed; send the rest of your step again", e.label, e.label)
+	}
+	return fmt.Sprintf("%s was signed by the person after you read it: your step was not applied. "+
+		"Do not write in it until the person signs it again; send the rest of your step again", e.label)
 }
 
 // lockedMessage tells the agent why its text on a section was not
@@ -880,6 +904,11 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	}
 	written := map[string]bool{} // section ids the step wrote
 	resultText := map[string]string{}
+	// P-89: the signoffs in progress read again in the transaction.
+	inSignoff, err := graph.SectionsInSignoff(context.Background(), tx, tx.ProjectID())
+	if err != nil {
+		return nil, err
+	}
 
 	for _, sp := range pl.sections {
 		// The step's texts and anchors go in its event, so the history by
@@ -923,6 +952,11 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		obj, err := tx.Object(read.ID)
 		if err != nil {
 			return nil, err
+		}
+		// P-89 (B-14): a signoff that started, or a signature, after the
+		// validation rejects the step here, in the write's transaction.
+		if inSignoff[obj.ID] || obj.State == "signed" || obj.State == "changed_since_signoff" {
+			return nil, errLocked{label: sp.ref, signing: inSignoff[obj.ID]}
 		}
 		if obj.CurrentVersion != sp.readVersion &&
 			(obj.State != read.State || bodyStr(bodyOf(obj), "text") != sp.readText) {

@@ -7,7 +7,7 @@ import { translate, type Lang } from "../i18n";
 // events), then the turn in flight as it streams. When a turn ends the
 // page refetches the history and drops the stream, so nothing shows
 // twice.
-export function ConversationPanel({ lang, entries, requestText, working, stream, rawStream, errorCode, report }: {
+export function ConversationPanel({ lang, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience }: {
   lang: Lang;
   entries: ConversationEntry[];
   // The sent request already shows as your first message, with its
@@ -20,6 +20,10 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
   // P6 (backlog-r2 2.5): the last stop report, complete, in the place of
   // its entry; earlier reports show their first line.
   report?: ReactNode;
+  // P-86: «Sí» and «No» on an audience question of a defense prepared
+  // after your answer, with no stop report.
+  disabled?: boolean;
+  onAnswerAudience?: (label: string, answer: "yes" | "no") => void;
 }) {
   const t = (key: string) => translate(lang, key);
 
@@ -48,7 +52,7 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
         i === lastReport && report ? (
           <div key={`${e.created_at}-${i}`}>{report}</div>
         ) : (
-          <Entry key={`${e.created_at}-${i}`} lang={lang} entry={e} />
+          <Entry key={`${e.created_at}-${i}`} lang={lang} entry={e} disabled={disabled} onAnswerAudience={onAnswerAudience} />
         ),
       )}
 
@@ -89,7 +93,12 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
   );
 }
 
-function Entry({ lang, entry }: { lang: Lang; entry: ConversationEntry }) {
+function Entry({ lang, entry, disabled, onAnswerAudience }: {
+  lang: Lang;
+  entry: ConversationEntry;
+  disabled?: boolean;
+  onAnswerAudience?: (label: string, answer: "yes" | "no") => void;
+}) {
   const t = (key: string) => translate(lang, key);
   switch (entry.kind) {
     case "message":
@@ -135,6 +144,31 @@ function Entry({ lang, entry }: { lang: Lang; entry: ConversationEntry }) {
           <p className="meta">{t(`turn.stop.${entry.stop_reason}`)}</p>
           {entry.incomplete && <p className="meta">{t("stop_report.incomplete")}</p>}
           {entry.text && <p className="reply">{entry.text}</p>}
+        </div>
+      );
+    case "audience_question":
+      // P-86: a likely question of your reader, from a defense prepared
+      // when your answer left the section ready. It never blocks signing.
+      return (
+        <div className="note">
+          <p className="meta">{translate(lang, "conversation.audience_question", { section: entry.section ?? "" })}</p>
+          <p>
+            {entry.not_covered ? translate(lang, "stop_report.defense.not_covered", { text: entry.text ?? "" }) : entry.text}{" "}
+            {entry.state === "open" && entry.label ? (
+              <>
+                <button type="button" className="small" disabled={disabled}
+                  onClick={() => entry.label && onAnswerAudience?.(entry.label, "yes")}>
+                  {t("stop_report.defense.yes")}
+                </button>{" "}
+                <button type="button" className="small" disabled={disabled}
+                  onClick={() => entry.label && onAnswerAudience?.(entry.label, "no")}>
+                  {t("stop_report.defense.no")}
+                </button>
+              </>
+            ) : (
+              <span className="meta">{t(`conversation.audience_question.${entry.state}`)}</span>
+            )}
+          </p>
         </div>
       );
     default:
