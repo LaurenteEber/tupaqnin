@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -174,6 +175,13 @@ func chooseOther(ctx context.Context, tx *store.Tx, old store.Object, reason str
 			Data: map[string]any{"label": old.Label, "from": "agent", "to": "superseded", "by": born.Label}}); err != nil {
 		return store.Object{}, err
 	}
+	// Replacing warns the sections that use it, like any replacement
+	// (B-16, estados §2, rule 4: «escrita con lo anterior», P-65). It
+	// runs before used_in moves to the born decision, while the edges
+	// still leave from the replaced one.
+	if _, err := checks.Warn(ctx, tx, "human", "", []string{old.ID}, nil); err != nil {
+		return store.Object{}, err
+	}
 	edge := store.EventInput{Type: store.EventEdge, Actor: "human"}
 	if _, err := tx.AddEdge(store.EdgeSupersedes, born.ID, old.ID, "", nil, edge); err != nil {
 		return store.Object{}, err
@@ -201,9 +209,8 @@ func chooseOther(ctx context.Context, tx *store.Tx, old store.Object, reason str
 		if err := tx.EndEdge(e.ID, edge); err != nil {
 			return store.Object{}, err
 		}
-		// Answering a card does not warn (B-45): the section's used_in
-		// starts from the born decision, with what it is now; «texto con
-		// una decisión reemplazada» (B-16) asks the agent to rewrite it.
+		// The warning above already entered the section's list; used_in
+		// starts from the born decision, with what it is now (B-45).
 		if _, err := tx.AddEdge(store.EdgeUsedIn, born.ID, e.ToID, e.Anchor, graph.UsageOf(born), edge); err != nil {
 			return store.Object{}, err
 		}

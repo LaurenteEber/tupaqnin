@@ -527,12 +527,6 @@ export const PendingSourceNotSupporting = "source_not_supporting";
  */
 export const PendingMalformedOutput = "malformed_output";
 /**
- * PendingSupersededDecision is «texto con una decisión reemplazada»
- * (B-16). [EL DISEÑO NO LO DICE]: the glossary has no code name for
- * it; this is the smallest English one.
- */
-export const PendingSupersededDecision = "superseded_decision_in_text";
-/**
  * Slice 2 (glossary §9, backlog-r2 2.1).
  */
 export const PendingTextWithoutDecision = "text_without_decision";

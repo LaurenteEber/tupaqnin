@@ -60,27 +60,24 @@ func TestB15_LooseNumberIsAPendingOfTheSection(t *testing.T) {
 	}
 }
 
-// B-16, B-15: the other option leaves «texto con una decisión
-// reemplazada» until an agent step on the section declares your
-// decision among those it uses.
-func TestB16_SupersededDecisionInTextClosesWithTheNextStepThatDeclaresIt(t *testing.T) {
+// P-65, B-16, estados §2: the other option replaces the decision, and
+// the sections that use it get their warning like any replacement
+// (rule 4, «escrita con lo anterior», E-4); no pending of its own.
+func TestP65_OtherOptionWarnsTheSectionsThatUseTheDecision(t *testing.T) {
 	db := cleanCardProject(t)
 	if _, err := cycle.NewGate(db).AnswerCard(context.Background(), "p1", "card-1", cycle.OptionOther, "Porque el comité pidió conteos."); err != nil {
 		t.Fatalf("AnswerCard: %v", err)
 	}
 	st, pendings := status(t, db, "sec-1")
-	if st != graph.StatusDraft || len(pendings) != 1 || pendings[0].Kind != graph.PendingSupersededDecision || pendings[0].About != "dec-4" {
-		t.Fatalf("after other: %s %v", st, pendings)
+	if st != graph.StatusStale || len(pendings) != 0 {
+		t.Fatalf("after other: %s %v, want stale without pendings", st, pendings)
 	}
 	sec, _ := object(t, db, "sec-1")
-	step := `{"stretch": "build", "triage_line":"Construir.","closing_risk":"none","note":"Reescribo con tu decisión.",
-		"new_text":[{"section_id":"sec-1","base_version":` + itoa(sec.CurrentVersion) + `,"anchor":"Cierre.","claim_origin": "material", "operation":"replace","text":"Cierre con conteos crudos."}],
-		"used_decisions":["dec-4"]}`
-	if applied := applyRecorded(t, db, json.RawMessage(step)); !applied.Applied {
-		t.Fatalf("step: %v", applied.Errors)
-	}
-	if st, pendings := status(t, db, "sec-1"); st != graph.StatusReady {
-		t.Fatalf("after the step: %s %v, want ready", st, pendings)
+	changes := graph.OpenChanges(sec)
+	// The change names the replaced decision, as when the agent
+	// replaces one (dec-4 is the one born from the card).
+	if len(changes) != 1 || changes[0].Kind != "decision" || changes[0].About != "dec-3" {
+		t.Fatalf("open changes: %v, want one about dec-3", changes)
 	}
 }
 

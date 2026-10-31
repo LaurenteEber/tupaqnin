@@ -1048,8 +1048,8 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 			longDeferred = append(longDeferred, i)
 		}
 	}
-	// The sections the step wrote and the decisions it declared, so the
-	// pending «texto con una decisión reemplazada» can close (B-15).
+	// The sections the step wrote and the decisions it declared, in the
+	// step's history (the pending they closed was retired by P-65).
 	// [EL DISEÑO NO LO DICE]: step_ended does not list them; they are
 	// added to its data.
 	writtenLabels := []string{}

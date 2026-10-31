@@ -26,10 +26,6 @@ const (
 	PendingFigureWithoutDecision = "figure_without_decision"
 	PendingSourceNotSupporting   = "source_not_supporting"
 	PendingMalformedOutput       = "malformed_output"
-	// PendingSupersededDecision is «texto con una decisión reemplazada»
-	// (B-16). [EL DISEÑO NO LO DICE]: the glossary has no code name for
-	// it; this is the smallest English one.
-	PendingSupersededDecision = "superseded_decision_in_text"
 	// Slice 2 (glossary §9, backlog-r2 2.1).
 	PendingTextWithoutDecision = "text_without_decision"
 	PendingInternalCodes       = "internal_codes"
@@ -112,13 +108,6 @@ func SectionStatus(ctx context.Context, db store.Querier, projectID, label strin
 	if malformedOutputOpen(events) {
 		pendings = append(pendings, Pending{Kind: PendingMalformedOutput})
 	}
-	superseded, err := supersededDecisionsInText(ctx, db, projectID, section, events)
-	if err != nil {
-		return "", nil, err
-	}
-	for _, d := range superseded {
-		pendings = append(pendings, Pending{Kind: PendingSupersededDecision, About: d})
-	}
 	// «Falta en el texto» señalado por Wonder en la firma (B-14, B-15):
 	// the passage of the signoff's event, until the section's fingerprint
 	// changes.
@@ -175,54 +164,6 @@ func malformedOutputOpen(events []store.Event) bool {
 		}
 	}
 	return open
-}
-
-// supersededDecisionsInText is «texto con una decisión reemplazada»
-// (B-15, B-16): a decision of the person born from a card's other option
-// and used in the section, until an agent step that touches the section
-// declares it among the decisions it uses.
-func supersededDecisionsInText(ctx context.Context, db store.Querier, projectID string, section store.Object, events []store.Event) ([]string, error) {
-	born := map[string]int{} // decision id → seq of its birth from a card
-	for _, ev := range events {
-		data := eventData(ev)
-		if ev.Type == store.EventStateChanged && data["via"] == "card" && data["replaces"] != nil {
-			born[ev.ObjectID] = ev.Seq
-		}
-	}
-	var out []string
-	for decID, seq := range born {
-		used, err := usedIn(ctx, db, projectID, decID, section.ID)
-		if err != nil {
-			return nil, err
-		}
-		if !used {
-			continue
-		}
-		dec, err := db.GetObject(ctx, projectID, decID)
-		if err != nil {
-			return nil, err
-		}
-		if !declaredAfter(events, seq, section.Label, dec.Label) {
-			out = append(out, dec.Label)
-		}
-	}
-	return out, nil
-}
-
-// declaredAfter reports an agent step after seq that wrote the section
-// and declared the decision in used_decisions (its step_ended records
-// both).
-func declaredAfter(events []store.Event, seq int, sectionLabel, decisionLabel string) bool {
-	for _, ev := range events {
-		if ev.Seq <= seq || ev.Type != store.EventStepEnded {
-			continue
-		}
-		data := eventData(ev)
-		if contains(data["written_sections"], sectionLabel) && contains(data["used_decisions"], decisionLabel) {
-			return true
-		}
-	}
-	return false
 }
 
 func contains(list any, want string) bool {
