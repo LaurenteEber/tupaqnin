@@ -3,7 +3,7 @@ import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import type { Warning } from "../api/graph";
+import type { Paragraph as GoParagraph, Warning } from "../api/graph";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
@@ -23,6 +23,13 @@ import { translate, type Lang } from "../i18n";
 // A change outside the editor that leaves the text as it was last
 // saved (the role, P-27) still makes a new version: the editor takes
 // it, so the next save is not a 409. A change of text does not.
+//
+// Its paragraphs are Go's (P-78): one per block of the history, a list
+// item one each, so paragraph n is block n for the underlines, the
+// «sin verificar» marks and the click that opens a paragraph's history.
+// Between two paragraphs that are still the ones Go gave, side by side,
+// the text keeps Go's separator (a list stays tight); anywhere else a
+// blank line, as before.
 export function SectionEditor({
   lang,
   projectID,
@@ -36,6 +43,7 @@ export function SectionEditor({
   unverified,
   version,
   text,
+  paragraphs,
   onSaved,
   registerSave,
 }: {
@@ -58,6 +66,9 @@ export function SectionEditor({
   unverified: number[];
   version: number;
   text: string;
+  // Go's paragraphs of text (P-78); without them, or when they are not
+  // this text, the editor splits on blank lines.
+  paragraphs?: GoParagraph[];
   onSaved: (label: string, version: number, text: string) => void;
   registerSave: (fn: () => Promise<void>) => void;
 }) {
@@ -70,20 +81,22 @@ export function SectionEditor({
     }
   }, [version, text]);
 
+  // The paragraphs the editor opens with, and their separators by the
+  // index each paragraph carries (`data-block`, P-78).
+  const initial = useRef<GoParagraph[] | null>(null);
+  if (initial.current === null) initial.current = editorParagraphs(text, paragraphs);
+  const separators = initial.current.map((p) => p.separator);
+
   const editor = useEditor({
     editable: !readOnly,
-    extensions: [Document, Paragraph, Text, WarningUnderlines],
-    content: text
-      .split(/\n{2,}/)
-      .map((p) => `<p>${escapeHTML(p)}</p>`)
-      .join(""),
+    extensions: [Document, BlockParagraph, Text, WarningUnderlines],
+    content: initial.current.map((p, i) => `<p data-block="${i}">${escapeHTML(p.text)}</p>`).join(""),
     editorProps: {
       attributes: { class: "section-editor-content" },
     },
   });
 
-  const currentText = () =>
-    editor ? editor.getText({ blockSeparator: "\n\n" }) : text;
+  const currentText = () => (editor ? joinParagraphs(editor.state.doc, separators) : text);
 
   useEffect(() => {
     editor?.setEditable(!readOnly);
@@ -184,9 +197,8 @@ export function SectionEditor({
             return;
           }
           // A click on a paragraph opens its history (P5). Each paragraph of
-          // the editor is one block of the section (B-10).
-          // [EL DISEÑO NO LO DICE]: the minimal editor has paragraphs only;
-          // paragraph n is block n.
+          // the editor is one block of the section (B-10), as Go numbers
+          // them: one per list item (P-78).
           const p = (ev.target as HTMLElement).closest("p");
           const root = p?.parentElement;
           if (p && root) onBlock(Array.prototype.indexOf.call(root.children, p) + 1);
@@ -195,6 +207,55 @@ export function SectionEditor({
     </div>
   );
 }
+
+// editorParagraphs are the paragraphs the editor opens with: Go's when
+// they rebuild this exact text, else the text split on blank lines.
+function editorParagraphs(text: string, paragraphs?: GoParagraph[]): GoParagraph[] {
+  if (paragraphs && paragraphs.length > 0 && paragraphs.map((p) => p.text + p.separator).join("") === text) {
+    return paragraphs;
+  }
+  const parts = text.split(/\n{2,}/);
+  return parts.map((p, i) => ({ text: p, separator: i < parts.length - 1 ? "\n\n" : "" }));
+}
+
+// joinParagraphs is the editor's text: each paragraph, then Go's
+// separator when the next paragraph is still the one Go gave after it,
+// else a blank line; after the last, the text's original end if it is
+// still the last one Go gave.
+function joinParagraphs(doc: PMNode, separators: string[]): string {
+  const parts: string[] = [];
+  const count = doc.childCount;
+  doc.forEach((node, _offset, index) => {
+    const block = node.attrs.block as number | null;
+    parts.push(node.textContent);
+    if (index < count - 1) {
+      const next = doc.child(index + 1).attrs.block as number | null;
+      const sep = block !== null && next === block + 1 ? separators[block] : undefined;
+      parts.push(sep ?? "\n\n");
+    } else if (block !== null && block === separators.length - 1) {
+      parts.push(separators[block]);
+    }
+  });
+  return parts.join("");
+}
+
+// The paragraph keeps the index of Go's paragraph it opened as; a
+// paragraph split off, pasted or typed new has none. It never shows.
+const BlockParagraph = Paragraph.extend({
+  addAttributes() {
+    return {
+      block: {
+        default: null,
+        keepOnSplit: false,
+        parseHTML: (el: HTMLElement) => {
+          const v = el.getAttribute("data-block");
+          return v === null ? null : Number(v);
+        },
+        renderHTML: () => ({}),
+      },
+    };
+  },
+});
 
 // One underline the plugin draws: Go's place of a warning's passage.
 type Underline = { kind: string; target: string; block: number; start: number; end: number; title: string };

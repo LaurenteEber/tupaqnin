@@ -52,6 +52,9 @@ type SectionView struct {
 	// Unverified are the paragraphs (blocks, from 1) without a verified
 	// origin: the page marks them «sin verificar» (R-1).
 	Unverified []int `json:"unverified"`
+	// Paragraphs are the editor's paragraphs, one per block of the
+	// history (P-78): paragraph n is block n, a list item one each.
+	Paragraphs []graph.Paragraph `json:"paragraphs"`
 }
 
 type PutSectionRequest struct {
@@ -245,7 +248,7 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 		}
 		views = append(views, SectionView{Label: obj.Label, Title: str(bodyMap(obj), "title"), Focus: str(bodyMap(obj), "focus"),
 			Version: obj.CurrentVersion, State: string(status), Pendings: len(pendings), Text: sectionText(obj),
-			Unverified: unverified})
+			Unverified: unverified, Paragraphs: graph.Paragraphs(sectionText(obj))})
 	}
 	writeJSON(w, http.StatusOK, views)
 }

@@ -207,6 +207,9 @@ export function App() {
       prev.map((s) => (s.label === label ? { ...s, version, text } : s)),
     );
     bumpFrame(); // the first line may have changed (M-4)
+    // Go's paragraphs of the saved text (P-78), for the next time the
+    // editor opens this section.
+    if (projectID) void refreshSections(projectID);
   }
 
   // 7a: only you ask to sign. The editor saves first (§2); Go opens the
@@ -623,6 +626,7 @@ export function App() {
                   unverified={current.unverified ?? []}
                   version={current.version}
                   text={current.text}
+                  paragraphs={current.paragraphs}
                   onSaved={onSaved}
                   registerSave={registerSave}
                 />

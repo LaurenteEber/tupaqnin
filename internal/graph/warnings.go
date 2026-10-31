@@ -3,7 +3,6 @@ package graph
 import (
 	"context"
 	"regexp"
-	"strings"
 	"unicode/utf16"
 
 	"golang.org/x/text/unicode/norm"
@@ -160,17 +159,17 @@ func codeAsWritten(text, code string) string {
 // place puts the warning at the first block where passage is literal
 // (T-4 comparison), with the passage as the text spells it. Start and
 // End count from the start of the paragraph the editor shows for that
-// block: the text between blank lines that holds it (the minimal editor
-// splits on blank lines and shows the Markdown literally, so a heading
-// keeps its «## »). A passage that is not in one block leaves the
-// warning without a place and without a passage: it goes only in the
-// band.
+// block, one per block (P-78, Paragraphs): from its first line, so a
+// heading keeps its «## » and a list item its marker. A passage that
+// is not in one block leaves the warning without a place and without a
+// passage: it goes only in the band.
 // [EL DISEÑO NO LO DICE]: the offsets' unit; UTF-16 code units, the
 // editor's.
 func (w *Warning) place(text, passage string) {
 	if passage == "" {
 		return
 	}
+	starts := paragraphStarts(text)
 	for i, r := range blockRanges(text) {
 		c := Compare(text[r[0]:r[1]])
 		found := c.Find(passage)
@@ -178,27 +177,13 @@ func (w *Warning) place(text, passage string) {
 			continue
 		}
 		from, to := r[0]+found[0][0], r[0]+found[0][1]
-		para := paragraphStart(text, r[0])
+		para := starts[i]
 		w.Passage = text[from:to]
 		w.Block = i + 1
 		w.Start = utf16Len(text[para:from])
 		w.End = utf16Len(text[para:to])
 		return
 	}
-}
-
-// paragraphStart is where the editor's paragraph that holds byte at
-// begins: after the last run of two or more line breaks before it.
-func paragraphStart(text string, at int) int {
-	i := strings.LastIndex(text[:at], "\n\n")
-	if i < 0 {
-		return 0
-	}
-	i += 2
-	for i < at && text[i] == '\n' {
-		i++
-	}
-	return i
 }
 
 func utf16Len(s string) int { return len(utf16.Encode([]rune(s))) }
