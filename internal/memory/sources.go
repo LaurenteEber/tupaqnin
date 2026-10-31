@@ -109,15 +109,17 @@ func (m *Memory) ReadSource(ctx context.Context, projectID, instanceID, label, s
 		}
 		paragraphs := graph.Blocks(decodeBody(src).str("text"))
 		from, to := parseSpan(span, len(paragraphs))
+		// P-83: the paragraphs go between the source markers; the
+		// header is the app's and stays outside.
 		var sb strings.Builder
-		fmt.Fprintf(&sb, "%s, paragraphs %d-%d of %d:\n", src.Label, from, to, len(paragraphs))
 		for i := from; i <= to; i++ {
 			fmt.Fprintf(&sb, "[%d] %s\n", i, paragraphs[i-1])
 		}
 		if err := m.recordRead(ctx, projectID, instanceID, src); err != nil {
 			return "", err
 		}
-		return sb.String(), nil
+		return fmt.Sprintf("%s, paragraphs %d-%d of %d:\n%s", src.Label, from, to, len(paragraphs),
+			graph.Delimit(graph.DataSource, sb.String())), nil
 	}
 	if len(labels) == 0 {
 		return "There are no sources in this project.", nil
@@ -162,8 +164,11 @@ func (m *Memory) SearchSources(ctx context.Context, projectID, instanceID, text 
 	if matches == 0 {
 		return "No paragraph of the sources holds that text.", nil
 	}
+	// P-83: the matching paragraphs go between the source markers; the
+	// app's note on the cap stays outside.
+	out := graph.Delimit(graph.DataSource, sb.String())
 	if matches == maxSearchMatches {
-		fmt.Fprintf(&sb, "(first %d matches; search for something narrower to see others)\n", maxSearchMatches)
+		out += fmt.Sprintf("\n(first %d matches; search for something narrower to see others)\n", maxSearchMatches)
 	}
-	return sb.String(), nil
+	return out, nil
 }

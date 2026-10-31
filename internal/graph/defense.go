@@ -67,9 +67,7 @@ func DefenseBrief(ctx context.Context, q store.Querier, projectID, sectionLabel 
 		line("")
 	}
 	line("## Section %s «%s», current text", sec.Label, bodyString(sec, "title"))
-	line("<<<")
-	line("%s", bodyString(sec, "text"))
-	line(">>>")
+	line("%s", Delimit(DataSection, bodyString(sec, "text")))
 	line("")
 	critical, err := SectionCriticalDecisions(ctx, q, projectID, sec.ID)
 	if err != nil {

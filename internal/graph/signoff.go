@@ -668,9 +668,7 @@ func WonderBrief(ctx context.Context, db *store.DB, projectID, signID string) (s
 		line("")
 	}
 	line("## Section %s «%s», current text", section.Label, bodyString(section, "title"))
-	line("<<<")
-	line("%s", bodyString(section, "text"))
-	line(">>>")
+	line("%s", Delimit(DataSection, bodyString(section, "text")))
 	line("")
 	line("## Critical decisions of this section (one entry each in \"decisions\", by label)")
 	for _, ref := range body.Critical {
@@ -733,9 +731,7 @@ func WonderBrief(ctx context.Context, db *store.DB, projectID, signID string) (s
 	}
 	line("")
 	line("## The person's explanation, written without looking (literal)")
-	line("<<<")
-	line("%s", body.Explanation)
-	line(">>>")
+	line("%s", Delimit(DataExplanation, body.Explanation))
 	line("")
 	line("## Application cases of this signoff")
 	if len(body.Cases) == 0 {

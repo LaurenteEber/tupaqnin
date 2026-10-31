@@ -540,7 +540,11 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 		if hasInvisible(item.Text) {
 			fail(path+"/text", "the text carries invisible characters; remove them")
 		}
-		if rawHTML.MatchString(item.Text) {
+		// P-83: a data marker echoed from a brief or a tool result is
+		// never document text (it would also read as raw HTML).
+		if graph.HasMarker(item.Text) {
+			fail(path+"/text", "the text carries a data marker (<<<BEGIN or <<<END); the markers only delimit what you were given and are not part of any text")
+		} else if rawHTML.MatchString(item.Text) {
 			fail(path+"/text", "the text carries raw HTML; write Markdown only")
 		}
 		sp, ok := bySection[item.SectionID]

@@ -26,13 +26,19 @@ var toolSources = []string{
 // two sources src-1 and src-2 of the micro-test.
 func seedToolsProject(t *testing.T, db *store.DB) {
 	t.Helper()
+	seedToolsSources(t, db, toolSources)
+}
+
+// seedToolsSources is seedToolsProject with the given source texts.
+func seedToolsSources(t *testing.T, db *store.DB, sources []string) {
+	t.Helper()
 	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
 		if _, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{"title": "Exposición", "text": "",
 			"role": map[string]any{"value": "other", "state": "proposed"}, "open_changes": []any{}},
 			store.EventInput{Type: store.EventStateChanged, Actor: "agent"}); err != nil {
 			return err
 		}
-		for i, text := range toolSources {
+		for i, text := range sources {
 			if _, err := tx.CreateObject(store.ObjectSource, "", map[string]any{"kind": "material",
 				"filename": []string{"grifos.md", "metodos.md"}[i], "media_type": "text/markdown", "text": text},
 				store.EventInput{Type: store.EventStateChanged, Actor: "human"}); err != nil {

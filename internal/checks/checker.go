@@ -413,9 +413,7 @@ func Brief(ctx context.Context, q store.Querier, projectID string, change Change
 		}
 		line("## New passage of section %s «%s»", sec.Label, bodyText(sec, "title"))
 		for _, text := range bySection[id] {
-			line("<<<")
-			line("%s", text)
-			line(">>>")
+			line("%s", graph.Delimit(graph.DataPassage, text))
 		}
 		line("")
 	}
@@ -441,8 +439,12 @@ func Brief(ctx context.Context, q store.Querier, projectID string, change Change
 			if err != nil {
 				return "", err
 			}
-			pairs = append(pairs, fmt.Sprintf("- %s in %s: claim «%s» · source %s (fingerprint %s): «%s»",
-				cit.Label, sec.Label, bodyText(cit, "anchor"), src.Label, bodyText(src, "fingerprint"), bodyText(cit, "passage")))
+			// P-83: the source's passage goes between the source
+			// markers. The claim is part of a new passage, already
+			// delimited above.
+			pairs = append(pairs, fmt.Sprintf("- %s in %s: claim «%s» · source %s (fingerprint %s), its passage:\n%s",
+				cit.Label, sec.Label, bodyText(cit, "anchor"), src.Label, bodyText(src, "fingerprint"),
+				graph.Delimit(graph.DataSource, bodyText(cit, "passage"))))
 		}
 	}
 	if len(pairs) > 0 {

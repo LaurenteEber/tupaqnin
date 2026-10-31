@@ -324,7 +324,7 @@ func TestA2_CitationWithItsPassageInTheSourceThatDoesNotSupportTheClaim(t *testi
 	}
 	brief := briefOf(t, cap.checker[0])
 	if !strings.Contains(brief, "cit-1 in sec-1: claim «Los estudios usan filtros.» · source src-1") ||
-		!strings.Contains(brief, "«Los filtros finos retienen más partículas.»") || strings.Contains(brief, "cit-2") {
+		!strings.Contains(brief, "<<<BEGIN source>>>\nLos filtros finos retienen más partículas.\n<<<END source>>>") || strings.Contains(brief, "cit-2") {
 		t.Fatalf("brief citations:\n%s", brief)
 	}
 	_, pendings := status(t, db, "sec-1")

@@ -59,7 +59,8 @@ func TestR3_ReadSourceReturnsTheSpanLiterallyAndRecordsTheRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadSource: %v", err)
 	}
-	if out != src.Label+", paragraphs 3-3 of 4:\n[3] El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\n" {
+	// P-83: the paragraphs come between the source markers.
+	if out != src.Label+", paragraphs 3-3 of 4:\n<<<BEGIN source>>>\n[3] El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\n<<<END source>>>" {
 		t.Fatalf("span 3: %q", out)
 	}
 	if reads(t, db) != 1 {
@@ -78,7 +79,7 @@ func TestR3_SearchSourcesFindsTheParagraphAndRecordsTheRead(t *testing.T) {
 	db, src := seedSource(t)
 	mem := memory.New(db)
 	out, err := mem.SearchSources(context.Background(), "p1", "i1", "1,5 VECES")
-	if err != nil || out != src.Label+" [3] El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\n" {
+	if err != nil || out != "<<<BEGIN source>>>\n"+src.Label+" [3] El agua embotellada tuvo 1,5 veces más partículas por litro que la de grifo.\n<<<END source>>>" {
 		t.Fatalf("search: %q, %v", out, err)
 	}
 	if reads(t, db) != 1 {
