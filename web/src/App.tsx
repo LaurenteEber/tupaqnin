@@ -12,6 +12,7 @@ import {
   requestSignoff,
   subscribeTurn,
   type StreamDelta,
+  exportURL,
 } from "./api/client";
 import type { ConversationEntry, ProjectView, SectionView, SignoffBlocked, SummaryView } from "./api/types";
 import { MessageInput } from "./components/MessageInput";
@@ -336,6 +337,14 @@ export function App() {
             <span className="tagline">{t("app.tagline")}</span>
           )}
         </div>
+        {projectID && (
+          // Backlog-r2 2.8 (B-47): the .md comes from Go, unsigned
+          // sections marked. [EL DISEÑO NO LO DICE]: where the download
+          // goes; the header, beside the language switch.
+          <a className="export" href={exportURL(projectID, lang)} download>
+            {t("export.download")}
+          </a>
+        )}
         <div className="lang-switch" role="group" aria-label="language">
           <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
             {t("language.en")}

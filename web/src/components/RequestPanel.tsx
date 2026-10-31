@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getRequest, putRequest, submitRequest, uploadSource } from "../api/client";
+import { getRequest, putAudience, putCriterion, putRequest, submitRequest, uploadSource } from "../api/client";
 import type { RequestView } from "../api/types";
 import { translate, type Lang } from "../i18n";
 
@@ -29,6 +29,10 @@ export function RequestPanel({
   const [kind, setKind] = useState("file");
   const [errorCode, setErrorCode] = useState("");
   const [saved, setSaved] = useState(false);
+  // After submit (backlog-r2 2.8): each criterion's text being edited,
+  // by label, and the last change that saved.
+  const [criterionEdits, setCriterionEdits] = useState<Record<string, string>>({});
+  const [changed, setChanged] = useState("");
 
   useEffect(() => {
     onRequest(view?.submitted ? view.text : "");
@@ -80,6 +84,29 @@ export function RequestPanel({
     }
   }
 
+  async function changeAudience() {
+    setErrorCode("");
+    setChanged("");
+    try {
+      setView(await putAudience(projectID, audience));
+      setChanged("audience");
+    } catch (e) {
+      setErrorCode(e instanceof Error ? e.message : "internal");
+    }
+  }
+
+  async function changeCriterion(label: string, text: string) {
+    setErrorCode("");
+    setChanged("");
+    try {
+      await putCriterion(projectID, label, text);
+      setView(await getRequest(projectID));
+      setChanged(label);
+    } catch (e) {
+      setErrorCode(e instanceof Error ? e.message : "internal");
+    }
+  }
+
   if (!projectID) return null;
 
   // Once sent, the request is your message in the conversation, read
@@ -93,6 +120,39 @@ export function RequestPanel({
             {t("source.title")}: {view.sources.map((s) => s.filename).join(" · ")}
           </div>
         )}
+        {/* Backlog-r2 2.8 (H-3): after sending, the audience and each
+            criterion change on their own routes. [EL DISEÑO NO LO DICE]:
+            where; folded under the sent request. */}
+        <details className="afinar">
+          <summary>{t("request.change")}</summary>
+          <label>
+            {t("request.audience")}
+            <input value={audience} onChange={(e) => setAudience(e.target.value)} />
+          </label>
+          <div className="row">
+            {changed === "audience" && <span className="meta">{t("request.changed")}</span>}
+            <button type="button" onClick={() => void changeAudience()}>{t("request.audience.save")}</button>
+          </div>
+          {view.submitted_criteria.map((c) => (
+            <div key={c.label}>
+              <label>
+                {t("request.criterion")}
+                <input
+                  value={criterionEdits[c.label] ?? c.text}
+                  onChange={(e) => setCriterionEdits({ ...criterionEdits, [c.label]: e.target.value })}
+                />
+              </label>
+              <div className="row">
+                {changed === c.label && <span className="meta">{t("request.changed")}</span>}
+                <button type="button" onClick={() => void changeCriterion(c.label, criterionEdits[c.label] ?? c.text)}>
+                  {t("request.criterion.save")}
+                </button>
+              </div>
+            </div>
+          ))}
+          {view.submitted_criteria.length > 0 && <p className="meta">{t("request.criterion.note")}</p>}
+          {errorCode && <p className="turn-error">{t(`source.error.${errorCode}`)}</p>}
+        </details>
       </div>
     );
   }

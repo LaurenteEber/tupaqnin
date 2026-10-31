@@ -175,6 +175,9 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("GET /api/projects/{projectID}/sections/{label}/history", s.getBlockHistory)
 		mux.HandleFunc("POST /api/projects/{projectID}/sections/{label}/claims/accept", s.acceptClaim)
 		mux.HandleFunc("PUT /api/projects/{projectID}/request/evidence", s.putRequestEvidence)
+		mux.HandleFunc("PUT /api/projects/{projectID}/request/audience", s.putRequestAudience)
+		mux.HandleFunc("PUT /api/projects/{projectID}/criteria/{label}", s.putCriterion)
+		mux.HandleFunc("GET /api/projects/{projectID}/export.md", s.getExport)
 		// The list of changes of a section (backlog-r2 2.2, A-1).
 		mux.HandleFunc("GET /api/projects/{projectID}/sections/{label}/changes", s.getSectionChanges)
 		mux.HandleFunc("POST /api/projects/{projectID}/changes/{label}/close", s.closeChange)

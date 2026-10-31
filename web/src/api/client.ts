@@ -21,6 +21,7 @@ import type {
   EvidenceRequiredView,
   StopReportView,
   AnswerAudienceQuestionResponse,
+  CriterionView,
 } from "./types";
 import type { Frame, SignoffView } from "./graph";
 
@@ -81,6 +82,45 @@ export async function putRequest(
       body: JSON.stringify(req),
     }),
   );
+}
+
+// Throws the catalog code the API returned (source.error.<code>).
+async function coded<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "internal");
+  }
+  return (await res.json()) as T;
+}
+
+// Backlog-r2 2.8: after the request is sent, the audience changes with
+// audience_changed and no section's state moves (K-13).
+export async function putAudience(projectID: string, audience: string): Promise<RequestView> {
+  return coded(
+    await fetch(`/api/projects/${projectID}/request/audience`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ audience }),
+    }),
+  );
+}
+
+// Backlog-r2 2.8, B-46: a criterion's new version; Go queues its probe
+// against what is written.
+export async function putCriterion(projectID: string, label: string, text: string): Promise<CriterionView> {
+  return coded(
+    await fetch(`/api/projects/${projectID}/criteria/${label}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    }),
+  );
+}
+
+// Backlog-r2 2.8, B-47: the document as .md, built in Go; the browser
+// downloads it (Content-Disposition: attachment).
+export function exportURL(projectID: string, lang: string): string {
+  return `/api/projects/${projectID}/export.md?lang=${lang}`;
 }
 
 // Uploads one source; on failure throws the catalog code the API

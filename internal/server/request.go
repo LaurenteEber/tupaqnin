@@ -40,6 +40,30 @@ type RequestView struct {
 	// Submitted: the request was sent (its criteria and premise exist);
 	// the page shows it as your read-only message (P-37).
 	Submitted bool `json:"submitted"`
+	// SubmittedCriteria are the criterion objects after submit, by
+	// label, so you can change one (PUT /criteria/{label}, backlog-r2
+	// 2.8); empty before.
+	SubmittedCriteria []CriterionView `json:"submitted_criteria"`
+}
+
+// CriterionView is one criterion after submit: its label, current
+// version and literal text (backlog-r2 2.8).
+type CriterionView struct {
+	Label   string `json:"label"`
+	Version int    `json:"version"`
+	Text    string `json:"text"`
+}
+
+// PutAudienceRequest changes the request's audience after submit
+// (backlog-r2 2.8, K-13).
+type PutAudienceRequest struct {
+	Audience string `json:"audience"`
+}
+
+// PutCriterionRequest is a criterion's new literal text (backlog-r2
+// 2.8, B-46).
+type PutCriterionRequest struct {
+	Text string `json:"text"`
 }
 
 type PutRequestRequest struct {
@@ -95,7 +119,9 @@ type requestBody struct {
 // Until submit, the criteria and the premise live only in its body
 // (P-24, fichas §2): editing them creates no criterion or premise
 // object, so a criterion removed before sending never existed and
-// cannot stay current. Submit creates those objects.
+// cannot stay current. Submit creates those objects. After submit it
+// writes nothing and returns request_submitted (backlog-r2 2.8): from
+// there the audience and each criterion have their own routes.
 func (s *Server) saveRequest(r *http.Request, projectID string, in PutRequestRequest) string {
 	body := requestBody{Text: in.Text, Audience: in.Audience, Criteria: in.Criteria,
 		Premise: in.Premise, Exploratory: in.Exploratory}
@@ -112,20 +138,48 @@ func (s *Server) saveRequest(r *http.Request, projectID string, in PutRequestReq
 			_, err = tx.CreateObject(store.ObjectRequest, "", body, ev)
 			return err
 		}
+		submitted, err := isSubmitted(r, tx, requests[0])
+		if err != nil {
+			return err
+		}
+		if submitted {
+			return errRequestSubmitted
+		}
 		_, uerr := tx.UpdateObject(requests[0].ID, requests[0].CurrentVersion, "", body, ev)
 		if errors.Is(uerr, store.ErrNoChange) {
 			uerr = nil
 		}
 		return uerr
 	})
+	if errors.Is(err, errRequestSubmitted) {
+		return "request_submitted"
+	}
 	if err != nil {
 		return "internal"
 	}
 	return ""
 }
 
+var errRequestSubmitted = errors.New("server: the request was submitted")
+
+// isSubmitted reports whether the request was sent: its premise object
+// exists (submit creates it with the criteria, P-24), as RequestView's
+// submitted.
+func isSubmitted(r *http.Request, tx *store.Tx, req store.Object) (bool, error) {
+	premises, err := tx.ListObjects(r.Context(), tx.ProjectID(), store.ObjectPremise)
+	if err != nil {
+		return false, err
+	}
+	for _, p := range premises {
+		if str(bodyMap(p), "request_id") == req.ID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (s *Server) requestView(r *http.Request, projectID string) (RequestView, bool) {
-	view := RequestView{Criteria: []string{}, Sources: []SourceView{}}
+	view := RequestView{Criteria: []string{}, Sources: []SourceView{}, SubmittedCriteria: []CriterionView{}}
 	requests, err := s.db.ListObjects(r.Context(), projectID, store.ObjectRequest)
 	if err != nil {
 		return view, false
@@ -145,6 +199,8 @@ func (s *Server) requestView(r *http.Request, projectID string) (RequestView, bo
 		for _, c := range criteria {
 			if str(bodyMap(c), "request_id") == requests[0].ID {
 				texts = append(texts, str(bodyMap(c), "text"))
+				view.SubmittedCriteria = append(view.SubmittedCriteria,
+					CriterionView{Label: c.Label, Version: c.CurrentVersion, Text: str(bodyMap(c), "text")})
 			}
 		}
 		if texts != nil {
@@ -269,7 +325,11 @@ func (s *Server) putRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if code := s.saveRequest(r, projectID, req); code != "" {
-		writeError(w, http.StatusInternalServerError, code)
+		status := http.StatusInternalServerError
+		if code == "request_submitted" {
+			status = http.StatusConflict
+		}
+		writeError(w, status, code)
 		return
 	}
 	view, _ := s.requestView(r, projectID)

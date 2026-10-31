@@ -258,6 +258,16 @@ export interface RenameProjectRequest {
 }
 
 //////////
+// source: h3.go
+
+/**
+ * CriterionChanger writes a criterion's new version and runs its probe
+ * (B-46, P-72). *cycle.Runner satisfies it; without it, the gate writes
+ * the version and queues the probe for the next trigger.
+ */
+export type CriterionChanger = any;
+
+//////////
 // source: history.go
 
 /**
@@ -403,6 +413,35 @@ export interface RequestView {
    * the page shows it as your read-only message (P-37).
    */
   submitted: boolean;
+  /**
+   * SubmittedCriteria are the criterion objects after submit, by
+   * label, so you can change one (PUT /criteria/{label}, backlog-r2
+   * 2.8); empty before.
+   */
+  submitted_criteria: CriterionView[];
+}
+/**
+ * CriterionView is one criterion after submit: its label, current
+ * version and literal text (backlog-r2 2.8).
+ */
+export interface CriterionView {
+  label: string;
+  version: number /* int */;
+  text: string;
+}
+/**
+ * PutAudienceRequest changes the request's audience after submit
+ * (backlog-r2 2.8, K-13).
+ */
+export interface PutAudienceRequest {
+  audience: string;
+}
+/**
+ * PutCriterionRequest is a criterion's new literal text (backlog-r2
+ * 2.8, B-46).
+ */
+export interface PutCriterionRequest {
+  text: string;
 }
 export interface PutRequestRequest {
   text: string;

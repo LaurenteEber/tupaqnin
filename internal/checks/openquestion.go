@@ -177,14 +177,29 @@ func keepOption(text string) map[string]any {
 // [EL DISEÑO NO LO DICE]: B-46 is written for a criterion (decisions
 // that apply it); for the premise its edge is depends_on_assumption.
 func PremiseProbe(ctx context.Context, q store.Querier, projectID, premiseID string) (Change, error) {
+	return probeThrough(ctx, q, projectID, premiseID, store.EdgeDependsOnAssumption)
+}
+
+// CriterionProbe is the change that probes the current text against a
+// new version of a criterion (B-46, backlog-r2 2.8): the sections that
+// use a decision applying the criterion (applies), or, if none, every
+// section with text. Each passage is the section's current text.
+func CriterionProbe(ctx context.Context, q store.Querier, projectID, criterionID string) (Change, error) {
+	return probeThrough(ctx, q, projectID, criterionID, store.EdgeApplies)
+}
+
+// probeThrough is B-46's probe of a new version of protected: the
+// sections where a decision linked to it by edge (decision → protected)
+// is used, or, if none, every section with text, in document order.
+func probeThrough(ctx context.Context, q store.Querier, projectID, protectedID string, edge store.EdgeType) (Change, error) {
 	change := Change{Kind: YourEdit, Actor: "human"}
-	in, err := q.EdgesTo(ctx, projectID, premiseID)
+	in, err := q.EdgesTo(ctx, projectID, protectedID)
 	if err != nil {
 		return change, err
 	}
 	affected := map[string]bool{}
 	for _, e := range in {
-		if e.Type != store.EdgeDependsOnAssumption {
+		if e.Type != edge {
 			continue
 		}
 		out, err := q.EdgesFrom(ctx, projectID, e.FromID)

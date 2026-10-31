@@ -89,3 +89,14 @@ func (db *DB) RenameProject(ctx context.Context, projectID, name string) error {
 	}
 	return nil
 }
+
+// ProjectName is the project's name (B-18, U-1); empty when it has none.
+func (db *DB) ProjectName(ctx context.Context, projectID string) (string, error) {
+	var name string
+	err := db.Reader.QueryRowContext(ctx,
+		`SELECT COALESCE(name, '') FROM project WHERE id = ?`, projectID).Scan(&name)
+	if err != nil {
+		return "", fmt.Errorf("project name: %w", err)
+	}
+	return name, nil
+}
