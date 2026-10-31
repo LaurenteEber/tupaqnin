@@ -179,26 +179,45 @@ func TestB46_WithoutARunningTurnTheNewPremiseIsProbedAtOnce(t *testing.T) {
 	}
 }
 
-// A queued probe whose checker fails twice ran: its output_retry closes
-// it (it is not sent again), and its sections stay «sin comprobar» by
-// B-50 until the next valid judgment over them.
-func TestB50_AQueuedProbeThatFailsTwiceRunsOnceAndLeavesItsSectionsUnchecked(t *testing.T) {
+// P-74: a queued probe that fails stays queued: a step's judgment only
+// reads its new passage, so only the queued probe's own valid judgment
+// contrasts the existing text with the new premise. It is retried at
+// every trigger until that judgment, and only that judgment clears its
+// «sin comprobar»; meanwhile the signoff waits (B-50).
+func TestP74_AFailedQueuedProbeIsRetriedAtEveryTriggerUntilItsOwnValidJudgment(t *testing.T) {
 	db := seedCheckerProject(t)
 	yourEdit(t, db, "sec-1", contradictingEdit)
 	runner, cap := checkerRunner(t, db, checkerFixture(t, "contradicts-premise"),
-		checkerFixture(t, "malformed"), checkerFixture(t, "malformed"))
+		checkerFixture(t, "malformed"), checkerFixture(t, "malformed"),
+		checkerFixture(t, "malformed"), checkerFixture(t, "malformed"),
+		checkerFixture(t, "no-findings"))
 	contradictedPremise(t, db, runner)
 	ctx := context.Background()
 	if _, err := cycle.NewGate(db).AnswerOpenQuestion(ctx, "p1", "oq-1", intp(2), "Porque los muestreos nuevos no muestran diferencia."); err != nil {
 		t.Fatalf("answer: %v", err)
 	}
-	for i := 0; i < 2; i++ {
+	// Two triggers, each a failed run (two attempts): still queued, still
+	// «sin comprobar», the signoff waits.
+	for i := 1; i <= 2; i++ {
 		open, err := runner.RequestSignoff(ctx, "p1", "sec-1")
 		if err != nil || open.Opened || !hasPending(open.Pendings, graph.PendingUnchecked, "") {
-			t.Fatalf("RequestSignoff %d: %+v, %v; want blocked by unchecked", i+1, open, err)
+			t.Fatalf("RequestSignoff %d: %+v, %v; want blocked by unchecked", i, open, err)
+		}
+		if n := len(cap.checker); n != 1+2*i {
+			t.Fatalf("after trigger %d: checker calls %d, want %d (the batch, then two attempts per trigger)", i, n, 1+2*i)
 		}
 	}
-	if n := len(cap.checker); n != 3 {
-		t.Fatalf("checker calls: %d, want 3 (the batch, then the queued probe and its retry, once)", n)
+	// The third trigger brings its own valid judgment: it closes, and the
+	// signoff is no longer blocked by «sin comprobar».
+	open, err := runner.RequestSignoff(ctx, "p1", "sec-1")
+	if err != nil || hasPending(open.Pendings, graph.PendingUnchecked, "") {
+		t.Fatalf("after its valid judgment: %+v, %v; want no unchecked", open, err)
+	}
+	if n := len(cap.checker); n != 6 {
+		t.Fatalf("checker calls: %d, want 6", n)
+	}
+	open, err = runner.RequestSignoff(ctx, "p1", "sec-1")
+	if err != nil || len(cap.checker) != 6 {
+		t.Fatalf("once judged: %+v, %v, checker calls %d; want no new call", open, err, len(cap.checker))
 	}
 }

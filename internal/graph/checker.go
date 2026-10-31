@@ -100,9 +100,10 @@ type QueuedProbe struct {
 
 // PendingProbes are the queued probes still pending (P-72), in the
 // order they were queued. Each is a probe event with kind queued and
-// closes with the events of its own run, which carry its seq in
-// data.queued_probe: the probe events of a valid judgment, or the
-// output_retry that left its sections «sin comprobar» (B-50).
+// closes only with the probe events of its own valid judgment, which
+// carry its seq in data.queued_probe. A failed run (its output_retry)
+// does not close it: it stays queued and is retried at every trigger,
+// so the existing text is never left uncontrasted (P-74, B-50).
 // [EL DISEÑO NO LO DICE]: how a queued probe is kept; the history has
 // no event for it, so it is a probe event with kind queued (as the
 // candidates are kept in probe with kind candidate) and no mutable flag.
@@ -110,7 +111,7 @@ func PendingProbes(events []store.Event) []QueuedProbe {
 	var queued []QueuedProbe
 	closed := map[int]bool{}
 	for _, ev := range events {
-		if ev.Type != store.EventProbe && ev.Type != store.EventOutputRetry {
+		if ev.Type != store.EventProbe {
 			continue
 		}
 		data := eventData(ev)
@@ -125,7 +126,7 @@ func PendingProbes(events []store.Event) []QueuedProbe {
 				}
 			}
 			queued = append(queued, qp)
-		case ev.Type == store.EventProbe || data["result"] == "unchecked":
+		default:
 			if seq, ok := data["queued_probe"].(float64); ok {
 				closed[int(seq)] = true
 			}
