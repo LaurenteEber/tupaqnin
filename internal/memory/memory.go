@@ -405,11 +405,14 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 		case store.EventSignoffPaused:
 			st.Essentials.SignoffPaused = true
 		case store.EventStopReport:
+			// B-40: unseen until a stop_report_seen after it; the report
+			// itself is never modified (history only grows).
 			lastStopReport = i
-			var data map[string]any
-			_ = json.Unmarshal(ev.Data, &data)
-			seen, _ := data["seen"].(bool)
-			st.Essentials.StopReportUnseen = !seen
+			st.Essentials.StopReportUnseen = true
+		case store.EventStopReportSeen:
+			if lastStopReport >= 0 {
+				st.Essentials.StopReportUnseen = false
+			}
 		case store.EventStepEnded:
 			lastStepEnded = i
 			var data map[string]any

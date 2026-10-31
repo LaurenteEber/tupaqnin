@@ -743,6 +743,40 @@ export interface Pending {
 }
 
 //////////
+// source: stopreport.go
+
+/**
+ * UnseenDecision is one decision of the stop's list (B-39): its label,
+ * its statement and «instead of», and the labels of the sections that
+ * use it, in document order.
+ */
+export interface UnseenDecision {
+  label: string;
+  statement: string;
+  instead_of: string;
+  sections: string[];
+}
+/**
+ * ReportCitation is one citation of the stop report, by its section and
+ * the literal claim it backs: verified when its passage is literal in
+ * its source (comes_from), not verified when not (B-41).
+ */
+export interface ReportCitation {
+  section: string;
+  claim: string;
+}
+/**
+ * ReportOpenItem is one open card or «por aclarar» of the stop report
+ * (B-41): its kind (card · open_question), label and text (the
+ * decision's statement or the question).
+ */
+export interface ReportOpenItem {
+  kind: string;
+  label: string;
+  text: string;
+}
+
+//////////
 // source: text.go
 
 /**

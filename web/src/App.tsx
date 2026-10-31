@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   claimEditor,
+  continueFromStopReport,
   createProject,
   getSummary,
   getConversation,
@@ -24,6 +25,7 @@ import { SectionEditor } from "./components/SectionEditor";
 import { FramePanel, type TodoTarget } from "./components/FramePanel";
 import { SignoffPanel } from "./components/SignoffPanel";
 import { ConversationPanel } from "./components/ConversationPanel";
+import { StopReportPanel } from "./components/StopReportPanel";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { initialLang, translate, type Lang } from "./i18n";
@@ -197,13 +199,13 @@ export function App() {
 
   // 7a: only you ask to sign. The editor saves first (§2); Go opens the
   // signoff or lists what is pending.
-  async function askToSign() {
-    if (!projectID || !current) return;
+  async function askToSign(section = current?.label) {
+    if (!projectID || !section) return;
     await saveRef.current();
     setSignBlocked(null);
     setSignError("");
     try {
-      const result = await requestSignoff(projectID, current.label);
+      const result = await requestSignoff(projectID, section);
       if (result.kind === "blocked") setSignBlocked(result.blocked);
       else setSigning(result.signoff.label);
     } catch (e) {
@@ -250,6 +252,7 @@ export function App() {
     if (target.kind === "card") reach(`card-${target.label}`);
     else if (target.kind === "open_question") reach(`oq-${target.label}`);
     else if (target.kind === "cases") reach("understanding");
+    else if (target.kind === "stop_report") reach("stop-report");
     else {
       setSelected(target.section);
       setHistoryBlock(0);
@@ -265,14 +268,24 @@ export function App() {
     window.setTimeout(() => reach(block > 0 ? "history" : "document"), 0);
   }
 
-  async function send(text: string) {
+  // P6 (backlog-r2 2.5): «Firmar» opens P7 for the report's section,
+  // shown on the right like the section's own button.
+  function signFromReport(section: string) {
+    setSelected(section);
+    setHistoryBlock(0);
+    void askToSign(section);
+  }
+
+  // fromReport: «Sigue» and «Abordémoslo» go through the report's route,
+  // as messages of yours with the button's text.
+  async function send(text: string, fromReport = false) {
     if (!projectID) return;
     await saveRef.current(); // always save before sending (§2)
     clearStream();
     setErrorCode("");
     let turn_id: string;
     try {
-      ({ turn_id } = await postMessage(projectID, text));
+      ({ turn_id } = await (fromReport ? continueFromStopReport : postMessage)(projectID, text));
     } catch (e) {
       // [EL DISEÑO NO LO DICE] 409 turn_running: a turn of this
       // project is already running; the message was not sent.
@@ -437,6 +450,17 @@ export function App() {
                 stream={stream}
                 rawStream={rawStream}
                 errorCode={errorCode}
+                report={
+                  <StopReportPanel
+                    lang={lang}
+                    projectID={projectID}
+                    refreshKey={conversation.length}
+                    disabled={!editor || working}
+                    onContinue={(text) => void send(text, true)}
+                    onSign={signFromReport}
+                    onSeen={bumpFrame}
+                  />
+                }
               />
             )}
 

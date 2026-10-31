@@ -19,6 +19,7 @@ import type {
   AnswerOpenQuestionResponse,
   UnderstandingView,
   EvidenceRequiredView,
+  StopReportView,
 } from "./types";
 import type { Frame, SignoffView } from "./graph";
 
@@ -436,6 +437,25 @@ export async function postMessage(
       body: JSON.stringify({ text }),
     }),
   );
+}
+
+// P6, the stop report (backlog-r2 2.5): Go assembles it; null when the
+// project has none yet.
+export async function getStopReport(projectID: string): Promise<StopReportView | null> {
+  const res = await fetch(`/api/projects/${projectID}/stop-report`);
+  if (res.status === 404) return null;
+  return json(res);
+}
+
+// Opening the report in the panel counts as seen (B-40); folded does not.
+export async function markStopReportSeen(projectID: string): Promise<void> {
+  const res = await post(`/api/projects/${projectID}/stop-report/seen`);
+  if (!res.ok) throw new Error(`http_${res.status}`);
+}
+
+// «Sigue» and «Abordémoslo» are messages of yours with the button's text.
+export async function continueFromStopReport(projectID: string, text: string): Promise<PostMessageResponse> {
+  return json(await post(`/api/projects/${projectID}/stop-report/continue`, { text }));
 }
 
 // StepPayload is the step event the stream forwards (cycle runner).

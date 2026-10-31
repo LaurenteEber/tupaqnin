@@ -203,11 +203,13 @@ export interface PutEvidenceRequest {
  * ConversationEntry is one item of the conversation as the person reads
  * it (U-5): a message of theirs, the end of an agent step with its
  * triage line, reply (R-5), note and stop reason (B-24), the end of the
- * understanding, or a card they answered. Never an internal id.
+ * understanding, a card they answered, or a stop report (P6, backlog-r2
+ * 2.5: its first line and why the chain stopped; GET /stop-report has
+ * the last one complete). Never an internal id.
  */
 export interface ConversationEntry {
   /**
-   * Kind is message · step · understanding · card_answered.
+   * Kind is message · step · understanding · card_answered · stop_report.
    */
   kind: string;
   text?: string;
@@ -507,6 +509,65 @@ export interface SignoffTextRequest {
 export interface SignoffAnswersRequest {
   origin_answer: string;
   case_answer: string;
+}
+
+//////////
+// source: stopreport.go
+
+/**
+ * StopReportDecision is one decision the report shows (B-39): its
+ * statement and «instead of» (the app's), the principal's gist (D6) and
+ * the sections that use it.
+ */
+export interface StopReportDecision {
+  label: string;
+  statement: string;
+  instead_of: string;
+  gist: string;
+  sections: SectionRef[];
+}
+/**
+ * StopReportCitation is a verified or not verified claim (B-41).
+ */
+export interface StopReportCitation {
+  section: SectionRef;
+  claim: string;
+}
+/**
+ * StopReportOpenItem is an open card or «por aclarar» (B-41).
+ */
+export interface StopReportOpenItem {
+  kind: string;
+  label: string;
+  text: string;
+}
+/**
+ * StopReportView is P6 [2]: the last stop report and whether you opened
+ * it (backlog-r2 2.5). First the answer; Section is the section it
+ * evaluates, nil when none, and ProposeSignoff whether the app proposes
+ * signing it.
+ */
+export interface StopReportView {
+  seen: boolean;
+  created_at: string;
+  stop_reason: string;
+  section?: SectionRef;
+  propose_signoff: boolean;
+  answer: string;
+  done: string[];
+  next: string;
+  decisions: StopReportDecision[];
+  verified: StopReportCitation[];
+  not_verified: StopReportCitation[];
+  open: StopReportOpenItem[];
+  principal_failed: boolean;
+}
+/**
+ * ContinueStopReportRequest is «Sigue» or «Abordémoslo»: the button's
+ * text, sent as a message of yours (backlog-r2 2.5).
+ */
+export interface ContinueStopReportRequest {
+  text: string;
 }
 
 //////////

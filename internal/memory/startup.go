@@ -289,6 +289,17 @@ func renderMessages(messages []humanMessage) string {
 	return sb.String()
 }
 
+// sinceLastStop is the history after the last stop_report, all of it
+// when there is none.
+func sinceLastStop(events []store.Event) []store.Event {
+	for i := len(events) - 1; i >= 0; i-- {
+		if events[i].Type == store.EventStopReport {
+			return events[i+1:]
+		}
+	}
+	return events
+}
+
 // Startup assembles one startup for a new principal instance, in the
 // design order, measures it with count against 15% of window, and
 // trims in the design order (index, then changes, then the oldest
@@ -310,7 +321,9 @@ func (m *Memory) Startup(ctx context.Context, projectID string, reason StartupRe
 	if err != nil {
 		return Brief{}, err
 	}
-	answered, _ := humanMessages(events)
+	// P-18 (block 2 §3, item 5): your answered messages since the last
+	// stop, at most 10.
+	answered, _ := humanMessages(sinceLastStop(events))
 	if len(answered) > 10 {
 		answered = answered[len(answered)-10:]
 	}

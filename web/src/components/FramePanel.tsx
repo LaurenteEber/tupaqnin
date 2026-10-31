@@ -9,6 +9,7 @@ export type TodoTarget =
   | { kind: "card"; label: string }
   | { kind: "open_question"; label: string }
   | { kind: "cases" }
+  | { kind: "stop_report" }
   | { kind: "sign"; section: string };
 
 // The frame (backlog-r1 1.5b, specification §9): what the document is
@@ -85,7 +86,8 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
       tag: t("section.status.ready"), target: { kind: "sign", section: s } });
   }
   if (frame.todo.stop_report_unseen) {
-    todos.push({ key: "stop", text: t("frame.todo.stop_report"), tag: "" });
+    // «Informe sin ver» until it is opened (backlog-r2 2.5).
+    todos.push({ key: "stop", text: t("frame.todo.stop_report"), tag: "", target: { kind: "stop_report" } });
   }
 
   return (

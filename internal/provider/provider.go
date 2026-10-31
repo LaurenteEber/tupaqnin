@@ -22,8 +22,9 @@ const (
 
 // TurnKind is the kind of turn a call belongs to: the understanding
 // (1.2), an agent step, a signoff with Wonder (B-13) or the checker's
-// judgment of a change (backlog-r2 2.3). The fake picks its recording
-// by it (P-29); Meta ignores it.
+// judgment of a change (backlog-r2 2.3) or the principal's stop report
+// (backlog-r2 2.5). The fake picks its recording by it (P-29); Meta
+// ignores it.
 type TurnKind string
 
 const (
@@ -31,6 +32,7 @@ const (
 	TurnStep          TurnKind = "step"
 	TurnSignoff       TurnKind = "signoff"
 	TurnChecker       TurnKind = "checker"
+	TurnStopReport    TurnKind = "stop_report"
 )
 
 // Provider is one model backend. onDelta may be nil; when set, it is
@@ -66,6 +68,17 @@ type Request struct {
 	// so the fake can answer a checker call it has no recording for
 	// (see Fake.Respond); Meta ignores it, like TurnKind.
 	ProbeLabels []string
+	// ReportDecisions are the decisions a stop report call must sketch
+	// (B-39), so the fake can answer a stop report call it has no
+	// recording for (see Fake.Respond); Meta ignores it.
+	ReportDecisions []ReportDecision
+}
+
+// ReportDecision is one decision the app lists for the stop report: its
+// label and the labels of the sections that use it (B-39).
+type ReportDecision struct {
+	Label    string
+	Sections []string
 }
 
 // Response is one completed call: every raw output item, the joined
@@ -224,10 +237,11 @@ func NewFake(fixtures ...Fixture) *Fake {
 // pick returns the next fixture for the turn kind, or false when no
 // fixture serves it. A checker call only gets checker recordings: a
 // recording without a kind predates the checker and is the principal's.
+// A stop report call likewise only gets stop report recordings.
 func (f *Fake) pick(kind TurnKind) (Fixture, bool) {
 	var matching []Fixture
 	for _, fx := range f.fixtures {
-		if kind == TurnChecker && fx.TurnKind != TurnChecker {
+		if (kind == TurnChecker || kind == TurnStopReport) && fx.TurnKind != kind {
 			continue
 		}
 		if kind == "" || fx.TurnKind == "" || fx.TurnKind == kind {
@@ -250,6 +264,9 @@ func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 	fx, ok := f.pick(req.TurnKind)
 	if !ok && req.TurnKind == TurnChecker {
 		fx, ok = noFindingsFixture(req.ProbeLabels), true
+	}
+	if !ok && req.TurnKind == TurnStopReport {
+		fx, ok = plainReportFixture(req.ReportDecisions), true
 	}
 	if !ok {
 		return Response{}, &ProviderError{Code: "no_fixtures", Type: "fake"}
@@ -300,6 +317,25 @@ func noFindingsFixture(labels []string) Fixture {
 	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
 		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
 	return Fixture{Name: "checker-no-findings", TurnKind: TurnChecker, Items: []json.RawMessage{item}}
+}
+
+// plainReportFixture is the fake's answer to a stop report call without
+// a stop report recording: a short report with one line for each
+// decision the app listed, so a fake without stop report recordings
+// (most tests, TQ_PROVIDER=fake) still stops with a report.
+// [EL DISEÑO NO LO DICE]: what the fake answers without a recording; as
+// with the checker, an error would leave every stop without its report.
+func plainReportFixture(decisions []ReportDecision) Fixture {
+	unseen := make([]map[string]any, 0, len(decisions))
+	for _, d := range decisions {
+		unseen = append(unseen, map[string]any{"decision": d.Label,
+			"gist": "Decision " + d.Label + ".", "sections": d.Sections})
+	}
+	text, _ := json.Marshal(map[string]any{"answer": "The agent stopped; the report is below.",
+		"done": []string{}, "next": "Continue with the plan.", "unseen": unseen})
+	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
+		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
+	return Fixture{Name: "stop-report-plain", TurnKind: TurnStopReport, Items: []json.RawMessage{item}}
 }
 
 // CountTokens counts 1 token per 4 characters of input (B-5).

@@ -118,10 +118,10 @@ func TestB7_TurnEndToEndWithTheFakeLeavesTheHistoryInOrder(t *testing.T) {
 		t.Fatalf("RunTurn: %v", err)
 	}
 	got := eventTypes(t, db)
-	// The chain (B-17): the first step writes a new section, the second
-	// leaves no work and stops it.
+	// The chain (B-37): the first step writes a new section without
+	// pendings, which stops it (fichas §2); the stop ends in its report.
 	want := []store.EventType{store.EventHumanMessage, store.EventStartup,
-		store.EventStateChanged, store.EventStepEnded, store.EventStepEnded}
+		store.EventStateChanged, store.EventStepEnded, store.EventStopReport}
 	if len(got) != len(want) {
 		t.Fatalf("history: got %v, want %v", got, want)
 	}
@@ -168,7 +168,8 @@ func TestB7_TurnEndToEndWithTheFakeLeavesTheHistoryInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ModelCalls: %v", err)
 	}
-	// Two turns, each a chain of two steps (B-17): one instance, 4 calls.
+	// Two turns, each one step and its stop report (B-37): one instance,
+	// 4 calls; the report goes in the same conversation.
 	if len(calls) != 4 {
 		t.Fatalf("model calls of the instance: got %d, want 4", len(calls))
 	}
@@ -187,6 +188,10 @@ type captureProvider struct {
 	got     []provider.Response
 	tools   []json.RawMessage
 	checker []provider.Request
+	// reports are the stop report calls (backlog-r2 2.5), kept apart
+	// like the checker's so sent counts the steps only.
+	reports   []provider.Request
+	reportGot []provider.Response
 }
 
 func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
@@ -195,6 +200,16 @@ func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onD
 		c.checker = append(c.checker, req)
 		c.mu.Unlock()
 		return c.inner.Respond(ctx, req, onDelta)
+	}
+	if req.TurnKind == provider.TurnStopReport {
+		c.mu.Lock()
+		c.reports = append(c.reports, req)
+		c.mu.Unlock()
+		resp, err := c.inner.Respond(ctx, req, onDelta)
+		c.mu.Lock()
+		c.reportGot = append(c.reportGot, resp)
+		c.mu.Unlock()
+		return resp, err
 	}
 	c.mu.Lock()
 	c.sent = append(c.sent, append([]json.RawMessage{}, req.Input...))
@@ -244,11 +259,15 @@ func TestB7_ConversationRebuildsFromLastCallOnlyWithThreeMessages(t *testing.T) 
 	if len(cap.sent) != 3 {
 		t.Fatalf("provider calls: got %d, want 3", len(cap.sent))
 	}
-	// What the third call must send: exactly what the second call
-	// sent, plus what it answered, plus the new message. Nothing
-	// from the first call may appear twice.
-	want := append([]json.RawMessage{}, cap.sent[1]...)
-	want = append(want, cap.got[1].RawItems...)
+	// What the third call must send: exactly what the last call before
+	// it sent, plus what it answered, plus the new message. Nothing
+	// from the first call may appear twice. The last call is the second
+	// turn's stop report, in the same conversation (backlog-r2 2.5).
+	if len(cap.reports) != 3 {
+		t.Fatalf("report calls: got %d, want 3", len(cap.reports))
+	}
+	want := append([]json.RawMessage{}, cap.reports[1].Input...)
+	want = append(want, cap.reportGot[1].RawItems...)
 	want = append(want, userItemForTest("third message"))
 	got := cap.sent[2]
 	if len(got) != len(want) {

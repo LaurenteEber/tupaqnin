@@ -12,9 +12,11 @@ import (
 // ConversationEntry is one item of the conversation as the person reads
 // it (U-5): a message of theirs, the end of an agent step with its
 // triage line, reply (R-5), note and stop reason (B-24), the end of the
-// understanding, or a card they answered. Never an internal id.
+// understanding, a card they answered, or a stop report (P6, backlog-r2
+// 2.5: its first line and why the chain stopped; GET /stop-report has
+// the last one complete). Never an internal id.
 type ConversationEntry struct {
-	// Kind is message · step · understanding · card_answered.
+	// Kind is message · step · understanding · card_answered · stop_report.
 	Kind       string `json:"kind"`
 	Text       string `json:"text,omitempty"`
 	TriageLine string `json:"triage_line,omitempty"`
@@ -77,6 +79,8 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			if entry.Kind != "step" && entry.Kind != "understanding" {
 				continue
 			}
+		case ev.Type == store.EventStopReport:
+			entry.Kind, entry.Text, entry.StopReason = "stop_report", str(data, "answer"), str(data, "stop_reason")
 		case ev.Type == store.EventActTimed && ev.Actor == "human":
 			obj, err := s.db.GetObject(r.Context(), projectID, ev.ObjectID)
 			if err != nil || obj.Type != store.ObjectCard {

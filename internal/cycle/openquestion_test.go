@@ -350,6 +350,15 @@ func TestE2_OpenQuestionOnYourDecisionKeepsItFirstAndAnotherOptionReplacesIt(t *
 // P5, D21: with a «por aclarar» open the agent keeps chaining steps.
 func TestP5_WithAnOpenQuestionOpenTheAgentKeepsChainingSteps(t *testing.T) {
 	db := seedStepProject(t)
+	// A section still to write keeps work for the agent (backlog-r2 2.5:
+	// with only the «por aclarar» left, the chain would stop).
+	if err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{"title": "Cierre", "text": ""},
+			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	}); err != nil {
+		t.Fatalf("seed sec-2: %v", err)
+	}
 	second := `{"stretch":"build","triage_line":"Construir.","closing_risk":"none","note":"n",` +
 		`"new_text":[{"section_id":"sec-1","base_version":2,"anchor":"Texto uno.","claim_origin":"material","operation":"replace","text":"Texto dos."}]}`
 	runCheckedTurn(t, db, nil, stepWriting(t, "Texto uno.", proposedQuestion+","), textFixture(t, second))

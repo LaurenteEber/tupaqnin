@@ -38,7 +38,7 @@ func TestP28_StreamShowsTheParsedTextNeverTheRawJSON(t *testing.T) {
 // in a devroutes build.
 func TestP28_StreamedPiecesCarryTheirFieldAndNoRawInTheDemoBuild(t *testing.T) {
 	_, runner, _, pub := newCaptureRunner(t,
-		loadAppFixture(t, "01-principal-valid.json"), loadAppFixture(t, "04-principal-no-work.json"))
+		textFixture(t, pendingFigureStep), loadAppFixture(t, "04-principal-no-work.json"))
 	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe."); err != nil {
 		t.Fatalf("RunTurn: %v", err)
 	}
@@ -57,8 +57,8 @@ func TestP28_StreamedPiecesCarryTheirFieldAndNoRawInTheDemoBuild(t *testing.T) {
 	if strings.Join(starts, ",") != strings.Join(want, ",") {
 		t.Fatalf("value starts: %v, want %v", starts, want)
 	}
-	if !strings.HasPrefix(byField["triage_line"], "Construir: redacto la primera sección del pedido.") ||
-		byField["text"] != "# Alcance\n\nPrimera versión del alcance." {
+	if !strings.HasPrefix(byField["triage_line"], "Construir: escribo la muestra.") ||
+		byField["text"] != "# Muestra\n\nRevisamos 12 estudios de la cuenca." {
 		t.Fatalf("fields: %q", byField)
 	}
 }

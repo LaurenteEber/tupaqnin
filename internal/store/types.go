@@ -183,6 +183,9 @@ const (
 	// EventPlanConfirmed: you answered the «Entendí»'s plan, confirming
 	// or correcting it (R-6, backlog-r2 2.12); B-54 reads it.
 	EventPlanConfirmed EventType = "plan_confirmed"
+	// EventStopReportSeen: you opened the stop report in the panel
+	// (B-40, backlog-r2 2.5); the stop_report itself is never modified.
+	EventStopReportSeen EventType = "stop_report_seen"
 )
 
 // Valid reports whether t is one of the table 1.3 event types.
@@ -195,7 +198,7 @@ func (t EventType) Valid() bool {
 		EventSourceNewVersion, EventRoleChanged, EventAudienceChanged,
 		EventEdge, EventAnswerWithoutReason, EventActTimed, EventMarkedCritical,
 		EventProbe, EventStartup, EventOutputRetry, EventSectionDetailsChanged, EventClaimAccepted,
-		EventPlanConfirmed:
+		EventPlanConfirmed, EventStopReportSeen:
 		return true
 	default:
 		return false

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/checks"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/memory"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -801,9 +802,10 @@ func (r *Runner) runTurn(ctx context.Context, projectID, turnID, text string) er
 	return r.runChain(ctx, projectID, turnID, text, true)
 }
 
-// MaxChainSteps is how many steps the agent chains after the confirmed
-// understanding and after each message of the person (B-17 [inicial]).
-const MaxChainSteps = 5
+// MaxChainSteps is the safety limit of steps the agent chains in one
+// turn (B-37: 12 [inicial]; it replaces B-17's 5). The chain stops
+// before it when the app decides to stop (fichas §2, ShouldStop).
+const MaxChainSteps = 12
 
 // ContinueMessage is the fixed app message of a chained step without a
 // message of the person: in English, with nothing of the person's
@@ -820,14 +822,16 @@ const (
 	StopNoWork StopReason = "no_work"
 	// StopAgentPending: the last step was left pending for the agent.
 	StopAgentPending StopReason = "agent_pending"
-	// StopStepLimit: the chain reached MaxChainSteps.
+	// StopStepLimit: the chain reached MaxChainSteps (B-37).
 	StopStepLimit StopReason = "step_limit"
 )
 
-// runChain runs up to MaxChainSteps steps in one turn (B-17). The first
-// step gets the person's message when there is one; the others get
-// ContinueMessage. The chain stops at a step without new text or new
-// decisions, at a step left pending for the agent, or at the limit.
+// runChain runs up to MaxChainSteps steps in one turn (B-17, B-37). The
+// first step gets the person's message when there is one; the others
+// get ContinueMessage. The chain stops at a step without new text or
+// new decisions, at a step left pending for the agent, at the limit, or
+// when the app decides to stop after a step and its checks (ShouldStop);
+// every stop ends with the stop report (B-37, backlog-r2 2.5).
 func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, human bool) error {
 	filter := newFieldFilter(stepStreamKeys)
 	var last StepResult
@@ -912,6 +916,32 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			reason = StopNoWork
 			break
 		}
+		if n == MaxChainSteps {
+			break
+		}
+		touched, err := graph.TouchedSinceStop(ctx, r.db, projectID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+		why, stop, err := r.gate.ShouldStop(ctx, projectID, touched)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+		if stop {
+			reason = why
+			break
+		}
+	}
+	// B-37: every stop, the cuts of B-17 included, ends in the report.
+	// [EL DISEÑO NO LO DICE]: the reasons ShouldStop finds after the
+	// checker are known only after the step's step_ended was written
+	// (history only grows), so the stop_report carries every reason and
+	// step_ended keeps only the cuts known when the step is applied.
+	if err := r.writeStopReport(ctx, projectID, turnID, reason); err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
 	}
 	r.publishChainStep(projectID, turnID, last, lastApplied, lastText, reason)
 	return nil

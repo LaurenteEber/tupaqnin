@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { StreamDelta } from "../api/client";
 import type { ConversationEntry } from "../api/types";
 import { translate, type Lang } from "../i18n";
@@ -6,7 +7,7 @@ import { translate, type Lang } from "../i18n";
 // events), then the turn in flight as it streams. When a turn ends the
 // page refetches the history and drops the stream, so nothing shows
 // twice.
-export function ConversationPanel({ lang, entries, requestText, working, stream, rawStream, errorCode }: {
+export function ConversationPanel({ lang, entries, requestText, working, stream, rawStream, errorCode, report }: {
   lang: Lang;
   entries: ConversationEntry[];
   // The sent request already shows as your first message, with its
@@ -16,6 +17,9 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
   stream: StreamDelta[];
   rawStream: string;
   errorCode: string;
+  // P6 (backlog-r2 2.5): the last stop report, complete, in the place of
+  // its entry; earlier reports show their first line.
+  report?: ReactNode;
 }) {
   const t = (key: string) => translate(lang, key);
 
@@ -33,11 +37,20 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
     return true;
   });
 
+  let lastReport = -1;
+  shown.forEach((e, i) => {
+    if (e.kind === "stop_report") lastReport = i;
+  });
+
   return (
     <>
-      {shown.map((e, i) => (
-        <Entry key={`${e.created_at}-${i}`} lang={lang} entry={e} />
-      ))}
+      {shown.map((e, i) =>
+        i === lastReport && report ? (
+          <div key={`${e.created_at}-${i}`}>{report}</div>
+        ) : (
+          <Entry key={`${e.created_at}-${i}`} lang={lang} entry={e} />
+        ),
+      )}
 
       {(working || stream.length > 0 || errorCode) && (
         <div className="turn-panel" aria-live="polite">
@@ -107,15 +120,16 @@ function Entry({ lang, entry }: { lang: Lang; entry: ConversationEntry }) {
               <p className="meta">{entry.note}</p>
             </details>
           )}
-          {/* B-24 (P-43): why the chain stopped, as Go stored it, and that
-              you can write to the agent. */}
-          {entry.stop_reason ? (
-            <p className="meta">
-              {t(`turn.stop.${entry.stop_reason}`)} {t("turn.write_to_agent")}
-            </p>
-          ) : (
-            entry.status === "agent_pending" && <p className="meta">{t("turn.status.agent_pending")}</p>
-          )}
+          {/* Why the chain stopped is in its stop report (B-37), below. */}
+          {entry.status === "agent_pending" && <p className="meta">{t("turn.status.agent_pending")}</p>}
+        </div>
+      );
+    case "stop_report":
+      // An earlier stop report: its first line and why the chain stopped.
+      return (
+        <div className="agent-step">
+          <p className="meta">{t(`turn.stop.${entry.stop_reason}`)}</p>
+          {entry.text && <p className="reply">{entry.text}</p>}
         </div>
       );
     default:
