@@ -87,3 +87,73 @@ func TestT9_InvalidValuesNameTheirVariable(t *testing.T) {
 		})
 	}
 }
+
+func TestB60_EvidenceContactAndBaseURLs(t *testing.T) {
+	t.Setenv("TQ_PROVIDER", "fake")
+	t.Setenv("META_API_KEY", "")
+	t.Setenv("TQ_CONTACT_EMAIL", "eber@example.org")
+	t.Setenv("TQ_EVIDENCE_BASE_URLS", "openalex=http://api.openalex.test/, arxiv=http://export.arxiv.test,crossref=https://api.crossref.test")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load: unexpected error: %v", err)
+	}
+	if cfg.ContactEmail != "eber@example.org" {
+		t.Errorf("Load: got contact %q", cfg.ContactEmail)
+	}
+	want := map[string]string{"openalex": "http://api.openalex.test/", "arxiv": "http://export.arxiv.test", "crossref": "https://api.crossref.test"}
+	if len(cfg.EvidenceBaseURLs) != len(want) {
+		t.Fatalf("Load: got base URLs %v, want %v", cfg.EvidenceBaseURLs, want)
+	}
+	for k, v := range want {
+		if cfg.EvidenceBaseURLs[k] != v {
+			t.Errorf("Load: base URL %s: got %q, want %q", k, cfg.EvidenceBaseURLs[k], v)
+		}
+	}
+}
+
+func TestB60_EvidenceDefaultsAreEmpty(t *testing.T) {
+	t.Setenv("TQ_PROVIDER", "fake")
+	t.Setenv("META_API_KEY", "")
+	t.Setenv("TQ_CONTACT_EMAIL", "")
+	t.Setenv("TQ_EVIDENCE_BASE_URLS", "")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load: unexpected error: %v", err)
+	}
+	if cfg.ContactEmail != "" || len(cfg.EvidenceBaseURLs) != 0 {
+		t.Errorf("Load: got contact %q and base URLs %v, want none (the real APIs)", cfg.ContactEmail, cfg.EvidenceBaseURLs)
+	}
+}
+
+func TestB60_InvalidEvidenceValuesNameTheirVariable(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+	}{
+		{name: "contact without at", key: "TQ_CONTACT_EMAIL", value: "eber.example.org"},
+		{name: "contact with header break", key: "TQ_CONTACT_EMAIL", value: "eber@example.org\r\nX-Evil: 1"},
+		{name: "contact with paren", key: "TQ_CONTACT_EMAIL", value: "eber@example.org)"},
+		{name: "unknown service", key: "TQ_EVIDENCE_BASE_URLS", value: "web=http://web.test"},
+		{name: "no equals", key: "TQ_EVIDENCE_BASE_URLS", value: "openalex"},
+		{name: "bad scheme", key: "TQ_EVIDENCE_BASE_URLS", value: "openalex=file:///etc"},
+		{name: "no host", key: "TQ_EVIDENCE_BASE_URLS", value: "arxiv=http://"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("TQ_PROVIDER", "fake")
+			t.Setenv("META_API_KEY", "")
+			t.Setenv(tt.key, tt.value)
+
+			_, err := config.Load()
+			if err == nil {
+				t.Fatalf("Load: got no error, want one naming %s", tt.key)
+			}
+			if !strings.Contains(err.Error(), tt.key) {
+				t.Fatalf("Load: error %q does not name %s", err, tt.key)
+			}
+		})
+	}
+}

@@ -7,8 +7,10 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Provider names accepted in TQ_PROVIDER (B-6).
@@ -27,6 +29,14 @@ type Config struct {
 	SpendCapProjectUSD float64
 	SpendCapDayUSD     float64
 	SpendCapTotalUSD   float64
+
+	// ContactEmail goes in the User-Agent of the evidence connectors
+	// (TQ_CONTACT_EMAIL, B-60); OpenAlex asks for it. Empty: no contact.
+	ContactEmail string
+	// EvidenceBaseURLs replaces the OpenAlex, arXiv and Crossref base
+	// URLs (TQ_EVIDENCE_BASE_URLS, tests only), as
+	// "openalex=URL,arxiv=URL,crossref=URL". Empty: the real APIs.
+	EvidenceBaseURLs map[string]string
 }
 
 // Load reads and validates the configuration. An empty variable takes
@@ -65,6 +75,13 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	if cfg.ContactEmail, err = parseContact("TQ_CONTACT_EMAIL"); err != nil {
+		return Config{}, err
+	}
+	if cfg.EvidenceBaseURLs, err = parseBaseURLs("TQ_EVIDENCE_BASE_URLS"); err != nil {
+		return Config{}, err
+	}
+
 	return cfg, nil
 }
 
@@ -100,4 +117,50 @@ func parseCap(key string, fallback float64) (float64, error) {
 		return 0, fmt.Errorf("%s: invalid value %q: want a number", key, raw)
 	}
 	return value, nil
+}
+
+// parseContact reads the contact e-mail. It goes into a header, so a
+// value with spaces, control characters or parentheses is refused.
+// [EL DISEÑO NO LO DICE] how to validate it: an @ and none of those.
+func parseContact(key string) (string, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return "", nil
+	}
+	if !strings.Contains(raw, "@") || strings.ContainsAny(raw, " ()<>\t\r\n") {
+		return "", fmt.Errorf("%s: invalid value: want an e-mail address", key)
+	}
+	for _, r := range raw {
+		if r < 0x21 || r == 0x7f {
+			return "", fmt.Errorf("%s: invalid value: want an e-mail address", key)
+		}
+	}
+	return raw, nil
+}
+
+// evidenceServices are the services TQ_EVIDENCE_BASE_URLS may point
+// elsewhere (they match internal/evidence's names).
+var evidenceServices = map[string]bool{"openalex": true, "arxiv": true, "crossref": true}
+
+// parseBaseURLs reads "service=URL" pairs separated by commas.
+// [EL DISEÑO NO LO DICE] the format of TQ_EVIDENCE_BASE_URLS.
+func parseBaseURLs(key string) (map[string]string, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil, nil
+	}
+	out := map[string]string{}
+	for _, pair := range strings.Split(raw, ",") {
+		name, value, ok := strings.Cut(strings.TrimSpace(pair), "=")
+		name, value = strings.TrimSpace(name), strings.TrimSpace(value)
+		if !ok || !evidenceServices[name] {
+			return nil, fmt.Errorf("%s: invalid entry %q: want openalex, arxiv or crossref = URL", key, name)
+		}
+		u, err := url.Parse(value)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return nil, fmt.Errorf("%s: invalid URL for %s: want http or https with a host", key, name)
+		}
+		out[name] = value
+	}
+	return out, nil
 }

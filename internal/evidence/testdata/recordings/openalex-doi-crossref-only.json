@@ -1,0 +1,8 @@
+{
+  "service": "openalex",
+  "query": "doi:10.5555/crossref-only",
+  "url": "https://api.openalex.org/works/doi:10.5555/crossref-only",
+  "status": 404,
+  "content_type": "application/json",
+  "body": "{\"error\": \"404 Not Found\", \"message\": \"The requested URL was not found on the server.\"}"
+}

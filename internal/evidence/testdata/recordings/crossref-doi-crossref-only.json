@@ -1,0 +1,8 @@
+{
+  "service": "crossref",
+  "query": "10.5555/crossref-only",
+  "url": "https://api.crossref.org/works/10.5555/crossref-only",
+  "status": 200,
+  "content_type": "application/json",
+  "body": "{\"status\": \"ok\", \"message-type\": \"work\", \"message-version\": \"1.0.0\", \"message\": {\"DOI\": \"10.5555/crossref-only\", \"URL\": \"https://doi.org/10.5555/crossref-only\", \"title\": [\"A report only Crossref knows\"], \"author\": [{\"given\": \"Ana\", \"family\": \"Quispe\"}, {\"given\": \"Luis\", \"family\": \"Mamani\"}], \"issued\": {\"date-parts\": [[2021, 5, 4]]}, \"abstract\": \"<jats:p>Bottled water held <jats:italic>more</jats:italic> particles than tap water.</jats:p>\"}}"
+}

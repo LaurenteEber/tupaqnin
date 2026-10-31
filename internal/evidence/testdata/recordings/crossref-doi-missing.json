@@ -1,0 +1,8 @@
+{
+  "service": "crossref",
+  "query": "10.9999/does-not-exist",
+  "url": "https://api.crossref.org/works/10.9999/does-not-exist",
+  "status": 404,
+  "content_type": "text/plain",
+  "body": "Resource not found."
+}

