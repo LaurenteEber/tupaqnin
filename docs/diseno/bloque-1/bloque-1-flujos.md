@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 1 · Flujos propios (solo donde hay ramas sin probar)
-estado: v1.7 · 27-oct · la pregunta de origen desde el grafo (N-1); K-12 retirada: la firma breve es solo la de A-4 · corregido tras su validación (V1–V8), la auditoría de perfiles y el barrido de coherencia; E-1 a E-4, F-1, F-2, G-1, A-1 a A-5, K-1 a K-11 (K-10 solo en su parte b), K-13 y N-1 adoptadas (las que tocan flujos: K-3 a K-6 y K-10 b)
+estado: 31-oct · §2: la ronda se lanza sola y la expectativa sale del pedido (B-64) · v1.7 · 27-oct · la pregunta de origen desde el grafo (N-1); K-12 retirada: la firma breve es solo la de A-4 · corregido tras su validación (V1–V8), la auditoría de perfiles y el barrido de coherencia; E-1 a E-4, F-1, F-2, G-1, A-1 a A-5, K-1 a K-11 (K-10 solo en su parte b), K-13 y N-1 adoptadas (las que tocan flujos: K-3 a K-6 y K-10 b)
 relacion: detalla tres etapas de bloque-1-fichas.md, con los estados de bloque-1-estados.md y el ciclo de bloque-1.md (v4.9). No agrega decisiones; lo marcado `[inicial]` se calibra construyendo
 ---
 
@@ -39,7 +39,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  Q(["Triaje: descubrir · pregunta y duda que reduce"]) --> E["«¿Qué esperas encontrar?» (opcional)<br/>si respondes, queda como expectativa de esta ronda (K-5)"]
+  Q(["Triaje: descubrir · pregunta y duda que reduce"]) --> E["Expectativa de la ronda: tu idea o la premisa del pedido, en literal (K-5)<br/>la ronda se lanza sola, sin esperar tu clic (31-oct, B-64)"]
   E --> RZ{"¿Razón para delegar?<br/>no cabe en una pasada · partes independientes"}
   RZ -- no --> SO["El principal lee solo"]
   RZ -- sí --> EN["La app arma los encargos (bloque-1.md §4)<br/>hasta 3 lectores en paralelo [inicial]<br/>solo los lectores buscan en la web (F-2)"]

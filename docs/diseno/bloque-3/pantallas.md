@@ -101,7 +101,7 @@ flowchart LR
 
 | Vista | Izquierda · el marco | Centro · conversación | Derecha · documento |
 |---|---|---|---|
-| Ronda propuesta (3.2, B-64) | «Ronda por lanzar» en «Lo que te toca» | La tarjeta: pregunta, qué busca cada lector y dónde, costo estimado, «¿qué esperas encontrar?» (opcional) e «Investigar» | — |
+| Ronda en curso (3.2, B-64) | Junto al trabajo en curso (no en «Lo que te toca»: arranca sola, no espera tu clic) | La tarjeta: pregunta, qué busca cada lector y dónde, la expectativa en literal (tu idea o la premisa del pedido, o «sin expectativa»), costo estimado y lo gastado, y la línea «Para buscar, tus preguntas se envían a OpenAlex, arXiv y Crossref» | — |
 | Ronda en curso y digesto (3.2, 3.4) | — | La misma tarjeta: el avance de cada lector y, al terminar, el digesto (primero la respuesta, esquema con sus hallazgos), «Descartados (n)» y «Sin revisar» a la vista, «¿se redujo la duda?», «Repetir con otra pregunta» con su costo | Al abrir un pasaje, su fuente con el pasaje marcado |
 | Conflicto entre fuentes (3.4, B-66) | Una línea en «Lo que te toca» | La tarjeta de «por aclarar» con los dos pasajes como opciones | El aviso en las secciones que usan alguna de las dos fuentes (2.9) |
 | Procedencia externa y candidatas (3.5) | En la decisión desplegada, las fuentes buscadas con su enlace | — | Junto al párrafo, el origen; en la historia (P5), título, año y enlace de la fuente buscada, o «candidata, sin verificar» con «Buscarla» |

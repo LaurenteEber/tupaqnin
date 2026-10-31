@@ -62,7 +62,7 @@ flowchart LR
 | 3e | App muestra el paso: el cambio y sus decisiones con contraste | 1 | fichas §2 |
 | 3f | App muestra las secciones con su estado y su número de pendientes | 1 `[inferencia]` | bloque-3 §4 · fichas §5 |
 | 3g | App marca en el texto «cambió desde que la firmaste», «escrita con lo anterior» y lo que tiene una propuesta | 2 | bloque-3 §4 · esp. §8 |
-| 3h | Antes de investigar, App te pregunta «¿qué esperas encontrar?» (opcional) | 3 | flujos §2 |
+| 3h | La expectativa de la ronda sale de tu idea o la premisa del pedido, en literal; la ronda no espera tu clic (B-64) | 3 | flujos §2 |
 | 3i | App muestra el digesto (hallazgos con pasaje, «no verificado», lo descartado a la vista, el inventario de cobertura); tú abres un pasaje y decides repetir la ronda con su costo o dejarlo «por aclarar» | 3 | fichas §2 · flujos §2 · A-5 |
 | 3j | App muestra las fallas de la verificación; tú descartas lo que no aplica | 2 (comprobador y descartar) · 3 (juez y verificación por hallazgo) | fichas §2 · K-4 · A-2 · plan §1 · H-1 |
 | 3k | Tú pides una auditoría | 3 | fichas §2 |

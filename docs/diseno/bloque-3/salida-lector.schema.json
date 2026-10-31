@@ -117,15 +117,14 @@
       "pattern": "^hit-[1-9][0-9]*$"
     },
     "extref": {
-      "description": "Referencia que el lector escribe sin que salga de una búsqueda de esta ronda (B-58). La app la busca en el registro (DOI) y por título; si no existe, el hallazgo se descarta, a la vista en el digesto.",
+      "description": "Referencia que el lector escribe sin que salga de una búsqueda de esta ronda (B-58). La app la busca en el registro (DOI) y por título; si no existe, el hallazgo se descarta, a la vista en el digesto. Sin URL: la app nunca descarga una dirección que escribió el modelo (B-58); solo busca por DOI y por título.",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "title",
         "authors",
         "year",
-        "doi",
-        "url"
+        "doi"
       ],
       "properties": {
         "title": {
@@ -145,16 +144,6 @@
           ]
         },
         "doi": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/text"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "url": {
           "anyOf": [
             {
               "$ref": "#/$defs/text"
