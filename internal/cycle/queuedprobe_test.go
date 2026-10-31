@@ -19,7 +19,19 @@ import (
 // «sin comprobar» (B-50) and their signoff is blocked. It runs when the
 // turn ends or at the next B-36 trigger, over the current text.
 
-const newPremise = "Cambiar la premisa: ambas son igual de seguras."
+// chosenOption is the text of option i of an open question, as the
+// checker wrote it: a recording from Meta words it otherwise (P-71).
+func chosenOption(t *testing.T, db *store.DB, label string, i int) string {
+	t.Helper()
+	_, body := object(t, db, label)
+	opts, _ := body["options"].([]any)
+	if i >= len(opts) {
+		t.Fatalf("%s options: %v, want an option %d", label, opts, i)
+	}
+	opt, _ := opts[i].(map[string]any)
+	text, _ := opt["option"].(string)
+	return text
+}
 
 // contradictedPremise leaves oq-1 open on the contradicted premise
 // (the batch of contradictingEdit, judged by the first recording).
@@ -108,7 +120,7 @@ func TestP72_NewPremiseDuringATurnIsProbedWhenTheTurnEnds(t *testing.T) {
 		t.Fatalf("checker calls: %d, want 2 (the batch, then the queued probe once when the turn ends)", n)
 	}
 	brief := briefOf(t, cap.checker[1])
-	for _, s := range []string{"prem-1 (premise): " + newPremise, "New passage of section sec-1", contradictingEdit} {
+	for _, s := range []string{"prem-1 (premise): " + chosenOption(t, db, "oq-1", 2), "New passage of section sec-1", contradictingEdit} {
 		if !strings.Contains(brief, s) {
 			t.Fatalf("probe brief lacks %q:\n%s", s, brief)
 		}
@@ -146,7 +158,7 @@ func TestP72_AQueuedProbeRunsAtTheNextTrigger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RequestSignoff: %v", err)
 	}
-	if n := len(cap.checker); n != 2 || !strings.Contains(briefOf(t, cap.checker[1]), "prem-1 (premise): "+newPremise) {
+	if n := len(cap.checker); n != 2 || !strings.Contains(briefOf(t, cap.checker[1]), "prem-1 (premise): "+chosenOption(t, db, "oq-1", 2)) {
 		t.Fatalf("checker calls: %d, want the queued probe on asking to sign", n)
 	}
 	if uncheckedNow(t, db, "sec-1") {

@@ -261,7 +261,7 @@ func TestE6_ChangingTheContradictedPremiseCreatesItsNewVersionAndProbesTheCurren
 		t.Fatalf("answer: %+v, %v", answer, err)
 	}
 	prem, pb := object(t, db, "prem-1")
-	want := "Cambiar la premisa: ambas son igual de seguras."
+	want := chosenOption(t, db, "oq-1", 2)
 	versions, err := db.Versions(ctx, "p1", prem.ID)
 	if err != nil {
 		t.Fatalf("Versions: %v", err)
