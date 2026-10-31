@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -35,6 +36,9 @@ const (
 	TurnChecker       TurnKind = "checker"
 	TurnStopReport    TurnKind = "stop_report"
 	TurnJudgeDefense  TurnKind = "judge_defense"
+	// TurnReader is one reader of a round (backlog-r3 3.2): its calls
+	// carry the round's turn id and no principal instance (B-62).
+	TurnReader TurnKind = "reader"
 )
 
 // Provider is one model backend. onDelta may be nil; when set, it is
@@ -78,6 +82,10 @@ type Request struct {
 	// (backlog-r2 2.6), so the fake can answer a judge call it has no
 	// recording for (see Fake.Respond); Meta ignores it.
 	DefenseSection string
+	// Part is the round part a reader call answers, from 1 (backlog-r3
+	// 3.2), so the fake can pick a recording by part; 0 for every other
+	// call. Meta ignores it.
+	Part int
 }
 
 // ReportDecision is one decision the app lists for the stop report: its
@@ -212,7 +220,10 @@ type Fixture struct {
 	Name string `json:"name"`
 	// TurnKind is the kind of turn the recording answers (P-29);
 	// empty serves any kind.
-	TurnKind   TurnKind          `json:"turn_kind,omitempty"`
+	TurnKind TurnKind `json:"turn_kind,omitempty"`
+	// Part is the round part a reader recording answers (backlog-r3
+	// 3.2); 0 serves any part.
+	Part       int               `json:"part,omitempty"`
 	Deltas     []string          `json:"deltas"`
 	Items      []json.RawMessage `json:"items"`
 	Usage      Usage             `json:"usage"`
@@ -232,23 +243,37 @@ type Fake struct {
 	Recorder CallRecorder
 
 	fixtures []Fixture
-	next     map[TurnKind]int
+	// mu guards next: the readers of a round call the fake in parallel
+	// (backlog-r3 3.2).
+	mu   sync.Mutex
+	next map[pickKey]int
+}
+
+// pickKey is one replay order: by turn kind and, for a reader, by part.
+type pickKey struct {
+	kind TurnKind
+	part int
 }
 
 // NewFake returns a fake that replays the fixtures in the given order.
 func NewFake(fixtures ...Fixture) *Fake {
-	return &Fake{fixtures: fixtures, next: make(map[TurnKind]int)}
+	return &Fake{fixtures: fixtures, next: make(map[pickKey]int)}
 }
 
 // pick returns the next fixture for the turn kind, or false when no
 // fixture serves it. A checker call only gets checker recordings: a
 // recording without a kind predates the checker and is the principal's.
-// A stop report call and a judge's defense call likewise only get
-// recordings of their own kind.
-func (f *Fake) pick(kind TurnKind) (Fixture, bool) {
+// A stop report call, a judge's defense call and a reader call likewise
+// only get recordings of their own kind. A reader call gets the
+// recordings of its part (or without one), each part with its own order
+// (backlog-r3 3.2).
+func (f *Fake) pick(kind TurnKind, part int) (Fixture, bool) {
 	var matching []Fixture
 	for _, fx := range f.fixtures {
-		if (kind == TurnChecker || kind == TurnStopReport || kind == TurnJudgeDefense) && fx.TurnKind != kind {
+		if (kind == TurnChecker || kind == TurnStopReport || kind == TurnJudgeDefense || kind == TurnReader) && fx.TurnKind != kind {
+			continue
+		}
+		if kind == TurnReader && fx.Part != 0 && fx.Part != part {
 			continue
 		}
 		if kind == "" || fx.TurnKind == "" || fx.TurnKind == kind {
@@ -258,8 +283,14 @@ func (f *Fake) pick(kind TurnKind) (Fixture, bool) {
 	if len(matching) == 0 {
 		return Fixture{}, false
 	}
-	fx := matching[f.next[kind]%len(matching)]
-	f.next[kind]++
+	key := pickKey{kind: kind}
+	if kind == TurnReader {
+		key.part = part
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	fx := matching[f.next[key]%len(matching)]
+	f.next[key]++
 	return fx, true
 }
 
@@ -268,7 +299,7 @@ var _ Provider = (*Fake)(nil)
 // Respond emits the next fixture's deltas at its DeltaDelay rhythm
 // and returns its recorded items byte-for-byte.
 func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (Response, error) {
-	fx, ok := f.pick(req.TurnKind)
+	fx, ok := f.pick(req.TurnKind, req.Part)
 	if !ok && req.TurnKind == TurnChecker {
 		fx, ok = noFindingsFixture(req.ProbeLabels), true
 	}

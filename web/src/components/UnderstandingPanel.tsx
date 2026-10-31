@@ -20,7 +20,7 @@ import { translate, type Lang } from "../i18n";
 // (each line passes to its section, B-53); correcting a line or a mark
 // also answers the plan. It does not hold the start, the chain has
 // already started (B-17). Nothing here blocks the work (fichas §2).
-export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged, onChanged }: {
+export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged, onChanged, onSearchEvidence }: {
   lang: Lang;
   projectID: string;
   refreshKey: number;
@@ -28,6 +28,9 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
   onRoleChanged: () => void;
   // A case was confirmed or corrected: the frame shows its state.
   onChanged: () => void;
+  // «Buscar evidencia» (B-72): you start a round; shown when the
+  // document needs evidence.
+  onSearchEvidence?: () => void;
 }) {
   const t = (key: string) => translate(lang, key);
   const [view, setView] = useState<UnderstandingView | null>(null);
@@ -287,6 +290,14 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
           {view.evidence_required.why && <> · {view.evidence_required.why}</>}
           {view.evidence_required.state === "proposed" && (
             <span className="meta"> · {t("understanding.role_state.proposed")}</span>
+          )}
+          {view.evidence_required.value && onSearchEvidence && (
+            <>
+              {" "}
+              <button type="button" className="small" onClick={onSearchEvidence}>
+                {t("understanding.search_evidence")}
+              </button>
+            </>
           )}
         </p>
       )}

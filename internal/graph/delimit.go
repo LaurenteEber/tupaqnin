@@ -24,6 +24,9 @@ const (
 	DataPassage     = "passage"     // a new passage of the document, for the checker
 	DataSection     = "section"     // a section's current text, for the judge and Wonder
 	DataExplanation = "explanation" // the person's explanation, for Wonder
+	// DataSearchResult is a search_literature result list, for a reader
+	// (backlog-r3 3.2): titles and abstracts come from an API.
+	DataSearchResult = "search_result"
 )
 
 const (

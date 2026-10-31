@@ -1,4 +1,6 @@
 import type {
+  RoundCard,
+  StartRoundResponse,
   AnswerCardResponse,
   BlockHistoryView,
   DecisionHistoryView,
@@ -600,4 +602,14 @@ export function subscribeTurn(
     }
   });
   return () => source.close();
+}
+
+// Backlog-r3 3.2: the round card (B-64) and «Buscar evidencia» (B-72),
+// which answers 409 (http_409) while a turn of the project runs.
+export async function getRound(projectID: string, label: string): Promise<RoundCard> {
+  return json(await fetch(`/api/projects/${projectID}/rounds/${label}`));
+}
+
+export async function startRound(projectID: string): Promise<StartRoundResponse> {
+  return json(await post(`/api/projects/${projectID}/rounds`));
 }

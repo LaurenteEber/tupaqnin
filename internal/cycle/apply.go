@@ -77,6 +77,12 @@ type stepOutput struct {
 		What string `json:"what"`
 		Why  string `json:"why"`
 	} `json:"deferred"`
+	// ResearchRequest asks for a round of readers (B-57); it is read
+	// leniently, so a request without its shape is rejected alone.
+	ResearchRequest json.RawMessage `json:"research_request"`
+	// NamedReferences are what the step names without a citation
+	// (B-69); a round's references point into them.
+	NamedReferences json.RawMessage `json:"named_references"`
 }
 
 // ApplyResult is what ApplyStep reports. Applied is false when rules 2
@@ -101,6 +107,9 @@ type ApplyResult struct {
 	// Change is the applied change, for the checker, which judges it
 	// after the step's transaction (backlog-r2 2.3).
 	Change checks.Change
+	// Round is the id of the round the step's research_request created
+	// (B-57), "" when none; the runner launches it (B-64).
+	Round string
 }
 
 // errStale is a section that changed since the version the agent read
@@ -196,7 +205,7 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 		rejected = append(rejected, c["message"].(string))
 	}
 	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Work: work,
-		Stretch: p.stretch, Reclassified: p.reclassified, Change: p.change}, nil
+		Stretch: p.stretch, Reclassified: p.reclassified, Change: p.change, Round: p.round}, nil
 }
 
 // beforeApplyWrite runs between ApplyStep's read and its write; tests
@@ -209,6 +218,8 @@ type project struct {
 	// stretch and reclassified are what rule 0 settled when applying.
 	stretch      string
 	reclassified []string
+	// round is the round the step's research_request created (B-57).
+	round string
 	// rejectedCloses are the handled_changes rule 7 rejected, each with
 	// its message for the agent (specification §3).
 	rejectedCloses []map[string]any
@@ -1257,6 +1268,10 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	// so the reclassification (rule 0) and «escrito sin decisión» (rule
 	// 2) are written in it (backlog-r2 2.1). No rule stops the chain.
 	if err := p.runRules(tx, turnID, out, pl, ids, sectionIDs, changed, data); err != nil {
+		return nil, err
+	}
+	// B-57: the round request, after rule 0 settled the stretch.
+	if p.round, err = p.applyResearchRequest(tx, turnID, out, data); err != nil {
 		return nil, err
 	}
 	if longDeferred != nil {

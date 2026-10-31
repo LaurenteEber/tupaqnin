@@ -18,7 +18,8 @@ import (
 // prepared without a stop (P-86). Never an internal id.
 type ConversationEntry struct {
 	// Kind is message · step · understanding · card_answered ·
-	// stop_report · audience_question.
+	// stop_report · audience_question · round (backlog-r3 3.2: Label is
+	// the round; GET /rounds/{label} has its card).
 	Kind       string `json:"kind"`
 	Text       string `json:"text,omitempty"`
 	TriageLine string `json:"triage_line,omitempty"`
@@ -109,6 +110,15 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			if entry.Kind != "step" && entry.Kind != "understanding" {
 				continue
 			}
+		case ev.Type == store.EventStateChanged && ev.Actor == "human" && str(data, "kind") == "research" &&
+			str(data, "to") == "open":
+			// B-72: a round you started («Buscar evidencia»); one the agent
+			// asked for follows its step (below).
+			obj, err := s.db.GetObject(r.Context(), projectID, ev.ObjectID)
+			if err != nil || obj.Type != store.ObjectRound {
+				continue
+			}
+			entry.Kind, entry.Label = "round", obj.Label
 		case ev.Type == store.EventStopReport:
 			entry.Kind, entry.Text, entry.StopReason = "stop_report", str(data, "answer"), str(data, "stop_reason")
 			entry.Incomplete, _ = data["principal_failed"].(bool)
@@ -143,6 +153,10 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			entry.StoppedWithoutReport = true
 		}
 		out = append(out, entry)
+		// B-64: the round the step asked for, its card right after it.
+		if entry.Kind == "step" && str(data, "round") != "" {
+			out = append(out, ConversationEntry{Kind: "round", Label: str(data, "round"), CreatedAt: ev.CreatedAt})
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }

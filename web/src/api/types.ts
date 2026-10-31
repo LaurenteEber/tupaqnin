@@ -244,7 +244,8 @@ export interface PutEvidenceRequest {
 export interface ConversationEntry {
   /**
    * Kind is message · step · understanding · card_answered ·
-   * stop_report · audience_question.
+   * stop_report · audience_question · round (backlog-r3 3.2: Label is
+   * the round; GET /rounds/{label} has its card).
    */
   kind: string;
   text?: string;
@@ -496,6 +497,79 @@ export interface SourceView {
   filename: string;
   media_type: string;
   fingerprint: string;
+}
+
+//////////
+// source: rounds.go
+
+/**
+ * RoundRunner reads a round's card and starts a round from your act
+ * (backlog-r3 3.2, B-72). *cycle.Runner satisfies it.
+ */
+export type RoundRunner = any;
+/**
+ * StartRoundResponse is the round POST /rounds created and the turn to
+ * follow it on (its stream).
+ */
+export interface StartRoundResponse {
+  label: string;
+  turn_id: string;
+}
+/**
+ * RoundCard is the round card as the page reads it (B-64), copied from
+ * what Go computed (cycle.RoundView); labels only.
+ */
+export interface RoundCard {
+  label: string;
+  state: string;
+  kind: string;
+  question: string;
+  doubt: string;
+  delegation_reason: string;
+  scope: string;
+  expectation: string;
+  parts: RoundCardPart[];
+  estimated_cost_usd: number /* float64 */;
+  spent_usd: number /* float64 */;
+  running: boolean;
+  stopped?: string;
+  hits: RoundCardHit[];
+}
+/**
+ * RoundCardPart is one reader: what it searches, where, and how it goes
+ * (pending · running · returned · empty, with why).
+ */
+export interface RoundCardPart {
+  part: number /* int */;
+  question: string;
+  where: string[];
+  sources: RoundCardSource[];
+  queries: string[];
+  status: string;
+  reason?: string;
+  tool_calls: number /* int */;
+  findings: number /* int */;
+}
+/**
+ * RoundCardSource is a project source a reader reads, with what for.
+ */
+export interface RoundCardSource {
+  label: string;
+  what_for: string;
+}
+/**
+ * RoundCardHit is a search result numbered in the round, with the URL
+ * and DOI the API gave (B-58).
+ */
+export interface RoundCardHit {
+  label: string;
+  service: string;
+  title: string;
+  authors: string[];
+  year: number /* int */;
+  doi: string;
+  url: string;
+  open_text: boolean;
 }
 
 //////////

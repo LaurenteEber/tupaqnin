@@ -84,3 +84,18 @@ export function shouldReloadEditor(
 ): boolean {
   return incoming.version > base.version && incoming.text !== base.savedText && editorText === shownText;
 }
+
+// Backlog-r3 3.2 (B-64): a round started in the turn being followed.
+// The stream says so with a piece of field «round» carrying its label;
+// the page reads the conversation again so the round's card shows.
+export function roundStarted(delta: { field?: string; text?: string }): string {
+  return delta.field === "round" ? (delta.text ?? "") : "";
+}
+
+// The round card asks again every few seconds while its readers run.
+// [EL DISEÑO NO LO DICE]: the interval; 2 s.
+export const ROUND_POLL_MS = 2_000;
+
+export function roundKeepsPolling(card: { running: boolean; parts: { status: string }[] }): boolean {
+  return card.running || card.parts.some((p) => p.status === "running");
+}

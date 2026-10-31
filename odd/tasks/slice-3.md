@@ -8,7 +8,7 @@ Each piece's spec is its row in `docs/construccion/backlog-r3.md` v0.7, read ver
 
 - **S0 · 3.0** Micro-prueba de evidencia. «Write TestMicroTestEvidence in internal/provider/microtest/evidence_test.go (tag meta), using the reader's strict output from docs/diseno/bloque-3/salida-lector.schema.json (its extref has no URL: the app never downloads an address the model wrote, B-58). Part (3), without a model, saves the OpenAlex and arXiv responses as recordings for 3.1, without any key. The User-Agent contact comes from TQ_CONTACT_EMAIL (set on my side).» Report in `docs/casos-prueba/micro-prueba-evidencia/informe.md`, written from Eber's run of `make microtest-evidence`, in the format of `docs/casos-prueba/micro-prueba-herramientas/informe.md`.
 
-- **S1..S4, S6 · 3.1, 3.2, 3.3, 3.4, 3.6:** each its row in the design copy `../tupaqnin_design/docs/construccion/backlog-r3.md` (the repo copy lags until Eber commits docs/), plus L5. Not 3.5 (waits B-72) nor 3.7 (needs Eber's Meta run).
+- **S1..S4, S6 · 3.1, 3.2, 3.3, 3.4, 3.6:** each its row in the design copy `../tupaqnin_design/docs/construccion/backlog-r3.md` (the repo copy lags until Eber commits docs/), plus L5. 3.5 after 3.6 (B-72 decided, L9); not 3.7 (needs Eber's Meta run).
 
 ## Tasks
 
@@ -18,10 +18,11 @@ Each piece's spec is its row in `docs/construccion/backlog-r3.md` v0.7, read ver
 | T0r | S0 (report) | inline | done | docs: micro-prueba 3.0 (8dee294) |
 | T0s | sync principal schema | inline | done | chore: sync principal schema (06b792e) |
 | T1 | S1 · 3.1 | delegated (context backstop) | done | feat: slice-3.1 |
-| T2 | S2 · 3.2 | delegated (context backstop) | pending | — |
+| T2 | S2 · 3.2 | delegated (context backstop) | done | feat: slice-3.2 |
 | T3 | S3 · 3.3 | delegated (context backstop) | pending | — |
 | T4 | S4 · 3.4 | delegated (context backstop) | pending | — |
 | T6 | S6 · 3.6 | delegated (context backstop) | pending | — |
+| T5 | S5 · 3.5 (after 3.6, L9) | delegated (context backstop) | pending | — |
 
 ## Log
 
@@ -33,3 +34,6 @@ Each piece's spec is its row in `docs/construccion/backlog-r3.md` v0.7, read ver
 - **L6:** the repo's docs/ lag the design copy (backlog-r3, supervision, salida-principal, caso-5); specs are read from `../tupaqnin_design/docs/`. salida-principal.schema.json copied byte for byte into the repo's working tree (uncommitted, Eber commits docs/) so the embedded-copy test passes. The 3.0 report notes that "no es JSON" for web_search may come from joining 2–4 message items.
 - **L7 (T1, 3.1):** writer delivered `internal/evidence` (SearchLiterature, Lookup, FetchText, own client per B-60), config `TQ_CONTACT_EMAIL` / `TQ_EVIDENCE_BASE_URLS`, `golang.org/x/net v0.61.0` (2026-10-09). Risk item 2 (security) and 5 (dependency) → independent verifier: no security blocker; F1 blocker (API host NXDOMAIN read as «no existe») fixed with RED→GREEN `TestB59_LookupWithAnUnresolvableAPIHostIsUnavailable`; A1 (`::/96`, `2001::/32`) and A2 (DOI shape) fixed with `TestB60_IPv4CompatibleAndTeredoAddressesBlocked`, `TestB58_MalformedDOIIsNotQueried`. Open advisories: A3 (FetchText takes any string; 3.2/3.3 must pass only API URLs), A4 (`charset=` empty refused, fails safe). `.env.example` not readable by the agent: Eber adds the two variables.
 - **L8 (fix after 0d26e40):** my commit of 3.1 went in with `make test` red (`TestB60_ArxivSpacedThreeSeconds` flaky under the full suite; my command chain did not gate on the test result). Root cause: the 3 s counted from the client's request start, so a slow first arrival let arXiv see two requests closer than 3 s. Fix: arXiv requests go one at a time and the 3 s count from the end of the previous one. Two uncached `go test -count=1 ./...` runs green. From now on each commit is gated on the exit codes of make test, make vet and make web.
+- **L9 (31-oct, Eber):** "Update: B-72 is decided (adopted the proposal), and docs/construccion/backlog-r3.md now carries it plus the 3.0 results (B-55, B-57 without web, B-65). Re-read backlog-r3.md before each piece. B-72: «Buscar evidencia» is a button on the understanding card and «Buscarla» one on each candidate; both create the round with POST /rounds and the app sets the reason; the parts are openalex and, if the project has material, project (no arxiv: the app cannot judge the topic). So 3.5 is no longer blocked: after 3.6, do 3.5 too, as «feat: slice-3.5». Still do NOT do 3.7."
+- **L10:** 3.2 writer told to implement `POST /rounds` (B-72) within 3.2; «Buscarla» on candidates goes with 3.5 (B-69). Order now: 3.2, 3.3, 3.4, 3.6, 3.5.
+- **L11 (T2, 3.2):** writer delivered the round and parallel readers, POST /rounds (B-72) and the «Buscar evidencia» button; «Buscarla» waits for 3.5. Risk items 4 (concurrency) and 3 (shared `respond`) → independent verifier: PASS, no blockers; principal tool loop identical to base in a differential run. A1 fixed by the parent: B-65 «reserva del máximo antes de cada llamada» was a spent-only check (3 parallel readers at 0.25 USD per call spent 1.25 of 0.60); now each model call reserves max(0.05, dearest call) and a tool call needs one more call to fit (RED→GREEN `TestB65_ParallelReadersReserveBeforeEachCall`; `TestB65_RoundCapCuts…` cap moved to 0.052). Open advisories: A2 (Close mid-round leaves the round `open`, readers `pending`), A3 (a reader at its 10 model calls leaves unanswered function calls in a retry), A4 (POST /rounds with no request → 500), A5 (arXiv only for computing/physics/math is not enforced; the principal's `where` decides).

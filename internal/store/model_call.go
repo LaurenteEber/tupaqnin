@@ -113,3 +113,14 @@ func (db *DB) LastModelCall(ctx context.Context, projectID, role string) (ModelC
 	c.ProjectID, c.Role, c.ModelAndEffort = projectID, role, model.String
 	return c, true, nil
 }
+
+// TurnSpend is what the model calls of one turn cost, in USD: a round's
+// spend is the sum of model_call.cost of its turn_id (B-65).
+func (db *DB) TurnSpend(ctx context.Context, projectID, turnID string) (float64, error) {
+	var spent sql.NullFloat64
+	if err := db.Reader.QueryRowContext(ctx,
+		`SELECT SUM(cost) FROM model_call WHERE project_id = ? AND turn_id = ?`, projectID, turnID).Scan(&spent); err != nil {
+		return 0, fmt.Errorf("turn spend: %w", err)
+	}
+	return spent.Float64, nil
+}

@@ -97,6 +97,17 @@ func (m *Memory) recordRead(ctx context.Context, projectID, instanceID string, s
 // span, numbered, literal. An unknown label answers with the labels
 // that exist, for the model, and records nothing.
 func (m *Memory) ReadSource(ctx context.Context, projectID, instanceID, label, span string) (string, error) {
+	return m.readSource(ctx, projectID, instanceID, label, span, true)
+}
+
+// ReaderReadSource is read_source for a reader of a round (backlog-r3
+// 3.2): the same answer, but nothing is recorded: what a reader reads
+// does not count as read by the principal (2.11, B-62).
+func (m *Memory) ReaderReadSource(ctx context.Context, projectID, label, span string) (string, error) {
+	return m.readSource(ctx, projectID, "", label, span, false)
+}
+
+func (m *Memory) readSource(ctx context.Context, projectID, instanceID, label, span string, record bool) (string, error) {
 	all, err := m.sources(ctx, projectID)
 	if err != nil {
 		return "", err
@@ -115,8 +126,10 @@ func (m *Memory) ReadSource(ctx context.Context, projectID, instanceID, label, s
 		for i := from; i <= to; i++ {
 			fmt.Fprintf(&sb, "[%d] %s\n", i, paragraphs[i-1])
 		}
-		if err := m.recordRead(ctx, projectID, instanceID, src); err != nil {
-			return "", err
+		if record {
+			if err := m.recordRead(ctx, projectID, instanceID, src); err != nil {
+				return "", err
+			}
 		}
 		return fmt.Sprintf("%s, paragraphs %d-%d of %d:\n%s", src.Label, from, to, len(paragraphs),
 			graph.Delimit(graph.DataSource, sb.String())), nil
@@ -132,6 +145,16 @@ func (m *Memory) ReadSource(ctx context.Context, projectID, instanceID, label, s
 // letter case ignored), with its source and number. Each source with a
 // match counts as read.
 func (m *Memory) SearchSources(ctx context.Context, projectID, instanceID, text string) (string, error) {
+	return m.searchSources(ctx, projectID, instanceID, text, true)
+}
+
+// ReaderSearchSources is search_sources for a reader of a round
+// (backlog-r3 3.2): nothing is recorded (2.11, B-62).
+func (m *Memory) ReaderSearchSources(ctx context.Context, projectID, text string) (string, error) {
+	return m.searchSources(ctx, projectID, "", text, false)
+}
+
+func (m *Memory) searchSources(ctx context.Context, projectID, instanceID, text string, record bool) (string, error) {
 	needle := strings.ToLower(strings.TrimSpace(text))
 	if utf8.RuneCountInString(needle) == 0 {
 		return "Search for some text.", nil
@@ -155,7 +178,7 @@ func (m *Memory) SearchSources(ctx context.Context, projectID, instanceID, text 
 			matches++
 			found = true
 		}
-		if found {
+		if found && record {
 			if err := m.recordRead(ctx, projectID, instanceID, src); err != nil {
 				return "", err
 			}

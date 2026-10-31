@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LaurenteEber/tupaqnin/docs/diseno/bloque-3/salida-lector.schema.json",
+  "title": "Salida fija del lector",
+  "description": "Contrato de fichas §7 (fila «Lector»), en forma de esquema, con R-9 y A-5. El lector no escribe nada: devuelve hallazgos con pasaje literal y su fuente; la app verifica cada uno (flujos §2). La fuente va por una de tres vías, y solo una: una fuente del proyecto (`source_id`), un resultado de búsqueda de esta ronda (`hit`) o una referencia escrita (`reference`). Rebanada 3 (backlog-r3, pieza 3.2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "findings",
+    "covered",
+    "sources_read"
+  ],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "passage",
+          "source_id",
+          "hit",
+          "reference",
+          "note"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "fact",
+              "assumption",
+              "contradiction",
+              "gap"
+            ],
+            "description": "Hecho · supuesto · contradicción · vacío (fichas §7). En «gap», el pasaje y la fuente pueden ir en null: el vacío es lo que no encontró."
+          },
+          "passage": {
+            "anyOf": [
+              {
+                "description": "Pasaje literal de la fuente, sin traducir (T-1). Nunca una paráfrasis.",
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/label"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hit": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/extref"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "description": "En «contradiction»: con qué choca, en una línea. En «gap»: qué buscó y no encontró. Si no: null.",
+                "$ref": "#/$defs/text"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "covered": {
+      "description": "Ids de las preguntas o criterios del encargo que este lector cubrió (fichas §7).",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/label"
+      }
+    },
+    "sources_read": {
+      "description": "Lo que de verdad leyó (A-5): fuentes del proyecto y resultados de búsqueda. La app lo compara con lo asignado para el inventario de cobertura.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^([a-z]{2,5}|hit)-[1-9][0-9]*$"
+      }
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "Etiqueta corta de un objeto del proyecto (T-2). No admite «new-n» (regla 4 en Go).",
+      "type": "string",
+      "pattern": "^[a-z]{2,5}-[1-9][0-9]*$"
+    },
+    "hit": {
+      "description": "Resultado de búsqueda que la app numeró en esta ronda y le devolvió al lector con su herramienta (B-58).",
+      "type": "string",
+      "pattern": "^hit-[1-9][0-9]*$"
+    },
+    "extref": {
+      "description": "Referencia que el lector escribe sin que salga de una búsqueda de esta ronda (B-58). La app la busca en el registro (DOI) y por título; si no existe, el hallazgo se descarta, a la vista en el digesto. Sin URL: la app nunca descarga una dirección que escribió el modelo (B-58); solo busca por DOI y por título.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "authors",
+        "year",
+        "doi"
+      ],
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "authors": {
+          "$ref": "#/$defs/text"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doi": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

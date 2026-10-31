@@ -159,6 +159,11 @@ export const DataSection = "section"; // a section's current text, for the judge
  * Kinds of delimited text.
  */
 export const DataExplanation = "explanation"; // the person's explanation, for Wonder
+/**
+ * DataSearchResult is a search_literature result list, for a reader
+ * (backlog-r3 3.2): titles and abstracts come from an API.
+ */
+export const DataSearchResult = "search_result";
 
 //////////
 // source: frame.go

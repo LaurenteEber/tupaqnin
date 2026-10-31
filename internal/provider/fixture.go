@@ -72,3 +72,47 @@ func AppFixtures() ([]Fixture, error) {
 	}
 	return out, nil
 }
+
+// The reader's model calls of the first valid run of the evidence
+// micro-test (3.0, part 2), recorded without key or contact: what the
+// fake reader replays (backlog-r3 3.2), call by call.
+//
+//go:embed testdata/reader
+var readerFixturesFS embed.FS
+
+// ReaderFixtures returns the recorded reader calls in filename order
+// (reader-call-1 … reader-call-N), each of turn kind reader and for any
+// part, so every reader of a fake round replays the same run.
+func ReaderFixtures() ([]Fixture, error) {
+	entries, err := readerFixturesFS.ReadDir("testdata/reader")
+	if err != nil {
+		return nil, fmt.Errorf("reader fixtures: %w", err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") {
+			names = append(names, e.Name())
+		}
+	}
+	// reader-call-10 sorts after reader-call-9.
+	sort.Slice(names, func(i, j int) bool {
+		if len(names[i]) != len(names[j]) {
+			return len(names[i]) < len(names[j])
+		}
+		return names[i] < names[j]
+	})
+	out := make([]Fixture, 0, len(names))
+	for _, name := range names {
+		b, err := readerFixturesFS.ReadFile("testdata/reader/" + name)
+		if err != nil {
+			return nil, fmt.Errorf("reader fixture %s: %w", name, err)
+		}
+		fx, err := parseFixture(b)
+		if err != nil {
+			return nil, fmt.Errorf("reader fixture %s: %w", name, err)
+		}
+		fx.TurnKind, fx.Part = TurnReader, 0
+		out = append(out, fx)
+	}
+	return out, nil
+}

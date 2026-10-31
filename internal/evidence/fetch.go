@@ -273,7 +273,7 @@ func transportError(ctx context.Context, err error) error {
 
 // waitArxiv keeps at most one arXiv request every ArxivSpacing (B-60).
 func (c *Client) waitArxiv(ctx context.Context, host string) (release func(), err error) {
-	if !c.isArxiv(host) {
+	if c.noSpacing || !c.isArxiv(host) {
 		return func() {}, nil
 	}
 	// arXiv requests go one at a time and the 3 s count from the end of

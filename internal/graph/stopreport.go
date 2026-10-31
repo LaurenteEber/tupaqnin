@@ -197,6 +197,9 @@ func PendingRejections(ctx context.Context, q store.Querier, projectID string) (
 			NewSections    []withMessage `json:"new_sections"`
 			NewText        []withMessage `json:"new_text"`
 			HandledChanges []withMessage `json:"handled_changes"`
+			// ResearchRequest is a round request the app did not create
+			// (B-57): the rest of the step applied.
+			ResearchRequest *withMessage `json:"research_request"`
 		} `json:"not_applied"`
 	}
 	_ = json.Unmarshal(last.Data, &data)
@@ -214,6 +217,9 @@ func PendingRejections(ctx context.Context, q store.Querier, projectID string) (
 		if r.Message != "" {
 			out = append(out, r.Message)
 		}
+	}
+	if r := data.NotApplied.ResearchRequest; r != nil && r.Message != "" {
+		out = append(out, r.Message)
 	}
 	return out, nil
 }

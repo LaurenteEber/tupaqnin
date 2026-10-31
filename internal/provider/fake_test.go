@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -294,5 +295,47 @@ func TestP29_JudgeDefenseCallGetsOnlyJudgeRecordings(t *testing.T) {
 		if q.Section != "sec-2" || q.Question == "" {
 			t.Fatalf("question %+v, want one on sec-2", q)
 		}
+	}
+}
+
+// Backlog-r3 3.2: the fake picks a reader call's recording by turn kind
+// and by part, each part in its own order, and is safe for the readers
+// calling it in parallel.
+func TestB65_FakePicksReaderRecordingsByPartInParallel(t *testing.T) {
+	msg := func(text string) json.RawMessage {
+		return json.RawMessage(`{"type":"message","role":"assistant","content":[{"type":"output_text","text":"` + text + `"}]}`)
+	}
+	fake := provider.NewFake(
+		provider.Fixture{TurnKind: provider.TurnStep, Items: []json.RawMessage{msg("step")}},
+		provider.Fixture{TurnKind: provider.TurnReader, Part: 1, Items: []json.RawMessage{msg("p1-a")}},
+		provider.Fixture{TurnKind: provider.TurnReader, Part: 1, Items: []json.RawMessage{msg("p1-b")}},
+		provider.Fixture{TurnKind: provider.TurnReader, Part: 2, Items: []json.RawMessage{msg("p2")}},
+	)
+	var wg sync.WaitGroup
+	got := make([][]string, 3)
+	for part := 1; part <= 2; part++ {
+		wg.Add(1)
+		go func(part int) {
+			defer wg.Done()
+			for i := 0; i < 2; i++ {
+				resp, err := fake.Respond(context.Background(), provider.Request{TurnKind: provider.TurnReader, Part: part}, nil)
+				if err != nil {
+					t.Errorf("part %d: %v", part, err)
+					return
+				}
+				got[part] = append(got[part], resp.Text)
+			}
+		}(part)
+	}
+	wg.Wait()
+	if strings.Join(got[1], ",") != "p1-a,p1-b" || strings.Join(got[2], ",") != "p2,p2" {
+		t.Fatalf("by part: %v", got)
+	}
+	if resp, _ := fake.Respond(context.Background(), provider.Request{TurnKind: provider.TurnStep}, nil); resp.Text != "step" {
+		t.Fatalf("a step got %q", resp.Text)
+	}
+	readers, err := provider.ReaderFixtures()
+	if err != nil || len(readers) != 5 || readers[0].Name != "reader-call-1" || readers[0].TurnKind != provider.TurnReader {
+		t.Fatalf("ReaderFixtures: %d %v", len(readers), err)
 	}
 }

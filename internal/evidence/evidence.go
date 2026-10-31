@@ -157,6 +157,8 @@ type Client struct {
 
 	arxivMu   sync.Mutex
 	arxivLast time.Time
+	// noSpacing is set only by NewReplay, which never reaches arXiv.
+	noSpacing bool
 }
 
 // New builds a Client with its own HTTP client (B-60).

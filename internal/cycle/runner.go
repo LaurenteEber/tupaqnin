@@ -73,6 +73,21 @@ type Runner struct {
 	schema   json.RawMessage
 	schemaOK bool
 
+	// Evidence is what the readers search and read through (B-60): one
+	// shared client. Nil uses the replay of the recordings, which never
+	// reaches the network (TQ_PROVIDER=fake, tests).
+	Evidence Evidence
+	// ProjectCapUSD is the project's spend cap (espec. §6; 0: 3 USD), and
+	// RoundCapUSD a round's (B-65; 0: RoundCapUSD).
+	ProjectCapUSD float64
+	RoundCapUSD   float64
+	// rounds are the rounds whose readers run now, by round id, guarded
+	// by mu: their progress, for the page.
+	rounds map[string]*roundRun
+	// roundTurns counts the rounds you started running in the
+	// background (B-72), so Close waits for them.
+	roundTurns sync.WaitGroup
+
 	// AfterFunc overrides time.AfterFunc for the wait before the batch
 	// of your edits (tests); it returns the timer's stop. Nil means
 	// time.AfterFunc.
@@ -178,6 +193,7 @@ func (r *Runner) Close() {
 	r.cancel()
 	r.batches.Wait()
 	r.answers.Wait()
+	r.roundTurns.Wait()
 }
 
 // runEditBatch runs the batch of your edits, and the queued probes
@@ -938,6 +954,16 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		// one call (backlog-r2 2.3); what it finds enters the next triage.
 		if result.Status == StatusAccepted && applied.Applied && applied.Change.HasWork() {
 			if err := r.checker.Check(ctx, r.db, projectID, turnID, applied.Change); err != nil {
+				r.fail(projectID, turnID, "turn_failed")
+				return err
+			}
+		}
+		// B-64: a round the step asked for is launched on its own, in this
+		// turn's slot (P-20), so your messages get 409 until it ends.
+		// [EL DISEÑO NO LO DICE]: the chain goes on after the readers; the
+		// digest between them is 3.4's.
+		if result.Status == StatusAccepted && applied.Round != "" {
+			if err := r.runRound(ctx, projectID, applied.Round, turnID); err != nil {
 				r.fail(projectID, turnID, "turn_failed")
 				return err
 			}

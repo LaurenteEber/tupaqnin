@@ -159,7 +159,24 @@ func validateOutput(output json.RawMessage) ([]string, principalOutput, error) {
 		if !errors.As(err, &verr) {
 			return nil, parsed, fmt.Errorf("cycle: validate output: %w", err)
 		}
-		return flattenErrors(verr), parsed, nil
+		errs := flattenErrors(verr)
+		// B-57: a research request without its fixed shape does not fail
+		// the step: the rest applies and ApplyStep leaves why in
+		// step_ended (the precedent of B-54, «rechaza solo esa parte»).
+		obj, ok := inst.(map[string]any)
+		if !ok || !onlyUnder(errs, "/research_request") {
+			return errs, parsed, nil
+		}
+		without := map[string]any{}
+		for k, v := range obj {
+			if k != "research_request" {
+				without[k] = v
+			}
+		}
+		if sch.Validate(without) != nil {
+			return errs, parsed, nil
+		}
+		inst = without
 	}
 	raw, err := json.Marshal(inst)
 	if err != nil {
@@ -169,6 +186,17 @@ func validateOutput(output json.RawMessage) ([]string, principalOutput, error) {
 		return nil, parsed, fmt.Errorf("cycle: parse output: %w", err)
 	}
 	return nil, parsed, nil
+}
+
+// onlyUnder reports whether every validation error is at path or
+// inside it.
+func onlyUnder(errs []string, path string) bool {
+	for _, e := range errs {
+		if !strings.HasPrefix(e, path+": ") && !strings.HasPrefix(e, path+"/") {
+			return false
+		}
+	}
+	return len(errs) > 0
 }
 
 // flattenErrors renders a ValidationError as one "path: message"

@@ -2,13 +2,16 @@ import type { ReactNode } from "react";
 import type { StreamDelta } from "../api/client";
 import type { ConversationEntry } from "../api/types";
 import { translate, type Lang } from "../i18n";
+import { RoundCard } from "./RoundCard";
 
 // U-5: the conversation as the history keeps it (Go reads it from the
 // events), then the turn in flight as it streams. When a turn ends the
 // page refetches the history and drops the stream, so nothing shows
 // twice.
-export function ConversationPanel({ lang, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience, defensePreparing }: {
+export function ConversationPanel({ lang, projectID, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience, defensePreparing }: {
   lang: Lang;
+  // The project, for a round's card (backlog-r3 3.2).
+  projectID: string;
   entries: ConversationEntry[];
   // The sent request already shows as your first message, with its
   // sources (P-37).
@@ -54,7 +57,7 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
         i === lastReport && report ? (
           <div key={`${e.created_at}-${i}`}>{report}</div>
         ) : (
-          <Entry key={`${e.created_at}-${i}`} lang={lang} entry={e} disabled={disabled} onAnswerAudience={onAnswerAudience} />
+          <Entry key={`${e.created_at}-${i}`} lang={lang} projectID={projectID} entry={e} disabled={disabled} onAnswerAudience={onAnswerAudience} />
         ),
       )}
 
@@ -99,8 +102,9 @@ export function ConversationPanel({ lang, entries, requestText, working, stream,
   );
 }
 
-function Entry({ lang, entry, disabled, onAnswerAudience }: {
+function Entry({ lang, projectID, entry, disabled, onAnswerAudience }: {
   lang: Lang;
+  projectID: string;
   entry: ConversationEntry;
   disabled?: boolean;
   onAnswerAudience?: (label: string, answer: "yes" | "no") => void;
@@ -109,6 +113,9 @@ function Entry({ lang, entry, disabled, onAnswerAudience }: {
   switch (entry.kind) {
     case "message":
       return <div className="msg me">{entry.text}</div>;
+    case "round":
+      // Backlog-r3 3.2 (B-64): the round card, read from Go.
+      return entry.label ? <RoundCard lang={lang} projectID={projectID} label={entry.label} /> : null;
     case "card_answered":
       return (
         <p className="meta answered">

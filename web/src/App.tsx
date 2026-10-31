@@ -12,6 +12,7 @@ import {
   reorderSections,
   postMessage,
   requestSignoff,
+  startRound,
   subscribeTurn,
   type StreamDelta,
   exportURL,
@@ -34,7 +35,7 @@ import { StopReportPanel } from "./components/StopReportPanel";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { initialLang, translate, type Lang } from "./i18n";
-import { pollDefense, sendErrorCode, startsStep } from "./live";
+import { pollDefense, roundStarted, sendErrorCode, startsStep } from "./live";
 
 export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
@@ -174,6 +175,11 @@ export function App() {
         // P-93: a new step's triage line means the step before it was
         // applied: the selected section's editor takes its new text.
         if (startsStep(delta)) void refreshSections(projectID);
+        // B-64: a round started: its card shows in the conversation.
+        if (roundStarted(delta)) {
+          void refreshConversation(projectID);
+          return;
+        }
         if (delta.field === "raw") {
           setRawStream((prev) => prev + delta.text);
           return;
@@ -357,6 +363,20 @@ export function App() {
     return true;
   }
 
+  // «Buscar evidencia» (B-72): you start a round; it runs as a turn of
+  // its own, followed like a message's.
+  async function searchEvidence() {
+    if (!projectID) return;
+    setErrorCode("");
+    try {
+      const { turn_id } = await startRound(projectID);
+      void refreshConversation(projectID);
+      watchTurn(turn_id);
+    } catch (e) {
+      setErrorCode(sendErrorCode(e, defensePreparing));
+    }
+  }
+
   const current = sections.find((s) => s.label === selected);
 
   // Avisos en el texto (backlog-r2 2.9): the chosen section's warnings,
@@ -526,12 +546,14 @@ export function App() {
                   setUnderstandingKey((k) => k + 1); // a role can open a card (K-13)
                 }}
                 onChanged={bumpFrame}
+                onSearchEvidence={editor ? () => void searchEvidence() : undefined}
               />
             )}
 
             {projectID && (
               <ConversationPanel
                 lang={lang}
+                projectID={projectID}
                 entries={conversation}
                 requestText={requestText}
                 working={working}

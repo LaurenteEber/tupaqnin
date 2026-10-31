@@ -15,6 +15,7 @@ import (
 
 	"github.com/LaurenteEber/tupaqnin/internal/config"
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/evidence"
 	"github.com/LaurenteEber/tupaqnin/internal/memory"
 	"github.com/LaurenteEber/tupaqnin/internal/pdfextract"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
@@ -58,7 +59,13 @@ func main() {
 			fmt.Fprintf(os.Stderr, "provider: %v\n", err)
 			os.Exit(1)
 		}
-		fake := provider.NewFake(fixtures...)
+		// The readers of a round replay the 3.0 reader calls (backlog-r3 3.2).
+		readers, err := provider.ReaderFixtures()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "provider: %v\n", err)
+			os.Exit(1)
+		}
+		fake := provider.NewFake(append(fixtures, readers...)...)
 		fake.Recorder = db
 		prov = fake
 		countTokens = func(ctx context.Context, input []json.RawMessage) (int, error) {
@@ -75,6 +82,14 @@ func main() {
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, prov, countTokens, hub)
 	runner.Logger = logger
+	runner.ProjectCapUSD = cfg.SpendCapProjectUSD
+	// The readers' evidence (B-60): one shared client; with the fake
+	// provider, the embedded recordings, never the network (3.2).
+	if cfg.Provider == config.ProviderFake {
+		runner.Evidence = evidence.NewReplay()
+	} else {
+		runner.Evidence = evidence.New(evidence.Options{ContactEmail: cfg.ContactEmail, BaseURLs: cfg.EvidenceBaseURLs})
+	}
 
 	// No global WriteTimeout: streaming routes (specification §6) write
 	// for a long time and set their own pacing and heartbeat.

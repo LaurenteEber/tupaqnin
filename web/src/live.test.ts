@@ -6,6 +6,8 @@ import {
   DEFENSE_POLL_CAP_MS,
   DEFENSE_POLL_MS,
   pollDefense,
+  roundKeepsPolling,
+  roundStarted,
   sendErrorCode,
   shouldReloadEditor,
   startsStep,
@@ -114,4 +116,16 @@ test("P-95: when the defense's wait ends, the header's summary is read again; no
     });
     assert.equal(summaries, want);
   }
+});
+
+test("3.2 (B-64): a «round» piece of the stream names the round that started; other pieces do not", () => {
+  assert.equal(roundStarted({ field: "round", text: "rnd-2" }), "rnd-2");
+  assert.equal(roundStarted({ field: "triage_line", text: "rnd-2" }), "");
+  assert.equal(roundStarted({ field: "text", text: "x" }), "");
+});
+
+test("3.2 (B-64): the round card asks again while its readers run, and stops when they ended", () => {
+  assert.equal(roundKeepsPolling({ running: true, parts: [{ status: "returned" }] }), true);
+  assert.equal(roundKeepsPolling({ running: false, parts: [{ status: "running" }] }), true);
+  assert.equal(roundKeepsPolling({ running: false, parts: [{ status: "returned" }, { status: "empty" }] }), false);
 });
