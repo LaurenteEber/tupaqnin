@@ -5,7 +5,7 @@ packages:
   - path: "github.com/LaurenteEber/tupaqnin/internal/server"
     output_path: "src/api/types.ts"
     frontmatter: |
-      import type { AudienceQuestion, Entry, OpenChange, Pending, Provenance } from "./graph";
+      import type { AudienceQuestion, Entry, OpenChange, Pending, Provenance, Warning } from "./graph";
     type_mappings:
       time.Time: "string"
       graph.Entry: "Entry"
@@ -13,4 +13,5 @@ packages:
       graph.Provenance: "Provenance"
       graph.OpenChange: "OpenChange"
       graph.AudienceQuestion: "AudienceQuestion"
+      graph.Warning: "Warning"
     fallback_type: any

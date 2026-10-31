@@ -22,6 +22,7 @@ import type {
   StopReportView,
   AnswerAudienceQuestionResponse,
   CriterionView,
+  SectionDetail,
 } from "./types";
 import type { Frame, SignoffView } from "./graph";
 
@@ -288,6 +289,29 @@ export async function reorderSections(projectID: string, labels: string[]): Prom
 
 export async function listSections(projectID: string): Promise<SectionView[]> {
   return json(await fetch(`/api/projects/${projectID}/sections`));
+}
+
+// The section's detail (backlog-r2 2.9): its warnings in the text, placed
+// by Go (kind, passage, block, offsets and the label each leads to).
+export async function getSection(projectID: string, label: string): Promise<SectionDetail> {
+  return json(await fetch(`/api/projects/${projectID}/sections/${label}`));
+}
+
+// Closing a change from the section's band (fichas §3 «Cierre de un
+// cambio», 2.2's route): «updated» after editing, or «reviewed_unchanged»
+// with a «porque»; Go checks both and answers with the error code.
+export async function closeChange(
+  projectID: string,
+  change: string,
+  result: "updated" | "reviewed_unchanged",
+  reason = "",
+): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/changes/${change}/close`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ result, reason }),
+  });
+  if (!res.ok) throw new Error(await errorCode(res));
 }
 
 export type SaveResult =

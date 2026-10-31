@@ -5,6 +5,7 @@ import {
   createProject,
   getSummary,
   getConversation,
+  getSection,
   listProjects,
   listSections,
   reorderSections,
@@ -15,6 +16,7 @@ import {
   exportURL,
 } from "./api/client";
 import type { ConversationEntry, ProjectView, SectionView, SignoffBlocked, SummaryView } from "./api/types";
+import type { Warning } from "./api/graph";
 import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
 import { UnderstandingPanel } from "./components/UnderstandingPanel";
@@ -23,6 +25,7 @@ import { HistoryPanel } from "./components/HistoryPanel";
 import { NewSectionForm } from "./components/NewSectionForm";
 import { SectionDetails } from "./components/SectionDetails";
 import { SectionEditor } from "./components/SectionEditor";
+import { SectionWarnings } from "./components/SectionWarnings";
 import { FramePanel, type TodoTarget } from "./components/FramePanel";
 import { SignoffPanel } from "./components/SignoffPanel";
 import { ConversationPanel } from "./components/ConversationPanel";
@@ -314,6 +317,24 @@ export function App() {
   }
 
   const current = sections.find((s) => s.label === selected);
+
+  // Avisos en el texto (backlog-r2 2.9): the chosen section's warnings,
+  // computed and placed by Go, refetched when the section moves.
+  const [warnings, setWarnings] = useState<Warning[]>([]);
+  const [warningsTick, setWarningsTick] = useState(0);
+  useEffect(() => {
+    if (!projectID || !current) {
+      setWarnings([]);
+      return;
+    }
+    let live = true;
+    getSection(projectID, current.label)
+      .then((detail) => live && setWarnings(detail.warnings ?? []))
+      .catch(() => live && setWarnings([]));
+    return () => {
+      live = false;
+    };
+  }, [projectID, current?.label, current?.version, current?.state, current?.pendings, frameTick, warningsTick]);
   const currentProject = projects.find((p) => p.project_id === projectID);
   // Never an internal id on screen (P-30): the name, or the catalog's.
   const projectName = (p?: ProjectView) => p?.name || t("project.untitled");
@@ -579,6 +600,24 @@ export function App() {
                       onChanged={detailsChanged}
                     />
                   }
+                  band={
+                    <SectionWarnings
+                      lang={lang}
+                      projectID={projectID}
+                      warnings={warnings}
+                      readOnly={!editor}
+                      onClosed={() => {
+                        // Closing a change can free the section (A-1).
+                        setWarningsTick((k) => k + 1);
+                        bumpFrame();
+                        void refreshSections(projectID);
+                      }}
+                      onQuestion={(label) => reach(`oq-${label}`)}
+                      onHistory={(block) => openSection(current.label, block)}
+                    />
+                  }
+                  underlines={warnings.filter((w) => w.kind === "open_question" || w.kind === "agent_pending")}
+                  onQuestion={(label) => reach(`oq-${label}`)}
                   readOnly={!editor}
                   onBlock={setHistoryBlock}
                   unverified={current.unverified ?? []}

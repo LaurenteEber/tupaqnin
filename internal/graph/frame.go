@@ -421,7 +421,8 @@ func firstSentence(markdown string) string {
 		if _, heading := n.(*ast.Heading); heading {
 			continue
 		}
-		block = strings.TrimSpace(span(n, src))
+		r := span(n)
+		block = strings.TrimSpace(string(src[r[0]:r[1]]))
 		break
 	}
 	runes := []rune(block)

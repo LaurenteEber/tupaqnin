@@ -895,3 +895,71 @@ export interface Compared {
   Start: number /* int */[];
   End: number /* int */[];
 }
+
+//////////
+// source: warnings.go
+
+/**
+ * WarningChanged is an open change of a signed section (it moved it
+ * to changed_since_signoff, estados §1).
+ */
+export const WarningChanged = "changed";
+/**
+ * WarningStale is an open change of a section «escrita con lo
+ * anterior» (A-1, E-4).
+ */
+export const WarningStale = "stale";
+/**
+ * WarningOpenQuestion is an open «por aclarar» that blocks the
+ * section (2.4).
+ */
+export const WarningOpenQuestion = "open_question";
+/**
+ * WarningAgentPending is one of the agent's pendings (estados §1).
+ */
+export const WarningAgentPending = "agent_pending";
+/**
+ * Warning is one thing in a section that asks for your attention
+ * (backlog-r2 2.9): its kind, the literal passage where it goes, if any,
+ * and the label it leads to. Go places it: Block is the paragraph, from
+ * 1, as the history numbers it (B-10), and Start and End are the
+ * passage's offsets inside that block in UTF-16 code units, the unit of
+ * the page's editor. The page only underlines and links it; it never
+ * sees an id (rule 7 of AGENTS: Target is a short label, for the link,
+ * never shown).
+ */
+export interface Warning {
+  kind: string;
+  /**
+   * Pending is the agent pending's kind (glossary §9), on agent_pending.
+   */
+  pending?: string;
+  /**
+   * Cause tells the two causes of source_not_supporting apart.
+   */
+  cause?: string;
+  /**
+   * ChangeKind is what changed, on changed and stale: decision, figure
+   * or source.
+   */
+  change_kind?: string;
+  /**
+   * What is what the warning is about in words, literal: what changed
+   * (a decision's statement, a source's file name, a figure's anchor)
+   * or the «por aclarar»'s question. Never a label.
+   */
+  what?: string;
+  /**
+   * Passage is literal in the section's current text, or empty.
+   */
+  passage?: string;
+  block?: number /* int */;
+  start: number /* int */;
+  end: number /* int */;
+  /**
+   * Target is the label the warning leads to: the change (chg-n), the
+   * «por aclarar» (oq-n) or, for an agent pending, the section itself
+   * (its history at Block).
+   */
+  target: string;
+}

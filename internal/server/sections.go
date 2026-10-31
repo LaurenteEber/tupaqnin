@@ -88,6 +88,10 @@ type SectionDetail struct {
 	// Provenance is where each paragraph comes from, computed by the app
 	// (R-1, R-2): the page marks the unverified ones.
 	Provenance []graph.Provenance `json:"provenance"`
+	// Warnings are the warnings in the text (backlog-r2 2.9): each with
+	// its kind, the literal passage where it goes and the label it leads
+	// to. Go places them; the page only presents them.
+	Warnings []graph.Warning `json:"warnings"`
 }
 
 // LinkedAnchor is a figure (to its decision) or a citation (to its
@@ -149,6 +153,10 @@ func (s *Server) getSection(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if detail.Provenance, err = graph.Provenances(ctx, s.db, projectID, sec.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	if detail.Warnings, err = graph.SectionWarnings(ctx, s.db, projectID, sec.Label); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}

@@ -14,24 +14,34 @@ var blockParser = goldmark.New(goldmark.WithExtensions(extension.GFM)).Parser()
 // as its items (a nested list is part of its item). Block n is
 // Blocks(text)[n-1]: the raw Markdown it spans.
 func Blocks(markdown string) []string {
-	src := []byte(markdown)
-	doc := blockParser.Parse(text.NewReader(src))
 	var out []string
-	for n := doc.FirstChild(); n != nil; n = n.NextSibling() {
-		if list, ok := n.(*ast.List); ok {
-			for item := list.FirstChild(); item != nil; item = item.NextSibling() {
-				out = append(out, span(item, src))
-			}
-			continue
-		}
-		out = append(out, span(n, src))
+	for _, r := range blockRanges(markdown) {
+		out = append(out, markdown[r[0]:r[1]])
 	}
 	return out
 }
 
-// span is the raw source a block covers: from its first to its last
-// segment, its own lines and its descendants'.
-func span(n ast.Node, src []byte) string {
+// blockRanges are the byte ranges of markdown that Blocks returns, in
+// the same order (an empty block is an empty range).
+func blockRanges(markdown string) [][2]int {
+	src := []byte(markdown)
+	doc := blockParser.Parse(text.NewReader(src))
+	var out [][2]int
+	for n := doc.FirstChild(); n != nil; n = n.NextSibling() {
+		if list, ok := n.(*ast.List); ok {
+			for item := list.FirstChild(); item != nil; item = item.NextSibling() {
+				out = append(out, span(item))
+			}
+			continue
+		}
+		out = append(out, span(n))
+	}
+	return out
+}
+
+// span is the byte range of the raw source a block covers: from its
+// first to its last segment, its own lines and its descendants'.
+func span(n ast.Node) [2]int {
 	start, stop := -1, -1
 	var walk func(ast.Node)
 	walk = func(n ast.Node) {
@@ -61,7 +71,7 @@ func span(n ast.Node, src []byte) string {
 	}
 	walk(n)
 	if start < 0 {
-		return ""
+		return [2]int{0, 0}
 	}
-	return string(src[start:stop])
+	return [2]int{start, stop}
 }

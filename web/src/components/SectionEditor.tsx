@@ -1,5 +1,9 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import type { Node as PMNode } from "@tiptap/pm/model";
+import type { Warning } from "../api/graph";
 import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
@@ -24,6 +28,9 @@ export function SectionEditor({
   projectID,
   label,
   heading,
+  band,
+  underlines,
+  onQuestion,
   readOnly,
   onBlock,
   unverified,
@@ -37,6 +44,13 @@ export function SectionEditor({
   label: string;
   // The section title and «qué debe abordar», editable (P-49).
   heading: ReactNode;
+  // The band of warnings (backlog-r2 2.9), under the title and «qué debe
+  // abordar».
+  band?: ReactNode;
+  // The warnings Go placed in a paragraph (block, offsets): their passage
+  // is underlined; a «por aclarar»'s leads to its card.
+  underlines: Warning[];
+  onQuestion: (label: string) => void;
   readOnly: boolean;
   onBlock: (block: number) => void;
   // The paragraphs without a verified origin, by block from 1 (R-1):
@@ -58,7 +72,7 @@ export function SectionEditor({
 
   const editor = useEditor({
     editable: !readOnly,
-    extensions: [Document, Paragraph, Text],
+    extensions: [Document, Paragraph, Text, WarningUnderlines],
     content: text
       .split(/\n{2,}/)
       .map((p) => `<p>${escapeHTML(p)}</p>`)
@@ -74,6 +88,28 @@ export function SectionEditor({
   useEffect(() => {
     editor?.setEditable(!readOnly);
   }, [editor, readOnly]);
+
+  // Go's placements go to the plugin; it keeps them mapped through what
+  // the person types until Go sends new ones.
+  const underlineTitle = {
+    open_question: translate(lang, "warnings.underline.open_question"),
+    agent_pending: translate(lang, "warnings.underline.agent_pending"),
+  };
+  const underlinesSig = JSON.stringify(underlines.map((w) => [w.kind, w.target, w.block, w.start, w.end]));
+  useEffect(() => {
+    if (!editor) return;
+    const marks: Underline[] = underlines
+      .filter((w) => (w.block ?? 0) > 0 && w.end > w.start)
+      .map((w) => ({
+        kind: w.kind,
+        target: w.target,
+        block: w.block ?? 0,
+        start: w.start,
+        end: w.end,
+        title: w.kind === "open_question" ? underlineTitle.open_question : underlineTitle.agent_pending,
+      }));
+    editor.view.dispatch(editor.state.tr.setMeta(underlinePlugin, marks));
+  }, [editor, underlinesSig, lang]);
 
   async function saveNow() {
     if (!editor || readOnly) return;
@@ -135,9 +171,18 @@ export function SectionEditor({
         <div className="section-editor-title">{heading}</div>
         <SaveStatus lang={lang} register={(fn) => (status.current = fn)} />
       </div>
+      {band}
       <EditorContent
         editor={editor}
         onClick={(ev) => {
+          // An underlined passage of a «por aclarar» leads to its card
+          // (pantallas, 2.9); an agent pending's opens the paragraph's
+          // history, like any click on it.
+          const mark = (ev.target as HTMLElement).closest("[data-warning-kind]");
+          if (mark?.getAttribute("data-warning-kind") === "open_question") {
+            onQuestion(mark.getAttribute("data-warning-target") ?? "");
+            return;
+          }
           // A click on a paragraph opens its history (P5). Each paragraph of
           // the editor is one block of the section (B-10).
           // [EL DISEÑO NO LO DICE]: the minimal editor has paragraphs only;
@@ -150,6 +195,68 @@ export function SectionEditor({
     </div>
   );
 }
+
+// One underline the plugin draws: Go's place of a warning's passage.
+type Underline = { kind: string; target: string; block: number; start: number; end: number; title: string };
+
+const underlinePlugin = new PluginKey<DecorationSet>("warning-underlines");
+
+// Paragraph n of the editor is block n (B-10); its text starts one
+// position after the paragraph opens. Offsets are UTF-16 code units, as
+// ProseMirror counts text. An underline that no longer fits its
+// paragraph is clipped to it.
+function buildUnderlines(doc: PMNode, marks: Underline[]): DecorationSet {
+  const decorations: Decoration[] = [];
+  for (const m of marks) {
+    let from = -1;
+    let size = 0;
+    doc.forEach((node, offset, index) => {
+      if (index === m.block - 1) {
+        from = offset + 1;
+        size = node.content.size;
+      }
+    });
+    if (from < 0) continue;
+    const start = from + Math.min(m.start, size);
+    const end = from + Math.min(m.end, size);
+    if (end <= start) continue;
+    decorations.push(
+      Decoration.inline(start, end, {
+        class: `warning-underline ${m.kind}`,
+        title: m.title,
+        "data-warning-kind": m.kind,
+        "data-warning-target": m.target,
+      }),
+    );
+  }
+  return DecorationSet.create(doc, decorations);
+}
+
+// The underlines are decorations, never marks: they do not enter the
+// text the app compares (T-1).
+const WarningUnderlines = Extension.create({
+  name: "warningUnderlines",
+  addProseMirrorPlugins() {
+    return [
+      new Plugin<DecorationSet>({
+        key: underlinePlugin,
+        state: {
+          init: () => DecorationSet.empty,
+          apply(tr, set) {
+            const marks = tr.getMeta(underlinePlugin) as Underline[] | undefined;
+            if (marks) return buildUnderlines(tr.doc, marks);
+            return set.map(tr.mapping, tr.doc);
+          },
+        },
+        props: {
+          decorations(state) {
+            return underlinePlugin.getState(state);
+          },
+        },
+      }),
+    ];
+  },
+});
 
 function SaveStatus({
   lang,
