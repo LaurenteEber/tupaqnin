@@ -109,6 +109,9 @@ the deferred list is what the app carries forward.
 
 - A section's title lives apart from its text. A new section takes
   its title in `proposed_roles` (`title`).
+- Once the person has confirmed the plan («Plan confirmed» in what
+  you are given), propose a new section in `reply`; do not create it.
+  The app rejects it, and a rejected step costs a call.
 - Do not repeat the section's title as a heading inside its text:
   start the text with its content.
 - Propose a section's role from what the section concludes: the

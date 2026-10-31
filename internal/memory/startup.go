@@ -110,6 +110,11 @@ func (m *Memory) renderCore(st State) string {
 	for _, r := range st.Essentials.SectionRoles {
 		fmt.Fprintf(&sb, "Section %s role: %s (%s)\n", r.Label, r.Role, r.State)
 	}
+	// [EL DISEÑO NO LO DICE] (P-70): how the principal learns that the
+	// plan was answered; one line in the essentials.
+	if st.Essentials.PlanConfirmed {
+		sb.WriteString("Plan confirmed by the person: propose any new section in reply; do not create it.\n")
+	}
 	for _, d := range st.Essentials.Decisions {
 		if d.Critical {
 			continue // critical decisions go with the current task
@@ -217,7 +222,12 @@ func (m *Memory) renderTask(st State) string {
 	// If the task is writing a section, it goes with its «qué debe
 	// abordar» in literal (bloque-2 §3, K-17).
 	for _, sec := range taskSections(task, st.Essentials.SectionRoles) {
-		fmt.Fprintf(&sb, "Section %s «%s» · what the person wants it to address: %s\n", sec.Label, sec.Title, sec.Focus)
+		if sec.Focus != "" {
+			fmt.Fprintf(&sb, "Section %s «%s» · what the person wants it to address: %s\n", sec.Label, sec.Title, sec.Focus)
+			continue
+		}
+		// While the plan is not confirmed, its line (P-70).
+		fmt.Fprintf(&sb, "Section %s «%s» · plan line proposed by the agent, not confirmed: %s\n", sec.Label, sec.Title, sec.ProposedFocus)
 	}
 	for _, d := range st.Essentials.Decisions {
 		if d.Critical {
@@ -449,7 +459,8 @@ func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) 
 		State: obj.State, Text: text}, nil
 }
 
-// taskSections are the sections with a focus that the task names.
+// taskSections are the sections with a focus, or an unconfirmed plan
+// line (P-70), that the task names.
 // [EL DISEÑO NO LO DICE]: how the app knows that the task is a section;
 // the smallest choice is that the task's text names its label or its
 // title (the person never sees labels, so they name the title).
@@ -460,7 +471,7 @@ func taskSections(task string, sections []SectionRole) []SectionRole {
 	lower := strings.ToLower(task)
 	var out []SectionRole
 	for _, sec := range sections {
-		if sec.Focus == "" {
+		if sec.Focus == "" && sec.ProposedFocus == "" {
 			continue
 		}
 		title := strings.ToLower(strings.TrimSpace(sec.Title))

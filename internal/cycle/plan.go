@@ -2,10 +2,10 @@ package cycle
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -18,12 +18,8 @@ import (
 // it, the sections have no focus and new sections are created as
 // before (B-54).
 
-// PlanLine is one section of the «Entendí»'s plan, by label.
-type PlanLine struct {
-	Section      string `json:"section"`
-	Focus        string `json:"focus"`
-	EvidenceFrom string `json:"evidence_from"`
-}
+// PlanLine is one section of the «Entendí»'s plan (graph.PlanLine).
+type PlanLine = graph.PlanLine
 
 // ProposedPlan is the plan of the last accepted «Entendí», in its
 // order; nil before one.
@@ -35,32 +31,9 @@ func ProposedPlan(ctx context.Context, db *store.DB, projectID string) ([]PlanLi
 	return planOf(events), nil
 }
 
-func planOf(events []store.Event) []PlanLine {
-	var plan []PlanLine
-	for _, ev := range events {
-		if ev.Type != store.EventStepEnded {
-			continue
-		}
-		var data struct {
-			TurnKind string     `json:"turn_kind"`
-			Plan     []PlanLine `json:"plan"`
-		}
-		if json.Unmarshal(ev.Data, &data) != nil || data.TurnKind != "understanding" {
-			continue
-		}
-		plan = data.Plan
-	}
-	return plan
-}
+func planOf(events []store.Event) []PlanLine { return graph.Plan(events) }
 
-func planConfirmedIn(events []store.Event) bool {
-	for _, ev := range events {
-		if ev.Type == store.EventPlanConfirmed {
-			return true
-		}
-	}
-	return false
-}
+func planConfirmedIn(events []store.Event) bool { return graph.PlanConfirmed(events) }
 
 // PlanConfirmed reports whether you answered the plan (B-54 reads it).
 func PlanConfirmed(ctx context.Context, db *store.DB, projectID string) (bool, error) {

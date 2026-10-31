@@ -33,21 +33,24 @@ type State struct {
 // roles, your decisions and the critical ones in compact form, and
 // what is yours to do.
 type Essentials struct {
-	RequestText          string        `json:"request_text"`
-	Audience             string        `json:"audience"`
-	Criteria             []Criterion   `json:"criteria"`
-	PremiseText          string        `json:"premise_text"`
-	PremiseExploratory   bool          `json:"premise_exploratory"`
-	SectionRoles         []SectionRole `json:"section_roles"`
-	Decisions            []Decision    `json:"decisions"`
-	OpenCards            []string      `json:"open_cards"`
-	OpenQuestions        []string      `json:"open_questions"`
-	Proposals            []string      `json:"proposals"`
-	UnconfirmedCases     []string      `json:"unconfirmed_cases"`
-	OpenAudienceQuestion []string      `json:"open_audience_questions"`
-	SignoffPaused        bool          `json:"signoff_paused"`
-	StopReportUnseen     bool          `json:"stop_report_unseen"`
-	UnansweredMessages   []string      `json:"unanswered_messages"`
+	RequestText        string        `json:"request_text"`
+	Audience           string        `json:"audience"`
+	Criteria           []Criterion   `json:"criteria"`
+	PremiseText        string        `json:"premise_text"`
+	PremiseExploratory bool          `json:"premise_exploratory"`
+	SectionRoles       []SectionRole `json:"section_roles"`
+	// PlanConfirmed: you answered the «Entendí»'s plan (B-53); from then
+	// on a new section is proposed in reply, not created (B-54, P-70).
+	PlanConfirmed        bool       `json:"plan_confirmed,omitempty"`
+	Decisions            []Decision `json:"decisions"`
+	OpenCards            []string   `json:"open_cards"`
+	OpenQuestions        []string   `json:"open_questions"`
+	Proposals            []string   `json:"proposals"`
+	UnconfirmedCases     []string   `json:"unconfirmed_cases"`
+	OpenAudienceQuestion []string   `json:"open_audience_questions"`
+	SignoffPaused        bool       `json:"signoff_paused"`
+	StopReportUnseen     bool       `json:"stop_report_unseen"`
+	UnansweredMessages   []string   `json:"unanswered_messages"`
 }
 
 // Criterion is one current criterion with its understanding cases.
@@ -75,6 +78,11 @@ type SectionRole struct {
 	// go with the current task when the task is this section.
 	Title string `json:"title,omitempty"`
 	Focus string `json:"focus,omitempty"`
+	// ProposedFocus is the section's line of the «Entendí»'s plan while
+	// you have not answered it and the section has no focus of its own
+	// (P-70, bloque-2 §1: the principal never depends on what it
+	// remembers). It goes with the task, marked as the agent's proposal.
+	ProposedFocus string `json:"proposed_focus,omitempty"`
 }
 
 // Decision is the compact form of a decision (B2-1): label and
@@ -256,6 +264,18 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 			SectionRole{Label: sec.Label, Role: roleValue, State: roleState, Title: b.str("title"), Focus: b.str("focus")})
 		if changes := openChangeLabels(b); len(changes) > 0 {
 			st.InFlight.OpenChanges[sec.Label] = changes
+		}
+	}
+	st.Essentials.PlanConfirmed = graph.PlanConfirmed(events)
+	if !st.Essentials.PlanConfirmed {
+		proposed := map[string]string{}
+		for _, line := range graph.Plan(events) {
+			proposed[line.Section] = line.Focus
+		}
+		for i, sec := range st.Essentials.SectionRoles {
+			if sec.Focus == "" {
+				st.Essentials.SectionRoles[i].ProposedFocus = proposed[sec.Label]
+			}
 		}
 	}
 
