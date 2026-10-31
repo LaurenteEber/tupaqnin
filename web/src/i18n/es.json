@@ -305,5 +305,18 @@
   "triage.touches.criterion": "un criterio",
   "card.own_edit": "Tu edición cambió una cifra de esta decisión crítica. Escribe por qué; la decisión queda como está.",
   "decision.mark_critical": "Marcar como crítica",
-  "decision.unmark_critical": "Desmarcar como crítica"
+  "decision.unmark_critical": "Desmarcar como crítica",
+  "oq.title": "Por aclarar · solo tú decides",
+  "oq.blocks": "bloquea {what}",
+  "oq.keep": "Mantener: {what}",
+  "oq.contrast": "contraste",
+  "oq.consequence": "consecuencia",
+  "oq.risk": "riesgo",
+  "oq.variants": "Variantes que el agente avanza sin elegir",
+  "oq.passages": "Pasajes",
+  "oq.undeclared": "No lo declaró el agente",
+  "oq.tag": "por aclarar",
+  "frame.todo.open_question": "Aclarar: {question}",
+  "pending.open_question": "Hay algo por aclarar abierto",
+  "card.error.question_closed": "Esta pregunta ya se resolvió."
 }

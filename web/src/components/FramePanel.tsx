@@ -7,6 +7,7 @@ import { translate, type Lang } from "../i18n";
 // section to sign.
 export type TodoTarget =
   | { kind: "card"; label: string }
+  | { kind: "open_question"; label: string }
   | { kind: "cases" }
   | { kind: "sign"; section: string };
 
@@ -74,6 +75,10 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   for (const c of frame.todo.cards) {
     todos.push({ key: c.label, text: t("frame.todo.card", { statement: c.statement }),
       tag: t("card.critical"), target: { kind: "card", label: c.label } });
+  }
+  for (const q of frame.todo.open_questions ?? []) {
+    todos.push({ key: q.label, text: t("frame.todo.open_question", { question: q.question }),
+      tag: t("oq.tag"), target: { kind: "open_question", label: q.label } });
   }
   for (const s of frame.todo.ready_to_sign) {
     todos.push({ key: `sign-${s}`, text: t("frame.todo.sign", { section: titleOf(s) }),

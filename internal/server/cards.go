@@ -34,10 +34,11 @@ type SectionRef struct {
 	Title string `json:"title"`
 }
 
-// TodoView is what is yours to do (estados §1); in slice 1, the open
-// cards.
+// TodoView is what is yours to do (estados §1): the open cards and,
+// since slice 2, the open «por aclarar» (backlog-r2 2.4).
 type TodoView struct {
-	Cards []CardView `json:"cards"`
+	Cards         []CardView         `json:"cards"`
+	OpenQuestions []OpenQuestionView `json:"open_questions"`
 }
 
 type AnswerCardRequest struct {
@@ -106,7 +107,8 @@ func (s *Server) getCard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, view)
 }
 
-// GET /api/projects/{projectID}/todo: the open cards.
+// GET /api/projects/{projectID}/todo: the open cards and the open «por
+// aclarar» (backlog-r2 2.4).
 func (s *Server) getTodo(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {
@@ -117,7 +119,7 @@ func (s *Server) getTodo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	todo := TodoView{Cards: []CardView{}}
+	todo := TodoView{Cards: []CardView{}, OpenQuestions: []OpenQuestionView{}}
 	for _, card := range cards {
 		if card.State != "open" {
 			continue
@@ -128,6 +130,22 @@ func (s *Server) getTodo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		todo.Cards = append(todo.Cards, view)
+	}
+	questions, err := s.db.ListObjects(r.Context(), projectID, store.ObjectOpenQuestion)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	for _, q := range questions {
+		if q.State != "open" {
+			continue
+		}
+		view, err := s.openQuestionView(r, projectID, q)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+		todo.OpenQuestions = append(todo.OpenQuestions, view)
 	}
 	writeJSON(w, http.StatusOK, todo)
 }

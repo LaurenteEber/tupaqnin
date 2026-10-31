@@ -1,0 +1,139 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/store"
+)
+
+// OpenQuestionOption is one option of a «por aclarar» (P4 [2]): its
+// contrast, consequence and risk. Keep marks the app's «mantener» of a
+// decision of yours or of the premise (estados §2 and §6).
+type OpenQuestionOption struct {
+	Option      string `json:"option"`
+	Contrast    string `json:"contrast"`
+	Consequence string `json:"consequence"`
+	Risk        string `json:"risk"`
+	Keep        bool   `json:"keep"`
+}
+
+// OpenQuestionView is an open «por aclarar» as P4 [2] reads it.
+type OpenQuestionView struct {
+	Label             string               `json:"label"`
+	State             string               `json:"state"`
+	Question          string               `json:"question"`
+	Options           []OpenQuestionOption `json:"options"`
+	Sections          []SectionRef         `json:"sections"`
+	Decisions         []string             `json:"decisions"`
+	Variants          []string             `json:"variants"`
+	UndeclaredByAgent bool                 `json:"undeclared_by_agent"`
+	NewPassage        string               `json:"new_passage,omitempty"`
+	ClashingPassage   string               `json:"clashing_passage,omitempty"`
+}
+
+type AnswerOpenQuestionResponse struct {
+	OpenQuestion string `json:"open_question"`
+	NewDecision  string `json:"new_decision,omitempty"`
+}
+
+// AnswerOpenQuestionRequest answers a «por aclarar» (backlog-r2 2.4):
+// option is the index in its options, from 0; null chooses none.
+type AnswerOpenQuestionRequest struct {
+	Option *int   `json:"option"`
+	Reason string `json:"reason"`
+}
+
+// OpenQuestionAnswerer answers a «por aclarar» and, when the premise
+// changed, probes the current text against it (B-46). *cycle.Runner
+// satisfies it; without it, the gate answers alone.
+type OpenQuestionAnswerer interface {
+	AnswerOpenQuestion(ctx context.Context, projectID, label string, option *int, reason string) (cycle.OpenQuestionAnswer, error)
+}
+
+func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Object) (OpenQuestionView, error) {
+	ctx := r.Context()
+	b := bodyMap(q)
+	undeclared, _ := b["undeclared_by_agent"].(bool)
+	view := OpenQuestionView{Label: q.Label, State: q.State, Question: str(b, "question"),
+		Options: []OpenQuestionOption{}, Sections: []SectionRef{}, Decisions: []string{}, Variants: []string{},
+		UndeclaredByAgent: undeclared, NewPassage: str(b, "new_passage"), ClashingPassage: str(b, "clashing_passage")}
+	options, _ := b["options"].([]any)
+	for _, o := range options {
+		m, _ := o.(map[string]any)
+		keep, _ := m["keep"].(bool)
+		view.Options = append(view.Options, OpenQuestionOption{Option: str(m, "option"), Contrast: str(m, "contrast"),
+			Consequence: str(m, "consequence"), Risk: str(m, "risk"), Keep: keep})
+	}
+	variants, _ := b["variants"].([]any)
+	for _, v := range variants {
+		if s, ok := v.(string); ok {
+			view.Variants = append(view.Variants, s)
+		}
+	}
+	// What it blocks, by its current blocks edges: sections by their
+	// title, decisions by their statement (never a label on screen).
+	edges, err := s.db.EdgesFrom(ctx, projectID, q.ID)
+	if err != nil {
+		return view, err
+	}
+	for _, e := range edges {
+		if e.Type != store.EdgeBlocks {
+			continue
+		}
+		obj, err := s.db.GetObject(ctx, projectID, e.ToID)
+		if err != nil {
+			return view, err
+		}
+		switch obj.Type {
+		case store.ObjectSection:
+			view.Sections = append(view.Sections, SectionRef{Label: obj.Label, Title: str(bodyMap(obj), "title")})
+		case store.ObjectDecision:
+			view.Decisions = append(view.Decisions, str(bodyMap(obj), "statement"))
+		}
+	}
+	return view, nil
+}
+
+// POST /api/projects/{projectID}/open-questions/{label}/answer with
+// {option, reason} (backlog-r2 2.4).
+// [EL DISEÑO NO LO DICE]: the status codes, as the card's: 422
+// invalid_reason (answer_without_reason recorded, still open), 422
+// option_required (no option chosen, still open), 400 invalid_option
+// (an index outside the list), 409 for one that is not open.
+func (s *Server) answerOpenQuestion(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	var req AnswerOpenQuestionRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	answer := cycle.NewGate(s.db).AnswerOpenQuestion
+	if a, ok := s.starter.(OpenQuestionAnswerer); ok {
+		answer = a.AnswerOpenQuestion
+	}
+	got, err := answer(r.Context(), projectID, r.PathValue("label"), req.Option, req.Reason)
+	switch {
+	case errors.Is(err, cycle.ErrOpenQuestionNotFound):
+		writeError(w, http.StatusNotFound, "open_question_not_found")
+	case errors.Is(err, cycle.ErrInvalidOption):
+		writeError(w, http.StatusBadRequest, "invalid_option")
+	case errors.Is(err, cycle.ErrInvalidReason):
+		writeError(w, http.StatusUnprocessableEntity, "invalid_reason")
+	case errors.Is(err, cycle.ErrNoOption):
+		writeError(w, http.StatusUnprocessableEntity, "option_required")
+	case errors.Is(err, cycle.ErrOpenQuestionNotOpen):
+		writeError(w, http.StatusConflict, "open_question_not_open")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal")
+	default:
+		writeJSON(w, http.StatusOK, AnswerOpenQuestionResponse{OpenQuestion: got.OpenQuestion, NewDecision: got.NewDecision})
+	}
+}

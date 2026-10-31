@@ -305,5 +305,18 @@
   "triage.touches.criterion": "a criterion",
   "card.own_edit": "Your edit changed a figure of this critical decision. Write why; the decision stays as it is.",
   "decision.mark_critical": "Mark as critical",
-  "decision.unmark_critical": "Unmark as critical"
+  "decision.unmark_critical": "Unmark as critical",
+  "oq.title": "To clarify · only you decide",
+  "oq.blocks": "blocks {what}",
+  "oq.keep": "Keep: {what}",
+  "oq.contrast": "contrast",
+  "oq.consequence": "consequence",
+  "oq.risk": "risk",
+  "oq.variants": "Variants the agent advances without choosing",
+  "oq.passages": "Passages",
+  "oq.undeclared": "The agent did not declare it",
+  "oq.tag": "to clarify",
+  "frame.todo.open_question": "Clarify: {question}",
+  "pending.open_question": "Something to clarify is open",
+  "card.error.question_closed": "This question is already resolved."
 }

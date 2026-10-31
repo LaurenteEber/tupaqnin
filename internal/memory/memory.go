@@ -545,7 +545,8 @@ func (m *Memory) agentPendings(ctx context.Context, projectID string, sections [
 		}
 		b := decodeBody(sec)
 		for _, p := range pendings {
-			if p.Kind == graph.PendingOpenCard || p.Kind == graph.PendingMalformedOutput {
+			// Open questions are yours too: the core lists them (2.4).
+			if p.Kind == graph.PendingOpenCard || p.Kind == graph.PendingOpenQuestion || p.Kind == graph.PendingMalformedOutput {
 				continue
 			}
 			line := fmt.Sprintf("%s «%s» · %s", sec.Label, b.str("title"), p.Kind)

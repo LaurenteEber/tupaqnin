@@ -213,12 +213,21 @@ export interface FrameCard {
   statement: string;
 }
 /**
+ * FrameOpenQuestion is an open «por aclarar» in «Lo que te toca»: one
+ * line that leads to its card (pantallas, rebanada 2).
+ */
+export interface FrameOpenQuestion {
+  label: string;
+  question: string;
+}
+/**
  * FrameTodo is «Lo que te toca»: your pendings (layer 1).
  * [EL DISEÑO NO LO DICE]: the sections ready to sign count as yours to
  * do, as in the sketch («Firmar «Síntesis»»).
  */
 export interface FrameTodo {
   cards: FrameCard[];
+  open_questions: FrameOpenQuestion[];
   unconfirmed_cases: number /* int */;
   ready_to_sign: string[];
   stop_report_unseen: boolean;
@@ -315,6 +324,20 @@ export interface Labeler {
 export interface Number {
   Raw: string;
   Value: string;
+}
+
+//////////
+// source: plan.go
+
+/**
+ * PlanLine is one section of the «Entendí»'s plan, by label (R-6,
+ * backlog-r2 2.12): what it concludes or addresses (focus) and where
+ * its evidence will come from (evidence_from).
+ */
+export interface PlanLine {
+  section: string;
+  focus: string;
+  evidence_from: string;
 }
 
 //////////
@@ -666,6 +689,10 @@ export const PendingProcessNarrative = "process_narrative";
  * is the smallest English one.
  */
 export const PendingUnchecked = "unchecked";
+/**
+ * PendingOpenQuestion is an open «por aclarar» (glossary §9).
+ */
+export const PendingOpenQuestion = "open_question";
 /**
  * Causes of «fuente que no sostiene» (backlog-r2 2.3): the passage is
  * not literal in its source (the app), or it is and does not support

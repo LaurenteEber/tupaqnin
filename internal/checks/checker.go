@@ -654,23 +654,24 @@ func Apply(ctx context.Context, db *store.DB, projectID, turnID string, change C
 // openQuestion opens the «por aclarar» of a contradiction or a doubtful
 // term (B-44: the checker drafted its question and options). It depends
 // on the section and, when there is one, on the protected decision
-// (backlog-r2 2.4). undeclared_by_agent marks «no lo declaró el agente»
-// on an agent step (B2-7).
-// [EL DISEÑO NO LO DICE]: piece 2.3 only creates the open open_question;
-// its blocks edges, the premise's contradicted state, its pending and
-// its card are piece 2.4's. On your edit there is no agent to have
-// declared it, so the mark is false.
+// (backlog-r2 2.4); a contradiction of the premise moves it to
+// contradicted (estados §6). undeclared_by_agent marks «no lo declaró
+// el agente» on an agent step (B2-7); on your edit there is no agent to
+// have declared it, so the mark is false.
 func openQuestion(ctx context.Context, tx *store.Tx, projectID, turnID string, change Change, sec store.Object, cand Candidate) (string, error) {
 	dependsOn := []string{sec.ID}
-	var protectedID string
+	var protectedID, premiseID string
 	if prot := str(cand.Protected); prot != "" {
 		obj, err := tx.GetObject(ctx, projectID, prot)
 		if err != nil {
 			return "", err
 		}
 		protectedID = obj.ID
-		if obj.Type == store.ObjectDecision {
+		switch {
+		case obj.Type == store.ObjectDecision:
 			dependsOn = append(dependsOn, obj.ID)
+		case obj.Type == store.ObjectPremise && cand.Type == graph.CandidateContradiction:
+			premiseID = obj.ID
 		}
 	}
 	options := make([]map[string]any, 0, len(cand.Options))
@@ -678,13 +679,13 @@ func openQuestion(ctx context.Context, tx *store.Tx, projectID, turnID string, c
 		options = append(options, map[string]any{"option": o.Option, "contrast": o.Contrast,
 			"consequence": o.Consequence, "risk": o.Risk})
 	}
-	oq, err := tx.CreateObject(store.ObjectOpenQuestion, "open", map[string]any{
-		"question": str(cand.Question), "options": options, "depends_on": dependsOn, "variants": []any{},
-		"origin": "checker", "kind": cand.Type, "protected_id": protectedID, "section_id": sec.ID,
-		"new_passage": cand.NewPassage, "clashing_passage": str(cand.ClashingPassage),
-		"undeclared_by_agent": change.Kind == AgentStep,
-	}, store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: string(provider.RoleChecker), TurnID: turnID,
-		Data: map[string]any{"via": "checker"}})
+	oq, err := Open(ctx, tx, OpenQuestion{Question: str(cand.Question), Options: options, DependsOn: dependsOn,
+		Premise: premiseID,
+		Extra: map[string]any{"origin": "checker", "kind": cand.Type, "protected_id": protectedID, "section_id": sec.ID,
+			"new_passage": cand.NewPassage, "clashing_passage": str(cand.ClashingPassage),
+			"undeclared_by_agent": change.Kind == AgentStep},
+		Event: store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: string(provider.RoleChecker), TurnID: turnID,
+			Data: map[string]any{"via": "checker"}}})
 	if err != nil {
 		return "", err
 	}

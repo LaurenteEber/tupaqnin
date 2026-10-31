@@ -111,14 +111,22 @@ type FrameCard struct {
 	Statement string `json:"statement"`
 }
 
+// FrameOpenQuestion is an open «por aclarar» in «Lo que te toca»: one
+// line that leads to its card (pantallas, rebanada 2).
+type FrameOpenQuestion struct {
+	Label    string `json:"label"`
+	Question string `json:"question"`
+}
+
 // FrameTodo is «Lo que te toca»: your pendings (layer 1).
 // [EL DISEÑO NO LO DICE]: the sections ready to sign count as yours to
 // do, as in the sketch («Firmar «Síntesis»»).
 type FrameTodo struct {
-	Cards            []FrameCard `json:"cards"`
-	UnconfirmedCases int         `json:"unconfirmed_cases"`
-	ReadyToSign      []string    `json:"ready_to_sign"`
-	StopReportUnseen bool        `json:"stop_report_unseen"`
+	Cards            []FrameCard         `json:"cards"`
+	OpenQuestions    []FrameOpenQuestion `json:"open_questions"`
+	UnconfirmedCases int                 `json:"unconfirmed_cases"`
+	ReadyToSign      []string            `json:"ready_to_sign"`
+	StopReportUnseen bool                `json:"stop_report_unseen"`
 }
 
 // Frame is the project's frame (M-1, specification §9), in its order:
@@ -139,7 +147,7 @@ type Frame struct {
 // the function is ComputeFrame.
 func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers FrameLayers) (Frame, error) {
 	f := Frame{Purpose: layers.Purpose, Criteria: layers.Criteria, Sections: []FrameSection{},
-		Todo: FrameTodo{Cards: []FrameCard{}, ReadyToSign: []string{},
+		Todo: FrameTodo{Cards: []FrameCard{}, OpenQuestions: []FrameOpenQuestion{}, ReadyToSign: []string{},
 			UnconfirmedCases: len(layers.UnconfirmedCases), StopReportUnseen: layers.StopReportUnseen}}
 	if f.Criteria == nil {
 		f.Criteria = []FrameCriterion{}
@@ -160,6 +168,11 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 			decisions = append(decisions, obj)
 		case store.ObjectCard:
 			cards = append(cards, obj)
+		case store.ObjectOpenQuestion:
+			if obj.State == "open" {
+				f.Todo.OpenQuestions = append(f.Todo.OpenQuestions,
+					FrameOpenQuestion{Label: obj.Label, Question: bodyString(obj, "question")})
+			}
 		}
 	}
 

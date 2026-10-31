@@ -1,0 +1,25 @@
+{
+  "name": "no-findings",
+  "turn_kind": "checker",
+  "deltas": [
+    "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"no\", \"passage\": null}], \"candidates\": []}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"no\", \"passage\": null}], \"candidates\": []}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 900,
+    "output_tokens": 60,
+    "context_window": 0,
+    "cost_usd": 0
+  }
+}

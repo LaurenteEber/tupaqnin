@@ -248,6 +248,7 @@ export function App() {
 
   function onTodo(target: TodoTarget) {
     if (target.kind === "card") reach(`card-${target.label}`);
+    else if (target.kind === "open_question") reach(`oq-${target.label}`);
     else if (target.kind === "cases") reach("understanding");
     else {
       setSelected(target.section);

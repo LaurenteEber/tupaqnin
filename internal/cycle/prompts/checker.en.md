@@ -50,6 +50,8 @@ a schema. Use labels exactly as the brief gives them (for example
     its `contrast` (what it means against the others), its
     `consequence` (what happens to the document if chosen) and its
     `risk` (what could go wrong). Do not lean toward one option.
+    When `protected` is the premise or a decision, the app itself adds
+    the option that keeps it, first; your options are the alternatives.
   - `process_narrative`: the passage tells how the work was done
     («after Tuesday's review», «as we discussed», «in the previous
     version») instead of saying something to the reader.

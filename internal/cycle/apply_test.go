@@ -242,8 +242,8 @@ func TestB11_StepOnAChangedSectionIsRejected(t *testing.T) {
 }
 
 // T-4 (2), T-3, B-17: several texts of one section go back to front; each
-// new-n gets its label, recorded in step_ended with what slice 1 does not
-// apply.
+// new-n gets its label, recorded in step_ended; the proposed open
+// question is applied since 2.4, so it is no longer «not applied».
 func TestT4_TwoEditsApplyBackToFrontAndStepEndedCarriesLabelsAndNotApplied(t *testing.T) {
 	db := seedStepProject(t)
 	applied := applyRecorded(t, db, stepFile(t, "two-edits"))
@@ -264,8 +264,9 @@ func TestT4_TwoEditsApplyBackToFrontAndStepEndedCarriesLabelsAndNotApplied(t *te
 	if got := edgeTypes(t, db, dec.ID)[store.EdgeUsedIn]; len(got) != 1 || got[0] != newSec.ID {
 		t.Fatalf("used_in to the new section: %v", got)
 	}
-	if oqs, _ := db.ListObjects(context.Background(), "p1", store.ObjectOpenQuestion); len(oqs) != 0 {
-		t.Fatalf("open questions created: %d, want 0 (slice 1 does not apply them)", len(oqs))
+	// Slice 2 applies the proposed open question (backlog-r2 2.4).
+	if oqs, _ := db.ListObjects(context.Background(), "p1", store.ObjectOpenQuestion); len(oqs) != 1 || applied.Labels["new-3"] != "oq-1" {
+		t.Fatalf("open questions created: %d, labels %v; want oq-1 from new-3", len(oqs), applied.Labels)
 	}
 	ended := eventsOfType(t, db, store.EventStepEnded)
 	if len(ended) != 1 {
@@ -274,7 +275,7 @@ func TestT4_TwoEditsApplyBackToFrontAndStepEndedCarriesLabelsAndNotApplied(t *te
 	data := eventData(t, ended[0])
 	labels, _ := data["labels"].(map[string]any)
 	notApplied, _ := data["not_applied"].(map[string]any)
-	if labels["new-1"] != "sec-2" || labels["new-2"] != "dec-3" || notApplied["proposed_open_questions"] == nil {
+	if labels["new-1"] != "sec-2" || labels["new-2"] != "dec-3" || labels["new-3"] != "oq-1" || notApplied["proposed_open_questions"] != nil {
 		t.Fatalf("step_ended data: %v", data)
 	}
 }

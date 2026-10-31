@@ -37,8 +37,8 @@ func checkerRunner(t *testing.T, db *store.DB, fixtures ...provider.Fixture) (*c
 }
 
 // B-36: asking to sign runs the pending batch of your edits before the
-// signoff opens; the checker's «por aclarar» is open by then (2.4 will
-// count it as the signoff's pending). Nothing pending: no call.
+// signoff; the checker's «por aclarar» is open by then and the signoff
+// lists it as its pending (P-67, 2.4). Nothing pending: no call.
 func TestB36_AskingToSignRunsThePendingBatchFirst(t *testing.T) {
 	db := seedCheckerProject(t)
 	yourEdit(t, db, "sec-1", contradictingEdit)
@@ -55,18 +55,10 @@ func TestB36_AskingToSignRunsThePendingBatchFirst(t *testing.T) {
 	if oq.State != "open" || body["undeclared_by_agent"] != false {
 		t.Fatalf("oq-1: %s %v, want open (your edit: no agent to declare it)", oq.State, body)
 	}
-	// The batch ran first: its probe events come before the signoff.
-	var lastProbe, opened int
-	for _, ev := range eventsOfType(t, db, store.EventProbe) {
-		lastProbe = ev.Seq
-	}
-	for _, ev := range eventsOfType(t, db, store.EventStateChanged) {
-		if len(ev.Data) > 0 && eventData(t, ev)["signoff_step"] == graph.StepRequested {
-			opened = ev.Seq
-		}
-	}
-	if !open.Opened || opened == 0 || lastProbe == 0 || lastProbe > opened {
-		t.Fatalf("signoff opened %v at %d, last probe at %d: want the batch before the signoff", open.Opened, opened, lastProbe)
+	// The batch ran first: the signoff reads what it left, the open
+	// question, as its pending (P-67, 2.4), and does not open.
+	if open.Opened || !hasPending(open.Pendings, graph.PendingOpenQuestion, "oq-1") {
+		t.Fatalf("signoff: %+v, want blocked by the batch's oq-1", open)
 	}
 
 	// The batch already judged: asking again calls nothing.

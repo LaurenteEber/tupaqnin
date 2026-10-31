@@ -120,11 +120,12 @@ export interface SectionRef {
   title: string;
 }
 /**
- * TodoView is what is yours to do (estados §1); in slice 1, the open
- * cards.
+ * TodoView is what is yours to do (estados §1): the open cards and,
+ * since slice 2, the open «por aclarar» (backlog-r2 2.4).
  */
 export interface TodoView {
   cards: CardView[];
+  open_questions: OpenQuestionView[];
 }
 export interface AnswerCardRequest {
   /**
@@ -300,6 +301,55 @@ export interface Hub {
    */
   HeartbeatInterval: any /* time.Duration */;
 }
+
+//////////
+// source: open_questions.go
+
+/**
+ * OpenQuestionOption is one option of a «por aclarar» (P4 [2]): its
+ * contrast, consequence and risk. Keep marks the app's «mantener» of a
+ * decision of yours or of the premise (estados §2 and §6).
+ */
+export interface OpenQuestionOption {
+  option: string;
+  contrast: string;
+  consequence: string;
+  risk: string;
+  keep: boolean;
+}
+/**
+ * OpenQuestionView is an open «por aclarar» as P4 [2] reads it.
+ */
+export interface OpenQuestionView {
+  label: string;
+  state: string;
+  question: string;
+  options: OpenQuestionOption[];
+  sections: SectionRef[];
+  decisions: string[];
+  variants: string[];
+  undeclared_by_agent: boolean;
+  new_passage?: string;
+  clashing_passage?: string;
+}
+export interface AnswerOpenQuestionResponse {
+  open_question: string;
+  new_decision?: string;
+}
+/**
+ * AnswerOpenQuestionRequest answers a «por aclarar» (backlog-r2 2.4):
+ * option is the index in its options, from 0; null chooses none.
+ */
+export interface AnswerOpenQuestionRequest {
+  option?: number /* int */;
+  reason: string;
+}
+/**
+ * OpenQuestionAnswerer answers a «por aclarar» and, when the premise
+ * changed, probes the current text against it (B-46). *cycle.Runner
+ * satisfies it; without it, the gate answers alone.
+ */
+export type OpenQuestionAnswerer = any;
 
 //////////
 // source: request.go

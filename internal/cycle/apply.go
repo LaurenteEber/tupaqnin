@@ -1062,10 +1062,37 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		return nil, err
 	}
 
-	notApplied := map[string]any{}
-	if len(out.ProposedOpenQuestions) > 0 && string(out.ProposedOpenQuestions) != "null" {
-		notApplied["proposed_open_questions"] = out.ProposedOpenQuestions
+	// The principal's proposed open questions open, with their blocks
+	// edges (backlog-r2 2.4; what B-17 kept as not applied). The
+	// principal declared it, so it is not «no lo declaró el agente».
+	// [EL DISEÑO NO LO DICE]: a depends_on naming a new section rejected
+	// by B-54 is skipped; the question still opens on the rest.
+	var proposed []struct {
+		ID        string           `json:"id"`
+		Question  string           `json:"question"`
+		Options   []map[string]any `json:"options"`
+		DependsOn []string         `json:"depends_on"`
+		Variants  []string         `json:"variants"`
 	}
+	_ = json.Unmarshal(out.ProposedOpenQuestions, &proposed)
+	for _, q := range proposed {
+		var dependsOn []string
+		for _, dep := range q.DependsOn {
+			if id := resolve(dep); id != "" {
+				dependsOn = append(dependsOn, id)
+			}
+		}
+		oq, err := checks.Open(context.Background(), tx, checks.OpenQuestion{Question: q.Question, Options: q.Options,
+			DependsOn: dependsOn, Variants: q.Variants,
+			Extra: map[string]any{"origin": "principal", "undeclared_by_agent": false},
+			Event: agent(store.EventStateChanged)})
+		if err != nil {
+			return nil, err
+		}
+		ids[q.ID], labels[q.ID] = oq.ID, oq.Label
+	}
+
+	notApplied := map[string]any{}
 	// Rule 7 of the gate (specification §3): each close is checked in
 	// this transaction; one that does not comply stays here, rejected
 	// alone, with its message for the agent.

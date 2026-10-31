@@ -152,8 +152,10 @@ func TestB2x7_ContradictsOnThePremiseOpensAnOpenQuestionUndeclaredByTheAgent(t *
 		!strings.HasPrefix(body["question"].(string), "¿El agua del grifo") {
 		t.Fatalf("oq-1 body: %v", body)
 	}
-	if opts, _ := body["options"].([]any); len(opts) != 2 {
-		t.Fatalf("oq-1 options: %v, want the checker's two", body["options"])
+	// The app's «mantener» on the premise first (estados §6, 2.4), then
+	// the checker's two.
+	if opts, _ := body["options"].([]any); len(opts) != 3 || opts[0].(map[string]any)["keep"] != true {
+		t.Fatalf("oq-1 options: %v, want keep plus the checker's two", body["options"])
 	}
 	if deps := anyStrings(body["depends_on"]); len(deps) != 1 || deps[0] != sec.ID {
 		t.Fatalf("oq-1 depends_on: %v, want the section (the premise is not a decision)", deps)
@@ -180,9 +182,11 @@ func TestB2x7_ContradictsOnThePremiseOpensAnOpenQuestionUndeclaredByTheAgent(t *
 	if len(cands) != 1 || cands[0]["open_question"] != "oq-1" || cands[0]["type"] != "contradiction" {
 		t.Fatalf("candidate events: %v", cands)
 	}
-	// The checker creates no edges (No hacer): nothing goes out of oq-1.
-	if edges, err := db.EdgesFrom(context.Background(), "p1", oq.ID); err != nil || len(edges) != 0 {
-		t.Fatalf("edges from oq-1: %v, %v", edges, err)
+	// The checker creates no edges (2.3, No hacer): the app does, one
+	// blocks to the section (specification §1.2, backlog-r2 2.4).
+	if edges, err := db.EdgesFrom(context.Background(), "p1", oq.ID); err != nil || len(edges) != 1 ||
+		edges[0].Type != store.EdgeBlocks || edges[0].ToID != sec.ID {
+		t.Fatalf("edges from oq-1: %v, %v; want one blocks to sec-1", edges, err)
 	}
 }
 
@@ -213,8 +217,10 @@ func TestB2x7_DeclaredByThePrincipalOpensNoSecondOpenQuestion(t *testing.T) {
 		`"depends_on":["sec-1"]}],`
 	runCheckedTurn(t, db, nil, stepWriting(t, "El agua del grifo es igual de segura que la embotellada.", proposed),
 		checkerFixture(t, "contradicts-premise"))
-	if objs, err := db.ListObjects(context.Background(), "p1", store.ObjectOpenQuestion); err != nil || len(objs) != 0 {
-		t.Fatalf("open questions: %v, %v; want none from the checker", objs, err)
+	// Only the principal's question opens (backlog-r2 2.4 applies it).
+	if objs, err := db.ListObjects(context.Background(), "p1", store.ObjectOpenQuestion); err != nil || len(objs) != 1 ||
+		!strings.Contains(string(objs[0].Body), `"origin":"principal"`) {
+		t.Fatalf("open questions: %v, %v; want only the principal's, none from the checker", objs, err)
 	}
 	for _, p := range probeEvents(t, db, graph.ProbeKindProbe) {
 		if p["protected"] == "prem-1" && p["declared"] != true {

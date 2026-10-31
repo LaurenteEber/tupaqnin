@@ -36,6 +36,8 @@ const (
 	// [EL DISEÑO NO LO DICE]: the glossary has no code name for it; this
 	// is the smallest English one.
 	PendingUnchecked = "unchecked"
+	// PendingOpenQuestion is an open «por aclarar» (glossary §9).
+	PendingOpenQuestion = "open_question"
 )
 
 // Causes of «fuente que no sostiene» (backlog-r2 2.3): the passage is
@@ -90,6 +92,17 @@ func SectionStatus(ctx context.Context, db store.Querier, projectID, label strin
 		if used || bodyString(card, "section_id") == section.ID {
 			pendings = append(pendings, Pending{Kind: PendingOpenCard, About: card.Label})
 		}
+	}
+
+	// Open «por aclarar» (estados §4: it blocks the signoff of all that
+	// depends on it): the section it blocks, or one that uses a decision
+	// it blocks (backlog-r2 2.4).
+	questions, err := OpenQuestionsBlocking(ctx, db, projectID, section.ID)
+	if err != nil {
+		return "", nil, err
+	}
+	for _, q := range questions {
+		pendings = append(pendings, Pending{Kind: PendingOpenQuestion, About: q})
 	}
 
 	figures, err := FiguresWithoutDecision(ctx, db, projectID, section.ID)
@@ -207,4 +220,48 @@ func contains(list any, want string) bool {
 		}
 	}
 	return false
+}
+
+// OpenQuestionsBlocking returns the labels of the open «por aclarar»
+// that block a section (backlog-r2 2.4): by a current blocks edge to
+// it, or to a decision used in it.
+// [EL DISEÑO NO LO DICE]: a section that uses a blocked decision counts
+// as depending on the question, as with an open card (estados §3).
+func OpenQuestionsBlocking(ctx context.Context, db store.Querier, projectID, sectionID string) ([]string, error) {
+	questions, err := db.ListObjects(ctx, projectID, store.ObjectOpenQuestion)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, q := range questions {
+		if q.State != "open" {
+			continue
+		}
+		edges, err := db.EdgesFrom(ctx, projectID, q.ID)
+		if err != nil {
+			return nil, err
+		}
+		blocks := false
+		for _, e := range edges {
+			if e.Type != store.EdgeBlocks {
+				continue
+			}
+			if e.ToID == sectionID {
+				blocks = true
+				break
+			}
+			used, err := usedIn(ctx, db, projectID, e.ToID, sectionID)
+			if err != nil {
+				return nil, err
+			}
+			if used {
+				blocks = true
+				break
+			}
+		}
+		if blocks {
+			out = append(out, q.Label)
+		}
+	}
+	return out, nil
 }

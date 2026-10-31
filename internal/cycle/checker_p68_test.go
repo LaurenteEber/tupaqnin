@@ -68,8 +68,10 @@ func TestP68_ProposedOpenQuestionOnTheProtectedDecisionOpensNoSecond(t *testing.
 
 	db := seedCheckerProject(t)
 	runCheckedTurn(t, db, nil, stepWriting(t, passage, proposed), checkerFixture(t, "contradicts-decision"))
-	if objs, err := db.ListObjects(context.Background(), "p1", store.ObjectOpenQuestion); err != nil || len(objs) != 0 {
-		t.Fatalf("open questions: %d, %v; want none from the checker", len(objs), err)
+	// Only the principal's question opens (backlog-r2 2.4 applies it).
+	if objs, err := db.ListObjects(context.Background(), "p1", store.ObjectOpenQuestion); err != nil || len(objs) != 1 ||
+		!strings.Contains(string(objs[0].Body), `"origin":"principal"`) {
+		t.Fatalf("open questions: %d, %v; want only the principal's, none from the checker", len(objs), err)
 	}
 	cands := probeEvents(t, db, graph.ProbeKindCandidate)
 	if len(cands) != 1 || cands[0]["declared"] != true || cands[0]["open_question"] != nil {

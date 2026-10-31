@@ -424,10 +424,32 @@ func changesSince(objects []store.Object, delivered map[string]int) []Change {
 		if text == "" {
 			text = b.str("statement")
 		}
+		if obj.Type == store.ObjectOpenQuestion {
+			text = openQuestionLine(b, obj.State)
+		}
 		out = append(out, Change{Label: obj.Label, Type: string(obj.Type),
 			Version: obj.CurrentVersion, State: obj.State, FirstLine: firstLine(text)})
 	}
 	return out
+}
+
+// openQuestionLine is a «por aclarar» in what changed: its question
+// and, once resolved, the option you chose, so the principal writes
+// with it (backlog-r2 2.4, bloque 2).
+// [EL DISEÑO NO LO DICE]: the line's shape.
+func openQuestionLine(b body, state string) string {
+	line := b.str("question")
+	if state != "resolved" {
+		return line
+	}
+	options, _ := b["options"].([]any)
+	if i, ok := b["chosen_option"].(float64); ok && int(i) >= 0 && int(i) < len(options) {
+		if opt, ok := options[int(i)].(map[string]any); ok {
+			chosen, _ := opt["option"].(string)
+			line += " → chosen: " + chosen
+		}
+	}
+	return line
 }
 
 // Read returns the current text of one object by label, with its

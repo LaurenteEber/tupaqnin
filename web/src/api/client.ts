@@ -16,6 +16,7 @@ import type {
   SourceView,
   SummaryView,
   TodoView,
+  AnswerOpenQuestionResponse,
   UnderstandingView,
   EvidenceRequiredView,
 } from "./types";
@@ -137,6 +138,23 @@ export async function answerCard(
 ): Promise<AnswerCardResponse> {
   return json(
     await fetch(`/api/projects/${projectID}/cards/${label}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ option, reason }),
+    }),
+  );
+}
+
+// «Por aclarar» (backlog-r2 2.4): option is the index of the chosen
+// option, from 0. Go decides whether the «porque» counts (422).
+export async function answerOpenQuestion(
+  projectID: string,
+  label: string,
+  option: number,
+  reason: string,
+): Promise<AnswerOpenQuestionResponse> {
+  return json(
+    await fetch(`/api/projects/${projectID}/open-questions/${label}/answer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ option, reason }),

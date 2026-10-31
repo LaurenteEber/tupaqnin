@@ -157,22 +157,30 @@ func (g *Gate) AnswerCard(ctx context.Context, projectID, cardLabel, option, rea
 // (B-8: covers changes its end; used_in leaves from the new decision, so
 // the old edge ends and a new one is created).
 func chooseOther(ctx context.Context, tx *store.Tx, old store.Object, reason string) (store.Object, error) {
+	return replaceByYours(ctx, tx, old, bodyStr(bodyOf(old), "instead_of"), reason, "card")
+}
+
+// replaceByYours replaces a decision by one of yours (estados §2, B-16):
+// statement is the one you chose, «en vez de» the previous statement,
+// «porque» yours and «elegiría si» the previous one; via names the act
+// (card, open_question).
+func replaceByYours(ctx context.Context, tx *store.Tx, old store.Object, statement, reason, via string) (store.Object, error) {
 	ob := bodyOf(old)
 	assumption, _ := ob["assumption"].(bool)
 	// [EL DISEÑO NO LO DICE]: whether the person's decision keeps
 	// «supuesto: sí»; it keeps the previous value.
 	born, err := tx.CreateObject(store.ObjectDecision, "human", map[string]any{
-		"statement": bodyStr(ob, "instead_of"), "instead_of": bodyStr(ob, "statement"),
+		"statement": statement, "instead_of": bodyStr(ob, "statement"),
 		"would_choose_if": bodyStr(ob, "would_choose_if"), "assumption": assumption,
 		"origin": "human", "human_marked_critical": false, "reason": reason,
 	}, store.EventInput{Type: store.EventStateChanged, Actor: "human", Reason: reason,
-		Data: map[string]any{"via": "card", "replaces": old.Label}})
+		Data: map[string]any{"via": via, "replaces": old.Label}})
 	if err != nil {
 		return store.Object{}, err
 	}
 	if _, err := tx.UpdateObject(old.ID, old.CurrentVersion, "superseded", ob,
 		store.EventInput{Type: store.EventStateChanged, Actor: "human", Reason: reason,
-			Data: map[string]any{"label": old.Label, "from": "agent", "to": "superseded", "by": born.Label}}); err != nil {
+			Data: map[string]any{"label": old.Label, "from": old.State, "to": "superseded", "by": born.Label}}); err != nil {
 		return store.Object{}, err
 	}
 	// Replacing warns the sections that use it, like any replacement
