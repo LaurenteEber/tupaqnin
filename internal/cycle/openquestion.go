@@ -207,13 +207,11 @@ func (g *Gate) applyKept(ctx context.Context, tx *store.Tx, body map[string]any,
 // now; with a turn of the project running it stays queued, its sections
 // «sin comprobar», and runs when that turn ends or at the next B-36
 // trigger (runQueuedProbes). Then, when the answer left a section ready
-// (P-86: its last «por aclarar»), its defense (defendReadyByYou). The
+// (P-86: its last «por aclarar»), its defense, in the background
+// (defendInBackground, P-90). The
 // answer stands either way.
 func (r *Runner) AnswerOpenQuestion(ctx context.Context, projectID, label string, option *int, reason string) (OpenQuestionAnswer, error) {
-	before, err := r.sectionsNotReady(ctx, projectID)
-	if err != nil {
-		return OpenQuestionAnswer{}, err
-	}
+	before := r.notReadyBeforeYourAnswer(ctx, projectID)
 	answer, err := r.gate.AnswerOpenQuestion(ctx, projectID, label, option, reason)
 	if err != nil {
 		return answer, err

@@ -241,8 +241,8 @@ func SignoffPhaseOf(ctx context.Context, db *store.DB, projectID, signID string)
 }
 
 // ActiveSignoff returns the signoff in progress of a section, if there
-// is one.
-func ActiveSignoff(ctx context.Context, db *store.DB, projectID, sectionID string) (store.Object, bool, error) {
+// is one; in a transaction too (P-90: your edit reads it again there).
+func ActiveSignoff(ctx context.Context, db store.Querier, projectID, sectionID string) (store.Object, bool, error) {
 	idx, _, err := loadSignoffs(ctx, db, projectID)
 	if err != nil {
 		return store.Object{}, false, err

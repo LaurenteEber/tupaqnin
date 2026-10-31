@@ -88,6 +88,7 @@ func TestP86_AnsweringTheLastCardPreparesTheDefense(t *testing.T) {
 	if _, err := runner.AnswerCard(ctx, "p1", "card-1", cycle.OptionKeep, p86Reason); err != nil {
 		t.Fatalf("AnswerCard card-1: %v", err)
 	}
+	cycle.WaitAfterAnswersForTest(runner)
 	if len(cap.judges) != 0 {
 		t.Fatalf("judge calls after card-1: %d, want 0 (card-2 still blocks sec-1)", len(cap.judges))
 	}
@@ -95,6 +96,7 @@ func TestP86_AnsweringTheLastCardPreparesTheDefense(t *testing.T) {
 	if _, err := runner.AnswerCard(ctx, "p1", "card-2", cycle.OptionKeep, p86Reason); err != nil {
 		t.Fatalf("AnswerCard card-2: %v", err)
 	}
+	cycle.WaitAfterAnswersForTest(runner)
 	if len(cap.judges) != 1 || cap.judges[0].DefenseSection != "sec-1" {
 		t.Fatalf("judge calls: %+v, want one on sec-1", cap.judges)
 	}
@@ -121,6 +123,7 @@ func TestP86_AnsweringTheLastOpenQuestionPreparesTheDefense(t *testing.T) {
 	if _, err := runner.AnswerOpenQuestion(context.Background(), "p1", "oq-1", intp(1), p86Reason); err != nil {
 		t.Fatalf("AnswerOpenQuestion: %v", err)
 	}
+	cycle.WaitAfterAnswersForTest(runner)
 	if len(cap.judges) != 1 || cap.judges[0].DefenseSection != "sec-1" {
 		t.Fatalf("judge calls: %+v, want one on sec-1 (audience present, B-38)", cap.judges)
 	}
@@ -136,6 +139,7 @@ func TestP86_NoAudienceAndRoleOtherMakesNoJudgeCall(t *testing.T) {
 	if _, err := runner.AnswerCard(context.Background(), "p1", "card-1", cycle.OptionKeep, p86Reason); err != nil {
 		t.Fatalf("AnswerCard: %v", err)
 	}
+	cycle.WaitAfterAnswersForTest(runner)
 	if len(cap.judges) != 0 || audienceCount(t, db) != 0 {
 		t.Fatalf("judge calls %d, audience questions %d; want none", len(cap.judges), audienceCount(t, db))
 	}
@@ -151,6 +155,7 @@ func TestP86_UnchangedTextSinceTheLastPreparationMakesNoNewCall(t *testing.T) {
 	if _, err := runner.AnswerCard(ctx, "p1", "card-1", cycle.OptionKeep, p86Reason); err != nil {
 		t.Fatalf("AnswerCard card-1: %v", err)
 	}
+	cycle.WaitAfterAnswersForTest(runner)
 	first := audienceCount(t, db)
 	if len(cap.judges) != 1 || first == 0 {
 		t.Fatalf("first preparation: %d judge calls, %d questions", len(cap.judges), first)
@@ -178,6 +183,7 @@ func TestP86_UnchangedTextSinceTheLastPreparationMakesNoNewCall(t *testing.T) {
 	if _, err := runner.AnswerOpenQuestion(ctx, "p1", "oq-1", intp(0), p86Reason); err != nil {
 		t.Fatalf("AnswerOpenQuestion: %v", err)
 	}
+	cycle.WaitAfterAnswersForTest(runner)
 	if len(cap.judges) != 1 || audienceCount(t, db) != first {
 		t.Fatalf("judge calls %d, questions %d; want 1 and %d (same text, P-76)", len(cap.judges), audienceCount(t, db), first)
 	}
@@ -193,6 +199,7 @@ func TestP86_WithATurnRunningTheDefenseWaitsForItsEnd(t *testing.T) {
 	if _, err := runner.AnswerCard(ctx, "p1", "card-1", cycle.OptionKeep, p86Reason); err != nil {
 		t.Fatalf("AnswerCard: %v", err)
 	}
+	cycle.WaitAfterAnswersForTest(runner)
 	if len(cap.judges) != 0 {
 		t.Fatalf("judge calls during the turn: %d, want 0", len(cap.judges))
 	}

@@ -254,7 +254,7 @@ func (r *Runner) prepareDefense(ctx context.Context, projectID, turnID, section 
 
 // sectionsNotReady are the labels of the project's sections that could
 // not be signed now (graph.SectionClear), read before your answer so
-// defendReadyByYou knows which ones your answer left ready (P-86).
+// defendInBackground knows which ones your answer left ready (P-86).
 func (r *Runner) sectionsNotReady(ctx context.Context, projectID string) (map[string]bool, error) {
 	sections, err := graph.OrderedSections(ctx, r.db, projectID)
 	if err != nil {
@@ -273,45 +273,86 @@ func (r *Runner) sectionsNotReady(ctx context.Context, projectID string) (map[st
 	return out, nil
 }
 
-// afterYourAnswer runs, in the project's turn slot, what your answer
-// to a card or a «por aclarar» leaves to do: the queued probes when you
-// changed the premise (P-72), then the defense of each section your
-// answer left ready (P-86, backlog-r2 2.6, fichas §8.2), with the
-// conditions and the P-76 rule of prepareDefense. The judge is called
-// after the answer's transaction, never inside one. A probe's failure
-// is returned, as before; the defense's is logged by code only, since
-// it blocks nothing.
-// [EL DISEÑO NO LO DICE]: with a turn of the project running, the
-// defense waits in the runner, in memory, and runs when that turn ends
-// (endTurn), as P-72's probes do; a restart in between drops it, and
-// the next stop that proposes signing the section prepares it. It runs
-// in the answer's request, as the premise's probe does.
+// afterYourAnswer runs what your answer to a card or a «por aclarar»
+// leaves to do, once the answer is saved: the queued probes when you
+// changed the premise (P-72), in the answer's request and in the turn
+// slot, as before; then the defense of each section your answer left
+// ready (P-86, backlog-r2 2.6, fichas §8.2), with the conditions and the
+// P-76 rule of prepareDefense, in the background (P-90: the answer
+// returns at once; the audience questions show when the conversation
+// updates). A probe's failure is returned, as before; before is nil
+// when the sections could not be read before the answer, and then no
+// defense runs.
 func (r *Runner) afterYourAnswer(ctx context.Context, projectID string, before map[string]bool, probes bool) error {
-	if !r.tryAcquireTurn(projectID) {
+	if probes && r.tryAcquireTurn(projectID) {
+		turnID, err := newTurnID()
+		if err == nil {
+			err = r.runQueuedProbes(ctx, projectID, turnID)
+		}
+		r.releaseTurn(projectID)
+		if err != nil {
+			return err
+		}
+	}
+	r.defendInBackground(projectID, before)
+	return nil
+}
+
+// defendInBackground prepares, apart from the answer's request, the
+// defense of each section among before that your answer left ready
+// (P-90). It keeps the turn slot rule: with a turn of the project
+// running, the defense waits for it in the runner and runs when it
+// ends (endTurn). A failure blocks nothing and is logged by code only.
+// [EL DISEÑO NO LO DICE]: the defense waits in memory, not in the
+// history (P-90, 2.5 proportionality): a restart in between drops it,
+// and the next stop that proposes signing the section prepares it.
+// After Close it does nothing; Close waits for one in flight.
+func (r *Runner) defendInBackground(projectID string, before map[string]bool) {
+	if len(before) == 0 {
+		return
+	}
+	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		return
+	}
+	r.answers.Add(1)
+	r.mu.Unlock()
+	go func() {
+		defer r.answers.Done()
+		ctx := r.ctx
 		ready, err := readyAmong(ctx, r.db, projectID, before)
 		if err != nil {
-			return err
+			r.logAfterAnswer(ctx, "ready_sections_error")
+			return
 		}
 		r.queueDefenses(projectID, ready)
+		if !r.tryAcquireTurn(projectID) {
+			return // the running turn's end prepares it (endTurn)
+		}
+		defer r.releaseTurn(projectID)
+		r.runQueuedDefenses(ctx, projectID)
+	}()
+}
+
+// logAfterAnswer logs a failure after your saved answer by its code
+// only (P-90, T-10): never the error's text.
+func (r *Runner) logAfterAnswer(ctx context.Context, code string) {
+	if ctx.Err() == nil && r.Logger != nil {
+		r.Logger.Error("after your answer failed", "code", code)
+	}
+}
+
+// notReadyBeforeYourAnswer is sectionsNotReady for an answer: its
+// failure never fails the answer (P-90); it is logged by code and no
+// defense follows.
+func (r *Runner) notReadyBeforeYourAnswer(ctx context.Context, projectID string) map[string]bool {
+	before, err := r.sectionsNotReady(ctx, projectID)
+	if err != nil {
+		r.logAfterAnswer(ctx, "ready_sections_error")
 		return nil
 	}
-	defer r.releaseTurn(projectID)
-	if probes {
-		turnID, err := newTurnID()
-		if err != nil {
-			return err
-		}
-		if err := r.runQueuedProbes(ctx, projectID, turnID); err != nil {
-			return err
-		}
-	}
-	ready, err := readyAmong(ctx, r.db, projectID, before)
-	if err != nil {
-		return err
-	}
-	r.queueDefenses(projectID, ready)
-	r.runQueuedDefenses(ctx, projectID)
-	return nil
+	return before
 }
 
 // readyAmong are the labels, among those given, of the sections that
@@ -378,8 +419,8 @@ func (r *Runner) runQueuedDefenses(ctx context.Context, projectID string) {
 		}
 		err = r.prepareDefense(ctx, projectID, turnID, label)
 	}
-	if err != nil && ctx.Err() == nil && r.Logger != nil {
-		r.Logger.Error("defense after your answer failed", "error", err.Error())
+	if err != nil {
+		r.logAfterAnswer(ctx, "defense_error")
 	}
 }
 

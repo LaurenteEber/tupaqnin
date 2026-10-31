@@ -196,6 +196,11 @@ type captureProvider struct {
 	// judges are the judge's defense calls (backlog-r2 2.6), kept apart
 	// too.
 	judges []provider.Request
+	// judgeGate, when set, holds each judge call until it is closed
+	// (P-90: the answer does not wait for the defense).
+	judgeGate chan struct{}
+	// judgeFails, when set, makes every judge call fail (P-90).
+	judgeFails bool
 }
 
 func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
@@ -209,6 +214,12 @@ func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onD
 		c.mu.Lock()
 		c.judges = append(c.judges, req)
 		c.mu.Unlock()
+		if c.judgeGate != nil {
+			<-c.judgeGate
+		}
+		if c.judgeFails {
+			return provider.Response{}, errors.New("judge unavailable")
+		}
 		return c.inner.Respond(ctx, req, onDelta)
 	}
 	if req.TurnKind == provider.TurnStopReport {

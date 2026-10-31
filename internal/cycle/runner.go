@@ -94,6 +94,9 @@ type Runner struct {
 	waits   map[string]*editWait
 	closed  bool
 	batches sync.WaitGroup
+	// answers counts the defenses after your answer running in the
+	// background (P-90), so Close waits for them too.
+	answers sync.WaitGroup
 	ctx     context.Context
 	cancel  context.CancelFunc
 }
@@ -171,6 +174,7 @@ func (r *Runner) Close() {
 	r.mu.Unlock()
 	r.cancel()
 	r.batches.Wait()
+	r.answers.Wait()
 }
 
 // runEditBatch runs the batch of your edits, and the queued probes

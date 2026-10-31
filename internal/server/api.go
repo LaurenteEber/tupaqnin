@@ -301,14 +301,7 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	// Your edit of a section in signoff cancels the signoff in progress
-	// (K-16, B-14: signoff_cancelled, edited), in the same transaction.
-	signing, inSignoff, err := graph.ActiveSignoff(r.Context(), s.db, projectID, current.ID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal")
-		return
-	}
-
+	beforeSectionWrite()
 	var updated store.Object
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		// P-84: re-read in the transaction; a version written since the
@@ -339,8 +332,13 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		if _, err := cycle.CheckYourEdit(r.Context(), tx, current.ID, currentText); err != nil {
 			return err
 		}
-		if !inSignoff {
-			return nil
+		// Your edit of a section in signoff cancels the signoff in
+		// progress (K-16, B-14: signoff_cancelled, edited). P-90 (as
+		// P-89): read in this transaction, so a signoff that started
+		// after the read above is cancelled too.
+		signing, inSignoff, err := graph.ActiveSignoff(r.Context(), tx, projectID, current.ID)
+		if err != nil || !inSignoff {
+			return err
 		}
 		return cycle.CancelSignoff(tx, signing, graph.CancelEdited, "human", map[string]any{"section": current.Label})
 	})
@@ -360,6 +358,10 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, SectionResponse{Label: updated.Label, Version: updated.CurrentVersion})
 	}
 }
+
+// beforeSectionWrite runs between putSection's reads and its write's
+// transaction; tests use it to start a signoff in between (P-90).
+var beforeSectionWrite = func() {}
 
 // sameTextAtVersion reports whether the stored version of a section has
 // text as its text (P-84). Versions only grow, so it is read outside

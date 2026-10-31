@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
@@ -81,11 +82,19 @@ func TestP86_TheAudienceQuestionsShowInTheConversationAndBlockNothing(t *testing
 	if rec.Code != http.StatusOK {
 		t.Fatalf("answer card: %d %s", rec.Code, rec.Body.String())
 	}
-	got := decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, base+"/conversation", nil))
-	var questions []server.ConversationEntry
-	for _, e := range got {
-		if e.Kind == "audience_question" {
-			questions = append(questions, e)
+	// P-90: the defense runs in the background; its questions show when
+	// the conversation updates.
+	var got, questions []server.ConversationEntry
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		got = decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, base+"/conversation", nil))
+		questions = questions[:0]
+		for _, e := range got {
+			if e.Kind == "audience_question" {
+				questions = append(questions, e)
+			}
+		}
+		if len(questions) >= 4 || time.Now().After(deadline) {
+			break
 		}
 	}
 	if len(questions) != 4 {
