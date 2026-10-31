@@ -187,6 +187,15 @@ func (g *Gate) applyKept(ctx context.Context, tx *store.Tx, body map[string]any,
 			!errors.Is(err, store.ErrNoChange) {
 			return err
 		}
+		if answer.PremiseChanged {
+			// B-46, P-72: its new version's probe is queued in the same
+			// transaction; the runner sends it.
+			change, err := checks.PremiseProbe(ctx, tx, tx.ProjectID(), obj.ID)
+			if err != nil {
+				return err
+			}
+			return checks.QueueProbe(ctx, tx, obj.ID, change)
+		}
 	}
 	return nil
 }
@@ -194,20 +203,13 @@ func (g *Gate) applyKept(ctx context.Context, tx *store.Tx, body map[string]any,
 // AnswerOpenQuestion is the gate's answer plus, when you changed the
 // premise, the probe of its new version against the current text in
 // one checker call (B-46, backlog-r2 2.4), in the project's turn slot.
-// [EL DISEÑO NO LO DICE]: with a turn of the project running, the
-// probe is not sent (the answer stands); the checker's next pass
-// already carries the new premise among its probes.
+// The gate queued it in the history (P-72): with the slot free it runs
+// now; with a turn of the project running it stays queued, its sections
+// «sin comprobar», and runs when that turn ends or at the next B-36
+// trigger (runQueuedProbes). The answer stands either way.
 func (r *Runner) AnswerOpenQuestion(ctx context.Context, projectID, label string, option *int, reason string) (OpenQuestionAnswer, error) {
 	answer, err := r.gate.AnswerOpenQuestion(ctx, projectID, label, option, reason)
 	if err != nil || !answer.PremiseChanged {
-		return answer, err
-	}
-	prem, err := r.db.GetObject(ctx, projectID, answer.Premise)
-	if err != nil {
-		return answer, err
-	}
-	change, err := checks.PremiseProbe(ctx, r.db, projectID, prem.ID)
-	if err != nil || !change.HasWork() {
 		return answer, err
 	}
 	if !r.tryAcquireTurn(projectID) {
@@ -218,5 +220,5 @@ func (r *Runner) AnswerOpenQuestion(ctx context.Context, projectID, label string
 	if err != nil {
 		return answer, err
 	}
-	return answer, r.checker.Check(ctx, r.db, projectID, turnID, change)
+	return answer, r.runQueuedProbes(ctx, projectID, turnID)
 }

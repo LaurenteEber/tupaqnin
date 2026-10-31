@@ -70,6 +70,23 @@ export const ProbeKindProbe = "probe";
  * candidate»).
  */
 export const ProbeKindCandidate = "candidate";
+/**
+ * ProbeKindQueued is a probe the app queued (P-72): what is
+ * protected and the sections it goes against.
+ */
+export const ProbeKindQueued = "queued";
+/**
+ * QueuedProbe is a probe of what is protected (by label) against the
+ * current text of some sections (by label) that the app queued and the
+ * checker has not run yet (P-72): the probe of a new premise (B-46,
+ * estados §6, fichas §3) and, in 2.8, of a new criterion. Seq is its
+ * probe event with kind queued.
+ */
+export interface QueuedProbe {
+  Seq: number /* int */;
+  Protected: string;
+  Sections: string[];
+}
 
 //////////
 // source: critical.go

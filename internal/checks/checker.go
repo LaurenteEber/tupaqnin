@@ -522,6 +522,9 @@ func (c *Checker) CallChecker(ctx context.Context, db *store.DB, projectID, turn
 		if attempt == 2 {
 			data["result"] = "unchecked"
 		}
+		if change.Queued != 0 {
+			data["queued_probe"] = change.Queued
+		}
 		err = db.Write(ctx, projectID, func(tx *store.Tx) error {
 			_, err := tx.AppendEvent(store.EventInput{Type: store.EventOutputRetry, Actor: "agent",
 				AgentRole: string(provider.RoleChecker), ModelAndEffort: provider.CheckerModel + " " + provider.CheckerEffort,
@@ -605,6 +608,9 @@ func Apply(ctx context.Context, db *store.DB, projectID, turnID string, change C
 		}
 		event := func(objectID string, data map[string]any) error {
 			data["sections"] = sections
+			if change.Queued != 0 {
+				data["queued_probe"] = change.Queued
+			}
 			_, err := tx.AppendEvent(store.EventInput{Type: store.EventProbe, Actor: "agent",
 				AgentRole: string(provider.RoleChecker), ModelAndEffort: provider.CheckerModel + " " + provider.CheckerEffort,
 				TurnID: turnID, ObjectID: objectID, Data: data})

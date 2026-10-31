@@ -169,8 +169,8 @@ func (r *Runner) Close() {
 	r.batches.Wait()
 }
 
-// runEditBatch runs the batch of your edits when its wait ends (B-36).
-// It takes the project's turn slot: while a turn runs, nothing is sent
+// runEditBatch runs the batch of your edits, and the queued probes
+// (P-72), when its wait ends (B-36). It takes the project's turn slot: while a turn runs, nothing is sent
 // and the batch waits for its next trigger (a save, a message or asking
 // to sign).
 // [EL DISEÑO NO LO DICE]: what happens when the wait ends during a
@@ -182,7 +182,7 @@ func (r *Runner) runEditBatch(ctx context.Context, projectID string) {
 	defer r.releaseTurn(projectID)
 	turnID, err := newTurnID()
 	if err == nil {
-		err = r.checkYourEdits(ctx, projectID, turnID)
+		err = r.checkPending(ctx, projectID, turnID)
 	}
 	if err != nil && ctx.Err() == nil && r.Logger != nil {
 		r.Logger.Error("edit batch failed", "error", err.Error())
@@ -201,26 +201,91 @@ func (r *Runner) checkYourEdits(ctx context.Context, projectID, turnID string) e
 	return r.checker.Check(ctx, r.db, projectID, turnID, edits)
 }
 
+// runQueuedProbes sends each queued probe still pending (P-72: the
+// probe of a new premise, B-46), one checker call each, over the
+// current text of its sections. The caller holds the project's turn
+// slot; no transaction is open while the checker answers
+// (specification §2). The probe's own events close it, so it runs once.
+func (r *Runner) runQueuedProbes(ctx context.Context, projectID, turnID string) error {
+	queued, err := checks.QueuedProbes(ctx, r.db, projectID)
+	if err != nil {
+		return err
+	}
+	for _, change := range queued {
+		if !change.HasWork() {
+			continue
+		}
+		if err := r.checker.Check(ctx, r.db, projectID, turnID, change); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkPending is what B-36's three triggers send to the checker: the
+// batch of your edits, then the queued probes (P-72). The caller holds
+// the project's turn slot.
+func (r *Runner) checkPending(ctx context.Context, projectID, turnID string) error {
+	if err := r.checkYourEdits(ctx, projectID, turnID); err != nil {
+		return err
+	}
+	return r.runQueuedProbes(ctx, projectID, turnID)
+}
+
+// hasPendingChecks reports whether a B-36 trigger has something to send:
+// a batch of your edits or a queued probe with work (P-72).
+func (r *Runner) hasPendingChecks(ctx context.Context, projectID string) (bool, error) {
+	edits, err := checks.YourEditsToCheck(ctx, r.db, projectID)
+	if err != nil || edits.HasWork() {
+		return edits.HasWork(), err
+	}
+	queued, err := checks.QueuedProbes(ctx, r.db, projectID)
+	if err != nil {
+		return false, err
+	}
+	for _, change := range queued {
+		if change.HasWork() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// endTurn ends a turn: the probes queued while it ran go to the checker
+// (P-72), still in the turn's slot so no other turn starts meanwhile,
+// and then the slot is released. A failure is logged by code only and
+// leaves them queued for the next trigger.
+// [EL DISEÑO NO LO DICE]: «when the turn ends» is every turn that takes
+// the slot (a message, the understanding, «Preguntar al agente»); the
+// probe runs before the slot is released, in a call of its own.
+func (r *Runner) endTurn(ctx context.Context, projectID, turnID string) {
+	defer r.releaseTurn(projectID)
+	if err := r.runQueuedProbes(ctx, projectID, turnID); err != nil && ctx.Err() == nil && r.Logger != nil {
+		r.Logger.Error("queued probe failed", "error", err.Error())
+	}
+}
+
 // RequestSignoff is asking to sign (7a) with B-36: the batch of your
-// edits goes to the checker first, and the signoff opens (or lists what
-// blocks it) on what the checker left. With a batch pending while a
-// turn of the project runs, it answers ErrTurnRunning.
+// edits and the queued probes (P-72) go to the checker first, and the
+// signoff opens (or lists what blocks it) on what the checker left.
+// With either pending while a turn of the project runs, it answers
+// ErrTurnRunning.
 // [EL DISEÑO NO LO DICE]: asking to sign during a turn with edits
 // unchecked; the smallest choice is to refuse it (409 turn_running), so
 // no text the checker has not seen reaches the signoff. The batch is the
 // whole project's, not only the section's (B-36 says «el lote»).
 func (r *Runner) RequestSignoff(ctx context.Context, projectID, sectionLabel string) (SignoffOpen, error) {
-	edits, err := checks.YourEditsToCheck(ctx, r.db, projectID)
+	pending, err := r.hasPendingChecks(ctx, projectID)
 	if err != nil {
 		return SignoffOpen{}, err
 	}
-	if edits.HasWork() {
+	if pending {
 		if !r.tryAcquireTurn(projectID) {
 			return SignoffOpen{}, ErrTurnRunning
 		}
 		turnID, err := newTurnID()
 		if err == nil {
-			err = r.checkYourEdits(ctx, projectID, turnID)
+			err = r.checkPending(ctx, projectID, turnID)
 		}
 		r.releaseTurn(projectID)
 		if err != nil {
@@ -280,7 +345,7 @@ func (r *Runner) StartTurn(projectID, text string) (string, error) {
 		r.pub.BeginTurn(projectID, turnID)
 	}
 	go func() {
-		defer r.releaseTurn(projectID)
+		defer r.endTurn(context.Background(), projectID, turnID)
 		if err := r.runTurn(context.Background(), projectID, turnID, text); err != nil && r.Logger != nil {
 			r.Logger.Error("turn failed", "error", err.Error())
 		}
@@ -541,7 +606,7 @@ func (r *Runner) StartUnderstandingTurn(projectID string) (string, error) {
 		r.pub.BeginTurn(projectID, turnID)
 	}
 	go func() {
-		defer r.releaseTurn(projectID)
+		defer r.endTurn(context.Background(), projectID, turnID)
 		if err := r.runUnderstandingTurn(context.Background(), projectID, turnID); err != nil && r.Logger != nil {
 			r.Logger.Error("understanding turn failed", "error", err.Error())
 		}
@@ -554,7 +619,7 @@ func (r *Runner) RunUnderstandingTurn(ctx context.Context, projectID, turnID str
 	if !r.tryAcquireTurn(projectID) {
 		return ErrTurnRunning
 	}
-	defer r.releaseTurn(projectID)
+	defer r.endTurn(ctx, projectID, turnID)
 	return r.runUnderstandingTurn(ctx, projectID, turnID)
 }
 
@@ -711,7 +776,7 @@ func (r *Runner) RunTurn(ctx context.Context, projectID, turnID, text string) er
 	if !r.tryAcquireTurn(projectID) {
 		return ErrTurnRunning
 	}
-	defer r.releaseTurn(projectID)
+	defer r.endTurn(ctx, projectID, turnID)
 	return r.runTurn(ctx, projectID, turnID, text)
 }
 
@@ -727,8 +792,9 @@ func (r *Runner) runTurn(ctx context.Context, projectID, turnID, text string) er
 		return err
 	}
 	// B-36: your edits since the checker's last pass go to it in one
-	// batch when you send a message, before the agent's step.
-	if err := r.checkYourEdits(ctx, projectID, turnID); err != nil {
+	// batch when you send a message, before the agent's step, and so do
+	// the queued probes (P-72).
+	if err := r.checkPending(ctx, projectID, turnID); err != nil {
 		r.fail(projectID, turnID, "turn_failed")
 		return err
 	}

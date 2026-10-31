@@ -21,6 +21,9 @@ const (
 const (
 	ProbeKindProbe     = "probe"
 	ProbeKindCandidate = "candidate"
+	// ProbeKindQueued is a probe the app queued (P-72): what is
+	// protected and the sections it goes against.
+	ProbeKindQueued = "queued"
 )
 
 // checkerPendings are the agent's pendings the checker left on a
@@ -82,4 +85,70 @@ func uncheckedOpen(events []store.Event, sectionLabel string) bool {
 		}
 	}
 	return open
+}
+
+// QueuedProbe is a probe of what is protected (by label) against the
+// current text of some sections (by label) that the app queued and the
+// checker has not run yet (P-72): the probe of a new premise (B-46,
+// estados §6, fichas §3) and, in 2.8, of a new criterion. Seq is its
+// probe event with kind queued.
+type QueuedProbe struct {
+	Seq       int
+	Protected string
+	Sections  []string
+}
+
+// PendingProbes are the queued probes still pending (P-72), in the
+// order they were queued. Each is a probe event with kind queued and
+// closes with the events of its own run, which carry its seq in
+// data.queued_probe: the probe events of a valid judgment, or the
+// output_retry that left its sections «sin comprobar» (B-50).
+// [EL DISEÑO NO LO DICE]: how a queued probe is kept; the history has
+// no event for it, so it is a probe event with kind queued (as the
+// candidates are kept in probe with kind candidate) and no mutable flag.
+func PendingProbes(events []store.Event) []QueuedProbe {
+	var queued []QueuedProbe
+	closed := map[int]bool{}
+	for _, ev := range events {
+		if ev.Type != store.EventProbe && ev.Type != store.EventOutputRetry {
+			continue
+		}
+		data := eventData(ev)
+		switch {
+		case ev.Type == store.EventProbe && data["kind"] == ProbeKindQueued:
+			qp := QueuedProbe{Seq: ev.Seq}
+			qp.Protected, _ = data["protected"].(string)
+			list, _ := data["queued_sections"].([]any)
+			for _, l := range list {
+				if s, ok := l.(string); ok {
+					qp.Sections = append(qp.Sections, s)
+				}
+			}
+			queued = append(queued, qp)
+		case ev.Type == store.EventProbe || data["result"] == "unchecked":
+			if seq, ok := data["queued_probe"].(float64); ok {
+				closed[int(seq)] = true
+			}
+		}
+	}
+	var out []QueuedProbe
+	for _, qp := range queued {
+		if !closed[qp.Seq] {
+			out = append(out, qp)
+		}
+	}
+	return out
+}
+
+// probePending reports whether a pending queued probe goes against the
+// section: it is «sin comprobar» until that probe runs (P-72, B-50).
+func probePending(events []store.Event, sectionLabel string) bool {
+	for _, qp := range PendingProbes(events) {
+		for _, s := range qp.Sections {
+			if s == sectionLabel {
+				return true
+			}
+		}
+	}
+	return false
 }

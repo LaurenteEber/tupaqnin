@@ -902,7 +902,7 @@ func (r *Runner) SignoffAsk(projectID, signLabel, text string) (string, error) {
 		r.pub.BeginTurn(projectID, turnID)
 	}
 	go func() {
-		defer r.releaseTurn(projectID)
+		defer r.endTurn(context.Background(), projectID, turnID)
 		if err := r.runSignoffAsk(context.Background(), projectID, turnID, sign.Label, section.Label, text); err != nil && r.Logger != nil {
 			r.Logger.Error("signoff ask failed", "error", err.Error())
 		}
@@ -923,7 +923,7 @@ func (r *Runner) RunSignoffAsk(ctx context.Context, projectID, turnID, signLabel
 	if !r.tryAcquireTurn(projectID) {
 		return ErrTurnRunning
 	}
-	defer r.releaseTurn(projectID)
+	defer r.endTurn(ctx, projectID, turnID)
 	return r.runSignoffAsk(ctx, projectID, turnID, signLabel, section.Label, text)
 }
 

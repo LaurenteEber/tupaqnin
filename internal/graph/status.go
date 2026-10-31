@@ -125,9 +125,10 @@ func SectionStatus(ctx context.Context, db store.Querier, projectID, label strin
 		return "", nil, err
 	}
 	// The checker's (backlog-r2 2.3): its candidates while their passage
-	// is literal in the text, and «sin comprobar» (B-50).
+	// is literal in the text, and «sin comprobar» (B-50), also while a
+	// queued probe over the section is pending (P-72).
 	pendings = append(pendings, checkerPendings(events, section)...)
-	if uncheckedOpen(events, section.Label) {
+	if uncheckedOpen(events, section.Label) || probePending(events, section.Label) {
 		pendings = append(pendings, Pending{Kind: PendingUnchecked})
 	}
 	// «Escrito sin decisión» (rule 2, B-42) and «códigos internos»

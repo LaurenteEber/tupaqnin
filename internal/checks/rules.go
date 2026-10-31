@@ -93,6 +93,11 @@ type Change struct {
 	Passages     []Passage
 	NewCitations []string
 	Declared     []string
+
+	// Queued is the seq of the queued probe this change runs (P-72), or
+	// 0: the checker's events carry it in data.queued_probe, which
+	// closes the queued probe (graph.PendingProbes).
+	Queued int
 }
 
 // Finding is one thing a rule found. Section is a label; About is what
