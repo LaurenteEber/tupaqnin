@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Pantallas (bocetos)
-estado: v0.8 · 30-oct · dónde va cada vista de la rebanada 3 · v0.7 · 30-oct · dónde va cada vista de la rebanada 2 en las tres columnas · v0.6 · 30-oct · P5: decisiones que sostienen el párrafo y fuente de cada dato copiado (P-60, D7) · v0.5 · 30-oct · tarjeta del «Entendí» en la rebanada 2 (B-51, B-53) · v0.4 · 30-oct · selector «Tus proyectos» (P-48) · «+ Sección», edición del título y de «qué debe abordar», y reordenar (K-17) · v0.3 · 30-oct · precisiones U-1 a U-6, R-5 y R-8 · v0.3 · 29-oct · bocetos de la rebanada 2: «por aclarar», P6 con la defensa, avisos en el texto y la línea de vuelta (backlog-r2) · v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
+estado: v0.10 · 1-nov · paso 7 del recorrido: la ronda va con OpenAlex (B-55, B-72) · v0.9 · 31-oct · dónde va cada vista de la rebanada 4 · v0.8 · 30-oct · dónde va cada vista de la rebanada 3 · v0.7 · 30-oct · dónde va cada vista de la rebanada 2 en las tres columnas · v0.6 · 30-oct · P5: decisiones que sostienen el párrafo y fuente de cada dato copiado (P-60, D7) · v0.5 · 30-oct · tarjeta del «Entendí» en la rebanada 2 (B-51, B-53) · v0.4 · 30-oct · selector «Tus proyectos» (P-48) · «+ Sección», edición del título y de «qué debe abordar», y reordenar (K-17) · v0.3 · 30-oct · precisiones U-1 a U-6, R-5 y R-8 · v0.3 · 29-oct · bocetos de la rebanada 2: «por aclarar», P6 con la defensa, avisos en el texto y la línea de vuelta (backlog-r2) · v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
 relacion: dibuja funcionalidades.md (v1.0) sobre bloque-3.md §4. Usa fichas §2 y §8.2, flujos §3 (firma), especificación §9 (el marco) y las decisiones B3-9 y B3-18 a B3-21. No decide reglas: solo dónde va cada cosa y qué datos pide cada vista. Es la entrada de la arquitectura
 ---
 
@@ -27,7 +27,7 @@ flowchart LR
 4. El agente trabaja (P3): la respuesta llega en vivo, con la línea de triaje y la nota del agente. Aparece la regla de comparación (1,5 veces, no 60) como decisión crítica, y su tarjeta (P4).
 5. El jurado responde la tarjeta con una opción y un «porque». Hace clic en la cifra y ve su historia (P5).
 6. Pulsa «Firmar sección» (P7). Explica sin mirar y le falta el porqué de la regla: Wonder nombra qué falta, sin darle la respuesta, y le plantea un caso nuevo. Lo resuelve y firma.
-7. Con la rebanada 2 se suman el «por aclarar» sobre qué cuenta como «campo» y la cita cuyo pasaje no está en su fuente. Con la 3, la ronda web y la cita que no existe (H-1).
+7. Con la rebanada 2 se suman el «por aclarar» sobre qué cuenta como «campo» y la cita cuyo pasaje no está en su fuente. Con la 3, la cita de la nota de Paula como candidata: «Buscarla» lanza la ronda con OpenAlex y su material, y la cita que no existe sale descartada a la vista en el digesto (H-1, B-70, B-72).
 
 ## P1 · Inicio [1 mínimo · «Entrega» completo]
 
@@ -104,8 +104,22 @@ flowchart LR
 | Ronda en curso (3.2, B-64) | Junto al trabajo en curso (no en «Lo que te toca»: arranca sola, no espera tu clic) | La tarjeta: pregunta, qué busca cada lector y dónde, la expectativa en literal (tu idea o la premisa del pedido, o «sin expectativa»), costo estimado y lo gastado, y la línea «Para buscar, tus preguntas se envían a OpenAlex, arXiv y Crossref» | — |
 | Ronda en curso y digesto (3.2, 3.4) | — | La misma tarjeta: el avance de cada lector y, al terminar, el digesto (primero la respuesta, esquema con sus hallazgos), «Descartados (n)» y «Sin revisar» a la vista, «¿se redujo la duda?», «Repetir con otra pregunta» con su costo | Al abrir un pasaje, su fuente con el pasaje marcado |
 | Conflicto entre fuentes (3.4, B-66) | Una línea en «Lo que te toca» | La tarjeta de «por aclarar» con los dos pasajes como opciones | El aviso en las secciones que usan alguna de las dos fuentes (2.9) |
+| «Buscar evidencia» (3.5, B-72) | — | Un botón de la tarjeta del «Entendí» cuando el pedido necesita evidencia: crea la ronda en OpenAlex (y en tu material, si hay), que se ve como «Ronda en curso» | — |
 | Procedencia externa y candidatas (3.5) | En la decisión desplegada, las fuentes buscadas con su enlace | — | Junto al párrafo, el origen; en la historia (P5), título, año y enlace de la fuente buscada, o «candidata, sin verificar» con «Buscarla» |
 | Juez (3.6) | «Fallas por revisar» en «Lo que te toca» | Las fallas, cada una con su riesgo, su escenario y «No aplica»; después, el resultado de la reverificación | «Auditar sección» junto a «Firmar sección»; el pasaje de cada falla, subrayado |
+
+## Dónde va cada vista de la rebanada 4 (31-oct, backlog-r4)
+
+*Misma regla que las tablas de las rebanadas 2 y 3.*
+
+| Vista | Izquierda · el marco | Centro · conversación | Derecha · documento |
+|---|---|---|---|
+| Propuesta del agente (4.1) | «Propuestas (n)» en «Lo que te toca» | — | En la sección, el texto propuesto marcado frente al vigente, con su contraste plegado, «Aceptar» y «Descartar»; una propuesta de sección, como una sección en gris al final del esqueleto del documento |
+| Propuestas al firmar (4.1) | — | — | En la pantalla de firma (P7), la lista «Propuestas abiertas: se descartarán si firmas» |
+| Deshacer y alerta (4.2) | — | — | «Deshacer» junto a la sección (apagado con su razón); la alerta como banda bajo el título: qué pasó, «Deshacer» y «Fue a propósito» |
+| Objetar y revocar (4.3) | En la decisión desplegada: «Objetar» y, si es tuya o confirmada, «Revocar» | El «por aclarar» que nace al objetar (como P4) | — |
+| «Continúa hasta terminar» (4.4) | Al terminar: la línea de vuelta arriba del marco, con el informe a un clic | En la cabecera de la conversación, el modo («normal» · «hasta terminar»), con su aviso de una línea y el campo de tu mensaje al activarlo | — |
+| Limpieza del contexto (4.5) | — | En la cabecera, el contexto usado vuelve a bajar; nada más | — |
 
 ## P2 y P3 · versión del 28-oct (reemplazada por la disposición general)
 

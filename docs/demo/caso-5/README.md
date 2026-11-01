@@ -1,6 +1,6 @@
 ---
 titulo: Caso 5 · plantilla de la demo (microplásticos)
-estado: v0.1 · 29-oct · preparada por el chat de diseño (B-12)
+estado: v0.2 · 31-oct · nota de Paula con la cita inexistente (B-70, rebanada 3) · v0.1 · 29-oct · preparada por el chat de diseño (B-12)
 relacion: la carga el botón «Probar con el caso de demo» (B3-19). La usan la 1.1 (crear el proyecto) y la 1.8 (recorrido). Resume docs/casos-prueba/simulacion-v4.1/casos/caso-05.md para la rebanada 1; todo es ficticio
 ---
 
@@ -26,6 +26,7 @@ flowchart LR
 | `sources/b1…b6` | 6 estudios de campo de agua embotellada: 3 con filtro de 1 micra, 3 con 20 |
 | `sources/l1-…` | 1 estudio de laboratorio: lo excluye el criterio (caso claro para el «Entendí») |
 | `sources/d1-…` | 1 piloto en laboratorio con agua de una planta real: el caso dudoso de «campo» (rebanada 2, «por aclarar») |
+| `sources/notas-paula.md` | Nota de Paula con la cita que le pasó un colega, «Valdivia y Ortiz (2022)», sin DOI: no existe y la rebanada 3 la descarta a la vista (B-70). **Entra al código con la 3.7**, al final de la lista de fuentes |
 | `sources/calculo-comparacion.md` | El cálculo de Paula (F-1): 60 veces con conteos crudos; 1,5 veces con el mismo tamaño mínimo (5 estudios) |
 
 Las cifras cuadran: grifo 64 ÷ 6 = 10,67; embotellada 3.840 ÷ 6 = 640; 640 ÷ 10,67 = 60. Con 20 micras: (18 + 22) ÷ 2 = 20; (28 + 32 + 30) ÷ 3 = 30; 30 ÷ 20 = 1,5. Cada cifra está literal en una fuente, así que el texto del agente no deja «cifra sin decisión» si la vincula.
