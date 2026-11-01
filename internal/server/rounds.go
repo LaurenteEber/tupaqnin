@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,8 @@ import (
 type RoundRunner interface {
 	Round(ctx context.Context, projectID, label string) (cycle.RoundView, error)
 	StartRound(projectID string) (label, turnID string, err error)
+	// StartCandidateRound is «Buscarla» on a candidate (backlog-r3 3.5, B-69).
+	StartCandidateRound(projectID string, references []int) (label, turnID string, err error)
 	// RepeatRound and LeaveRoundOpen are «Repetir con otra pregunta» and
 	// «dejarlo por aclarar» (backlog-r3 3.4, flujos §2).
 	RepeatRound(projectID, label, question string) (newLabel, turnID string, cost float64, err error)
@@ -42,6 +45,12 @@ type RepeatRoundResponse struct {
 // LeaveRoundOpenResponse is the scope «por aclarar» it opened, by label.
 type LeaveRoundOpenResponse struct {
 	OpenQuestion string `json:"open_question"`
+}
+
+// StartRoundRequest is the optional body of POST /rounds: the candidates
+// «Buscarla» searches, by their number (graph.Candidate.N).
+type StartRoundRequest struct {
+	References []int `json:"references"`
 }
 
 // StartRoundResponse is the round POST /rounds created and the turn to
@@ -305,9 +314,10 @@ func (s *Server) getRound(w http.ResponseWriter, r *http.Request) {
 // creates a round from your act and runs it in the background → 202
 // {label, turn_id}. The app sets the question, the parts and the reason.
 // It takes the project's turn slot like a turn: 409 turn_running while
-// one runs.
-// [EL DISEÑO NO LO DICE]: the body; {references} from a candidate (B-69)
-// is 3.5's, so the body is not read here.
+// one runs. With {references: [n]} it is «Buscarla» on those candidates
+// (B-69), their text the question: 422 candidate_not_found when one is no
+// candidate of the project. No body, or no references, is «Buscar
+// evidencia».
 func (s *Server) postRound(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {
@@ -318,9 +328,30 @@ func (s *Server) postRound(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 		return
 	}
-	label, turnID, err := rr.StartRound(projectID)
+	raw, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	var req StartRoundRequest
+	if len(bytes.TrimSpace(raw)) > 0 {
+		if err := json.Unmarshal(raw, &req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+	}
+	var label, turnID string
+	if len(req.References) > 0 {
+		label, turnID, err = rr.StartCandidateRound(projectID, req.References)
+	} else {
+		label, turnID, err = rr.StartRound(projectID)
+	}
 	if errors.Is(err, cycle.ErrTurnRunning) {
 		writeError(w, http.StatusConflict, "turn_running")
+		return
+	}
+	if errors.Is(err, cycle.ErrCandidateNotFound) {
+		writeError(w, http.StatusUnprocessableEntity, "candidate_not_found")
 		return
 	}
 	if err != nil {

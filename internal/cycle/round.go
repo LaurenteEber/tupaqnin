@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -130,6 +131,10 @@ type RoundBody struct {
 	// repeats with another question (both ids).
 	ScopeQuestionID string `json:"scope_question_id,omitempty"`
 	Repeats         string `json:"repeats,omitempty"`
+	// FromCandidate: the round was created by «Buscarla» (B-69), so its
+	// question is a candidate's text, which can derive from the document:
+	// data, between the markers, wherever it reaches a model (P-83).
+	FromCandidate bool `json:"from_candidate,omitempty"`
 	// A judge round (backlog-r3 3.6, B-67): the section it verifies (its
 	// id, and the version «última verificación» counts from: the one the
 	// judge last read), the risks that brought it, the judge's status, the
@@ -142,6 +147,17 @@ type RoundBody struct {
 	Flaws          []JudgeFlaw `json:"flaws,omitempty"`
 	BatchStarted   bool        `json:"batch_started,omitempty"`
 	LateFlaws      []JudgeFlaw `json:"late_flaws,omitempty"`
+}
+
+// questionLine is how a round's question follows its label in a model's
+// brief: a candidate's text between the markers (P-83), of the one kind
+// the reader's and the digest's instructions name for text like it, else
+// as it was.
+func (b RoundBody) questionLine(question string) string {
+	if b.FromCandidate {
+		return "\n" + graph.Delimit(graph.DataSource, question)
+	}
+	return " " + question
 }
 
 // ReaderResult is one reader's end: its output (salida-lector, as the

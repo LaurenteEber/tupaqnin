@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { acceptClaim, getBlockHistory, getDecisionHistory, markCritical } from "../api/client";
 import type { Entry, Provenance } from "../api/graph";
+import { SearchedName } from "./SearchedName";
+import { candidateName, originKey } from "../provenance";
 import { translate, type Lang } from "../i18n";
 
 // P5 (backlog-r1 1.6): how a block came to be, newest first: who, when,
@@ -14,7 +16,7 @@ import { translate, type Lang } from "../i18n";
 // [EL DISEÑO NO LO DICE]: where the mark goes; here, on each decision
 // of the history, the one view that lists decisions that are not
 // critical yet.
-export function HistoryPanel({ lang, projectID, label, name, block, decision, onClose, onMarked }: {
+export function HistoryPanel({ lang, projectID, label, name, block, decision, onClose, onMarked, onSearchCandidate }: {
   lang: Lang;
   projectID: string;
   label: string;
@@ -23,6 +25,8 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
   decision?: string;
   onClose: () => void;
   onMarked?: () => void;
+  // «Buscarla» (B-69): you start a round on the candidate.
+  onSearchCandidate?: (n: number) => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [entries, setEntries] = useState<Entry[] | null>(null);
@@ -90,24 +94,24 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
         <div className="provenance">
           {provenance.verified ? (
             <>
-              <b>{t("provenance.material")}</b>
+              <b>{t(originKey(provenance.origin))}</b>
               <ul>
                 {provenance.sources.map((src, i) => (
                   <li key={i}>
-                    {t("history.source")}: {src.source} · «{src.passage}»
+                    {t("history.source")}:{" "}
+                    {src.searched ? (
+                      <SearchedName lang={lang} source={src.searched} />
+                    ) : (
+                      src.source
+                    )}{" "}
+                    · «{src.passage}»
                   </li>
                 ))}
               </ul>
             </>
           ) : (
             <p>
-              <b>
-                {t(
-                  provenance.declared === "model_knowledge"
-                    ? "provenance.model_knowledge"
-                    : "provenance.unverified_long",
-                )}
-              </b>
+              <b>{t(originKey(provenance.origin))}</b>
               {provenance.accepted && (
                 <>
                   {" · "}
@@ -115,6 +119,22 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
                 </>
               )}
             </p>
+          )}
+          {provenance.candidates.length > 0 && (
+            // R-2, B-69: what the agent named without a citation; never a
+            // source, so it does not change what is said above.
+            <ul className="provenance-candidates">
+              {provenance.candidates.map((c) => (
+                <li key={c.n}>
+                  {candidateName(c)} · <span className="meta">{t("provenance.candidate")}</span>{" "}
+                  {onSearchCandidate && (
+                    <button type="button" className="small" onClick={() => onSearchCandidate(c.n)}>
+                      {t("provenance.search_candidate")}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
           {!provenance.verified && !provenance.accepted && (
             <div className="provenance-accept">

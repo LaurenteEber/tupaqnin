@@ -52,9 +52,19 @@ type SectionView struct {
 	// Unverified are the paragraphs (blocks, from 1) without a verified
 	// origin: the page marks them «sin verificar» (R-1).
 	Unverified []int `json:"unverified"`
+	// Origins says beside each paragraph where it comes from (backlog-r3
+	// 3.5), as graph.Provenances computes it.
+	Origins []ParagraphOrigin `json:"origins"`
 	// Paragraphs are the editor's paragraphs, one per block of the
 	// history (P-78): paragraph n is block n, a list item one each.
 	Paragraphs []graph.Paragraph `json:"paragraphs"`
+}
+
+// ParagraphOrigin is one paragraph's origin: its block, from 1, and
+// material · external · model_knowledge · unverified.
+type ParagraphOrigin struct {
+	Block  int    `json:"block"`
+	Origin string `json:"origin"`
 }
 
 type PutSectionRequest struct {
@@ -240,15 +250,16 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "internal")
 			return
 		}
-		unverified := []int{}
+		unverified, origins := []int{}, []ParagraphOrigin{}
 		for _, p := range provenance {
 			if !p.Verified {
 				unverified = append(unverified, p.Block)
 			}
+			origins = append(origins, ParagraphOrigin{Block: p.Block, Origin: p.Origin})
 		}
 		views = append(views, SectionView{Label: obj.Label, Title: str(bodyMap(obj), "title"), Focus: str(bodyMap(obj), "focus"),
 			Version: obj.CurrentVersion, State: string(status), Pendings: len(pendings), Text: sectionText(obj),
-			Unverified: unverified, Paragraphs: graph.Paragraphs(sectionText(obj))})
+			Unverified: unverified, Origins: origins, Paragraphs: graph.Paragraphs(sectionText(obj))})
 	}
 	writeJSON(w, http.StatusOK, views)
 }

@@ -33,6 +33,9 @@ type UnderstandingView struct {
 	Sections   []SectionRoleView `json:"sections"`
 	// EvidenceRequired is nil until the «Entendí» proposes it (B-51).
 	EvidenceRequired *EvidenceRequiredView `json:"evidence_required,omitempty"`
+	// NoMaterial: the project has no material of yours (R-4): the card
+	// offers «subir material» beside «buscar evidencia».
+	NoMaterial bool `json:"no_material"`
 	// PlanConfirmed: you answered the plan, confirming or correcting it
 	// (R-6, plan_confirmed).
 	PlanConfirmed bool `json:"plan_confirmed"`
@@ -125,6 +128,13 @@ func (s *Server) understandingView(r *http.Request, projectID string) Understand
 		view.Sections = append(view.Sections, v)
 	}
 	view.PlanConfirmed, _ = cycle.PlanConfirmed(r.Context(), s.db, projectID)
+	view.NoMaterial = true
+	sources, _ := s.db.ListObjects(r.Context(), projectID, store.ObjectSource)
+	for _, src := range sources {
+		if str(bodyMap(src), "kind") != graph.SourceKindWeb {
+			view.NoMaterial = false
+		}
+	}
 
 	events, _ := s.db.EventsSince(r.Context(), projectID, 0)
 	for _, ev := range events {

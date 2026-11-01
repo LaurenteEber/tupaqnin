@@ -19,6 +19,28 @@ export interface Paragraph {
 }
 
 //////////
+// source: candidates.go
+
+/**
+ * Candidate is one reference the agent named without a citation (R-2,
+ * B-69): what it knows of it, kept in the step_ended of its step. It never
+ * counts as a source. N is its number in the project, what «Buscarla»
+ * sends in POST /rounds {references: [n]}.
+ * [EL DISEÑO NO LO DICE]: what n counts (the route's table says only
+ * {references: [n]}); the project's candidates in the order they were
+ * named, each once by its text as the app compares. The history only
+ * grows, so a number never changes.
+ */
+export interface Candidate {
+  n: number /* int */;
+  text: string;
+  title?: string;
+  authors?: string;
+  year?: number /* int */;
+  doi?: string;
+}
+
+//////////
 // source: changes.go
 
 /**
@@ -260,6 +282,12 @@ export interface FrameDecision {
    * born from your act (a card's other option, an open question's).
    */
   seen: boolean;
+  /**
+   * Sources are the searched sources with a verified citation in this
+   * section (backlog-r3 3.5, pantallas: «en la decisión desplegada, las
+   * fuentes buscadas con su enlace»).
+   */
+  sources: SearchedSource[];
 }
 /**
  * FrameSection is a section of the skeleton: its state, its first line
@@ -351,6 +379,11 @@ export interface Frame {
    * Unseen is the filter «solo lo que no viste», already ordered.
    */
   unseen: FrameUnseen[];
+  /**
+   * Candidates are what the agent named without a citation (R-2, B-69):
+   * «candidata, sin verificar», with «Buscarla».
+   */
+  candidates: Candidate[];
 }
 
 //////////
@@ -411,6 +444,40 @@ export const EntryDecision = "decision";
  * Entry kinds.
  */
 export const EntryDatum = "datum";
+
+//////////
+// source: inventory.go
+
+/**
+ * RoundInventory is the coverage inventory of one round (A-5, flujos §2),
+ * as the app stored it when the round closed: labels only, never ids.
+ */
+export interface RoundInventory {
+  Round: string;
+  Question: string;
+  Parts: InventoryPart[];
+}
+/**
+ * InventoryPart is what one reader was assigned and left unread, with its
+ * gaps.
+ */
+export interface InventoryPart {
+  Part: number /* int */;
+  Status: string;
+  Reason: string;
+  Sources: number /* int */;
+  SourcesUnread: string[];
+  Hits: number /* int */;
+  HitsUnread: InventoryHit[];
+  Gaps: string[];
+}
+/**
+ * InventoryHit is a search result a reader left unread.
+ */
+export interface InventoryHit {
+  Label: string;
+  Title: string;
+}
 
 //////////
 // source: judge.go
@@ -478,22 +545,27 @@ export interface PlanLine {
 
 /**
  * Claim origins (glossary §11, R-1): what the principal declares for
- * each new text. external is slice 3; until then it counts as
- * unverified, like model_knowledge.
+ * each new text. The app never takes the declaration for the origin: it
+ * computes Provenance.Origin from the graph (backlog-r3 3.5).
  */
 export const OriginMaterial = "material";
 /**
  * Claim origins (glossary §11, R-1): what the principal declares for
- * each new text. external is slice 3; until then it counts as
- * unverified, like model_knowledge.
+ * each new text. The app never takes the declaration for the origin: it
+ * computes Provenance.Origin from the graph (backlog-r3 3.5).
  */
 export const OriginModelKnowledge = "model_knowledge";
 /**
  * Claim origins (glossary §11, R-1): what the principal declares for
- * each new text. external is slice 3; until then it counts as
- * unverified, like model_knowledge.
+ * each new text. The app never takes the declaration for the origin: it
+ * computes Provenance.Origin from the graph (backlog-r3 3.5).
  */
 export const OriginExternal = "external";
+/**
+ * OriginUnverified is what the page marks «sin verificar» when the
+ * paragraph has no verified origin and did not declare model_knowledge.
+ */
+export const OriginUnverified = "unverified";
 /**
  * PendingUnsourcedClaim is «afirmación sin fuente» (estados §1, R-1):
  * only in a document that asks for evidence (B-51).
@@ -506,6 +578,22 @@ export const PendingUnsourcedClaim = "unsourced_claim";
 export interface CitedPassage {
   source: string;
   passage: string;
+  /**
+   * Searched is a source a round found (kind web, R-1), with its year
+   * and its link; the title is Source.
+   */
+  searched?: SearchedSource;
+}
+/**
+ * SearchedSource is what the page shows of a source a round found: title,
+ * year and link (backlog-r3 3.5). Year is 0 when the API gave none. The
+ * URL comes from the API, never from a model (B-58).
+ */
+export interface SearchedSource {
+  label: string;
+  title: string;
+  year?: number /* int */;
+  url?: string;
 }
 /**
  * Provenance is where one paragraph of a section's current text comes
@@ -529,10 +617,21 @@ export interface Provenance {
   /**
    * Verified: the paragraph holds the claim of a citation whose
    * passage is literal in a source the principal read (a comes_from
-   * edge, R-3). Only then is it «de tu material».
+   * edge, R-3). Origin says from what.
    */
   verified: boolean;
   sources: CitedPassage[];
+  /**
+   * Origin is what the page says beside the paragraph, computed here and
+   * never taken from a model (backlog-r3 3.5): material · external ·
+   * model_knowledge · unverified.
+   */
+  origin: string;
+  /**
+   * Candidates are what the agent named in this paragraph without a
+   * citation (R-2, B-69): shown «candidata, sin verificar», never sources.
+   */
+  candidates: Candidate[];
   /**
    * Accepted is your «porque» when you accepted the paragraph as
    * general knowledge (claim_accepted) and its passage is still

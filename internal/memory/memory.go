@@ -347,11 +347,21 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 	for _, rnd := range byType[store.ObjectRound] {
 		if rnd.State == "open" {
 			st.InFlight.OpenRounds = append(st.InFlight.OpenRounds, rnd.Label)
-			if inv := decodeBody(rnd).str("coverage_inventory"); inv != "" {
-				st.InFlight.CoverageInventory = inv
-			}
 		}
 	}
+	// Capa 3 (bloque-2 §2, fichas §5): per section, the inventory of the
+	// rounds whose sources it uses (B-68).
+	var inventory strings.Builder
+	for _, sec := range sectionsInOrder(objects) {
+		list, err := graph.SectionRoundInventories(ctx, m.db, projectID, sec.ID)
+		if err != nil {
+			return State{}, nil, nil, err
+		}
+		if len(list) > 0 {
+			fmt.Fprintf(&inventory, "Coverage inventory of section %s:\n%s", sec.Label, graph.RenderInventories(list))
+		}
+	}
+	st.InFlight.CoverageInventory = inventory.String()
 
 	// Layer 2 index: sections, non-critical decisions, rounds and
 	// sources, one line each; sections in document order (K-17).

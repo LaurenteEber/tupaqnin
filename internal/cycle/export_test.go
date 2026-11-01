@@ -25,3 +25,7 @@ func ValidateDigestOutput(text string) []string {
 	errs, _ := validateDigestSchema(text)
 	return errs
 }
+
+// UnderstandingInstructions and CheckerInstructions are the embedded drafts.
+func UnderstandingInstructions() string { return understandingInstructions }
+func CheckerInstructions() string       { return checkerInstructions }

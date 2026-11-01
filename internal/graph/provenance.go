@@ -10,12 +10,15 @@ import (
 )
 
 // Claim origins (glossary §11, R-1): what the principal declares for
-// each new text. external is slice 3; until then it counts as
-// unverified, like model_knowledge.
+// each new text. The app never takes the declaration for the origin: it
+// computes Provenance.Origin from the graph (backlog-r3 3.5).
 const (
 	OriginMaterial       = "material"
 	OriginModelKnowledge = "model_knowledge"
 	OriginExternal       = "external"
+	// OriginUnverified is what the page marks «sin verificar» when the
+	// paragraph has no verified origin and did not declare model_knowledge.
+	OriginUnverified = "unverified"
 )
 
 // PendingUnsourcedClaim is «afirmación sin fuente» (estados §1, R-1):
@@ -27,6 +30,19 @@ const PendingUnsourcedClaim = "unsourced_claim"
 type CitedPassage struct {
 	Source  string `json:"source"`
 	Passage string `json:"passage"`
+	// Searched is a source a round found (kind web, R-1), with its year
+	// and its link; the title is Source.
+	Searched *SearchedSource `json:"searched,omitempty"`
+}
+
+// SearchedSource is what the page shows of a source a round found: title,
+// year and link (backlog-r3 3.5). Year is 0 when the API gave none. The
+// URL comes from the API, never from a model (B-58).
+type SearchedSource struct {
+	Label string `json:"label"`
+	Title string `json:"title"`
+	Year  int    `json:"year,omitempty"`
+	URL   string `json:"url,omitempty"`
 }
 
 // Provenance is where one paragraph of a section's current text comes
@@ -42,9 +58,16 @@ type Provenance struct {
 	Declared string `json:"declared"`
 	// Verified: the paragraph holds the claim of a citation whose
 	// passage is literal in a source the principal read (a comes_from
-	// edge, R-3). Only then is it «de tu material».
+	// edge, R-3). Origin says from what.
 	Verified bool           `json:"verified"`
 	Sources  []CitedPassage `json:"sources"`
+	// Origin is what the page says beside the paragraph, computed here and
+	// never taken from a model (backlog-r3 3.5): material · external ·
+	// model_knowledge · unverified.
+	Origin string `json:"origin"`
+	// Candidates are what the agent named in this paragraph without a
+	// citation (R-2, B-69): shown «candidata, sin verificar», never sources.
+	Candidates []Candidate `json:"candidates"`
 	// Accepted is your «porque» when you accepted the paragraph as
 	// general knowledge (claim_accepted) and its passage is still
 	// literal in the section.
@@ -59,6 +82,10 @@ type Provenance struct {
 // declaration, decides (R-2, «la procedencia sale del grafo»).
 // [EL DISEÑO NO LO DICE]: a paragraph you wrote has no declared origin
 // and counts like any other: verified only by a citation.
+// [EL DISEÑO NO LO DICE]: a paragraph declared external backed only by your
+// material; it stays «sin verificar» (backlog-r3 3.5: «se verifica si su
+// cita está literal en una fuente web leída»): the declaration can lower
+// the verification, never raise it or name the origin.
 func Provenances(ctx context.Context, q store.Querier, projectID, sectionID string) ([]Provenance, error) {
 	section, err := q.GetObject(ctx, projectID, sectionID)
 	if err != nil {
@@ -74,6 +101,7 @@ func Provenances(ctx context.Context, q store.Querier, projectID, sectionID stri
 		return nil, err
 	}
 	accepted := acceptedPassages(events, section.ID, Compare(text))
+	candidates := Candidates(events)
 
 	out := []Provenance{}
 	for i, block := range Blocks(text) {
@@ -82,13 +110,17 @@ func Provenances(ctx context.Context, q store.Querier, projectID, sectionID stri
 			continue
 		}
 		p := Provenance{Block: i + 1, Passage: block, Declared: declaredOrigin(events, section.ID, b),
-			Sources: []CitedPassage{}}
+			Sources: []CitedPassage{}, Candidates: paragraphCandidates(candidates, b)}
 		for _, c := range cited {
+			if p.Declared == OriginExternal && c.Searched == nil {
+				continue
+			}
 			if len(b.Find(c.anchor)) > 0 {
 				p.Verified = true
 				p.Sources = append(p.Sources, c.CitedPassage)
 			}
 		}
+		p.Origin = computedOrigin(p)
 		for _, a := range accepted {
 			if strings.Contains(b.Text, a.passage) {
 				p.Accepted = a.reason
@@ -97,6 +129,40 @@ func Provenances(ctx context.Context, q store.Querier, projectID, sectionID stri
 		out = append(out, p)
 	}
 	return out, nil
+}
+
+// computedOrigin is what the page says beside a paragraph: from the
+// sources that verify it, never from a model. Your material comes first
+// when both back it (the citation of a searched source still shows).
+func computedOrigin(p Provenance) string {
+	if p.Verified {
+		for _, s := range p.Sources {
+			if s.Searched == nil {
+				return OriginMaterial
+			}
+		}
+		return OriginExternal
+	}
+	if p.Declared == OriginModelKnowledge {
+		return OriginModelKnowledge
+	}
+	return OriginUnverified
+}
+
+// SearchedSources are the searched sources behind a section's verified
+// paragraphs, each once, in text order.
+func SearchedSources(provenances []Provenance) []SearchedSource {
+	out := []SearchedSource{}
+	seen := map[string]bool{}
+	for _, p := range provenances {
+		for _, s := range p.Sources {
+			if s.Searched != nil && !seen[s.Searched.Label] {
+				seen[s.Searched.Label] = true
+				out = append(out, *s.Searched)
+			}
+		}
+	}
+	return out
 }
 
 // BlockProvenance is the provenance of one block of a section, for its
@@ -191,12 +257,30 @@ func supportedCitations(ctx context.Context, q store.Querier, projectID, section
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, citedAnchor{anchor: bodyString(c, "anchor"),
-				CitedPassage: CitedPassage{Source: SourceTitle(src), Passage: bodyString(c, "passage")}})
+			cited := CitedPassage{Source: SourceTitle(src), Passage: bodyString(c, "passage")}
+			if cited.Searched = searchedSource(src); cited.Searched != nil && cited.Searched.Title != "" {
+				cited.Source = cited.Searched.Title
+			}
+			out = append(out, citedAnchor{anchor: bodyString(c, "anchor"), CitedPassage: cited})
 			break
 		}
 	}
 	return out, nil
+}
+
+// searchedSource is what the page shows of a source a round found (kind
+// web, B-61), nil for your material.
+func searchedSource(src store.Object) *SearchedSource {
+	var b struct {
+		Kind  string `json:"kind"`
+		Title string `json:"title"`
+		Year  int    `json:"year"`
+		URL   string `json:"url"`
+	}
+	if err := json.Unmarshal(src.Body, &b); err != nil || b.Kind != SourceKindWeb {
+		return nil
+	}
+	return &SearchedSource{Label: src.Label, Title: b.Title, Year: b.Year, URL: b.URL}
 }
 
 // declaredOrigin is the claim_origin of the last agent step whose new

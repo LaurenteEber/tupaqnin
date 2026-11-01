@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { getFrame, markDecisionSeen } from "../api/client";
 import type { Frame, FrameDecision, FrameSection, ReturnLine } from "../api/graph";
+import { SearchedName } from "./SearchedName";
+import { candidateName } from "../provenance";
 import { translate, type Lang } from "../i18n";
 
 // What «Te toca» leads to: a card, the understanding's cases or a
@@ -20,7 +22,7 @@ export type TodoTarget =
 // Slice 2 (backlog-r2 2.7): the return line above it after 3 days or
 // more (M-2), the exact «sin ver» dot and the filter «solo lo que no
 // viste», all computed in Go.
-export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onDecisionHistory, onTodo, onReorder }: {
+export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onDecisionHistory, onTodo, onReorder, onSearchCandidate }: {
   lang: Lang;
   projectID: string;
   refreshKey: string;
@@ -34,6 +36,9 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   // P-49: «subir» and «bajar» send the whole new order; absent in a
   // read-only tab.
   onReorder?: (labels: string[]) => void;
+  // «Buscarla» (B-69): you start a round on the candidate; absent in a
+  // read-only tab.
+  onSearchCandidate?: (n: number) => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [frame, setFrame] = useState<Frame | null>(null);
@@ -182,6 +187,25 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
         )}
       </div>
 
+      {frame.candidates.length > 0 && (
+        // R-2, B-69: what the agent named without a citation; never sources.
+        <div className="fsec" id="frame-candidates">
+          <h4>{t("frame.candidates")}</h4>
+          <ul className="tlist">
+            {frame.candidates.map((c) => (
+              <li key={c.n}>
+                {candidateName(c)} · <span className="meta">{t("provenance.candidate")}</span>{" "}
+                {onSearchCandidate && (
+                  <button type="button" className="small" onClick={() => onSearchCandidate(c.n)}>
+                    {t("provenance.search_candidate")}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="fsec" id="frame-todo">
         <h4>
           {t("frame.todo")} <span>{frame.todo.count > 0 ? frame.todo.count : ""}</span>
@@ -283,6 +307,16 @@ function DecisionItem({ lang, section, decision: d, titleOf, onSection, onHistor
           <div><b>{t("frame.signoff_explanation")}:</b> «{d.signoff_explanation}»</div>
         )}
         <div><b>{t("card.sections")}:</b> {d.sections.map(titleOf).join(" · ")}</div>
+        {d.sources.length > 0 && (
+          <div>
+            <b>{t("frame.searched_sources")}:</b>{" "}
+            {d.sources.map((src) => (
+              <span key={src.label}>
+                <SearchedName lang={lang} source={src} />{" "}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="links">
           {d.block > 0 ? (
             <button type="button" className="link" onClick={() => onHistory(section, d.block)}>

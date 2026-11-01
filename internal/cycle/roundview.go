@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -177,35 +178,95 @@ func (r *Runner) StartRound(projectID string) (label, turnID string, err error) 
 		if err != nil {
 			return RoundBody{}, err
 		}
-		all, err := r.db.ListObjects(ctx, projectID, store.ObjectSource)
+		return r.yourRoundBody(ctx, projectID, request)
+	})
+}
+
+// yourRoundBody is the body of a round you start (B-72), on question.
+func (r *Runner) yourRoundBody(ctx context.Context, projectID, question string) (RoundBody, error) {
+	all, err := r.db.ListObjects(ctx, projectID, store.ObjectSource)
+	if err != nil {
+		return RoundBody{}, err
+	}
+	var sources []store.Object
+	for _, s := range all {
+		// [EL DISEÑO NO LO DICE]: «si el proyecto tiene material»
+		// (B-72) counts your material, not the external sources
+		// earlier rounds brought in (B-61).
+		if bodyStr(bodyOf(s), "kind") != graph.SourceKindWeb {
+			sources = append(sources, s)
+		}
+	}
+	parts := []RoundPart{{Question: question, Where: []string{"openalex"},
+		Sources: []RoundPartSource{}, Queries: []string{}}}
+	if len(sources) > 0 {
+		project := RoundPart{Question: question, Where: []string{"project"}, Queries: []string{}}
+		for _, s := range sources {
+			project.Sources = append(project.Sources, RoundPartSource{SourceID: s.ID})
+		}
+		parts = append(parts, project)
+	}
+	reason := "too_much_to_read"
+	if len(parts) > 1 {
+		reason = "independent_parts"
+	}
+	return RoundBody{Kind: "research", Question: question, DelegationReason: reason, Parts: parts,
+		References: []namedReference{}, EstimatedCostUSD: EstimatedRoundCost(len(parts))}, nil
+}
+
+// ErrCandidateNotFound is a number that is no candidate of the project.
+var ErrCandidateNotFound = errors.New("cycle: not a candidate of the project")
+
+// StartCandidateRound is «Buscarla» (B-69, B-72): like StartRound, with the
+// candidates' text as the question. references are their numbers in the
+// project (graph.Candidates). Each one with a title or a DOI goes through
+// Lookup without a reader (B-59 d). ErrCandidateNotFound when one is no
+// candidate.
+// [EL DISEÑO NO LO DICE]: a candidate with neither title nor DOI gives
+// Lookup nothing to look for, and Lookup would read «fuente inexistente»
+// without looking: it stays out of the references and the reader searches
+// its text. With several references, the question joins their texts.
+func (r *Runner) StartCandidateRound(projectID string, references []int) (label, turnID string, err error) {
+	extra := map[string]any{"via": "candidate", "references": references}
+	return r.startRoundWith(projectID, extra, func(ctx context.Context) (RoundBody, error) {
+		events, err := r.db.EventsSince(ctx, projectID, 0)
 		if err != nil {
 			return RoundBody{}, err
 		}
-		var sources []store.Object
-		for _, s := range all {
-			// [EL DISEÑO NO LO DICE]: «si el proyecto tiene material»
-			// (B-72) counts your material, not the external sources
-			// earlier rounds brought in (B-61).
-			if bodyStr(bodyOf(s), "kind") != graph.SourceKindWeb {
-				sources = append(sources, s)
+		candidates := graph.Candidates(events)
+		texts := make([]string, 0, len(references))
+		refs := []namedReference{}
+		for _, n := range references {
+			if n < 1 || n > len(candidates) {
+				return RoundBody{}, ErrCandidateNotFound
+			}
+			c := candidates[n-1]
+			texts = append(texts, c.Text)
+			if c.Title != "" || c.DOI != "" {
+				refs = append(refs, candidateReference(c))
 			}
 		}
-		parts := []RoundPart{{Question: request, Where: []string{"openalex"},
-			Sources: []RoundPartSource{}, Queries: []string{}}}
-		if len(sources) > 0 {
-			project := RoundPart{Question: request, Where: []string{"project"}, Queries: []string{}}
-			for _, s := range sources {
-				project.Sources = append(project.Sources, RoundPartSource{SourceID: s.ID})
-			}
-			parts = append(parts, project)
+		body, err := r.yourRoundBody(ctx, projectID, strings.Join(texts, " · "))
+		if err != nil {
+			return RoundBody{}, err
 		}
-		reason := "too_much_to_read"
-		if len(parts) > 1 {
-			reason = "independent_parts"
-		}
-		return RoundBody{Kind: "research", Question: request, DelegationReason: reason, Parts: parts,
-			References: []namedReference{}, EstimatedCostUSD: EstimatedRoundCost(len(parts))}, nil
+		body.References, body.FromCandidate = refs, true
+		return body, nil
 	})
+}
+
+func candidateReference(c graph.Candidate) namedReference {
+	opt := func(s string) *string {
+		if s == "" {
+			return nil
+		}
+		return &s
+	}
+	ref := namedReference{Text: c.Text, Title: opt(c.Title), Authors: opt(c.Authors), DOI: opt(c.DOI)}
+	if c.Year != 0 {
+		ref.Year = &c.Year
+	}
+	return ref
 }
 
 // startRoundWith creates a round from your act, open, with the body

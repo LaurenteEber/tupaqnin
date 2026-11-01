@@ -7,6 +7,7 @@ import {
   getUnderstanding,
   putEvidenceRequired,
   putSectionRole,
+  uploadSource,
 } from "../api/client";
 import type { CaseView, SectionRoleView, UnderstandingView } from "../api/types";
 import { translate, type Lang } from "../i18n";
@@ -43,6 +44,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
   const [folded, setFolded] = useState(true);
   const [correcting, setCorrecting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const refresh = useCallback(async () => {
     if (projectID) setView(await getUnderstanding(projectID));
@@ -55,6 +57,17 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
   useEffect(() => {
     void refresh();
   }, [refresh, refreshKey]);
+
+  // R-4: «subir material» on the card, as the request's upload does.
+  async function uploadMaterial(file: File) {
+    setUploadError("");
+    try {
+      await uploadSource(projectID, "file", file);
+      await changed();
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "internal");
+    }
+  }
 
   // R-8: the mark is the role; marked is `conclusion` (a stored
   // `recommendation` also shows marked), unmarked is `other`. Changing
@@ -299,6 +312,23 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
               </button>
             </>
           )}
+        </p>
+      )}
+      {view.evidence_required?.value && view.no_material && (
+        // R-4: without material, its two ways on: this and «Buscar evidencia».
+        <p className="evidence">
+          {t("understanding.no_material")}{" "}
+          <input
+            type="file"
+            accept=".md,.txt,.csv,.pdf"
+            aria-label={t("source.upload")}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void uploadMaterial(f);
+              e.target.value = "";
+            }}
+          />
+          {uploadError && <span className="turn-error"> {t(`source.error.${uploadError}`)}</span>}
         </p>
       )}
 

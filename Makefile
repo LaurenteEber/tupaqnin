@@ -1,4 +1,4 @@
-.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence microtest-digest microtest-judge-verify
+.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence microtest-digest microtest-judge-verify microtest-checker-exceeds
 
 run:
 	go run ./cmd/tupaqnin
@@ -58,6 +58,13 @@ demo-check:
 # judgment matches each scenario. Same keychain key as microtest. Eber runs this.
 microtest-checker:
 	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestChecker -count=1 -v
+
+# A real exceeds_reviewed (backlog-r3 3.5, B-68), recorded into
+# internal/provider/testdata/checker/exceeds-reviewed.json only when the
+# checker marks it from the inventory; a hand-made one stands in meanwhile.
+# Same keychain key as microtest. Eber runs this.
+microtest-checker-exceeds:
+	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestCheckerExceeds -count=1 -v
 
 # Real judge outputs for the defense tests (backlog-r2 2.6).
 microtest-judge-defense:

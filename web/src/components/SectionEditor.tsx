@@ -8,6 +8,7 @@ import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import { saveSection } from "../api/client";
+import { originMarkRules, originVar, type ParagraphOrigin } from "../provenance";
 import { translate, type Lang } from "../i18n";
 import { shouldReloadEditor } from "../live";
 
@@ -41,7 +42,7 @@ export function SectionEditor({
   onQuestion,
   readOnly,
   onBlock,
-  unverified,
+  origins,
   version,
   text,
   paragraphs,
@@ -64,7 +65,7 @@ export function SectionEditor({
   onBlock: (block: number) => void;
   // The paragraphs without a verified origin, by block from 1 (R-1):
   // each shows «sin verificar» at its end. Go computes them.
-  unverified: number[];
+  origins: ParagraphOrigin[];
   version: number;
   text: string;
   // Go's paragraphs of text (P-78); without them, or when they are not
@@ -192,19 +193,16 @@ export function SectionEditor({
     };
   }, []);
 
-  // The mark goes after each unverified paragraph of the editor, which is
-  // block n (B-10): a rule per paragraph, with the label from the i18n
-  // catalog through a custom property. Labels and block numbers only.
-  // [EL DISEÑO NO LO DICE]: how the mark looks; a small note at the end
-  // of the paragraph, in the colour of what is pending.
-  const markRule =
-    unverified.length > 0
-      ? unverified
-          .map((n) => `.section-editor[data-section="${label}"] .section-editor-content > p:nth-child(${n})::after`)
-          .join(",\n") +
-        " { content: var(--unverified-label); margin-left: 0.5em; font-size: 0.75em; color: var(--todo); background: var(--todo-soft); border-radius: 4px; padding: 0 4px; }"
-      : "";
-  const markLabel = { "--unverified-label": JSON.stringify(translate(lang, "provenance.unverified")) } as CSSProperties;
+  // The mark goes after each paragraph of the editor, which is block n
+  // (B-10), with its origin as Go computed it (backlog-r3 3.5) and the
+  // label from the i18n catalog through a custom property.
+  const markRule = originMarkRules(label, origins);
+  const markLabel = Object.fromEntries(
+    ["material", "external", "model_knowledge", "unverified"].map((o) => [
+      originVar(o),
+      JSON.stringify(translate(lang, `provenance.mark.${o}`)),
+    ]),
+  ) as CSSProperties;
 
   return (
     <div className="section-editor" data-section={label} style={markLabel} onBlur={() => void saveRef.current()}>

@@ -93,6 +93,10 @@ type FrameDecision struct {
 	// B-39: «tus decisiones las viste al tomarlas»): of origin human, or
 	// born from your act (a card's other option, an open question's).
 	Seen bool `json:"seen"`
+	// Sources are the searched sources with a verified citation in this
+	// section (backlog-r3 3.5, pantallas: «en la decisión desplegada, las
+	// fuentes buscadas con su enlace»).
+	Sources []SearchedSource `json:"sources"`
 }
 
 // FrameSection is a section of the skeleton: its state, its first line
@@ -169,6 +173,9 @@ type Frame struct {
 	ReturnLine *ReturnLine `json:"return_line,omitempty"`
 	// Unseen is the filter «solo lo que no viste», already ordered.
 	Unseen []FrameUnseen `json:"unseen"`
+	// Candidates are what the agent named without a citation (R-2, B-69):
+	// «candidata, sin verificar», with «Buscarla».
+	Candidates []Candidate `json:"candidates"`
 }
 
 // ComputeFrame is frame(project): the frame from the working state's
@@ -234,6 +241,7 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		return Frame{}, err
 	}
 	seen := seenDecisions(events, decisions)
+	f.Candidates = Candidates(events)
 
 	// Each current critical decision, with the sections that use it:
 	// those it is used_in and those where a figure it covers is.
@@ -314,6 +322,10 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 				fs.Unverified++
 			}
 		}
+		// [EL DISEÑO NO LO DICE]: which searched sources a decision shows
+		// (pantallas: «en la decisión desplegada, las fuentes buscadas con
+		// su enlace»); no edge joins them, so those of its section.
+		searched := SearchedSources(provenance)
 		blocks := Blocks(text)
 		signed, hasSignature, err := CurrentSignoff(ctx, db, projectID, sec.ID)
 		if err != nil {
@@ -329,6 +341,7 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 			}
 			d := it.decision
 			d.Block = blockOf(blocks, it.anchors[sec.ID])
+			d.Sources = searched
 			if hasSignature && explained[it.id] {
 				d.SignoffExplanation = signed.Explanation
 			}

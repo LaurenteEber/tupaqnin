@@ -56,15 +56,15 @@ const (
 	OpenQuestionReaderContradiction = "contradiction"
 	// OpenQuestionScope: «dejarlo por aclarar» when a round did not
 	// reduce the doubt (flujos §2, estados §4), a scope one (B-68).
-	OpenQuestionScope = "scope"
+	OpenQuestionScope = checks.OpenQuestionScope
 )
 
 // The options of a scope «por aclarar» (B-68: complete the review with
 // another round, with its cost, or declare the limit in the text), as
 // codes the page translates (every on-screen string from i18n).
 const (
-	ScopeOptionCompleteReview = "complete_review"
-	ScopeOptionDeclareLimit   = "declare_limit"
+	ScopeOptionCompleteReview = checks.ScopeOptionCompleteReview
+	ScopeOptionDeclareLimit   = checks.ScopeOptionDeclareLimit
 )
 
 // DigestOutput is salida-digesto, as the principal wrote it: findings
@@ -95,7 +95,8 @@ type DigestContradiction struct {
 
 // DigestedFinding is one finding of the numbered list the principal
 // received (entered or «no verificado», fichas §7): its reader and
-// number there, kind, passage and note as the reader wrote them, and
+// number there, kind, the source's own stretch, the note as the reader
+// wrote it, and
 // the id of its source ("" when the app stored none).
 type DigestedFinding struct {
 	N            int    `json:"n"`
@@ -108,6 +109,9 @@ type DigestedFinding struct {
 	Hit          string `json:"hit,omitempty"`
 	Verification string `json:"verification"`
 	Access       string `json:"access,omitempty"`
+	// ReaderPassage is the reader's wording when Passage, the source's own
+	// stretch, differs from it (verifier F1, B-59).
+	ReaderPassage string `json:"reader_passage,omitempty"`
 }
 
 // RoundConflict is one contradiction of the digest as the app routed it
@@ -190,11 +194,26 @@ func digestFindings(body RoundBody) []DigestedFinding {
 		if !ok {
 			continue
 		}
+		reader, readerPassage := strings.TrimSpace(deref(f.Passage)), ""
+		passage := findingPassage(c, reader)
+		if passage != reader {
+			readerPassage = reader
+		}
 		out = append(out, DigestedFinding{N: len(out) + 1, Part: c.Part, Finding: c.Finding, Kind: f.Kind,
-			Passage: strings.TrimSpace(deref(f.Passage)), Note: deref(f.Note), SourceID: c.SourceID,
-			Hit: deref(f.Hit), Verification: c.Verification, Access: c.Access})
+			Passage: passage, Note: deref(f.Note), SourceID: c.SourceID,
+			Hit: deref(f.Hit), Verification: c.Verification, Access: c.Access, ReaderPassage: readerPassage})
 	}
 	return out
+}
+
+// findingPassage is the passage everything after the check hands on: the
+// source's own stretch, or the reader's when none was recorded (not
+// entered, or a round stored before it).
+func findingPassage(c FindingCheck, reader string) string {
+	if c.SourcePassage != "" {
+		return c.SourcePassage
+	}
+	return reader
 }
 
 // coverageInventory is A-5, by reader: the project sources of its brief
@@ -260,7 +279,7 @@ func digestMessage(roundLabel string, body RoundBody, findings []DigestedFinding
 	line := func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) }
 	line("# Digest of round %s", roundLabel)
 	line("")
-	line("Round question: %s", body.Question)
+	line("Round question:%s", body.questionLine(body.Question))
 	line("Doubt it reduces: %s", body.Doubt)
 	if body.Expectation == "" {
 		line("Expectation of the human for this round: none (no expectation): expectation_contrast is null.")

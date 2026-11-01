@@ -1,0 +1,28 @@
+{
+  "name": "exceeds-reviewed",
+  "turn_kind": "checker",
+  "deltas": [
+    "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"no\", \"passage\": null}], \"candidates\": [{\"type\": \"exceeds_reviewed\", \"section\": \"sec-1\", \"new_passage\": \"Se revisaron todos los estudios.\", \"clashing_passage\": \"2 of 5 results unread\", \"protected\": null, \"citation\": null, \"question\": \"¿Se revisó todo lo que el texto dice?\", \"options\": null}]}"
+  ],
+  "items": [
+    {
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"crit-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"prem-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"no\", \"passage\": null}], \"candidates\": [{\"type\": \"exceeds_reviewed\", \"section\": \"sec-1\", \"new_passage\": \"Se revisaron todos los estudios.\", \"clashing_passage\": \"2 of 5 results unread\", \"protected\": null, \"citation\": null, \"question\": \"¿Se revisó todo lo que el texto dice?\", \"options\": null}]}"
+        }
+      ],
+      "id": "msg_01a19273f89573eeb485786a429ddd68",
+      "role": "assistant",
+      "status": "completed",
+      "type": "message"
+    }
+  ],
+  "usage": {
+    "input_tokens": 2252,
+    "output_tokens": 1024,
+    "context_window": 1048576,
+    "cost_usd": 0.007167
+  },
+  "delta_delay": 0
+}

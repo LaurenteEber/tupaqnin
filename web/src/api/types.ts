@@ -45,10 +45,23 @@ export interface SectionView {
    */
   unverified: number /* int */[];
   /**
+   * Origins says beside each paragraph where it comes from (backlog-r3
+   * 3.5), as graph.Provenances computes it.
+   */
+  origins: ParagraphOrigin[];
+  /**
    * Paragraphs are the editor's paragraphs, one per block of the
    * history (P-78): paragraph n is block n, a list item one each.
    */
   paragraphs: Paragraph[];
+}
+/**
+ * ParagraphOrigin is one paragraph's origin: its block, from 1, and
+ * material · external · model_knowledge · unverified.
+ */
+export interface ParagraphOrigin {
+  block: number /* int */;
+  origin: string;
 }
 export interface PutSectionRequest {
   tab_id: string;
@@ -546,6 +559,13 @@ export interface LeaveRoundOpenResponse {
   open_question: string;
 }
 /**
+ * StartRoundRequest is the optional body of POST /rounds: the candidates
+ * «Buscarla» searches, by their number (graph.Candidate.N).
+ */
+export interface StartRoundRequest {
+  references: number /* int */[];
+}
+/**
  * StartRoundResponse is the round POST /rounds created and the turn to
  * follow it on (its stream).
  */
@@ -982,6 +1002,11 @@ export interface UnderstandingView {
    * EvidenceRequired is nil until the «Entendí» proposes it (B-51).
    */
   evidence_required?: EvidenceRequiredView;
+  /**
+   * NoMaterial: the project has no material of yours (R-4): the card
+   * offers «subir material» beside «buscar evidencia».
+   */
+  no_material: boolean;
   /**
    * PlanConfirmed: you answered the plan, confirming or correcting it
    * (R-6, plan_confirmed).

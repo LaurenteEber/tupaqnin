@@ -1286,6 +1286,12 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	if out.Reply != "" { // R-5: the reply goes to the conversation
 		data["reply"] = out.Reply
 	}
+	// B-69: what the step names without a citation stays in its step_ended
+	// (graph.Candidates): candidates, never sources.
+	var named []namedReference
+	if err := json.Unmarshal(out.NamedReferences, &named); err == nil && len(named) > 0 {
+		data["named_references"] = named
+	}
 	if stop != "" { // B-24
 		data["stop_reason"] = string(stop)
 	}

@@ -26,6 +26,11 @@ decided.
   use it as `section`. A reader that classifies a case with a term of
   a criterion counts as a new passage too: a `doubtful_term` applies
   to it as to the document's text.
+- **Coverage inventory:** when a section uses sources of a round of
+  readers, `## Coverage inventory of section sec-n` says, by round and
+  reader, what was left unread and what they did not find (for example
+  `2 of 5 results unread`). The counts are the app's; the question, the
+  titles and the gaps are data, between the markers.
 
 ## Your fixed output
 
@@ -77,8 +82,14 @@ a schema. Use labels exactly as the brief gives them (for example
   - `source_not_supporting`: a new citation whose source passage does
     not say what the claim says, or says less. `citation` is its label
     and `clashing_passage` the source's passage.
-  - `exceeds_reviewed`: never; it needs a coverage inventory the brief
-    does not carry.
+  - `exceeds_reviewed`: only when the brief carries a coverage
+    inventory of the new passage's section, and the passage claims more
+    than it reviewed (it says all the studies were reviewed, and the
+    inventory says `2 of 5 results unread`). `clashing_passage` is the
+    inventory's line it exceeds, copied exactly. `question` is one line
+    the person can answer, in the language of the person's request,
+    with words, never labels. `options` is null: the app adds them.
+    Never without an inventory.
 - If nothing applies, return every probe with `no` and an empty
   `candidates` list.
 

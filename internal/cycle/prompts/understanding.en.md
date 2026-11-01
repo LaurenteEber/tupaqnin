@@ -22,10 +22,10 @@ Rules:
   no material.
 - When the request needs evidence (a state of the art, a research
   summary) and there is no material, say so in understood and offer
-  three ways on: the human uploads material, the work waits for
-  search, or you write from memory with every paragraph marked
-  unverified, only if the human chooses it. Do not start a synthesis
-  from memory unless the human chose it.
+  two ways on: the human uploads material, or the human chooses to
+  search for evidence with the button on this card. Never offer to
+  write what you remember, and do not start a synthesis of it: what
+  you still claim that way stays marked unverified.
 - evidence_required: whether the document asks for evidence (a state
   of the art, a research summary: yes; a personal note: no), with one
   line for the human on why.

@@ -32,6 +32,22 @@ type OpenQuestion struct {
 	Event store.EventInput
 }
 
+// The scope «por aclarar» (estados §4, B-68): a kind of its own and the
+// app's two options, codes the page translates: complete the review with
+// another round, with its cost, or declare the limit in the text.
+const (
+	OpenQuestionScope         = "scope"
+	ScopeOptionCompleteReview = "complete_review"
+	ScopeOptionDeclareLimit   = "declare_limit"
+)
+
+// ScopeOptions are a scope «por aclarar»'s options, wherever it opens from.
+func ScopeOptions() []map[string]any {
+	return []map[string]any{
+		{"option": "", "code": ScopeOptionCompleteReview, "contrast": "", "consequence": "", "risk": ""},
+		{"option": "", "code": ScopeOptionDeclareLimit, "contrast": "", "consequence": "", "risk": ""}}
+}
+
 // Kinds of what a «por aclarar» keeps with its first option (body
 // keeps.kind).
 const (

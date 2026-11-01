@@ -146,7 +146,7 @@ func TestR1_MaterialParagraphIsVerifiedOnlyWithACitedPassageInAReadSource(t *tes
 	}
 }
 
-// R-1: model_knowledge (and external, until slice 3) is never verified,
+// R-1: model_knowledge and external without a citation are never verified,
 // even when the text is literal in a read source.
 func TestR1_ModelKnowledgeAndExternalParagraphsAreUnverified(t *testing.T) {
 	db := seedStepProject(t)

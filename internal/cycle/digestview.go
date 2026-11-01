@@ -20,7 +20,8 @@ import (
 
 // FindingView is one finding as the card shows it: its number in the
 // digest's list (0 when it is not in it), its reader and number there,
-// kind, passage and note as the reader wrote them, its source by label
+// kind, the source's own stretch (the reader's passage until one is
+// recorded) and the note as it wrote it, its source by label
 // (or its hit, or the reference's title) with its URL when external,
 // and its verification with why.
 type FindingView struct {
@@ -126,7 +127,7 @@ func (r *Runner) digestView(ctx context.Context, projectID string, body RoundBod
 				fv.Reference = body.References[c.Finding-1].Text
 			}
 		} else if f, ok := readerFindingAt(body, c.Part, c.Finding); ok {
-			fv.Kind, fv.Passage, fv.Note, fv.Hit = f.Kind, strings.TrimSpace(deref(f.Passage)), deref(f.Note), deref(f.Hit)
+			fv.Kind, fv.Passage, fv.Note, fv.Hit = f.Kind, findingPassage(c, strings.TrimSpace(deref(f.Passage))), deref(f.Note), deref(f.Hit)
 			if f.Reference != nil {
 				fv.Reference = f.Reference.Title
 			}
@@ -300,7 +301,8 @@ func (r *Runner) RepeatRound(projectID, label, question string) (newLabel, turnI
 			cost = EstimatedRoundCost(len(parts))
 			return RoundBody{Kind: body.Kind, Question: question, Doubt: body.Doubt,
 				DelegationReason: body.DelegationReason, Scope: body.Scope, Parts: parts,
-				References: []namedReference{}, Repeats: old.ID, EstimatedCostUSD: cost}, nil
+				References: []namedReference{}, Repeats: old.ID, EstimatedCostUSD: cost,
+				FromCandidate: body.FromCandidate}, nil
 		})
 	if err != nil {
 		return "", "", 0, err
@@ -353,13 +355,13 @@ func (r *Runner) LeaveRoundOpen(ctx context.Context, projectID, label string) (s
 		if err != nil {
 			return err
 		}
+		extra := map[string]any{"origin": "round", "kind": OpenQuestionScope, "round_id": round.ID,
+			"undeclared_by_agent": false}
+		if body.FromCandidate && strings.TrimSpace(body.Doubt) == "" {
+			extra["question_is_data"] = true // P-83: its question is a candidate's text
+		}
 		oq, err := checks.Open(ctx, tx, checks.OpenQuestion{Question: question,
-			Options: []map[string]any{
-				{"option": "", "code": ScopeOptionCompleteReview, "contrast": "", "consequence": "", "risk": ""},
-				{"option": "", "code": ScopeOptionDeclareLimit, "contrast": "", "consequence": "", "risk": ""}},
-			DependsOn: sections,
-			Extra: map[string]any{"origin": "round", "kind": OpenQuestionScope, "round_id": round.ID,
-				"undeclared_by_agent": false},
+			Options: checks.ScopeOptions(), DependsOn: sections, Extra: extra,
 			Event: store.EventInput{Type: store.EventStateChanged, Actor: "human", TurnID: body.TurnID,
 				Data: map[string]any{"via": "round", "kind": OpenQuestionScope, "round": round.Label}}})
 		if err != nil {

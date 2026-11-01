@@ -179,6 +179,7 @@ func (m *Memory) renderCore(st State) string {
 		}
 		fmt.Fprintf(&sb, "Deferred: %s — %s%s\n", item.What, item.Why, mark)
 	}
+	sb.WriteString(f.CoverageInventory)
 	if f.AgentNote != "" {
 		note, truncated := firstWords(f.AgentNote, 80)
 		mark := ""
@@ -457,6 +458,9 @@ func changesSince(objects []store.Object, delivered map[string]int) []Change {
 			text = audienceQuestionLine(b, obj.State, labels[b.str("section_id")])
 		}
 		line := firstLine(text)
+		if obj.Type == store.ObjectRound && b.boolean("from_candidate") || obj.Type == store.ObjectOpenQuestion && b.boolean("question_is_data") {
+			line = text // its data block is the line (P-83)
+		}
 		if obj.Type == store.ObjectSource && b.str("kind") == graph.SourceKindWeb {
 			// P-83, B-58: an external source's text is data from a page.
 			line = graph.Delimit(graph.DataSource, line)
@@ -476,6 +480,10 @@ func openQuestionLine(b body, state string) string {
 		return flawQuestionLine(b, state)
 	}
 	line := b.str("question")
+	if b.boolean("question_is_data") {
+		// P-83: «Buscarla»'s question is a candidate's text (backlog-r3 3.5).
+		line = "\n" + graph.Delimit(graph.DataPassage, line)
+	}
 	if state != "resolved" {
 		return line
 	}
@@ -529,7 +537,12 @@ func roundLine(b body, state string) string {
 		// Backlog-r3 3.6: its flaws reach the principal only in the batch.
 		return fmt.Sprintf("Judge round (%s)", state)
 	}
-	line := fmt.Sprintf("Round (%s): %s", state, b.str("question"))
+	question := " " + b.str("question")
+	if b.boolean("from_candidate") {
+		// P-83: «Buscarla»'s question is a candidate's text (backlog-r3 3.5).
+		question = "\n" + graph.Delimit(graph.DataPassage, b.str("question")) + "\n"
+	}
+	line := fmt.Sprintf("Round (%s):%s", state, question)
 	if d := b.str("reduced_doubt"); d != "" {
 		line += " · doubt reduced: " + d
 	}

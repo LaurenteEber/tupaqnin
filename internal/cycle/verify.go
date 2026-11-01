@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/evidence"
@@ -46,6 +49,11 @@ type FindingCheck struct {
 	Reason       string `json:"reason,omitempty"`
 	SourceID     string `json:"source_id,omitempty"`
 	Access       string `json:"access,omitempty"`
+	// SourcePassage is the source's own stretch the passage matched under
+	// B-59's normalization (literalStretch), so what is handed on after the
+	// check is literal for the citation gate. Rounds stored before it have
+	// none: they keep the reader's passage.
+	SourcePassage string `json:"source_passage,omitempty"`
 }
 
 // readerFinding is one finding of salida-lector, as the reader wrote it.
@@ -199,6 +207,13 @@ func (r *Runner) VerifyFindings(ctx context.Context, projectID, roundLabel strin
 			}
 			if src, err := tx.Object(id); err == nil {
 				sources = appendOrReplace(sources, src)
+				// The stretch is the stored text's when it is there: the best
+				// access won (addWeb), or the source reused kept what it had.
+				for _, idx := range ws.checkIdx {
+					if stored := literalStretch(bodyStr(bodyOf(src), "text"), checksOut[idx].SourcePassage); stored != "" {
+						checksOut[idx].SourcePassage = stored
+					}
+				}
 			}
 		}
 		body.Findings = checksOut
@@ -303,7 +318,8 @@ func (v *verifier) checkProjectSource(ctx context.Context, r *Runner, projectID 
 		}
 	}
 	if passageIn(bodyStr(b, "text"), passage) {
-		return FindingCheck{Verification: VerificationEntered, SourceID: src.ID, Access: access}
+		return FindingCheck{Verification: VerificationEntered, SourceID: src.ID, Access: access,
+			SourcePassage: literalStretch(bodyStr(b, "text"), passage)}
 	}
 	return FindingCheck{Verification: VerificationDiscarded, Reason: ReasonPassageNotFound, SourceID: src.ID}
 }
@@ -325,9 +341,11 @@ func (v *verifier) checkExternal(ctx context.Context, rec externalRecord, passag
 	}
 	switch {
 	case full != "" && passageIn(full, passage):
-		return FindingCheck{Verification: VerificationEntered, Access: graph.AccessFullText}, withText(rec, full), true
+		return FindingCheck{Verification: VerificationEntered, Access: graph.AccessFullText,
+			SourcePassage: literalStretch(full, passage)}, withText(rec, full), true
 	case rec.Abstract != "" && passageIn(rec.Abstract, passage):
-		return FindingCheck{Verification: VerificationEntered, Access: graph.AccessAbstract}, withText(rec, ""), true
+		return FindingCheck{Verification: VerificationEntered, Access: graph.AccessAbstract,
+			SourcePassage: literalStretch(rec.Abstract, passage)}, withText(rec, ""), true
 	case full != "":
 		return FindingCheck{Verification: VerificationDiscarded, Reason: ReasonPassageNotFound}, nil, true
 	}
@@ -465,6 +483,66 @@ func appendOrReplace(list []store.Object, obj store.Object) []store.Object {
 // passageIn reports whether passage is literal in text, both normalized
 // as B-59 (a) says: NFC, spaces collapsed, quotes and dashes unified,
 // letter case ignored ([inicial]).
+// literalStretch is the stretch of text that passage matches under B-59's
+// normalization, in text's own bytes, never rewritten (rule 8): its quotes,
+// dashes, case, spaces and encoding. "" when the passage is not there, or
+// when the stretch would not be literal for the citation gate. With several
+// matches, the first.
+// [EL DISEÑO NO LO DICE]: how a finding verified under B-59 (quotes, dashes
+// and case unified) reaches the gate, literal in NFC and spaces only
+// (B-62): the app hands on the source's stretch, and the gate stays as it is.
+func literalStretch(text, passage string) string {
+	needle := verifyForm(strings.TrimSpace(passage))
+	if needle == "" {
+		return ""
+	}
+	form, start, end := verifyMap(text)
+	at := strings.Index(form, needle)
+	if at < 0 {
+		return ""
+	}
+	stretch := text[start[at]:end[at+len(needle)-1]]
+	if len(graph.Compare(text).Find(stretch)) == 0 {
+		return ""
+	}
+	return stretch
+}
+
+// verifyMap is verifyForm(text) with, for each of its bytes, the range of
+// text it came from: verifyForm changes lengths (NFC, spaces collapsed, a
+// curly quote of 3 bytes becomes 1). A rune composed or kept with its marks
+// maps to its whole segment.
+func verifyMap(text string) (form string, start, end []int) {
+	var b strings.Builder
+	var it norm.Iter
+	it.InitString(norm.NFC, text)
+	inSpace := false
+	for !it.Done() {
+		from := it.Pos()
+		segment := it.Next()
+		to := it.Pos()
+		for _, r := range string(segment) {
+			if unicode.IsSpace(r) {
+				if inSpace {
+					end[len(end)-1] = to
+				} else {
+					b.WriteByte(' ')
+					start, end = append(start, from), append(end, to)
+					inSpace = true
+				}
+				continue
+			}
+			inSpace = false
+			mapped := strings.ToLower(unifyQuotesAndDashes.Replace(string(r)))
+			b.WriteString(mapped)
+			for range len(mapped) {
+				start, end = append(start, from), append(end, to)
+			}
+		}
+	}
+	return b.String(), start, end
+}
+
 func passageIn(text, passage string) bool {
 	p := verifyForm(passage)
 	return p != "" && strings.Contains(verifyForm(text), p)

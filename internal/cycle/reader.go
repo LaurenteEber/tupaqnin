@@ -674,10 +674,10 @@ func (r *Runner) readerBrief(ctx context.Context, projectID, roundLabel string, 
 	line("«%s»", request)
 	line("")
 	line("## 2. Question, doubt and why it is delegated")
-	line("Round question: %s", body.Question)
+	line("Round question:%s", body.questionLine(body.Question))
 	line("Doubt it reduces: %s", body.Doubt)
 	line("Why it is delegated: %s", body.DelegationReason)
-	line("Question of your part: %s", spec.Question)
+	line("Question of your part:%s", body.questionLine(spec.Question))
 	line("")
 	line("## 3. Criteria, premise, decisions and expectation (literal)")
 	if err := r.writeBriefContext(ctx, projectID, line); err != nil {

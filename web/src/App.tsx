@@ -370,13 +370,13 @@ export function App() {
     return true;
   }
 
-  // «Buscar evidencia» (B-72): you start a round; it runs as a turn of
-  // its own, followed like a message's.
-  async function searchEvidence() {
+  // «Buscar evidencia» (B-72) and «Buscarla» on a candidate (B-69): you
+  // start a round; it runs as a turn of its own, followed like a message's.
+  async function searchEvidence(references?: number[]) {
     if (!projectID) return;
     setErrorCode("");
     try {
-      const { turn_id } = await startRound(projectID);
+      const { turn_id } = await startRound(projectID, references);
       void refreshConversation(projectID);
       watchTurn(turn_id);
     } catch (e) {
@@ -501,6 +501,7 @@ export function App() {
                 onDecisionHistory={openDecisionHistory}
                 onTodo={onTodo}
                 onReorder={editor ? (labels) => void reorder(labels) : undefined}
+                onSearchCandidate={editor ? (n) => void searchEvidence([n]) : undefined}
               />
             ) : (
               <div className="frame-empty">
@@ -731,7 +732,7 @@ export function App() {
                   onQuestion={reachWarning}
                   readOnly={!editor}
                   onBlock={setHistoryBlock}
-                  unverified={current.unverified ?? []}
+                  origins={current.origins ?? []}
                   version={current.version}
                   text={current.text}
                   paragraphs={current.paragraphs}
@@ -751,6 +752,7 @@ export function App() {
                     block={historyBlock}
                     decision={historyDecision || undefined}
                     onClose={() => setHistoryBlock(0)}
+                    onSearchCandidate={editor ? (n) => void searchEvidence([n]) : undefined}
                     onMarked={() => {
                       // Marking can open a card and change the frame (T-5).
                       bumpFrame();

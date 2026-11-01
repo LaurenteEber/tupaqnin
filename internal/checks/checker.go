@@ -338,6 +338,18 @@ func (c *Checker) Validate(ctx context.Context, q store.Querier, projectID strin
 			if !isType(ctx, q, projectID, str(cand.Citation), store.ObjectCitation) {
 				fail("%s/citation: a source that does not support names its citation", path)
 			}
+		case graph.CandidateExceedsReviewed:
+			// B-44: the person answers its question; the options are the
+			// app's (B-68). Without an inventory it opens nothing.
+			if sec, err := q.GetObject(ctx, projectID, cand.Section); err == nil {
+				has, err := sectionHasInventory(ctx, q, projectID, sec)
+				if err != nil {
+					return nil, out, err
+				}
+				if has && cand.Question == nil {
+					fail("%s: an exceeds_reviewed carries its question", path)
+				}
+			}
 		}
 	}
 	for i, r := range out.Probes {
@@ -468,7 +480,36 @@ func Brief(ctx context.Context, q store.Querier, projectID string, change Change
 			line("%s", p)
 		}
 	}
+	// B-68, A-5: the inventory of the rounds whose sources each section of
+	// the change uses, to judge what its text says was reviewed.
+	for _, id := range order {
+		sec, err := q.GetObject(ctx, projectID, id)
+		if err != nil {
+			return "", err
+		}
+		if sec.Type != store.ObjectSection {
+			continue
+		}
+		list, err := graph.SectionRoundInventories(ctx, q, projectID, sec.ID)
+		if err != nil {
+			return "", err
+		}
+		if len(list) > 0 {
+			line("## Coverage inventory of section %s", sec.Label)
+			line("%s", graph.RenderInventories(list))
+		}
+	}
 	return b.String(), nil
+}
+
+// sectionHasInventory reports whether a round the section uses left an
+// inventory: without one, exceeds_reviewed has nothing to cite (A-5).
+func sectionHasInventory(ctx context.Context, q store.Querier, projectID string, sec store.Object) (bool, error) {
+	if sec.Type != store.ObjectSection {
+		return false, nil
+	}
+	list, err := graph.SectionRoundInventories(ctx, q, projectID, sec.ID)
+	return len(list) > 0, err
 }
 
 func userItem(text string) json.RawMessage {
@@ -660,8 +701,22 @@ func Apply(ctx context.Context, db *store.DB, projectID, turnID string, change C
 			case !present:
 				data["discarded"] = true // B-50: the text changed while the checker answered
 			case cand.Type == graph.CandidateExceedsReviewed:
-				// A-5 needs the coverage inventory (slice 3).
-				data["not_applied"] = true
+				// A-5, B-68: with an inventory the section uses, a scope «por
+				// aclarar», since the scope is yours; without one it has nothing
+				// to cite and stays not applied.
+				has, err := sectionHasInventory(ctx, tx, projectID, sec)
+				if err != nil {
+					return err
+				}
+				if !has {
+					data["not_applied"] = true
+					break
+				}
+				label, err := openScopeQuestion(ctx, tx, projectID, turnID, change, sec, cand)
+				if err != nil {
+					return err
+				}
+				data["open_question"] = label
 			case (cand.Type == graph.CandidateContradiction || cand.Type == graph.CandidateDoubtfulTerm) && !wasDeclared:
 				label, err := openQuestion(ctx, tx, projectID, turnID, change, sec, cand)
 				if err != nil {
@@ -675,6 +730,25 @@ func Apply(ctx context.Context, db *store.DB, projectID, turnID string, change C
 		}
 		return nil
 	})
+}
+
+// openScopeQuestion opens the scope «por aclarar» of what exceeds the
+// reviewed (B-68) through openQuestion, with the app's options, unless the
+// same passage of the section already holds an open one.
+// [EL DISEÑO NO LO DICE]: the same passage flagged again while it is open;
+// the open one answers it. Once answered, a new flag opens another.
+func openScopeQuestion(ctx context.Context, tx *store.Tx, projectID, turnID string, change Change, sec store.Object, cand Candidate) (string, error) {
+	open, err := tx.ListObjects(ctx, projectID, store.ObjectOpenQuestion)
+	if err != nil {
+		return "", err
+	}
+	for _, oq := range open {
+		if oq.State == "open" && bodyText(oq, "kind") == OpenQuestionScope && bodyText(oq, "section_id") == sec.ID &&
+			graph.CompareString(bodyText(oq, "new_passage")) == graph.CompareString(cand.NewPassage) {
+			return oq.Label, nil
+		}
+	}
+	return openQuestion(ctx, tx, projectID, turnID, change, sec, cand)
 }
 
 // openQuestion opens the «por aclarar» of a contradiction or a doubtful
@@ -726,9 +800,13 @@ func openQuestion(ctx context.Context, tx *store.Tx, projectID, turnID string, c
 		options = append(options, map[string]any{"option": o.Option, "contrast": o.Contrast,
 			"consequence": o.Consequence, "risk": o.Risk})
 	}
+	kind := cand.Type
+	if cand.Type == graph.CandidateExceedsReviewed {
+		kind, options = OpenQuestionScope, ScopeOptions()
+	}
 	oq, err := Open(ctx, tx, OpenQuestion{Question: str(cand.Question), Options: options, DependsOn: dependsOn,
 		Premise: premiseID,
-		Extra: withExtra(extra, map[string]any{"origin": "checker", "kind": cand.Type, "protected_id": protectedID,
+		Extra: withExtra(extra, map[string]any{"origin": "checker", "kind": kind, "protected_id": protectedID,
 			"new_passage": cand.NewPassage, "clashing_passage": str(cand.ClashingPassage),
 			"undeclared_by_agent": change.Kind == AgentStep}),
 		Event: store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: string(provider.RoleChecker), TurnID: turnID,

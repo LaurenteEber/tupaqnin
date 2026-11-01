@@ -267,6 +267,70 @@ func keepChecker(t *testing.T, rec *recorder, name string, out checks.CheckerOut
 	logJudgment(t, name, out)
 }
 
+// TestMicroTestCheckerExceeds records exceeds_reviewed (backlog-r3 3.5,
+// B-68): sec-1 uses src-1, of a round whose inventory says «2 of 5 results
+// unread», and the passage says everything was reviewed. It replaces the
+// hand-made exceeds-reviewed.json only when the checker marks that. It runs
+// with `make microtest-checker-exceeds`.
+func TestMicroTestCheckerExceeds(t *testing.T) {
+	apiKey := os.Getenv("META_API_KEY")
+	if apiKey == "" {
+		t.Fatal("META_API_KEY is required: run `make microtest-checker-exceeds`, which reads it from the keychain")
+	}
+	meta := provider.NewMeta(apiKey, nil, nil)
+	ctx := context.Background()
+	db := seedChecker(t)
+	const passage = "Se revisaron todos los estudios."
+	var change checks.Change
+	err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		sec, err := tx.GetObject(ctx, "p1", "sec-1")
+		if err != nil {
+			return err
+		}
+		src, err := tx.GetObject(ctx, "p1", "src-1")
+		if err != nil {
+			return err
+		}
+		body := map[string]any{}
+		_ = json.Unmarshal(sec.Body, &body)
+		body["text"] = strings.Replace(checkerSectionText, "Cierre.", passage, 1)
+		if _, err := tx.UpdateObject(sec.ID, sec.CurrentVersion, sec.State, body,
+			store.EventInput{Type: store.EventEdit, Actor: "agent"}); err != nil {
+			return err
+		}
+		app := store.EventInput{Type: store.EventStateChanged, Actor: "app"}
+		if _, err := tx.AddEdge(store.EdgeUses, sec.ID, src.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "app"}); err != nil {
+			return err
+		}
+		if _, err := tx.CreateObject(store.ObjectRound, "closed", map[string]any{"kind": "research",
+			"question": "¿Qué conteos comparan los estudios?",
+			"parts":    []map[string]any{{"sources": []map[string]any{{"source_id": src.ID}}}},
+			"hits":     []map[string]any{{"label": "hit-4", "title": "Conteos en Lima"}, {"label": "hit-5", "title": "Conteos en Quito"}},
+			"coverage_inventory": []map[string]any{{"part": 1, "status": "returned", "sources": []string{src.ID}, "sources_read": []string{src.ID},
+				"hits": []string{"hit-1", "hit-2", "hit-3", "hit-4", "hit-5"}, "hits_read": []string{"hit-1", "hit-2", "hit-3"}, "gaps": []string{}}}}, app); err != nil {
+			return err
+		}
+		change = checks.Change{Kind: checks.AgentStep, Sections: []string{sec.ID},
+			Passages: []checks.Passage{{Section: sec.ID, Text: passage}}, Actor: "agent", TurnID: "rec"}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	probes, err := checks.Probes(ctx, db, "p1", change)
+	if err != nil {
+		t.Fatalf("Probes: %v", err)
+	}
+	rec := &recorder{inner: meta}
+	out, ok, err := cycle.NewChecker(rec).CallChecker(ctx, db, "p1", "rec", change, probes)
+	if err != nil || !ok {
+		t.Logf("checker call: ok %v, %v: not saved", ok, err)
+		return
+	}
+	got := candidateTypes(out)
+	keepChecker(t, rec, "exceeds-reviewed", out, allNo(out) && len(got) == 1 && got[0] == "exceeds_reviewed:"+passage)
+}
+
 func TestMicroTestChecker(t *testing.T) {
 	apiKey := os.Getenv("META_API_KEY")
 	if apiKey == "" {
