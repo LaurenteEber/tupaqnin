@@ -880,6 +880,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 	reason := StopStepLimit
 	// The sections whose judge could not verify in this chain (B-67).
 	judgeFailed := map[string]bool{}
+	roundsRun := 0
 	for n := 1; n <= MaxChainSteps; n++ {
 		// B-67: the correction batch is this step, if a judge round waits.
 		batch, err := r.startJudgeBatch(ctx, projectID)
@@ -981,6 +982,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 				r.fail(projectID, turnID, "turn_failed")
 				return err
 			}
+			roundsRun++
 		}
 		// B-67: the batch applied: its one recheck.
 		if result.Status == StatusAccepted && batch != "" {
@@ -1004,7 +1006,10 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		if waiting {
 			continue
 		}
-		if !applied.Work {
+		// P-99: a step whose work is its round goes on after the digest.
+		// [EL DISEÑO NO LO DICE]: only after the chain's first round, so a
+		// principal that keeps asking cannot chain rounds up to the cap.
+		if !applied.Work && (applied.Round == "" || roundsRun > 1) {
 			reason = StopNoWork
 			break
 		}

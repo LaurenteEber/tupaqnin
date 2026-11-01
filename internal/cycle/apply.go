@@ -1292,7 +1292,8 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	if err := json.Unmarshal(out.NamedReferences, &named); err == nil && len(named) > 0 {
 		data["named_references"] = named
 	}
-	if stop != "" { // B-24
+	// P-99: a step whose work is the round it asked for is not «no work».
+	if stop != "" && (stop != StopNoWork || p.round == "") { // B-24
 		data["stop_reason"] = string(stop)
 	}
 	ev := agent(store.EventStepEnded)
