@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { flawOutcomeKey, offersNotApplicable, triageKey } from "./judge.ts";
-import { auditErrorCode, invitesRetry, roundKeepsPolling, sendErrorCode } from "./live.ts";
+import { auditErrorCode, invitesRetry, roundErrorCode, roundKeepsPolling, sendErrorCode } from "./live.ts";
 
 const open = { state: "open", batch_started: false };
 
@@ -72,6 +72,26 @@ test("B-67: an audit's refusal keeps its own code", () => {
     const catalog = JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8")) as Record<string, string>;
     for (const code of ["round_open", "section_empty", "turn_running"]) {
       assert.ok(catalog[`stream.error.${code}`], `${lang}: ${code}`);
+    }
+  }
+});
+
+// P-100: a refused round keeps its own code, and writing again cannot help.
+test("P-100: a refused round keeps its own code", () => {
+  for (const code of ["request_required", "candidate_not_found"]) {
+    assert.equal(roundErrorCode(new Error(code), false), code);
+    assert.equal(invitesRetry(code), false);
+  }
+  assert.equal(roundErrorCode(new Error("turn_running"), true), "turn_running_defense");
+  assert.equal(roundErrorCode(new Error("internal"), false), "turn_failed");
+});
+
+// P-100: every refusal the page can show has its text in both catalogs.
+test("P-100: the refusals are in both catalogs", () => {
+  for (const lang of ["en", "es"]) {
+    const catalog = JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"));
+    for (const key of ["stream.error.request_required", "stream.error.candidate_not_found", "digest.error.version_conflict"]) {
+      assert.ok(catalog[key], `${lang}: ${key}`);
     }
   }
 });

@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
 // RoundRunner reads a round's card and starts a round from your act
@@ -354,6 +355,10 @@ func (s *Server) postRound(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "candidate_not_found")
 		return
 	}
+	if errors.Is(err, cycle.ErrNoRequest) { // P-100
+		writeError(w, http.StatusUnprocessableEntity, "request_required")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
@@ -423,6 +428,8 @@ func (s *Server) leaveRoundOpen(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "round_not_repeatable")
 	case errors.Is(err, cycle.ErrScopeAlreadyOpen):
 		writeError(w, http.StatusConflict, "already_open")
+	case errors.Is(err, store.ErrVersionConflict): // P-100
+		writeError(w, http.StatusConflict, "version_conflict")
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "internal")
 	default:

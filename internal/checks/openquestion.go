@@ -44,8 +44,10 @@ const (
 // ScopeOptions are a scope «por aclarar»'s options, wherever it opens from.
 func ScopeOptions() []map[string]any {
 	return []map[string]any{
-		{"option": "", "code": ScopeOptionCompleteReview, "contrast": "", "consequence": "", "risk": ""},
-		{"option": "", "code": ScopeOptionDeclareLimit, "contrast": "", "consequence": "", "risk": ""}}
+		{"option": "Complete the review with another round, with its cost", "code": ScopeOptionCompleteReview,
+			"contrast": "", "consequence": "", "risk": ""},
+		{"option": "Declare the limit in the text", "code": ScopeOptionDeclareLimit,
+			"contrast": "", "consequence": "", "risk": ""}}
 }
 
 // Kinds of what a «por aclarar» keeps with its first option (body

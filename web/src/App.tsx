@@ -36,7 +36,7 @@ import { StopReportPanel } from "./components/StopReportPanel";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { initialLang, translate, type Lang } from "./i18n";
-import { auditErrorCode, pollDefense, roundStarted, sendErrorCode, startsStep } from "./live";
+import { auditErrorCode, pollDefense, roundErrorCode, roundStarted, sendErrorCode, startsStep } from "./live";
 
 export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
@@ -380,7 +380,7 @@ export function App() {
       void refreshConversation(projectID);
       watchTurn(turn_id);
     } catch (e) {
-      setErrorCode(sendErrorCode(e, defensePreparing));
+      setErrorCode(roundErrorCode(e, defensePreparing));
     }
   }
 

@@ -614,7 +614,7 @@ export async function getRound(projectID: string, label: string): Promise<RoundC
 
 // With references it is «Buscarla» on those candidates (backlog-r3 3.5, B-69).
 export async function startRound(projectID: string, references?: number[]): Promise<StartRoundResponse> {
-  return json(await post(`/api/projects/${projectID}/rounds`, references ? { references } : undefined));
+  return signoffJSON(await post(`/api/projects/${projectID}/rounds`, references ? { references } : undefined));
 }
 
 // Backlog-r3 3.4: «Repetir con otra pregunta» and «dejarlo por aclarar»,

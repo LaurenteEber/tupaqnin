@@ -29,3 +29,10 @@ func ValidateDigestOutput(text string) []string {
 // UnderstandingInstructions and CheckerInstructions are the embedded drafts.
 func UnderstandingInstructions() string { return understandingInstructions }
 func CheckerInstructions() string       { return checkerInstructions }
+
+// SetBeforeLeaveOpenWrite runs f between LeaveRoundOpen's read and its
+// write, and returns the restore.
+func SetBeforeLeaveOpenWrite(f func()) (restore func()) {
+	beforeLeaveOpenWrite = f
+	return func() { beforeLeaveOpenWrite = func() {} }
+}

@@ -69,10 +69,18 @@ export function auditErrorCode(error: unknown, defensePreparing: boolean): strin
   return code === "round_open" || code === "section_empty" ? code : "turn_failed";
 }
 
+// P-100: the catalog code of a refused «Buscar evidencia» or «Buscarla». Its
+// call throws the API's code; each refusal has its own message.
+export function roundErrorCode(error: unknown, defensePreparing: boolean): string {
+  const code = error instanceof Error ? error.message : "";
+  if (code === "turn_running") return defensePreparing ? "turn_running_defense" : "turn_running";
+  return code === "request_required" || code === "candidate_not_found" ? code : "turn_failed";
+}
+
 // Whether the message invites you to write to the agent: not when writing
 // again cannot help.
 export function invitesRetry(code: string): boolean {
-  return !["turn_running", "turn_running_defense", "round_open", "section_empty"].includes(code);
+  return !["turn_running", "turn_running_defense", "round_open", "section_empty", "request_required", "candidate_not_found"].includes(code);
 }
 
 // P-94: the input keeps your text unless the message went out.

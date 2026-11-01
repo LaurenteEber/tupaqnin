@@ -349,6 +349,7 @@ func (r *Runner) LeaveRoundOpen(ctx context.Context, projectID, label string) (s
 			sources = append(sources, f.SourceID)
 		}
 	}
+	beforeLeaveOpenWrite()
 	var oqLabel string
 	err = r.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		sections, err := checks.SectionsUsing(ctx, tx, projectID, sources)
@@ -377,3 +378,7 @@ func (r *Runner) LeaveRoundOpen(ctx context.Context, projectID, label string) (s
 	})
 	return oqLabel, err
 }
+
+// beforeLeaveOpenWrite runs between LeaveRoundOpen's read and its write;
+// tests use it to lose the race.
+var beforeLeaveOpenWrite = func() {}

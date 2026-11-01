@@ -173,7 +173,7 @@ func (r *Runner) StartRound(projectID string) (label, turnID string, err error) 
 	return r.startRoundWith(projectID, nil, func(ctx context.Context) (RoundBody, error) {
 		request, err := r.requestText(ctx, projectID)
 		if err == nil && request == "" {
-			err = errors.New("cycle: the project has no request")
+			err = ErrNoRequest
 		}
 		if err != nil {
 			return RoundBody{}, err
