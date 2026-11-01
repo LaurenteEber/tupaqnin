@@ -472,6 +472,9 @@ func changesSince(objects []store.Object, delivered map[string]int) []Change {
 // with it (backlog-r2 2.4, bloque 2).
 // [EL DISEÑO NO LO DICE]: the line's shape.
 func openQuestionLine(b body, state string) string {
+	if b.str("origin") == "judge" {
+		return flawQuestionLine(b, state)
+	}
 	line := b.str("question")
 	if state != "resolved" {
 		return line
@@ -491,6 +494,30 @@ func openQuestionLine(b body, state string) string {
 	return line
 }
 
+// flawQuestionLine is the «por aclarar» of a flaw that stayed open after
+// the recheck (backlog-r3 3.6, B-67): the passage and the scenario, data
+// between the markers (P-83), and, once resolved, what you chose, with your
+// «porque» as the indication: its options have no text, only a code the
+// page translates.
+// [EL DISEÑO NO LO DICE]: the line's shape.
+func flawQuestionLine(b body, state string) string {
+	line := "A flaw the judge left open, in this passage:\n" + graph.Delimit(graph.DataPassage, b.str("new_passage")) +
+		"\nScenario:\n" + graph.Delimit(graph.DataPassage, b.str("question"))
+	if state != "resolved" {
+		return line
+	}
+	options, _ := b["options"].([]any)
+	i, ok := b["chosen_option"].(float64)
+	if !ok || int(i) < 0 || int(i) >= len(options) {
+		return line
+	}
+	opt, _ := options[int(i)].(map[string]any)
+	if code, _ := opt["code"].(string); code == "accept_risk" {
+		return line + "\nThe person chose to leave it and take the risk, because: «" + b.str("reason") + "»"
+	}
+	return line + "\nInstruction of the person: redo that passage with this indication: «" + b.str("reason") + "»"
+}
+
 // roundLine is a round as the principal reads it in what changed
 // (backlog-r3 3.4): its question, its state and, once digested, whether
 // the doubt was reduced. Never its body: the readers' outputs and the
@@ -498,6 +525,10 @@ func openQuestionLine(b body, state string) string {
 // only through the digest, between the markers (P-83).
 // [EL DISEÑO NO LO DICE]: the line's shape.
 func roundLine(b body, state string) string {
+	if b.str("kind") == "judge" {
+		// Backlog-r3 3.6: its flaws reach the principal only in the batch.
+		return fmt.Sprintf("Judge round (%s)", state)
+	}
 	line := fmt.Sprintf("Round (%s): %s", state, b.str("question"))
 	if d := b.str("reduced_doubt"); d != "" {
 		line += " · doubt reduced: " + d
@@ -545,6 +576,9 @@ func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) 
 	}
 	if obj.Type == store.ObjectRound {
 		text = roundLine(b, obj.State)
+	}
+	if obj.Type == store.ObjectOpenQuestion && b.str("origin") == "judge" {
+		text = openQuestionLine(b, obj.State)
 	}
 	if text == "" {
 		raw, err := json.Marshal(b)

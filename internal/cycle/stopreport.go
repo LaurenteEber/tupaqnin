@@ -187,6 +187,9 @@ type StopReport struct {
 	Next            string         `json:"next"`
 	Unseen          []ReportUnseen `json:"unseen"`
 	PrincipalFailed bool           `json:"principal_failed,omitempty"`
+	// JudgeNotVerified are the sections whose last judge round could not
+	// verify (backlog-r3 3.6, fichas §7: visible, blocking nothing).
+	JudgeNotVerified []string `json:"judge_not_verified,omitempty"`
 }
 
 // StoredStopReport is the last stop report with its place in the
@@ -537,6 +540,9 @@ func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, 
 			return err
 		}
 		if report.Open, err = graph.ReportOpenItems(ctx, tx, projectID); err != nil {
+			return err
+		}
+		if report.JudgeNotVerified, err = JudgeNotVerified(ctx, tx, projectID); err != nil {
 			return err
 		}
 		_, err = tx.AppendEvent(store.EventInput{Type: store.EventStopReport, Actor: "agent",

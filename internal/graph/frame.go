@@ -125,12 +125,22 @@ type FrameOpenQuestion struct {
 	Question string `json:"question"`
 }
 
+// FrameFlaws is «Fallas por revisar» in «Lo que te toca» (pantallas,
+// backlog-r3 3.6): a judge round whose batch has not started, how many
+// flaws it has not discarded, and its section.
+type FrameFlaws struct {
+	Round   string `json:"round"`
+	Section string `json:"section"`
+	Flaws   int    `json:"flaws"`
+}
+
 // FrameTodo is «Lo que te toca»: your pendings (layer 1).
 // [EL DISEÑO NO LO DICE]: the sections ready to sign count as yours to
 // do, as in the sketch («Firmar «Síntesis»»).
 type FrameTodo struct {
 	Cards            []FrameCard         `json:"cards"`
 	OpenQuestions    []FrameOpenQuestion `json:"open_questions"`
+	FlawsToReview    []FrameFlaws        `json:"flaws_to_review"`
 	UnconfirmedCases int                 `json:"unconfirmed_cases"`
 	ReadyToSign      []string            `json:"ready_to_sign"`
 	StopReportUnseen bool                `json:"stop_report_unseen"`
@@ -170,7 +180,7 @@ type Frame struct {
 // the function is ComputeFrame.
 func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers FrameLayers) (Frame, error) {
 	f := Frame{Purpose: layers.Purpose, Criteria: layers.Criteria, Sections: []FrameSection{},
-		Todo: FrameTodo{Cards: []FrameCard{}, OpenQuestions: []FrameOpenQuestion{}, ReadyToSign: []string{},
+		Todo: FrameTodo{Cards: []FrameCard{}, OpenQuestions: []FrameOpenQuestion{}, FlawsToReview: []FrameFlaws{}, ReadyToSign: []string{},
 			UnconfirmedCases: len(layers.UnconfirmedCases), StopReportUnseen: layers.StopReportUnseen}}
 	if f.Criteria == nil {
 		f.Criteria = []FrameCriterion{}
@@ -354,7 +364,21 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		f.Unseen = append(f.Unseen, FrameUnseen{Section: f.Sections[it.first].Label, Decision: *it.shown})
 	}
 
-	f.Todo.Count = len(f.Todo.Cards) + len(f.Todo.OpenQuestions) + len(f.Todo.ReadyToSign)
+	judgeRounds, err := OpenJudgeRounds(ctx, db, projectID)
+	if err != nil {
+		return Frame{}, err
+	}
+	for _, jr := range judgeRounds {
+		if jr.BatchStarted {
+			continue
+		}
+		section := ""
+		if sec, err := db.GetObject(ctx, projectID, jr.SectionID); err == nil {
+			section = sec.Label
+		}
+		f.Todo.FlawsToReview = append(f.Todo.FlawsToReview, FrameFlaws{Round: jr.Label, Section: section, Flaws: len(jr.Flaws)})
+	}
+	f.Todo.Count = len(f.Todo.Cards) + len(f.Todo.OpenQuestions) + len(f.Todo.FlawsToReview) + len(f.Todo.ReadyToSign)
 	if f.Todo.UnconfirmedCases > 0 {
 		f.Todo.Count++
 	}

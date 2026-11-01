@@ -201,6 +201,10 @@ type captureProvider struct {
 	judgeGate chan struct{}
 	// judgeFails, when set, makes every judge call fail (P-90).
 	judgeFails bool
+	// verifies are the judge's verification calls (backlog-r3 3.6), kept
+	// apart too; verifyFails makes each of them fail.
+	verifies    []provider.Request
+	verifyFails bool
 }
 
 func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onDelta func(provider.Delta)) (provider.Response, error) {
@@ -218,6 +222,15 @@ func (c *captureProvider) Respond(ctx context.Context, req provider.Request, onD
 			<-c.judgeGate
 		}
 		if c.judgeFails {
+			return provider.Response{}, errors.New("judge unavailable")
+		}
+		return c.inner.Respond(ctx, req, onDelta)
+	}
+	if req.TurnKind == provider.TurnJudgeVerify {
+		c.mu.Lock()
+		c.verifies = append(c.verifies, req)
+		c.mu.Unlock()
+		if c.verifyFails {
 			return provider.Response{}, errors.New("judge unavailable")
 		}
 		return c.inner.Respond(ctx, req, onDelta)

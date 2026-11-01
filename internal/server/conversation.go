@@ -110,10 +110,11 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			if entry.Kind != "step" && entry.Kind != "understanding" {
 				continue
 			}
-		case ev.Type == store.EventStateChanged && ev.Actor == "human" && str(data, "kind") == "research" &&
-			str(data, "to") == "open":
+		case ev.Type == store.EventStateChanged && (ev.Actor == "human" && str(data, "kind") == "research" ||
+			str(data, "kind") == "judge") && str(data, "to") == "open":
 			// B-72: a round you started («Buscar evidencia»); one the agent
-			// asked for follows its step (below).
+			// asked for follows its step (below). Backlog-r3 3.6: a judge
+			// round, the app's or your audit's, where it starts.
 			obj, err := s.db.GetObject(r.Context(), projectID, ev.ObjectID)
 			if err != nil || obj.Type != store.ObjectRound {
 				continue

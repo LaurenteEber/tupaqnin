@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
@@ -61,6 +62,9 @@ type StopReportView struct {
 	// shape twice at this stop (fichas §7: visible, blocking nothing).
 	AudienceQuestions []graph.AudienceQuestion `json:"audience_questions"`
 	DefenseFailed     bool                     `json:"defense_failed"`
+	// JudgeNotVerified are the sections the judge could not verify
+	// (backlog-r3 3.6, fichas §7: visible, blocking nothing).
+	JudgeNotVerified []SectionRef `json:"judge_not_verified"`
 	// Detected is what the app detected since this report, your edits
 	// included (B-48 b): the short return shows it under the report.
 	Detected []DetectedView `json:"detected"`
@@ -131,6 +135,19 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 		if view.DefenseFailed, err = cycle.DefenseFailedSince(ctx, s.db, projectID, report.Seq); err != nil {
 			writeError(w, http.StatusInternalServerError, "internal")
 			return
+		}
+	}
+	view.JudgeNotVerified = []SectionRef{}
+	// A chain without work can verify after the report and writes no other
+	// report (P-75 b): the page shows only what still could not verify.
+	stillNot, err := cycle.JudgeNotVerified(ctx, s.db, projectID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	for _, label := range report.JudgeNotVerified {
+		if slices.Contains(stillNot, label) {
+			view.JudgeNotVerified = append(view.JudgeNotVerified, s.sectionRef(ctx, projectID, label))
 		}
 	}
 	gists := map[string]string{}

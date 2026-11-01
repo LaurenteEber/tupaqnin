@@ -42,6 +42,10 @@ const (
 	// TurnDigest is the principal's digest of a round (backlog-r3 3.4):
 	// in its live instance, at its usual effort, with salida-digesto.
 	TurnDigest TurnKind = "digest"
+	// TurnJudgeVerify is the judge's verification of a section and its one
+	// recheck (backlog-r3 3.6): no principal instance, with
+	// salida-juez-verificacion.
+	TurnJudgeVerify TurnKind = "judge_verify"
 )
 
 // Provider is one model backend. onDelta may be nil; when set, it is
@@ -93,6 +97,11 @@ type Request struct {
 	// expectation (K-5), so the fake can answer a digest call it has no
 	// recording for (see Fake.Respond); Meta ignores it.
 	DigestExpectation bool
+	// JudgeRecheck are the numbers of the flaws a judge's recheck answers
+	// (backlog-r3 3.6), so the fake can answer a recheck it has no
+	// recording for (see Fake.Respond); nil on the first call. Meta ignores
+	// it.
+	JudgeRecheck []int
 }
 
 // ReportDecision is one decision the app lists for the stop report: its
@@ -278,7 +287,7 @@ func (f *Fake) pick(kind TurnKind, part int) (Fixture, bool) {
 	var matching []Fixture
 	for _, fx := range f.fixtures {
 		if (kind == TurnChecker || kind == TurnStopReport || kind == TurnJudgeDefense || kind == TurnReader ||
-			kind == TurnDigest) && fx.TurnKind != kind {
+			kind == TurnDigest || kind == TurnJudgeVerify) && fx.TurnKind != kind {
 			continue
 		}
 		if kind == TurnReader && fx.Part != 0 && fx.Part != part {
@@ -319,6 +328,9 @@ func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 	}
 	if !ok && req.TurnKind == TurnDigest {
 		fx, ok = plainDigestFixture(req.DigestExpectation), true
+	}
+	if !ok && req.TurnKind == TurnJudgeVerify {
+		fx, ok = plainJudgeVerifyFixture(req.JudgeRecheck), true
 	}
 	if !ok {
 		return Response{}, &ProviderError{Code: "no_fixtures", Type: "fake"}
@@ -426,6 +438,23 @@ func plainDigestFixture(expectation bool) Fixture {
 	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
 		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
 	return Fixture{Name: "digest-plain", TurnKind: TurnDigest, Items: []json.RawMessage{item}}
+}
+
+// plainJudgeVerifyFixture is the fake's answer to a judge's verification
+// call without a recording: no flaws on the first call and, on a recheck,
+// every flaw resolved, so a fake without judge recordings (most tests,
+// TQ_PROVIDER=fake) still closes its judge rounds.
+// [EL DISEÑO NO LO DICE]: what the fake answers without a recording; as
+// with the digest, an error would make every judge round fail.
+func plainJudgeVerifyFixture(recheck []int) Fixture {
+	entries := make([]map[string]any, 0, len(recheck))
+	for _, n := range recheck {
+		entries = append(entries, map[string]any{"flaw": n, "verdict": "resolved", "passage": nil})
+	}
+	text, _ := json.Marshal(map[string]any{"flaws": []any{}, "recheck": entries})
+	item, _ := json.Marshal(map[string]any{"type": "message", "role": "assistant",
+		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
+	return Fixture{Name: "judge-verify-plain", TurnKind: TurnJudgeVerify, Items: []json.RawMessage{item}}
 }
 
 // CountTokens counts 1 token per 4 characters of input (B-5).

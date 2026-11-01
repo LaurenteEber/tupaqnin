@@ -1,4 +1,4 @@
-.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence microtest-digest
+.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence microtest-digest microtest-judge-verify
 
 run:
 	go run ./cmd/tupaqnin
@@ -74,3 +74,10 @@ microtest-evidence:
 # runs this.
 microtest-digest:
 	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestDigest -count=1 -v
+
+# Real judge outputs for the verification tests (backlog-r3 3.6), recorded
+# into internal/provider/testdata/judge-verify/ only when each scenario's
+# output is what its test needs. Same keychain key as microtest. Eber runs
+# this.
+microtest-judge-verify:
+	META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/provider/microtest/... -run TestMicroTestJudgeVerify -count=1 -v

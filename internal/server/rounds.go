@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 )
@@ -19,6 +20,10 @@ type RoundRunner interface {
 	// «dejarlo por aclarar» (backlog-r3 3.4, flujos §2).
 	RepeatRound(projectID, label, question string) (newLabel, turnID string, cost float64, err error)
 	LeaveRoundOpen(ctx context.Context, projectID, label string) (string, error)
+	// AuditSection and DiscardFlaw are «Auditar sección» and «No aplica»
+	// (backlog-r3 3.6, B-67).
+	AuditSection(projectID, section string) (label, turnID string, err error)
+	DiscardFlaw(ctx context.Context, projectID, label string, n int) error
 }
 
 // RepeatRoundRequest is «otra pregunta» for POST /rounds/{label}/repeat.
@@ -77,6 +82,39 @@ type RoundCard struct {
 	ReaderContradictions []RoundFinding `json:"reader_contradictions"`
 	Repeat               *RoundRepeat   `json:"repeat,omitempty"`
 	ScopeQuestion        string         `json:"scope_question,omitempty"`
+	// A judge round (backlog-r3 3.6, B-67), as Go computed it: the section,
+	// why it entered (risk · audit), its risks for the triage line (K-3),
+	// the judge's status, the flaws, and whether their batch started.
+	Section      *SectionRef `json:"section,omitempty"`
+	Reason       string      `json:"reason,omitempty"`
+	Risks        []string    `json:"risks,omitempty"`
+	JudgeStatus  string      `json:"judge_status,omitempty"`
+	Flaws        []RoundFlaw `json:"flaws,omitempty"`
+	LateFlaws    []RoundFlaw `json:"late_flaws,omitempty"`
+	BatchStarted bool        `json:"batch_started,omitempty"`
+}
+
+// RoundFlaw is one of the judge's flaws (cycle.FlawView): its number, the
+// passage literal, the risk, the scenario, your «No aplica», the recheck's
+// verdict and the «por aclarar» it opened.
+type RoundFlaw struct {
+	N              int    `json:"n"`
+	Passage        string `json:"passage"`
+	Risk           string `json:"risk"`
+	Scenario       string `json:"scenario"`
+	Discarded      bool   `json:"discarded,omitempty"`
+	Verdict        string `json:"verdict,omitempty"`
+	RecheckPassage string `json:"recheck_passage,omitempty"`
+	OpenQuestion   string `json:"open_question,omitempty"`
+}
+
+func roundFlaws(list []cycle.FlawView) []RoundFlaw {
+	var out []RoundFlaw
+	for _, f := range list {
+		out = append(out, RoundFlaw{N: f.N, Passage: f.Passage, Risk: f.Risk, Scenario: f.Scenario, Discarded: f.Discarded,
+			Verdict: f.Verdict, RecheckPassage: f.RecheckPassage, OpenQuestion: f.OpenQuestion})
+	}
+	return out
 }
 
 // RoundFinding is one finding as the card shows it (cycle.FindingView):
@@ -215,6 +253,11 @@ func roundCard(v cycle.RoundView) RoundCard {
 		c.Coverage = append(c.Coverage, RoundCoverage{Part: cv.Part, Status: cv.Status, Reason: cv.Reason,
 			Sources: cv.Sources, SourcesUnread: cv.SourcesUnread, Hits: cv.Hits, HitsUnread: cv.HitsUnread, Gaps: cv.Gaps})
 	}
+	if v.Section != "" {
+		c.Section = &SectionRef{Label: v.Section, Title: v.SectionTitle}
+	}
+	c.Reason, c.Risks, c.JudgeStatus, c.BatchStarted = v.Reason, v.Risks, v.JudgeStatus, v.BatchStarted
+	c.Flaws, c.LateFlaws = roundFlaws(v.Flaws), roundFlaws(v.LateFlaws)
 	if v.Repeat != nil {
 		c.Repeat = &RoundRepeat{EstimatedCostUSD: v.Repeat.EstimatedCostUSD}
 	}
@@ -353,5 +396,73 @@ func (s *Server) leaveRoundOpen(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 	default:
 		writeJSON(w, http.StatusCreated, LeaveRoundOpenResponse{OpenQuestion: label})
+	}
+}
+
+// POST /api/projects/{projectID}/sections/{label}/audit: «Auditar sección»
+// (B-67 b): your act calls the judge always, and it runs in the background
+// in the turn's slot → 202 {label, turn_id}. 404 not_found (not a section),
+// 422 section_empty, 409 turn_running, 409 round_open (its judge round has
+// not ended).
+// [EL DISEÑO NO LO DICE]: the status codes.
+func (s *Server) auditSection(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	rr, ok := s.starter.(RoundRunner)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	label, turnID, err := rr.AuditSection(projectID, r.PathValue("label"))
+	switch {
+	case errors.Is(err, cycle.ErrNotSection):
+		writeError(w, http.StatusNotFound, "not_found")
+	case errors.Is(err, cycle.ErrSectionEmpty):
+		writeError(w, http.StatusUnprocessableEntity, "section_empty")
+	case errors.Is(err, cycle.ErrTurnRunning):
+		writeError(w, http.StatusConflict, "turn_running")
+	case errors.Is(err, cycle.ErrJudgeRoundOpen):
+		writeError(w, http.StatusConflict, "round_open")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal")
+	default:
+		writeJSON(w, http.StatusAccepted, StartRoundResponse{Label: label, TurnID: turnID})
+	}
+}
+
+// POST /api/projects/{projectID}/rounds/{label}/flaws/{n}/discard: «No
+// aplica» (B-67, K-4) writes flaw_discarded → 204. 404 not_found (not a
+// judge round, or no such flaw), 409 batch_started (the batch started or
+// the round closed), 409 already_discarded.
+// [EL DISEÑO NO LO DICE]: the status codes.
+func (s *Server) discardFlaw(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	rr, ok := s.starter.(RoundRunner)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	n, err := strconv.Atoi(r.PathValue("n"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	err = rr.DiscardFlaw(r.Context(), projectID, r.PathValue("label"), n)
+	switch {
+	case errors.Is(err, cycle.ErrNotRound), errors.Is(err, cycle.ErrFlawNotFound):
+		writeError(w, http.StatusNotFound, "not_found")
+	case errors.Is(err, cycle.ErrFlawTooLate):
+		writeError(w, http.StatusConflict, "batch_started")
+	case errors.Is(err, cycle.ErrFlawDiscardedTwice):
+		writeError(w, http.StatusConflict, "already_discarded")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal")
+	default:
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

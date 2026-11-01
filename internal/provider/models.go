@@ -97,6 +97,13 @@ const (
 	JudgeDefenseEffort = EffortHigh
 )
 
+// The judge verifies a section with Spark 1.3 at effort high, in a clean
+// context (backlog-r3 3.6, fichas §1 and §7).
+const (
+	JudgeVerifyModel  = ModelSpark13
+	JudgeVerifyEffort = EffortHigh
+)
+
 // Known reports whether the model is in this file (B-20 (c): a model
 // that is not here is not available).
 func Known(model string) bool {

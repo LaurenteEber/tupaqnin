@@ -8,6 +8,7 @@ import { translate, type Lang } from "../i18n";
 export type TodoTarget =
   | { kind: "card"; label: string }
   | { kind: "open_question"; label: string }
+  | { kind: "flaws"; round: string }
   | { kind: "cases" }
   | { kind: "stop_report" }
   | { kind: "sign"; section: string };
@@ -87,6 +88,11 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   for (const q of frame.todo.open_questions ?? []) {
     todos.push({ key: q.label, text: t("frame.todo.open_question", { question: q.question }),
       tag: t("oq.tag"), target: { kind: "open_question", label: q.label } });
+  }
+  for (const f of frame.todo.flaws_to_review ?? []) {
+    // «Fallas por revisar» (pantallas, backlog-r3 3.6).
+    todos.push({ key: f.round, text: t("frame.todo.flaws", { section: titleOf(f.section), n: String(f.flaws) }),
+      tag: t("judge.tag"), target: { kind: "flaws", round: f.round } });
   }
   for (const s of frame.todo.ready_to_sign) {
     todos.push({ key: `sign-${s}`, text: t("frame.todo.sign", { section: titleOf(s) }),

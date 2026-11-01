@@ -87,6 +87,14 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
         <p className="meta">{t(`turn.stop.${report.stop_reason}`)}</p>
         {/* P-75 (c): Go says the principal's part failed; the app's part follows. */}
         {report.principal_failed && <p className="meta">{t("stop_report.incomplete")}</p>}
+        {/* Backlog-r3 3.6 (fichas §7): visible, blocking nothing. */}
+        {(report.judge_not_verified ?? []).length > 0 && (
+          <p className="meta">
+            {t("stop_report.judge_not_verified", {
+              sections: report.judge_not_verified.map((s) => s.title || t("section.untitled")).join(", "),
+            })}
+          </p>
+        )}
         <details className="note">
           <summary>{t("stop_report.done", { n: String(report.done.length) })}</summary>
           <ul>{report.done.map((d, i) => <li key={i}>{d}</li>)}</ul>

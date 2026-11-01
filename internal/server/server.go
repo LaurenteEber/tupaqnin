@@ -189,6 +189,8 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		mux.HandleFunc("POST /api/projects/{projectID}/rounds", s.postRound)
 		mux.HandleFunc("POST /api/projects/{projectID}/rounds/{label}/repeat", s.repeatRound)
 		mux.HandleFunc("POST /api/projects/{projectID}/rounds/{label}/leave-open", s.leaveRoundOpen)
+		mux.HandleFunc("POST /api/projects/{projectID}/rounds/{label}/flaws/{n}/discard", s.discardFlaw)
+		mux.HandleFunc("POST /api/projects/{projectID}/sections/{label}/audit", s.auditSection)
 		mux.HandleFunc("PUT /api/projects/{projectID}/name", s.putProjectName)
 		mux.HandleFunc("POST /api/projects/{projectID}/editor", s.claimEditor)
 		mux.HandleFunc("GET /api/projects/{projectID}/cards/{label}", s.getCard)

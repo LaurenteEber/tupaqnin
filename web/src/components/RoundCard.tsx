@@ -3,6 +3,7 @@ import { getRound, leaveRoundOpen, repeatRound } from "../api/client";
 import type { RoundCard as RoundCardView, RoundFinding } from "../api/types";
 import { coverageLines, findingReasonKey, offersLeaveOpen, offersRepeat, sourceHref } from "../digest";
 import { numberLocale, translate, type Lang } from "../i18n";
+import { JudgeCard } from "./JudgeCard";
 import { ROUND_POLL_MS, roundKeepsPolling } from "../live";
 
 // The round card in the conversation (backlog-r3 3.2, B-64; pantallas
@@ -72,6 +73,8 @@ export function RoundCard({ lang, projectID, label, onAct }: {
   }
 
   if (!card) return null;
+  // Backlog-r3 3.6: a judge round has its flaws, no readers.
+  if (card.kind === "judge") return <JudgeCard lang={lang} projectID={projectID} card={card} reload={reload} />;
   const usd = (n: number) =>
     n.toLocaleString(numberLocale(lang), { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 

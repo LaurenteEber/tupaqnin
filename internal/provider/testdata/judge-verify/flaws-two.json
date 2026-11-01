@@ -1,0 +1,24 @@
+{
+  "name": "flaws-two",
+  "turn_kind": "judge_verify",
+  "deltas": [],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"flaws\": [{\"section\": \"sec-1\", \"passage\": \"Los conteos subieron 60 veces en 2023.\", \"risk\": \"figures_and_calculations\", \"scenario\": \"1. El destinatario busca la cifra en la fuente. 2. La fuente dice «60 veces mayores», no que hayan subido. 3. La comparación de años no se sostiene.\"}, {\"section\": \"sec-1\", \"passage\": \"Revisamos los filtros finos.\", \"risk\": \"unverifiable\", \"scenario\": \"1. El destinatario pide qué filtros se revisaron. 2. El texto no lo dice y no hay fuente.\"}], \"recheck\": []}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "context_window": 0,
+    "cost_usd": 0.004
+  },
+  "delta_delay": 0
+}

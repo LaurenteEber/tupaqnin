@@ -590,6 +590,33 @@ export interface RoundCard {
   reader_contradictions: RoundFinding[];
   repeat?: RoundRepeat;
   scope_question?: string;
+  /**
+   * A judge round (backlog-r3 3.6, B-67), as Go computed it: the section,
+   * why it entered (risk · audit), its risks for the triage line (K-3),
+   * the judge's status, the flaws, and whether their batch started.
+   */
+  section?: SectionRef;
+  reason?: string;
+  risks?: string[];
+  judge_status?: string;
+  flaws?: RoundFlaw[];
+  late_flaws?: RoundFlaw[];
+  batch_started?: boolean;
+}
+/**
+ * RoundFlaw is one of the judge's flaws (cycle.FlawView): its number, the
+ * passage literal, the risk, the scenario, your «No aplica», the recheck's
+ * verdict and the «por aclarar» it opened.
+ */
+export interface RoundFlaw {
+  n: number /* int */;
+  passage: string;
+  risk: string;
+  scenario: string;
+  discarded?: boolean;
+  verdict?: string;
+  recheck_passage?: string;
+  open_question?: string;
 }
 /**
  * RoundFinding is one finding as the card shows it (cycle.FindingView):
@@ -889,6 +916,11 @@ export interface StopReportView {
    */
   audience_questions: AudienceQuestion[];
   defense_failed: boolean;
+  /**
+   * JudgeNotVerified are the sections the judge could not verify
+   * (backlog-r3 3.6, fichas §7: visible, blocking nothing).
+   */
+  judge_not_verified: SectionRef[];
   /**
    * Detected is what the app detected since this report, your edits
    * included (B-48 b): the short return shows it under the report.

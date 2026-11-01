@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   claimEditor,
+  auditSection,
   continueFromStopReport,
   createProject,
   getSummary,
@@ -35,7 +36,7 @@ import { StopReportPanel } from "./components/StopReportPanel";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { initialLang, translate, type Lang } from "./i18n";
-import { pollDefense, roundStarted, sendErrorCode, startsStep } from "./live";
+import { auditErrorCode, pollDefense, roundStarted, sendErrorCode, startsStep } from "./live";
 
 export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
@@ -303,9 +304,15 @@ export function App() {
     window.setTimeout(() => el.classList.remove("flash"), 900);
   }
 
+  // A warning leads to its «por aclarar», or a flaw's to its judge round.
+  function reachWarning(target: string) {
+    reach(warnings.some((w) => w.kind === "flaw" && w.target === target) ? `round-${target}` : `oq-${target}`);
+  }
+
   function onTodo(target: TodoTarget) {
     if (target.kind === "card") reach(`card-${target.label}`);
     else if (target.kind === "open_question") reach(`oq-${target.label}`);
+    else if (target.kind === "flaws") reach(`round-${target.round}`);
     else if (target.kind === "cases") reach("understanding");
     else if (target.kind === "stop_report") reach("stop-report");
     else {
@@ -374,6 +381,21 @@ export function App() {
       watchTurn(turn_id);
     } catch (e) {
       setErrorCode(sendErrorCode(e, defensePreparing));
+    }
+  }
+
+  // «Auditar sección» (backlog-r3 3.6, B-67 b): the judge's round runs as a
+  // turn of its own, followed like a message's.
+  async function auditCurrent(section: string) {
+    if (!projectID) return;
+    setErrorCode("");
+    try {
+      await saveRef.current();
+      const { turn_id } = await auditSection(projectID, section);
+      void refreshConversation(projectID);
+      watchTurn(turn_id);
+    } catch (e) {
+      setErrorCode(auditErrorCode(e, defensePreparing));
     }
   }
 
@@ -627,6 +649,14 @@ export function App() {
               )}
               <button
                 type="button"
+                className="small"
+                disabled={!current || !editor || working}
+                onClick={() => current && void auditCurrent(current.label)}
+              >
+                {t("doc.audit")}
+              </button>
+              <button
+                type="button"
                 id="sign-section"
                 className="primary small"
                 disabled={!current || !editor || current.state === "signed"}
@@ -691,12 +721,14 @@ export function App() {
                         bumpFrame();
                         void refreshSections(projectID);
                       }}
-                      onQuestion={(label) => reach(`oq-${label}`)}
+                      onQuestion={reachWarning}
                       onHistory={(block) => openSection(current.label, block)}
                     />
                   }
-                  underlines={warnings.filter((w) => w.kind === "open_question" || w.kind === "agent_pending")}
-                  onQuestion={(label) => reach(`oq-${label}`)}
+                  underlines={warnings.filter(
+                    (w) => w.kind === "open_question" || w.kind === "agent_pending" || w.kind === "flaw",
+                  )}
+                  onQuestion={reachWarning}
                   readOnly={!editor}
                   onBlock={setHistoryBlock}
                   unverified={current.unverified ?? []}

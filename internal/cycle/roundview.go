@@ -55,6 +55,16 @@ type RoundView struct {
 	ReaderContradictions []FindingView `json:"reader_contradictions"`
 	Repeat               *RepeatOffer  `json:"repeat,omitempty"`
 	ScopeQuestion        string        `json:"scope_question,omitempty"`
+	// A judge round (backlog-r3 3.6): the section, why (risk · audit), its
+	// risks, the judge's status, the flaws and whether the batch started.
+	Section      string     `json:"section,omitempty"`
+	SectionTitle string     `json:"section_title,omitempty"`
+	Reason       string     `json:"reason,omitempty"`
+	Risks        []string   `json:"risks,omitempty"`
+	JudgeStatus  string     `json:"judge_status,omitempty"`
+	Flaws        []FlawView `json:"flaws,omitempty"`
+	LateFlaws    []FlawView `json:"late_flaws,omitempty"`
+	BatchStarted bool       `json:"batch_started,omitempty"`
 }
 
 // RoundPartView is one reader of the card.
@@ -139,6 +149,11 @@ func (r *Runner) Round(ctx context.Context, projectID, label string) (RoundView,
 	v.Running = live != nil
 	if err := r.digestView(ctx, projectID, body, labeler, &v); err != nil {
 		return RoundView{}, err
+	}
+	if body.Kind == "judge" {
+		if err := r.judgeView(ctx, projectID, body, labeler, &v); err != nil {
+			return RoundView{}, err
+		}
 	}
 	return v, nil
 }

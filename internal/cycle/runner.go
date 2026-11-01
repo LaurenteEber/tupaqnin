@@ -878,8 +878,19 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 	var lastApplied ApplyResult
 	var lastText string
 	reason := StopStepLimit
+	// The sections whose judge could not verify in this chain (B-67).
+	judgeFailed := map[string]bool{}
 	for n := 1; n <= MaxChainSteps; n++ {
+		// B-67: the correction batch is this step, if a judge round waits.
+		batch, err := r.startJudgeBatch(ctx, projectID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
 		message := ContinueMessage
+		if batch != "" {
+			message = JudgeBatchMessage
+		}
 		if n == 1 && human {
 			message = text
 		} else {
@@ -904,6 +915,9 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			return err
 		}
 		notice := strings.Join(rejections, "\n")
+		if batch != "" {
+			notice = strings.TrimSpace(notice + "\n" + batch)
+		}
 		if notice != "" {
 			message = notice + "\n\n" + message
 		}
@@ -968,9 +982,27 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 				return err
 			}
 		}
+		// B-67: the batch applied: its one recheck.
+		if result.Status == StatusAccepted && batch != "" {
+			if err := r.recheckJudgeRounds(ctx, projectID); err != nil {
+				r.fail(projectID, turnID, "turn_failed")
+				return err
+			}
+		}
 		if result.Status != StatusAccepted {
 			reason = StopAgentPending
 			break
+		}
+		// B-67 (a), before ShouldStop: a section that closed with a risk, or
+		// whose judge could not verify. With flaws, the next step is their
+		// batch, also after a step without work.
+		waiting, err := r.verifyTouched(ctx, projectID, turnID, judgeFailed)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+		if waiting {
+			continue
 		}
 		if !applied.Work {
 			reason = StopNoWork

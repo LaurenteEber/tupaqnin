@@ -61,6 +61,20 @@ export function sendErrorCode(error: unknown, defensePreparing: boolean): string
   return "turn_failed";
 }
 
+// Backlog-r3 3.6: the catalog code of a refused «Auditar sección». Its call
+// throws the API's code; each refusal has its own message.
+export function auditErrorCode(error: unknown, defensePreparing: boolean): string {
+  const code = error instanceof Error ? error.message : "";
+  if (code === "turn_running") return defensePreparing ? "turn_running_defense" : "turn_running";
+  return code === "round_open" || code === "section_empty" ? code : "turn_failed";
+}
+
+// Whether the message invites you to write to the agent: not when writing
+// again cannot help.
+export function invitesRetry(code: string): boolean {
+  return !["turn_running", "turn_running_defense", "round_open", "section_empty"].includes(code);
+}
+
 // P-94: the input keeps your text unless the message went out.
 export function textAfterSend(text: string, sent: boolean): string {
   return sent ? "" : text;
@@ -96,6 +110,12 @@ export function roundStarted(delta: { field?: string; text?: string }): string {
 // [EL DISEÑO NO LO DICE]: the interval; 2 s.
 export const ROUND_POLL_MS = 2_000;
 
-export function roundKeepsPolling(card: { running: boolean; parts: { status: string }[] }): boolean {
-  return card.running || card.parts.some((p) => p.status === "running");
+export function roundKeepsPolling(card: {
+  running: boolean;
+  parts: { status: string }[];
+  kind?: string;
+  state?: string;
+}): boolean {
+  // A judge round's batch and recheck run in the turn (backlog-r3 3.6).
+  return card.running || card.parts.some((p) => p.status === "running") || (card.kind === "judge" && card.state === "open");
 }

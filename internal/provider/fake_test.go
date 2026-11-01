@@ -339,3 +339,18 @@ func TestB65_FakePicksReaderRecordingsByPartInParallel(t *testing.T) {
 		t.Fatalf("ReaderFixtures: %d %v", len(readers), err)
 	}
 }
+
+// Backlog-r3 3.6: a judge's verification only gets recordings of its own
+// kind; without one the fake answers no flaws, or every flaw resolved.
+func TestB67_FakeAnswersTheJudgeOnlyWithItsOwnRecordings(t *testing.T) {
+	kindless := provider.Fixture{Items: []json.RawMessage{json.RawMessage(`{"type":"message","role":"assistant","content":[{"type":"output_text","text":"step"}]}`)}}
+	fake := provider.NewFake(kindless)
+	resp, err := fake.Respond(context.Background(), provider.Request{TurnKind: provider.TurnJudgeVerify}, nil)
+	if err != nil || resp.Text != `{"flaws":[],"recheck":[]}` {
+		t.Fatalf("first call: %q, %v", resp.Text, err)
+	}
+	resp, err = fake.Respond(context.Background(), provider.Request{TurnKind: provider.TurnJudgeVerify, JudgeRecheck: []int{2}}, nil)
+	if err != nil || resp.Text != `{"flaws":[],"recheck":[{"flaw":2,"passage":null,"verdict":"resolved"}]}` {
+		t.Fatalf("recheck: %q, %v", resp.Text, err)
+	}
+}

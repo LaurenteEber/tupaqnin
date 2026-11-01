@@ -130,6 +130,18 @@ type RoundBody struct {
 	// repeats with another question (both ids).
 	ScopeQuestionID string `json:"scope_question_id,omitempty"`
 	Repeats         string `json:"repeats,omitempty"`
+	// A judge round (backlog-r3 3.6, B-67): the section it verifies (its
+	// id, and the version «última verificación» counts from: the one the
+	// judge last read), the risks that brought it, the judge's status, the
+	// flaws in the list's numbering, whether the correction batch started,
+	// and what the recheck found new (it opens nothing).
+	SectionID      string      `json:"section_id,omitempty"`
+	SectionVersion int         `json:"section_version,omitempty"`
+	Risks          []string    `json:"risks,omitempty"`
+	JudgeStatus    string      `json:"judge_status,omitempty"`
+	Flaws          []JudgeFlaw `json:"flaws,omitempty"`
+	BatchStarted   bool        `json:"batch_started,omitempty"`
+	LateFlaws      []JudgeFlaw `json:"late_flaws,omitempty"`
 }
 
 // ReaderResult is one reader's end: its output (salida-lector, as the

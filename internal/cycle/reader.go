@@ -306,10 +306,8 @@ func (r *Runner) runRound(ctx context.Context, projectID, roundID, publishTurn s
 	if err := json.Unmarshal(round.Body, &body); err != nil {
 		return fmt.Errorf("cycle: round body: %w", err)
 	}
-	if fp, ok := r.pub.(FieldPublisher); ok && publishTurn != "" {
-		// The page learns a round started and shows its card (B-64).
-		fp.PublishFieldDelta(projectID, publishTurn, Segment{Field: "round", Text: round.Label, Start: true})
-	}
+	// The page learns a round started and shows its card (B-64).
+	r.publishRound(projectID, publishTurn, round.Label)
 	spent, err := r.db.ProjectSpend(ctx, projectID)
 	if err != nil {
 		return err
@@ -667,23 +665,6 @@ func (r *Runner) readerBrief(ctx context.Context, projectID, roundLabel string, 
 	if err != nil {
 		return "", err
 	}
-	list := func(t store.ObjectType) ([]store.Object, error) { return r.db.ListObjects(ctx, projectID, t) }
-	criteria, err := list(store.ObjectCriterion)
-	if err != nil {
-		return "", err
-	}
-	cases, err := list(store.ObjectUnderstandingCase)
-	if err != nil {
-		return "", err
-	}
-	premises, err := list(store.ObjectPremise)
-	if err != nil {
-		return "", err
-	}
-	decisions, err := list(store.ObjectDecision)
-	if err != nil {
-		return "", err
-	}
 	spec := body.Parts[part-1]
 	var b strings.Builder
 	line := func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) }
@@ -699,33 +680,8 @@ func (r *Runner) readerBrief(ctx context.Context, projectID, roundLabel string, 
 	line("Question of your part: %s", spec.Question)
 	line("")
 	line("## 3. Criteria, premise, decisions and expectation (literal)")
-	for _, c := range criteria {
-		line("- %s (version %d): «%s»", c.Label, c.CurrentVersion, bodyStr(bodyOf(c), "text"))
-		for _, k := range cases {
-			var kb struct {
-				Text        string `json:"text"`
-				Counts      *bool  `json:"counts"`
-				CriterionID string `json:"criterion_id"`
-			}
-			_ = json.Unmarshal(k.Body, &kb)
-			if kb.CriterionID != c.ID || kb.Counts == nil {
-				continue
-			}
-			verdict := "does not count"
-			if *kb.Counts {
-				verdict = "counts"
-			}
-			line("  - %s (%s): «%s»", k.Label, verdict, kb.Text)
-		}
-	}
-	for _, p := range premises {
-		line("- %s, premise (version %d): «%s»", p.Label, p.CurrentVersion, bodyStr(bodyOf(p), "text"))
-	}
-	for _, d := range decisions {
-		if d.State == "superseded" || d.State == "revoked" {
-			continue
-		}
-		line("- %s, decision %s (version %d): «%s»", d.Label, d.State, d.CurrentVersion, bodyStr(bodyOf(d), "statement"))
+	if err := r.writeBriefContext(ctx, projectID, line); err != nil {
+		return "", err
 	}
 	if body.Expectation == "" {
 		line("Expectation of the human for this round: none (no expectation).")
@@ -778,4 +734,56 @@ func (r *Runner) readerBrief(ctx context.Context, projectID, roundLabel string, 
 	line("## 7. Return")
 	line("Your fixed output only: findings with a literal passage and their source, separating facts, assumptions, contradictions and gaps; the criteria or questions you covered, by label; the sources and hits you read. No recommendations.")
 	return b.String(), nil
+}
+
+// writeBriefContext writes the part of a brief bloque-1 §4 fixes for
+// readers and judge alike: the criteria with their cases, the premise and
+// the current decisions, in literal, with their label and version.
+func (r *Runner) writeBriefContext(ctx context.Context, projectID string, line func(string, ...any)) error {
+	list := func(t store.ObjectType) ([]store.Object, error) { return r.db.ListObjects(ctx, projectID, t) }
+	criteria, err := list(store.ObjectCriterion)
+	if err != nil {
+		return err
+	}
+	cases, err := list(store.ObjectUnderstandingCase)
+	if err != nil {
+		return err
+	}
+	premises, err := list(store.ObjectPremise)
+	if err != nil {
+		return err
+	}
+	decisions, err := list(store.ObjectDecision)
+	if err != nil {
+		return err
+	}
+	for _, c := range criteria {
+		line("- %s (version %d): «%s»", c.Label, c.CurrentVersion, bodyStr(bodyOf(c), "text"))
+		for _, k := range cases {
+			var kb struct {
+				Text        string `json:"text"`
+				Counts      *bool  `json:"counts"`
+				CriterionID string `json:"criterion_id"`
+			}
+			_ = json.Unmarshal(k.Body, &kb)
+			if kb.CriterionID != c.ID || kb.Counts == nil {
+				continue
+			}
+			verdict := "does not count"
+			if *kb.Counts {
+				verdict = "counts"
+			}
+			line("  - %s (%s): «%s»", k.Label, verdict, kb.Text)
+		}
+	}
+	for _, p := range premises {
+		line("- %s, premise (version %d): «%s»", p.Label, p.CurrentVersion, bodyStr(bodyOf(p), "text"))
+	}
+	for _, d := range decisions {
+		if d.State == "superseded" || d.State == "revoked" {
+			continue
+		}
+		line("- %s, decision %s (version %d): «%s»", d.Label, d.State, d.CurrentVersion, bodyStr(bodyOf(d), "statement"))
+	}
+	return nil
 }

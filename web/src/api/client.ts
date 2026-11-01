@@ -626,3 +626,15 @@ export async function repeatRound(projectID: string, label: string, question: st
 export async function leaveRoundOpen(projectID: string, label: string): Promise<LeaveRoundOpenResponse> {
   return signoffJSON(await post(`/api/projects/${projectID}/rounds/${label}/leave-open`));
 }
+
+// «Auditar sección» (backlog-r3 3.6, B-67 b): the judge's round runs as a
+// turn of its own.
+export async function auditSection(projectID: string, section: string): Promise<StartRoundResponse> {
+  return signoffJSON(await post(`/api/projects/${projectID}/sections/${section}/audit`));
+}
+
+// «No aplica» on a flaw (B-67); it answers 409 once the batch started.
+export async function discardFlaw(projectID: string, round: string, n: number): Promise<void> {
+  const res = await post(`/api/projects/${projectID}/rounds/${round}/flaws/${n}/discard`);
+  if (!res.ok) await signoffJSON(res);
+}

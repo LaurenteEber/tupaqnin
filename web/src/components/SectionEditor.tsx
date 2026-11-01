@@ -128,6 +128,7 @@ export function SectionEditor({
   const underlineTitle = {
     open_question: translate(lang, "warnings.underline.open_question"),
     agent_pending: translate(lang, "warnings.underline.agent_pending"),
+    flaw: translate(lang, "warnings.underline.flaw"),
   };
   const underlinesSig = JSON.stringify(underlines.map((w) => [w.kind, w.target, w.block, w.start, w.end]));
   useEffect(() => {
@@ -140,7 +141,12 @@ export function SectionEditor({
         block: w.block ?? 0,
         start: w.start,
         end: w.end,
-        title: w.kind === "open_question" ? underlineTitle.open_question : underlineTitle.agent_pending,
+        title:
+          w.kind === "open_question"
+            ? underlineTitle.open_question
+            : w.kind === "flaw"
+              ? underlineTitle.flaw
+              : underlineTitle.agent_pending,
       }));
     editor.view.dispatch(editor.state.tr.setMeta(underlinePlugin, marks));
   }, [editor, underlinesSig, lang]);
@@ -215,7 +221,9 @@ export function SectionEditor({
           // (pantallas, 2.9); an agent pending's opens the paragraph's
           // history, like any click on it.
           const mark = (ev.target as HTMLElement).closest("[data-warning-kind]");
-          if (mark?.getAttribute("data-warning-kind") === "open_question") {
+          const markKind = mark?.getAttribute("data-warning-kind");
+          // A flaw's leads to its judge round (backlog-r3 3.6).
+          if (mark && (markKind === "open_question" || markKind === "flaw")) {
             onQuestion(mark.getAttribute("data-warning-target") ?? "");
             return;
           }

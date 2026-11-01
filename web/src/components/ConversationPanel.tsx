@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { StreamDelta } from "../api/client";
 import type { ConversationEntry } from "../api/types";
 import { translate, type Lang } from "../i18n";
+import { invitesRetry } from "../live";
 import { RoundCard } from "./RoundCard";
 
 // U-5: the conversation as the history keeps it (Go reads it from the
@@ -95,7 +96,7 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
           {errorCode && (
             <p className="turn-error">
               {t(`stream.error.${errorCode}`)}
-              {errorCode !== "turn_running" && errorCode !== "turn_running_defense" && <> {t("turn.write_to_agent")}</>}
+              {invitesRetry(errorCode) && <> {t("turn.write_to_agent")}</>}
             </p>
           )}
         </div>

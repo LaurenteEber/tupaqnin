@@ -297,6 +297,16 @@ export interface FrameOpenQuestion {
   question: string;
 }
 /**
+ * FrameFlaws is «Fallas por revisar» in «Lo que te toca» (pantallas,
+ * backlog-r3 3.6): a judge round whose batch has not started, how many
+ * flaws it has not discarded, and its section.
+ */
+export interface FrameFlaws {
+  round: string;
+  section: string;
+  flaws: number /* int */;
+}
+/**
  * FrameTodo is «Lo que te toca»: your pendings (layer 1).
  * [EL DISEÑO NO LO DICE]: the sections ready to sign count as yours to
  * do, as in the sketch («Firmar «Síntesis»»).
@@ -304,6 +314,7 @@ export interface FrameOpenQuestion {
 export interface FrameTodo {
   cards: FrameCard[];
   open_questions: FrameOpenQuestion[];
+  flaws_to_review: FrameFlaws[];
   unconfirmed_cases: number /* int */;
   ready_to_sign: string[];
   stop_report_unseen: boolean;
@@ -400,6 +411,29 @@ export const EntryDecision = "decision";
  * Entry kinds.
  */
 export const EntryDatum = "datum";
+
+//////////
+// source: judge.go
+
+/**
+ * OpenJudgeRound is a judge round that has flaws and has not ended
+ * (backlog-r3 3.6): its label, section, whether its correction batch
+ * started, and the flaws you did not discard.
+ */
+export interface OpenJudgeRound {
+  Label: string;
+  SectionID: string;
+  BatchStarted: boolean;
+  Flaws: OpenFlaw[];
+}
+/**
+ * OpenFlaw is one flaw of an open judge round.
+ */
+export interface OpenFlaw {
+  N: number /* int */;
+  Passage: string;
+  Scenario: string;
+}
 
 //////////
 // source: labeler.go
@@ -990,6 +1024,11 @@ export const WarningOpenQuestion = "open_question";
  * WarningAgentPending is one of the agent's pendings (estados §1).
  */
 export const WarningAgentPending = "agent_pending";
+/**
+ * WarningFlaw is a flaw of an open judge round (backlog-r3 3.6,
+ * pantallas: «el pasaje de cada falla, subrayado»).
+ */
+export const WarningFlaw = "flaw";
 /**
  * Warning is one thing in a section that asks for your attention
  * (backlog-r2 2.9): its kind, the literal passage where it goes, if any,

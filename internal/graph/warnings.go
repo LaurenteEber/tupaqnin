@@ -24,6 +24,9 @@ const (
 	WarningOpenQuestion = "open_question"
 	// WarningAgentPending is one of the agent's pendings (estados §1).
 	WarningAgentPending = "agent_pending"
+	// WarningFlaw is a flaw of an open judge round (backlog-r3 3.6,
+	// pantallas: «el pasaje de cada falla, subrayado»).
+	WarningFlaw = "flaw"
 )
 
 // Warning is one thing in a section that asks for your attention
@@ -111,6 +114,21 @@ func SectionWarnings(ctx context.Context, q store.Querier, projectID, label stri
 				return nil, err
 			}
 			w.place(text, passage)
+			out = append(out, w)
+		}
+	}
+
+	judgeRounds, err := OpenJudgeRounds(ctx, q, projectID)
+	if err != nil {
+		return nil, err
+	}
+	for _, jr := range judgeRounds {
+		if jr.SectionID != section.ID {
+			continue
+		}
+		for _, f := range jr.Flaws {
+			w := Warning{Kind: WarningFlaw, What: f.Scenario, Target: jr.Label}
+			w.place(text, f.Passage)
 			out = append(out, w)
 		}
 	}

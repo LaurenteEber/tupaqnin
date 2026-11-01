@@ -35,6 +35,7 @@ export function SectionWarnings({
   if (warnings.length === 0) return null;
   const changes = warnings.filter((w) => w.kind === "changed" || w.kind === "stale");
   const others = warnings.filter((w) => w.kind === "open_question" || w.kind === "agent_pending");
+  const flaws = warnings.filter((w) => w.kind === "flaw");
 
   async function close(change: string, result: "updated" | "reviewed_unchanged") {
     setBusy(true);
@@ -132,6 +133,19 @@ export function SectionWarnings({
               </li>
             ),
           )}
+        </ul>
+      )}
+      {flaws.length > 0 && (
+        <ul>
+          {flaws.map((w, i) => (
+            <li key={`f-${i}`}>
+              {t("warnings.flaw")}
+              {w.passage && <> «{w.passage}»</>}{" "}
+              <button type="button" className="link" onClick={() => onQuestion(w.target)}>
+                {t("warnings.go_flaw")}
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </div>

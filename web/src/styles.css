@@ -297,3 +297,4 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .warnings-reason input { min-width: 0; flex: 1 1 160px; }
 .warning-underline { text-decoration: underline wavy var(--todo); text-underline-offset: 3px; cursor: pointer; }
 .warning-underline.open_question { background: var(--todo-soft); }
+.warning-underline.flaw { background: var(--todo-soft); }

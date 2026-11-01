@@ -186,6 +186,9 @@ const (
 	// EventStopReportSeen: you opened the stop report in the panel
 	// (B-40, backlog-r2 2.5); the stop_report itself is never modified.
 	EventStopReportSeen EventType = "stop_report_seen"
+	// EventFlawDiscarded: «No aplica» on one of the judge's flaws, before
+	// the correction batch starts (backlog-r3 3.6, B-67).
+	EventFlawDiscarded EventType = "flaw_discarded"
 )
 
 // Valid reports whether t is one of the table 1.3 event types.
@@ -198,7 +201,7 @@ func (t EventType) Valid() bool {
 		EventSourceNewVersion, EventRoleChanged, EventAudienceChanged,
 		EventEdge, EventAnswerWithoutReason, EventActTimed, EventMarkedCritical,
 		EventProbe, EventStartup, EventOutputRetry, EventSectionDetailsChanged, EventClaimAccepted,
-		EventPlanConfirmed, EventStopReportSeen:
+		EventPlanConfirmed, EventStopReportSeen, EventFlawDiscarded:
 		return true
 	default:
 		return false
