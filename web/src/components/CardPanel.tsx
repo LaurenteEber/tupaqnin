@@ -3,6 +3,7 @@ import { answerCard, answerOpenQuestion, getTodo } from "../api/client";
 import type { CardView, OpenQuestionView } from "../api/types";
 import { translate, type Lang } from "../i18n";
 import { undoReasonKey } from "../undo";
+import { DecisionActions } from "./DecisionActions";
 
 // P4 (backlog-r1 1.4): the open cards, what is yours to do. Each one
 // reads its decision, why it is critical and the sections that use it;
@@ -11,7 +12,7 @@ import { undoReasonKey } from "../undo";
 // shows each open «por aclarar» (P4 [2], backlog-r2 2.4): the question,
 // each option with its contrast, consequence and risk, what it blocks,
 // the variants folded, and option + «porque» + «Aplicar».
-export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo }: {
+export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onDecisionActed }: {
   lang: Lang;
   projectID: string;
   refreshKey: number | string;
@@ -19,6 +20,8 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo }: {
   onAnswered: (defensePreparing: boolean) => void;
   // «Fue un error · deshacer» on the card of your critical edit (B-78).
   onUndo: (section: string, editVersion: number) => Promise<void>;
+  // «Objetar» and «Revocar» did something (E-1, B-82); absent in a read-only tab.
+  onDecisionActed?: () => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [cards, setCards] = useState<CardView[]>([]);
@@ -87,6 +90,10 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo }: {
           <p>{t("card.instead_of")}: {card.instead_of}</p>
           {card.would_choose_if && <p>{t("card.would_choose_if")}: {card.would_choose_if}</p>}
           <p>{t("card.sections")}: {card.sections.map((s) => s.title || t("section.untitled")).join(", ")}</p>
+          {onDecisionActed && (
+            <DecisionActions lang={lang} projectID={projectID} decision={card.decision} canObject={card.can_object}
+              canRevoke={card.can_revoke} onActed={onDecisionActed} />
+          )}
           {card.own_edit ? (
             <>
               <p>{t("card.own_edit")}</p>
@@ -155,10 +162,13 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo }: {
                 checked={chosen[q.label] === i}
                 onChange={() => setChosen((prev) => ({ ...prev, [q.label]: i }))}
               />
-              {o.keep ? t("oq.keep", { what: o.option }) : o.code ? t(`oq.scope.${o.code}`) : o.option}
+              {o.keep ? t("oq.keep", { what: o.option }) : o.other ? t("oq.other", { what: o.option }) : o.code ? t(`oq.scope.${o.code}`) : o.option}
               {o.contrast && <span className="meta"> · {t("oq.contrast")}: {o.contrast}</span>}
               {o.consequence && <span className="meta"> · {t("oq.consequence")}: {o.consequence}</span>}
               {o.risk && <span className="meta"> · {t("oq.risk")}: {o.risk}</span>}
+              {o.risk_reasons && o.risk_reasons.length > 0 && (
+                <span className="meta"> · {t("oq.risk")}: {o.risk_reasons.map((r) => t(`card.reason.${r}`)).join(", ")}</span>
+              )}
             </label>
           ))}
           {q.variants.length > 0 && (

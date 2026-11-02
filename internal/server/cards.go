@@ -33,6 +33,9 @@ type CardView struct {
 	EditVersion   int    `json:"edit_version,omitempty"`
 	UndoAvailable bool   `json:"undo_available,omitempty"`
 	UndoReason    string `json:"undo_reason,omitempty"`
+	// CanObject and CanRevoke say which acts its decision has now (estados §2).
+	CanObject bool `json:"can_object,omitempty"`
+	CanRevoke bool `json:"can_revoke,omitempty"`
 }
 
 // SectionRef names a section on screen by its title (P-36, B-18); the
@@ -83,6 +86,7 @@ func (s *Server) cardView(r *http.Request, projectID string, card store.Object) 
 	b := bodyMap(dec)
 	view.Decision, view.Statement = dec.Label, str(b, "statement")
 	view.InsteadOf, view.WouldChooseIf = str(b, "instead_of"), str(b, "would_choose_if")
+	view.CanObject, view.CanRevoke = graph.CanObject(dec.State), graph.CanRevoke(dec.State)
 	// Criticality is computed when reading (T-5).
 	_, reasons, err := graph.Critical(ctx, s.db, projectID, dec.Label)
 	if err != nil {
@@ -248,4 +252,72 @@ func (s *Server) putDecisionCritical(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// DecisionActRequest is your motive to object or your «porque» to revoke.
+type DecisionActRequest struct {
+	Reason string `json:"reason"`
+}
+
+// ObjectDecisionResponse names the «por aclarar» an objection opened.
+type ObjectDecisionResponse struct {
+	OpenQuestion string `json:"open_question"`
+}
+
+// writeDecisionActError answers a refused objection or revocation.
+// [EL DISEÑO NO LO DICE]: the status codes, as the card's and the mark's: 404
+// for a label that is not a decision, 422 invalid_reason, 409 for a state that
+// does not allow the act.
+func writeDecisionActError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, cycle.ErrDecisionNotFound):
+		writeError(w, http.StatusNotFound, "decision_not_found")
+	case errors.Is(err, cycle.ErrInvalidReason):
+		writeError(w, http.StatusUnprocessableEntity, "invalid_reason")
+	case errors.Is(err, cycle.ErrDecisionNotCurrent):
+		writeError(w, http.StatusConflict, "decision_not_current")
+	case errors.Is(err, cycle.ErrDecisionNotYours):
+		writeError(w, http.StatusConflict, "decision_not_yours")
+	default:
+		writeError(w, http.StatusInternalServerError, "internal")
+	}
+}
+
+// POST /api/projects/{projectID}/decisions/{label}/object with {reason} (E-1,
+// B-81).
+func (s *Server) objectDecision(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	var req DecisionActRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	got, err := cycle.NewGate(s.db).ObjectDecision(r.Context(), projectID, r.PathValue("label"), req.Reason)
+	if err != nil {
+		writeDecisionActError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, ObjectDecisionResponse{OpenQuestion: got.OpenQuestion})
+}
+
+// POST /api/projects/{projectID}/decisions/{label}/revoke with {reason} → 204
+// (B-82).
+func (s *Server) revokeDecision(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	var req DecisionActRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	if err := cycle.NewGate(s.db).RevokeDecision(r.Context(), projectID, r.PathValue("label"), req.Reason); err != nil {
+		writeDecisionActError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -101,6 +101,9 @@ type Decision struct {
 	State         string   `json:"state"`
 	Critical      bool     `json:"critical"`
 	Edges         []string `json:"edges"`
+	// Objection is your motive while it is under objection (E-1), apart from its
+	// «porque».
+	Objection string `json:"objection,omitempty"`
 }
 
 // Line is one index line (layer 2): label, version, state, first line.
@@ -281,11 +284,22 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 
 	// The «porque» of a decision is the last reason the history
 	// records for it, in literal (event.reason, specification §1).
+	// An objection's motive is not the decision's «porque»: it goes apart (E-1).
 	lastReason := make(map[string]string)
+	objection := make(map[string]string)
 	for _, ev := range events {
-		if ev.ObjectID != "" && ev.Reason != "" {
-			lastReason[ev.ObjectID] = ev.Reason
+		if ev.ObjectID == "" || ev.Reason == "" {
+			continue
 		}
+		var moved struct {
+			To string `json:"to"`
+		}
+		_ = json.Unmarshal(ev.Data, &moved)
+		if moved.To == "in_open_question" {
+			objection[ev.ObjectID] = ev.Reason
+			continue
+		}
+		lastReason[ev.ObjectID] = ev.Reason
 	}
 
 	// Criticality comes from the one function of T-5.
@@ -299,7 +313,13 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 	}
 	for _, dec := range byType[store.ObjectDecision] {
 		b := decodeBody(dec)
-		isYours := b.str("origin") == "human" || dec.State == "human" || dec.State == "confirmed"
+		// Revoked has no successor and rules nothing: the principal learns of it
+		// in what changed and in the sections' open changes (B-82). Under
+		// objection it still shows, marked: only you decide it (E-1).
+		if dec.State == "revoked" {
+			continue
+		}
+		isYours := b.str("origin") == "human" || dec.State == "human" || dec.State == "confirmed" || dec.State == "in_open_question"
 		if !isYours && !critical[dec.ID] {
 			continue
 		}
@@ -309,6 +329,9 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 			InsteadOf: b.str("instead_of"), WouldChooseIf: b.str("would_choose_if"),
 			Assumption: b.boolean("assumption"), Origin: b.str("origin"), State: dec.State,
 			Critical: critical[dec.ID],
+		}
+		if dec.State == "in_open_question" {
+			d.Objection = objection[dec.ID]
 		}
 		for _, e := range edgesFrom[dec.ID] {
 			if to, err := labeler.ToLabel(e.ToID); err == nil {

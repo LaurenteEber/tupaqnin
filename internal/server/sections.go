@@ -160,7 +160,7 @@ func (s *Server) getSection(w http.ResponseWriter, r *http.Request) {
 			for _, e := range edges {
 				if e.Type == kind.edge {
 					if target, err := s.db.GetObject(ctx, projectID, e.ToID); err == nil {
-						a.Target, a.Linked = target.Label, true
+						a.Target, a.Linked = target.Label, graph.CoverHolds(target)
 					}
 				}
 			}

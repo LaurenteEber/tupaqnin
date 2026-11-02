@@ -65,7 +65,7 @@ const (
 // Opening it moves to changed_since_signoff every signed section it
 // blocks, directly or through a blocked decision used in it (estados
 // §1), and the contradicted premise to contradicted. The blocked
-// decision does not change state (objecting is slice 4).
+// decision does not change state; objecting does (OpenObjection).
 // [EL DISEÑO NO LO DICE]: the keep option's contrast, consequence and
 // risk; they are empty. With two decisions of yours blocked, the first
 // in depends_on is the one kept. A signed section that uses a blocked
@@ -181,6 +181,63 @@ func Open(ctx context.Context, tx *store.Tx, oq OpenQuestion) (store.Object, err
 		}
 	}
 	return obj, nil
+}
+
+// OriginObjection marks the «por aclarar» of an objection of yours (E-1).
+const OriginObjection = "objection"
+
+// OpenObjection moves the decision to in_open_question and opens the question of
+// B-81, inside tx: the app's two options from the decision itself, «mantener» and
+// «la otra», each with its contrast («elegiría la otra si»), its consequence (the
+// sections that use it) and its risk (the reasons it is critical, codes the page
+// translates). Its body keeps the previous state, for the history, and the
+// decision's label, for the principal (rule 7: never its id in a line).
+// [EL DISEÑO NO LO DICE]: the question's text; it is your motive, literal (rule
+// 8): the page names the decision in what it blocks. Both options carry the same
+// contrast, consequence and risk: the decision has one of each.
+func OpenObjection(ctx context.Context, tx *store.Tx, dec store.Object, reason string) (store.Object, error) {
+	pid := tx.ProjectID()
+	dependsOn := []string{dec.ID}
+	titles := []string{}
+	edges, err := tx.EdgesFrom(ctx, pid, dec.ID)
+	if err != nil {
+		return store.Object{}, err
+	}
+	for _, e := range edges {
+		if e.Type != store.EdgeUsedIn {
+			continue
+		}
+		sec, err := tx.GetObject(ctx, pid, e.ToID)
+		if err != nil {
+			return store.Object{}, err
+		}
+		dependsOn = append(dependsOn, sec.ID)
+		if title := bodyText(sec, "title"); title != "" {
+			titles = append(titles, title)
+		}
+	}
+	critical, err := graph.CriticalAll(ctx, tx, pid)
+	if err != nil {
+		return store.Object{}, err
+	}
+	var body map[string]any
+	_ = json.Unmarshal(dec.Body, &body)
+	if _, err := tx.UpdateObject(dec.ID, dec.CurrentVersion, "in_open_question", body,
+		store.EventInput{Type: store.EventStateChanged, Actor: "human", Reason: reason,
+			Data: map[string]any{"label": dec.Label, "from": dec.State, "to": "in_open_question", "via": OriginObjection}}); err != nil {
+		return store.Object{}, err
+	}
+	option := func(text string, mark string) map[string]any {
+		return map[string]any{"option": text, mark: true, "contrast": bodyText(dec, "would_choose_if"),
+			"consequence": strings.Join(titles, ", "), "risk": "", "risk_reasons": critical[dec.ID]}
+	}
+	return Open(ctx, tx, OpenQuestion{Question: reason,
+		Options:   []map[string]any{option(bodyText(dec, "statement"), "keep"), option(bodyText(dec, "instead_of"), "other")},
+		DependsOn: dependsOn,
+		Extra: map[string]any{"origin": OriginObjection, "keeps": map[string]any{"kind": KeepDecision, "id": dec.ID},
+			"previous_state": dec.State, "objected_decision": dec.Label, "undeclared_by_agent": false},
+		Event: store.EventInput{Type: store.EventStateChanged, Actor: "human", Reason: reason,
+			Data: map[string]any{"via": OriginObjection, "decision": dec.Label, "previous_state": dec.State}}})
 }
 
 func keepOption(text string) map[string]any {

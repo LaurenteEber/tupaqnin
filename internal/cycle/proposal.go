@@ -323,6 +323,24 @@ func acceptedEvent(t store.EventType, obj store.Object, b graph.ProposalBody) st
 			"accepted_by": "human", "proposal": obj.Label}}
 }
 
+// citesRevoked: the proposal's step cited a decision revoked since (B-82).
+func citesRevoked(ctx context.Context, tx *store.Tx, b graph.ProposalBody) (bool, error) {
+	ids := append([]string{}, b.UsedDecisions...)
+	for _, f := range b.Figures {
+		ids = append(ids, f.DecisionID)
+	}
+	for _, id := range ids {
+		dec, err := tx.GetObject(ctx, tx.ProjectID(), id)
+		if err != nil {
+			return false, err
+		}
+		if dec.State == "revoked" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (p *project) acceptTextProposal(ctx context.Context, tx *store.Tx, obj store.Object, b graph.ProposalBody, saved string, out *ProposalOutcome) error {
 	sec, err := tx.Object(b.SectionID)
 	if err != nil {
@@ -341,6 +359,13 @@ func (p *project) acceptTextProposal(ctx context.Context, tx *store.Tx, obj stor
 		}
 	}
 	result, why := textAfterProposal(bodyStr(bodyOf(sec), "text"), b, saved)
+	revoked, err := citesRevoked(ctx, tx, b)
+	if err != nil {
+		return err
+	}
+	if revoked {
+		why = graph.ProposalDecisionRevoked
+	}
 	if why != "" {
 		out.State, out.Why, out.NewStep = "discarded", why, true
 		return closeProposal(tx, obj, b, "discarded", why, sec.Label, "")

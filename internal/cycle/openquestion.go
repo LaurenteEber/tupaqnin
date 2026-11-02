@@ -151,7 +151,8 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 // applyKept applies the answer to what the question's first option
 // keeps (body keeps): a decision of yours or a confirmed one, replaced
 // by yours when you choose another option, or the contradicted premise,
-// back to current or in a new version.
+// back to current or in a new version. An objection's question has its own
+// rule (answerObjection).
 func (g *Gate) applyKept(ctx context.Context, tx *store.Tx, body map[string]any, keep bool, chosen, reason string, answer *OpenQuestionAnswer) error {
 	keeps, _ := body["keeps"].(map[string]any)
 	if keeps == nil {
@@ -166,6 +167,9 @@ func (g *Gate) applyKept(ctx context.Context, tx *store.Tx, body map[string]any,
 	}
 	switch bodyStr(keeps, "kind") {
 	case checks.KeepDecision:
+		if bodyStr(body, "origin") == checks.OriginObjection {
+			return answerObjection(ctx, tx, obj, keep, chosen, reason, answer)
+		}
 		// [EL DISEÑO NO LO DICE]: a kept decision that is no longer yours
 		// or confirmed (superseded meanwhile) is left as it is.
 		if keep || obj.State != "human" && obj.State != "confirmed" {

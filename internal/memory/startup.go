@@ -200,8 +200,12 @@ func compactDecision(d Decision) string {
 	if len(d.Edges) > 0 {
 		edges = " · " + strings.Join(d.Edges, ", ")
 	}
-	return fmt.Sprintf("%s v%d: %s%s · instead of: %s · would choose if: %s%s",
-		d.Label, d.Version, d.Statement, reason, d.InsteadOf, d.WouldChooseIf, edges)
+	objected := ""
+	if d.State == "in_open_question" {
+		objected = " · under objection, only the person decides it: " + d.Objection
+	}
+	return fmt.Sprintf("%s v%d: %s%s · instead of: %s · would choose if: %s%s%s",
+		d.Label, d.Version, d.Statement, reason, d.InsteadOf, d.WouldChooseIf, edges, objected)
 }
 
 func (m *Memory) renderTask(st State) string {
@@ -500,6 +504,9 @@ func openQuestionLine(b body, state string) string {
 		return flawQuestionLine(b, state)
 	}
 	line := b.str("question")
+	if d := b.str("objected_decision"); d != "" {
+		line = "The person objected to " + d + ": " + line
+	}
 	if b.boolean("question_is_data") {
 		// P-83: «Buscarla»'s question is a candidate's text (backlog-r3 3.5).
 		line = "\n" + graph.Delimit(graph.DataPassage, line)
@@ -628,7 +635,7 @@ func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) 
 			text = graph.ProposalRead(obj.Label, obj.State, pb, section)
 		}
 	}
-	if obj.Type == store.ObjectOpenQuestion && b.str("origin") == "judge" {
+	if obj.Type == store.ObjectOpenQuestion && (b.str("origin") == "judge" || b.str("objected_decision") != "") {
 		text = openQuestionLine(b, obj.State)
 	}
 	if text == "" {

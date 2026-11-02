@@ -269,6 +269,11 @@ export interface FrameDecision {
    */
   card?: string;
   /**
+   * CanObject and CanRevoke say which acts it has now (estados §2).
+   */
+  can_object?: boolean;
+  can_revoke?: boolean;
+  /**
    * Block is the block of this section where a figure it covers
    * appears, for the link to that paragraph's history (D7); 0 when no
    * figure of it is in the text.
@@ -399,6 +404,11 @@ export interface Frame {
    */
   candidates: Candidate[];
 }
+/**
+ * KeptReasonField marks a decision you kept from an objection (B-81): its body's
+ * reason is your last «porque», over the one of an older card.
+ */
+export const KeptReasonField = "kept_from_objection";
 
 //////////
 // source: history.go
@@ -628,6 +638,11 @@ export const ProposalSignedWithout = "signed_without";
  * Why a proposal was discarded (B-75, B-76, B-73 d).
  */
 export const ProposalAnchorNotUnique = "anchor_not_unique";
+/**
+ * ProposalDecisionRevoked: it cites a decision revoked after it was born
+ * (B-82); accepting it asks for a new step.
+ */
+export const ProposalDecisionRevoked = "decision_revoked";
 /**
  * Why a proposal was discarded (B-75, B-76, B-73 d).
  */

@@ -312,6 +312,8 @@ func (s *Server) apiRoutes() []route {
 		{"GET", "/api/projects/{projectID}/cards/{label}", s.getCard},
 		{"POST", "/api/projects/{projectID}/cards/{label}/answer", s.answerCard},
 		{"PUT", "/api/projects/{projectID}/decisions/{label}/critical", s.putDecisionCritical},
+		{"POST", "/api/projects/{projectID}/decisions/{label}/object", s.objectDecision},
+		{"POST", "/api/projects/{projectID}/decisions/{label}/revoke", s.revokeDecision},
 		{"POST", "/api/projects/{projectID}/open-questions/{label}/answer", s.answerOpenQuestion},
 		{"GET", "/api/projects/{projectID}/stop-report", s.getStopReport},
 		{"POST", "/api/projects/{projectID}/stop-report/seen", s.postStopReportSeen},

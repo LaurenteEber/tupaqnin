@@ -235,6 +235,15 @@ export function App() {
     setRawStream("");
   }
 
+  // «Objetar» and «Revocar» (E-1, B-82): the sections' states and notices moved,
+  // and the frame, the cards and the bar read them again.
+  function decisionActed() {
+    void refreshSections(projectID);
+    void refreshConversation(projectID); // the «por aclarar» it opened (U-5)
+    bumpFrame();
+    void getSummary(projectID).then(applySummary);
+  }
+
   // Every summary read after an action: the bar, and a chain the app opened
   // (B-83), which the page attaches to here.
   function applySummary(s: SummaryView) {
@@ -691,6 +700,7 @@ export function App() {
                 onTodo={onTodo}
                 onReorder={editor ? (labels) => void reorder(labels) : undefined}
                 onSearchCandidate={editor ? (n) => void searchEvidence([n]) : undefined}
+                onDecisionActed={editor ? decisionActed : undefined}
               />
             ) : (
               <div className="frame-empty">
@@ -803,6 +813,7 @@ export function App() {
                   if (defense) setDefensePreparing(true); // P-92
                 }}
                 onUndo={undoLastEdit}
+                onDecisionActed={editor ? decisionActed : undefined}
               />
             )}
           </div>

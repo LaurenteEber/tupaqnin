@@ -20,6 +20,10 @@ type OpenQuestionOption struct {
 	Consequence string `json:"consequence"`
 	Risk        string `json:"risk"`
 	Keep        bool   `json:"keep"`
+	// Other marks the app's «la otra» of an objection (B-81), and RiskReasons
+	// its risk, the decision's criticality reasons the page translates.
+	Other       bool     `json:"other,omitempty"`
+	RiskReasons []string `json:"risk_reasons,omitempty"`
 	// Code is an option the app wrote, which the page translates: a
 	// scope «por aclarar»'s (backlog-r3 3.4: complete_review ·
 	// declare_limit).
@@ -74,8 +78,16 @@ func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Obj
 	for _, o := range options {
 		m, _ := o.(map[string]any)
 		keep, _ := m["keep"].(bool)
+		other, _ := m["other"].(bool)
+		var risks []string
+		raw, _ := m["risk_reasons"].([]any)
+		for _, r := range raw {
+			if s, ok := r.(string); ok {
+				risks = append(risks, s)
+			}
+		}
 		view.Options = append(view.Options, OpenQuestionOption{Option: str(m, "option"), Contrast: str(m, "contrast"),
-			Consequence: str(m, "consequence"), Risk: str(m, "risk"), Keep: keep, Code: str(m, "code")})
+			Consequence: str(m, "consequence"), Risk: str(m, "risk"), Keep: keep, Code: str(m, "code"), Other: other, RiskReasons: risks})
 	}
 	variants, _ := b["variants"].([]any)
 	for _, v := range variants {

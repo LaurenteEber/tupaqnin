@@ -165,6 +165,11 @@ export interface CardView {
   edit_version?: number /* int */;
   undo_available?: boolean;
   undo_reason?: string;
+  /**
+   * CanObject and CanRevoke say which acts its decision has now (estados §2).
+   */
+  can_object?: boolean;
+  can_revoke?: boolean;
 }
 /**
  * SectionRef names a section on screen by its title (P-36, B-18); the
@@ -211,6 +216,18 @@ export type CardAnswerer = any;
  */
 export interface MarkCriticalRequest {
   marked: boolean;
+}
+/**
+ * DecisionActRequest is your motive to object or your «porque» to revoke.
+ */
+export interface DecisionActRequest {
+  reason: string;
+}
+/**
+ * ObjectDecisionResponse names the «por aclarar» an objection opened.
+ */
+export interface ObjectDecisionResponse {
+  open_question: string;
 }
 
 //////////
@@ -471,6 +488,12 @@ export interface OpenQuestionOption {
   consequence: string;
   risk: string;
   keep: boolean;
+  /**
+   * Other marks the app's «la otra» of an objection (B-81), and RiskReasons
+   * its risk, the decision's criticality reasons the page translates.
+   */
+  other?: boolean;
+  risk_reasons?: string[];
   /**
    * Code is an option the app wrote, which the page translates: a
    * scope «por aclarar»'s (backlog-r3 3.4: complete_review ·

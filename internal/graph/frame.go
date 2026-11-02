@@ -83,6 +83,9 @@ type FrameDecision struct {
 	Sections []string `json:"sections"`
 	// Card is its open card, if any: «Te toca» leads there.
 	Card string `json:"card,omitempty"`
+	// CanObject and CanRevoke say which acts it has now (estados §2).
+	CanObject bool `json:"can_object,omitempty"`
+	CanRevoke bool `json:"can_revoke,omitempty"`
 	// Block is the block of this section where a figure it covers
 	// appears, for the link to that paragraph's history (D7); 0 when no
 	// figure of it is in the text.
@@ -187,6 +190,21 @@ type Frame struct {
 	// Candidates are what the agent named without a citation (R-2, B-69):
 	// «candidata, sin verificar», with «Buscarla».
 	Candidates []Candidate `json:"candidates"`
+}
+
+// KeptReasonField marks a decision you kept from an objection (B-81): its body's
+// reason is your last «porque», over the one of an older card.
+const KeptReasonField = "kept_from_objection"
+
+// CanObject says a decision in this state can be objected (estados §2): the
+// agent's, yours or a confirmed one.
+func CanObject(state string) bool {
+	return state == "agent" || state == "human" || state == "confirmed"
+}
+
+// CanRevoke says a decision in this state can be revoked (estados §2, B-82).
+func CanRevoke(state string) bool {
+	return state == "human" || state == "confirmed"
 }
 
 // ComputeFrame is frame(project): the frame from the working state's
@@ -300,12 +318,13 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 			}
 		}
 		reason := reasons[dec.ID]
-		if reason == "" {
-			reason = bodyString(dec, "reason") // the decision you chose on a card (B-16)
+		if kept, _ := bodyValue(dec, KeptReasonField).(bool); reason == "" || kept {
+			reason = bodyString(dec, "reason") // the decision you chose on a card (B-16) or kept (B-81)
 		}
 		it.decision = FrameDecision{Label: dec.Label, Statement: bodyString(dec, "statement"),
 			InsteadOf: bodyString(dec, "instead_of"), WouldChooseIf: bodyString(dec, "would_choose_if"),
-			Reason: reason, Icon: icon(why), Card: openCard[dec.ID], Seen: seen[dec.ID], Sections: []string{}}
+			Reason: reason, Icon: icon(why), Card: openCard[dec.ID], Seen: seen[dec.ID], Sections: []string{},
+			CanObject: CanObject(dec.State), CanRevoke: CanRevoke(dec.State)}
 		for _, sec := range sections {
 			if it.in[sec.ID] {
 				it.decision.Sections = append(it.decision.Sections, sec.Label)

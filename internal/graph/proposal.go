@@ -32,6 +32,9 @@ const (
 	ProposalDiscarded       = "discarded"
 	ProposalSignedWithout   = "signed_without"
 	ProposalAnchorNotUnique = "anchor_not_unique"
+	// ProposalDecisionRevoked: it cites a decision revoked after it was born
+	// (B-82); accepting it asks for a new step.
+	ProposalDecisionRevoked = "decision_revoked"
 	ProposalSectionChanged  = "section_changed"
 )
 
@@ -243,7 +246,7 @@ func ProposalRead(label, state string, b ProposalBody, section string) string {
 }
 
 func proposalAsksForAStep(state string, b ProposalBody) bool {
-	return state == "discarded" && (b.Why == ProposalAnchorNotUnique || b.Why == ProposalSectionChanged)
+	return state == "discarded" && (b.Why == ProposalAnchorNotUnique || b.Why == ProposalSectionChanged || b.Why == ProposalDecisionRevoked)
 }
 
 // ProposalStepNotice is the line of a proposal that asks for a new step

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getFrame, markDecisionSeen } from "../api/client";
 import type { Frame, FrameDecision, FrameSection, ReturnLine } from "../api/graph";
 import { SearchedName } from "./SearchedName";
+import { DecisionActions } from "./DecisionActions";
 import { candidateName } from "../provenance";
 import { translate, type Lang } from "../i18n";
 
@@ -25,7 +26,7 @@ export type TodoTarget =
 // Slice 2 (backlog-r2 2.7): the return line above it after 3 days or
 // more (M-2), the exact «sin ver» dot and the filter «solo lo que no
 // viste», all computed in Go.
-export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onDecisionHistory, onTodo, onReorder, onSearchCandidate }: {
+export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onDecisionHistory, onTodo, onReorder, onSearchCandidate, onDecisionActed }: {
   lang: Lang;
   projectID: string;
   refreshKey: string;
@@ -42,6 +43,8 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   // «Buscarla» (B-69): you start a round on the candidate; absent in a
   // read-only tab.
   onSearchCandidate?: (n: number) => void;
+  // «Objetar» and «Revocar» did something (E-1, B-82); absent in a read-only tab.
+  onDecisionActed?: () => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [frame, setFrame] = useState<Frame | null>(null);
@@ -118,7 +121,7 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
     todos.push({ key: "stop", text: t("frame.todo.stop_report"), tag: "", target: { kind: "stop_report" } });
   }
 
-  const decisionProps = { lang, titleOf, onSection, onHistory, onDecisionHistory, onTodo, onExpand: expanded };
+  const decisionProps = { lang, projectID, titleOf, onSection, onHistory, onDecisionHistory, onTodo, onExpand: expanded, onDecisionActed };
 
   return (
     <div className="frame">
@@ -237,6 +240,8 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
 
 type DecisionProps = {
   lang: Lang;
+  projectID: string;
+  onDecisionActed?: () => void;
   titleOf: (label: string) => string;
   onSection: (section: string) => void;
   onHistory: (section: string, block: number) => void;
@@ -291,7 +296,7 @@ function SkeletonSection({ section, active, onMove, first, last, ...props }: Dec
 // (B3-9, P-77), and its card when expanded (§9). Its link opens
 // its paragraph's history (P5) or, when it covers no figure, its own
 // (GET /decisions/{label}/history, P-41).
-function DecisionItem({ lang, section, decision: d, titleOf, onSection, onHistory, onDecisionHistory, onTodo, onExpand }:
+function DecisionItem({ lang, projectID, section, decision: d, titleOf, onSection, onHistory, onDecisionHistory, onTodo, onExpand, onDecisionActed }:
   DecisionProps & { section: string; decision: FrameDecision }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   return (
@@ -346,6 +351,10 @@ function DecisionItem({ lang, section, decision: d, titleOf, onSection, onHistor
             </button>
           )}
         </div>
+        {onDecisionActed && (
+          <DecisionActions lang={lang} projectID={projectID} decision={d.label} canObject={d.can_object}
+            canRevoke={d.can_revoke} onActed={onDecisionActed} />
+        )}
       </div>
     </details>
   );

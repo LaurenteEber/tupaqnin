@@ -628,7 +628,10 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 		}
 	}
 	for i, d := range out.UsedDecisions {
-		label(fmt.Sprintf("/used_decisions/%d", i), d, store.ObjectDecision)
+		path := fmt.Sprintf("/used_decisions/%d", i)
+		if obj, ok := label(path, d, store.ObjectDecision); ok {
+			checkNotRevoked(path, obj, d, fail)
+		}
 	}
 	for i, r := range out.ProposedRoles {
 		if !isNew(r.SectionID) {
@@ -636,7 +639,10 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 		}
 	}
 	for i, f := range out.FigureLinks {
-		ref(fmt.Sprintf("/figure_links/%d/decision_id", i), f.DecisionID, decision, "decision")
+		path := fmt.Sprintf("/figure_links/%d/decision_id", i)
+		if obj, ok := ref(path, f.DecisionID, decision, "decision"); ok {
+			checkNotRevoked(path, obj, f.DecisionID, fail)
+		}
 	}
 	for i, s := range out.UsedSources {
 		label(fmt.Sprintf("/used_sources/%d", i), s, store.ObjectSource)
@@ -843,6 +849,15 @@ func (p *project) checkAssumption(path, value string, out stepOutput,
 	}
 	if a, _ := bodyOf(obj)["assumption"].(bool); !a {
 		fail(path, "%s is not a decision marked assumption: true", value)
+	}
+}
+
+// checkNotRevoked: a step does not cite a revoked decision (B-82, estados §2: it
+// has no successor and rules nothing). The step is rejected with its reason and
+// the usual retry. A superseded one is still accepted, as before.
+func checkNotRevoked(path string, dec store.Object, label string, fail func(string, string, ...any)) {
+	if dec.State == "revoked" {
+		fail(path, "%s was revoked by the human and rules nothing: do not cite it; write without it or ask in proposed_open_questions", label)
 	}
 }
 

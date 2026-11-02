@@ -477,6 +477,26 @@ export async function markCritical(projectID: string, label: string, marked: boo
   if (!res.ok) throw new Error(`http_${res.status}`);
 }
 
+// Objecting opens a «por aclarar» and revoking leaves the decision revoked (E-1,
+// B-81, B-82): Go decides whether the act applies and whether the reason counts.
+export async function objectDecision(projectID: string, label: string, reason: string): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/decisions/${label}/object`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error(`http_${res.status}`);
+}
+
+export async function revokeDecision(projectID: string, label: string, reason: string): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/decisions/${label}/revoke`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error(`http_${res.status}`);
+}
+
 export async function getDecisionHistory(projectID: string, decision: string): Promise<DecisionHistoryView> {
   return json(await fetch(`/api/projects/${projectID}/decisions/${decision}/history`));
 }

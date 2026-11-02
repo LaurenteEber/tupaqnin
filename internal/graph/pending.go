@@ -31,6 +31,36 @@ func hasCurrentEdge(ctx context.Context, db store.Querier, projectID, fromID str
 	return false, nil
 }
 
+// CoverHolds says a covers edge to target still gives the figure its decision:
+// a revoked decision has no successor and rules nothing (B-82). The edge stays
+// for the history.
+// [EL DISEÑO NO LO DICE]: B-82 and estados §1 do not name the figure of a revoked
+// decision; it is read as «cifra sin decisión», so closing the notice does not
+// free the section.
+func CoverHolds(target store.Object) bool {
+	return target.State != "revoked"
+}
+
+func figureHasDecision(ctx context.Context, db store.Querier, projectID, figureID string) (bool, error) {
+	edges, err := db.EdgesFrom(ctx, projectID, figureID)
+	if err != nil {
+		return false, err
+	}
+	for _, e := range edges {
+		if e.Type != store.EdgeCovers {
+			continue
+		}
+		target, err := db.GetObject(ctx, projectID, e.ToID)
+		if err != nil {
+			return false, err
+		}
+		if CoverHolds(target) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // FiguresWithoutDecision returns, in text order, the numbers of a
 // section's text that have no decision (fichas §3, «cifra sin
 // decisión»; B-15): not inside the anchor of a figure that a current
@@ -51,7 +81,7 @@ func FiguresWithoutDecision(ctx context.Context, db store.Querier, projectID, se
 		if bodyString(fig, "section_id") != section.ID {
 			continue
 		}
-		ok, err := hasCurrentEdge(ctx, db, projectID, fig.ID, store.EdgeCovers)
+		ok, err := figureHasDecision(ctx, db, projectID, fig.ID)
 		if err != nil {
 			return nil, err
 		}
