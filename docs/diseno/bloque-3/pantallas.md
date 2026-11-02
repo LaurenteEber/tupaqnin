@@ -42,7 +42,8 @@ flowchart LR
 │ Tus proyectos                                                │
 │  · Microplásticos · hace 2 h · 1 de 3 secciones firmadas     │
 │  · …                                                         │
-│ «Se borra en 6 días · crea tu usuario para conservarlo»      │
+│ «Sin cuenta, se pierde al cerrar el navegador · crea tu      │
+│ usuario para conservarlo»                                    │
 │ [ Crear usuario ]  [ Entrar ]                     [Entrega]  │
 └──────────────────────────────────────────────────────────────┘
 ```

@@ -59,6 +59,7 @@ allowBuilds:
 | golang.org/x/text | v0.43.0 | |
 | github.com/gowebpki/jcs | v1.0.2 | |
 | github.com/gzuidhof/tygo | v0.2.21 | Con la directiva `tool` de `go.mod` (B-19) |
+| golang.org/x/crypto | v0.58.0 | Solo `bcrypt` (y `blowfish`, que lo usa), aprobada por Eber (B-90, 1-nov). Publicada el 9-oct. OSV marca GO-2026-5932 en `openpgp` para todas las versiones; la app no lo importa, aceptado por Eber el 2-nov. Instalar `govulncheck` antes del despliegue público |
 | Librería de PDF | `github.com/ledongthuc/pdf`, commit de al menos 7 días (lo fija el agente en la 1.1) | Aprobada por Eber el 29-oct (B-9). Corre en un proceso hijo que se mata a los 10 s |
 
 ## 4. CI y despliegue
