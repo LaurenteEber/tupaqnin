@@ -440,19 +440,18 @@ export function App() {
     openHomeForm("");
   }
 
-  // «Salir» from the left: back to the home, as leaving from there. The session
-  // ends first and is read once after, so no read races the logout. A failure
-  // shows on the home, like a refused project.
+  // «Salir» from the left: back to the home, as leaving from there. The project
+  // closes first, so its panels stop reading, and the session is read once, after
+  // the logout, so no read races it. A failure shows on the home, like a refused
+  // project.
   async function leaveAccount() {
-    let failed = false;
+    setHomeForm((prev) => ({ form: "", tick: prev.tick + 1 }));
+    openProject("");
     try {
       await logout();
     } catch {
-      failed = true;
+      setCreateError("internal");
     }
-    setHomeForm((prev) => ({ form: "", tick: prev.tick + 1 }));
-    openProject("");
-    if (failed) setCreateError("internal");
     await refreshSession();
   }
 
