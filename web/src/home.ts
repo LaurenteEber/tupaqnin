@@ -106,14 +106,13 @@ export function projectLineTexts(
   p: { last_activity: string; sections: number; signed: number; no_account: boolean },
   now: number,
 ): Text[] {
-  const signed = String(p.signed);
-  const counts: Text =
-    p.sections === 0
-      ? { key: "home.project.no_sections" }
-      : p.sections === 1
-        ? { key: "left.project.count_one", params: { signed } }
-        : { key: "left.project.counts", params: { sections: String(p.sections), signed } };
-  const line = [activityAgo(p.last_activity, now), counts];
+  const line = [activityAgo(p.last_activity, now)];
+  if (p.sections === 0) {
+    line.push({ key: "home.project.no_sections" });
+  } else {
+    line.push(p.sections === 1 ? { key: "left.project.section_one" } : { key: "left.project.sections", params: { n: String(p.sections) } });
+    line.push(p.signed === 1 ? { key: "left.project.signed_one" } : { key: "left.project.signed", params: { n: String(p.signed) } });
+  }
   if (p.no_account) line.push({ key: "home.project.no_account" });
   return line;
 }

@@ -790,13 +790,14 @@ export function App() {
             model={summary && <ModelLine lang={lang} summary={summary} />}
             onToggleRight={() => layout.setRightOff(!layout.rightOff)}
           />
+          {/* In both views: at a glance, it says why the document does not let you edit. */}
+          {!editor && <p className="turn-error center-notice">{t("tab.read_only")}</p>}
           {createErrorKey(createError, null) && (
             <p className="turn-error center-notice">{t(createErrorKey(createError, null) ?? "")}</p>
           )}
           <div className="center-body">
             <section className={`center-view${centerShown === "conv" ? "" : " off"}`} role="tabpanel" aria-label={t("chat.title")}>
               <div className="view-inner">
-                {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}
                 {projectID && (
                   <RequestPanel
                     key={`request-${projectID}`}

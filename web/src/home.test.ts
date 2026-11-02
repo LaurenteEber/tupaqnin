@@ -200,13 +200,18 @@ test("U.2: a project's line says when, how many sections and how many signed", (
   const p = { name: "Tesis", last_activity: "2026-11-02T10:00:00Z", sections: 3, signed: 1, no_account: false };
   assert.deepEqual(projectLineTexts(p, NOW), [
     { key: "home.ago.hours", params: { n: "2" } },
-    { key: "left.project.counts", params: { sections: "3", signed: "1" } },
+    { key: "left.project.sections", params: { n: "3" } },
+    { key: "left.project.signed_one" },
   ]);
 });
 
 test("U.2: one section reads in the singular, and none says so", () => {
   const base = { name: "", last_activity: "2026-11-02T11:59:30Z", signed: 0, no_account: false };
-  assert.deepEqual(projectLineTexts({ ...base, sections: 1 }, NOW)[1], { key: "left.project.count_one", params: { signed: "0" } });
+  assert.deepEqual(projectLineTexts({ ...base, sections: 1 }, NOW).slice(1), [
+    { key: "left.project.section_one" },
+    { key: "left.project.signed", params: { n: "0" } },
+  ]);
+  assert.equal(catalog("es")["left.project.signed_one"], "1 firmada");
   assert.deepEqual(projectLineTexts({ ...base, sections: 0 }, NOW), [{ key: "home.ago.now" }, { key: "home.project.no_sections" }]);
 });
 
@@ -256,7 +261,7 @@ test("U.2 (B3-18): with no session, only «Entrar», and no way to start a proje
 test("U.2: the left panel's texts are in both catalogs", () => {
   for (const lang of ["en", "es"]) {
     const texts = catalog(lang);
-    for (const key of ["left.new", "left.project.counts", "left.project.count_one", "left.notice.lead", "left.notice.download", "left.notice.or", "left.notice.register", "language.label"]) {
+    for (const key of ["left.new", "left.project.sections", "left.project.section_one", "left.project.signed", "left.project.signed_one", "left.notice.lead", "left.notice.download", "left.notice.or", "left.notice.register", "language.label"]) {
       assert.ok(texts[key], `${lang}: ${key}`);
     }
   }
