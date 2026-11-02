@@ -74,6 +74,13 @@ export function clampRightWidth(px: number, windowW: number, leftW = 0): number 
   return Math.round(Math.min(Math.max(px, MIN_RIGHT_W), most));
 }
 
+// The width while dragging: what it was, plus what the mouse moved to the left. A
+// press without movement changes nothing, so the second click of a double click
+// still lands on the divider.
+export function dragWidth(startW: number, startX: number, x: number): number {
+  return startW + startX - x;
+}
+
 // The panel sits on the right: the left arrow widens it, as in the mockup.
 export function nextWidthByKey(px: number, key: string): number {
   if (key === "ArrowLeft") return px + ARROW_STEP;

@@ -7,6 +7,7 @@ import {
   MIN_RIGHT_W,
   NARROW_W,
   clampRightWidth,
+  dragWidth,
   initialPanels,
   nextWidthByKey,
   readPrefs,
@@ -89,6 +90,7 @@ export function Shell({
   const clamp = (px: number) => clampRightWidth(px, layout.windowW, layout.narrow ? 0 : leftW);
   const width = clamp(layout.rightW);
   const [dragging, setDragging] = useState(false);
+  const dragStart = useRef({ x: 0, w: 0 });
 
   // The handlers below read the latest render.
   const current = useRef(layout);
@@ -111,11 +113,11 @@ export function Shell({
     const fit = (e: MouseEvent) => {
       const { windowW, narrow, leftOff } = current.current;
       const offset = narrow ? 0 : leftOff ? LEFT_OFF_W : LEFT_W;
-      return clampRightWidth(window.innerWidth - e.clientX, windowW, offset);
+      return clampRightWidth(dragWidth(dragStart.current.w, dragStart.current.x, e.clientX), windowW, offset);
     };
     const onMove = (e: MouseEvent) => current.current.setRightW(fit(e), false);
     const onUp = (e: MouseEvent) => {
-      current.current.setRightW(fit(e), true);
+      if (e.clientX !== dragStart.current.x) current.current.setRightW(fit(e), true);
       setDragging(false);
     };
     document.body.style.userSelect = "none";
@@ -153,6 +155,7 @@ export function Shell({
           tabIndex={0}
           onMouseDown={(e) => {
             e.preventDefault();
+            dragStart.current = { x: e.clientX, w: width };
             setDragging(true);
           }}
           onDoubleClick={() => layout.setRightW(clamp(DEFAULT_RIGHT_W), true)}

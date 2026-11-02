@@ -6,6 +6,7 @@ import {
   clampRightWidth,
   effectiveTab,
   initialPanels,
+  dragWidth,
   nextWidthByKey,
   readPrefs,
   routeTarget,
@@ -145,4 +146,10 @@ test("U.3: the «Markdown» tab is remembered, and it needs no open history", ()
   const store = memoryStore({ "tq.rightTab": "markdown" });
   assert.equal(readPrefs(() => store).rightTab, "markdown");
   assert.equal(effectiveTab("markdown", false), "markdown");
+});
+
+test("U.1: the divider moves by what the mouse moved, so a press alone changes nothing", () => {
+  assert.equal(dragWidth(600, 834, 834), 600);
+  assert.equal(dragWidth(600, 834, 800), 634);
+  assert.equal(dragWidth(600, 834, 900), 534);
 });
