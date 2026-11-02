@@ -199,17 +199,26 @@ func (s *Server) createOwnedProject(r *http.Request, name string) (id string, st
 		return "", http.StatusForbidden, blocked
 	}
 	id, err = s.db.CreateOwnedProject(r.Context(), sess, name, s.now())
-	switch {
-	case errors.Is(err, store.ErrAccountRequired):
-		return "", http.StatusForbidden, "account_required"
-	case errors.Is(err, store.ErrAccountLimit):
-		return "", http.StatusForbidden, "account_limit"
-	case errors.Is(err, store.ErrLinkFull):
-		return "", http.StatusForbidden, "link_full"
-	case err != nil:
+	if code, known := createRefusalCode(err); known {
+		return "", http.StatusForbidden, code
+	}
+	if err != nil {
 		return "", http.StatusInternalServerError, "internal"
 	}
 	return id, http.StatusCreated, ""
+}
+
+// createRefusalCode is the API's code for the store's refusals of a new project.
+func createRefusalCode(err error) (string, bool) {
+	switch {
+	case errors.Is(err, store.ErrAccountRequired):
+		return "account_required", true
+	case errors.Is(err, store.ErrAccountLimit):
+		return "account_limit", true
+	case errors.Is(err, store.ErrLinkFull):
+		return "link_full", true
+	}
+	return "", false
 }
 
 // RunCleanup removes expired anonymous projects and sessions (B-88), at

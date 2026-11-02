@@ -861,6 +861,40 @@ export interface Server {
 export type Option = any;
 
 //////////
+// source: session.go
+
+/**
+ * SessionView is GET /api/session (E.6): who you are for the home, and whether
+ * a new project would open, computed by the rules POST /api/projects applies.
+ */
+export interface SessionView {
+  account: string; // username, or empty without an account
+  link_label: string;
+  can_create: boolean;
+  /**
+   * CannotCreate is empty, or account_required · account_limit · link_full ·
+   * link_budget · day_cap · disk_full.
+   */
+  cannot_create: string;
+}
+/**
+ * ProjectLine is one row of «Tus proyectos» (P1): the list's fields, then what
+ * the home adds, all computed in Go (AGENTS rule 5).
+ */
+export interface ProjectLine extends ProjectView {
+  last_activity: string;
+  signed: number /* int */;
+  sections: number /* int */;
+  /**
+   * NoAccount replaces the row's expires_in_days (Eber, 2-nov): with a 24 h
+   * server expiry days mean nothing, the home says the project is lost when
+   * the browser closes.
+   * [EL DISEÑO NO LO DICE]: the field's name and shape.
+   */
+  no_account: boolean;
+}
+
+//////////
 // source: signoffs.go
 
 /**

@@ -8,6 +8,7 @@ import {
   answerAudienceQuestion,
   getConversation,
   getSection,
+  getSession,
   listProjects,
   listSections,
   reorderSections,
@@ -18,7 +19,7 @@ import {
   type StreamDelta,
   exportURL,
 } from "./api/client";
-import type { ConversationEntry, ProjectView, SectionView, SignoffBlocked, SummaryView } from "./api/types";
+import type { ConversationEntry, ProjectLine, SectionView, SessionView, SignoffBlocked, SummaryView } from "./api/types";
 import type { Warning } from "./api/graph";
 import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
@@ -35,6 +36,8 @@ import { ConversationPanel } from "./components/ConversationPanel";
 import { StopReportPanel } from "./components/StopReportPanel";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
+import { HomePage } from "./components/HomePage";
+import { createErrorKey } from "./home";
 import { initialLang, translate, type Lang } from "./i18n";
 import { auditErrorCode, pollDefense, roundErrorCode, roundStarted, sendErrorCode, startsStep } from "./live";
 
@@ -42,7 +45,12 @@ export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
 
-  const [projects, setProjects] = useState<ProjectView[]>([]);
+  // E.6: undefined until Go answers; null is no session.
+  const [session, setSession] = useState<SessionView | null | undefined>(undefined);
+  const [sessionFailed, setSessionFailed] = useState(false);
+  // The code that refused the last new project (B3-18, B3-20).
+  const [createError, setCreateError] = useState("");
+  const [projects, setProjects] = useState<ProjectLine[]>([]);
   const [understandingKey, setUnderstandingKey] = useState(0);
   const [projectID, setProjectID] = useState("");
   const [sections, setSections] = useState<SectionView[]>([]);
@@ -147,12 +155,34 @@ export function App() {
     setProjects(await listProjects());
   }, []);
 
+  // The session, and your projects only with one: a visitor with no session
+  // asks for no list. It runs once on load and after anything that changes them.
+  const refreshSession = useCallback(async () => {
+    try {
+      const next = await getSession();
+      setSession(next);
+      setProjects(next ? await listProjects() : []);
+      setSessionFailed(false);
+    } catch {
+      setSessionFailed(true);
+    }
+  }, []);
+
   useEffect(() => {
-    void refreshProjects();
-  }, [refreshProjects]);
+    void refreshSession();
+  }, [refreshSession]);
 
   async function newProject(template = "") {
-    const created = await createProject(template);
+    setCreateError("");
+    let created;
+    try {
+      created = await createProject(template);
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : "internal");
+      setMenuOpen(false);
+      await refreshSession();
+      return;
+    }
     setSections([]);
     setSelected("");
     clearStream();
@@ -161,7 +191,7 @@ export function App() {
     setDefensePreparing(false);
     setProjectID(created.project_id);
     setMenuOpen(false);
-    await refreshProjects();
+    await refreshSession();
   }
 
   function clearStream() {
@@ -289,9 +319,16 @@ export function App() {
       setRequestText("");
       setErrorCode("");
       setDefensePreparing(false);
+      setCreateError("");
       setProjectID(id);
     }
     setMenuOpen(false);
+  }
+
+  // Back to P1 (E.6): no project open.
+  function closeProject() {
+    openProject("");
+    void refreshSession();
   }
 
   // «Te toca» leads to the card, the understanding or the signoff
@@ -420,7 +457,7 @@ export function App() {
   }, [projectID, current?.label, current?.version, current?.state, current?.pendings, frameTick, warningsTick]);
   const currentProject = projects.find((p) => p.project_id === projectID);
   // Never an internal id on screen (P-30): the name, or the catalog's.
-  const projectName = (p?: ProjectView) => p?.name || t("project.untitled");
+  const projectName = (p?: ProjectLine) => p?.name || t("project.untitled");
   // Never a label on screen (P-30, P-36): the title, or the catalog's.
   const sectionName = (s: SectionView) => s.title || t("section.untitled");
 
@@ -442,6 +479,13 @@ export function App() {
           )}
         </div>
         {projectID && (
+          // [EL DISEÑO NO LO DICE]: how you go back to P1 from a project; a
+          // button in the header, since the frame's menu stays as it is.
+          <button type="button" className="small" onClick={closeProject}>
+            {t("home.back")}
+          </button>
+        )}
+        {projectID && (
           // Backlog-r2 2.8 (B-47): the .md comes from Go, unsigned
           // sections marked. [EL DISEÑO NO LO DICE]: where the download
           // goes; the header, beside the language switch.
@@ -459,7 +503,23 @@ export function App() {
         </div>
       </header>
 
-      {projectID && signing ? (
+      {!projectID ? (
+        (session !== undefined || sessionFailed) && (
+          <HomePage
+            lang={lang}
+            session={session ?? null}
+            sessionFailed={sessionFailed}
+            projects={projects}
+            createError={createError}
+            onOpen={openProject}
+            onNew={(template) => void newProject(template)}
+            onSessionChanged={async () => {
+              setCreateError("");
+              await refreshSession();
+            }}
+          />
+        )
+      ) : signing ? (
         <SignoffPanel lang={lang} projectID={projectID} label={signing} onClose={closeSignoff} />
       ) : (
       <div className={`columns${projectID && sections.length > 0 ? "" : " nodoc"}`}>
@@ -527,22 +587,10 @@ export function App() {
             {projectID && summary && <ModelLine lang={lang} summary={summary} />}
           </div>
           <div className="scroll">
-            {!projectID && (
-              <div className="empty">
-                <b>{t("chat.empty_title")}</b>
-                <span>{t("chat.empty")}</span>
-                {/* P-39: the two ways to start, in the center of the empty start. */}
-                <div className="empty-actions">
-                  <button type="button" onClick={() => void newProject("case-5")}>
-                    {t("project.demo")}
-                  </button>
-                  <button type="button" onClick={() => void newProject()}>
-                    {t("project.blank")}
-                  </button>
-                </div>
-              </div>
-            )}
             {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}
+            {createErrorKey(createError, null) && (
+              <p className="turn-error">{t(createErrorKey(createError, null) ?? "")}</p>
+            )}
 
             {projectID && (
               <RequestPanel

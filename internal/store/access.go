@@ -244,11 +244,66 @@ func (db *DB) TouchSession(ctx context.Context, s Session, now time.Time) (bool,
 	return true, nil
 }
 
-// CreateOwnedProject creates a project for the session: with an account
-// it is the account's, up to AccountProjectLimit; without one, the rules of
-// B3-18 and B3-22 row 2. Either way they are checked and the project created
-// in one transaction over the single writer, so two requests at once cannot
-// both pass.
+// createRefusal is the error that refuses a new project for the session, or
+// nil: with an account, AccountProjectLimit; without one, the rules of B3-18 and
+// B3-22 row 2. CreateOwnedProject asks it inside its transaction and CreateRefused
+// outside any, so the two answer from one set of rules.
+func createRefusal(ctx context.Context, q rowQuerier, s Session) error {
+	if s.AccountID != "" {
+		var mine int
+		var revoked sql.NullString
+		if err := q.QueryRowContext(ctx,
+			`SELECT (SELECT COUNT(*) FROM project WHERE account_id = ?), i.revoked_at
+			 FROM invitation i WHERE i.id = ?`, s.AccountID, s.InvitationID).Scan(&mine, &revoked); err != nil {
+			return fmt.Errorf("create project: %w", err)
+		}
+		// [EL DISEÑO NO LO DICE]: an account of a link revoked later is treated
+		// as a session without one below: what exists stays and no new project
+		// opens, with the same code.
+		if revoked.Valid {
+			return ErrLinkFull
+		}
+		if mine >= AccountProjectLimit {
+			return ErrAccountLimit
+		}
+		return nil
+	}
+	var mine int
+	if err := q.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM project WHERE account_id IS NULL AND anon_session_hash = ?`, s.IDHash).Scan(&mine); err != nil {
+		return fmt.Errorf("create project: %w", err)
+	}
+	if mine > 0 {
+		return ErrAccountRequired
+	}
+	var max, used int
+	var revoked sql.NullString
+	if err := q.QueryRowContext(ctx,
+		`SELECT i.max_anon_projects, i.revoked_at,
+		        (SELECT COUNT(*) FROM project p WHERE p.invitation_id = i.id AND p.account_id IS NULL)
+		 FROM invitation i WHERE i.id = ?`, s.InvitationID).Scan(&max, &revoked, &used); err != nil {
+		return fmt.Errorf("create project: %w", err)
+	}
+	// [EL DISEÑO NO LO DICE]: max_anon_projects counts the projects that
+	// exist, so one the cleanup removed frees its place.
+	// [EL DISEÑO NO LO DICE]: what a session from a link revoked later
+	// may do. Smallest choice: what exists stays reachable and no new
+	// project opens, with the same code as a full link.
+	if revoked.Valid || used >= max {
+		return ErrLinkFull
+	}
+	return nil
+}
+
+// CreateRefused answers, reading only, what CreateOwnedProject would refuse
+// now: the error, or nil (P1, can_create).
+func (db *DB) CreateRefused(ctx context.Context, s Session) error {
+	return createRefusal(ctx, db.Reader, s)
+}
+
+// CreateOwnedProject creates a project for the session, the account's or the
+// session's own. The rules are checked and the project created in one
+// transaction over the single writer, so two requests at once cannot both pass.
 func (db *DB) CreateOwnedProject(ctx context.Context, s Session, name string, now time.Time) (string, error) {
 	id, err := newID()
 	if err != nil {
@@ -260,53 +315,16 @@ func (db *DB) CreateOwnedProject(ctx context.Context, s Session, name string, no
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	if err := createRefusal(ctx, tx, s); err != nil {
+		return "", err
+	}
 	if s.AccountID != "" {
-		var mine int
-		var revoked sql.NullString
-		if err := tx.QueryRowContext(ctx,
-			`SELECT (SELECT COUNT(*) FROM project WHERE account_id = ?), i.revoked_at
-			 FROM invitation i WHERE i.id = ?`, s.AccountID, s.InvitationID).Scan(&mine, &revoked); err != nil {
-			return "", fmt.Errorf("create project: %w", err)
-		}
-		// [EL DISEÑO NO LO DICE]: an account of a link revoked later is treated
-		// as a session without one below: what exists stays and no new project
-		// opens, with the same code.
-		if revoked.Valid {
-			return "", ErrLinkFull
-		}
-		if mine >= AccountProjectLimit {
-			return "", ErrAccountLimit
-		}
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO project (id, name, invitation_id, account_id, created_at) VALUES (?, ?, ?, ?, ?)`,
 			id, name, s.InvitationID, s.AccountID, timeText(now)); err != nil {
 			return "", fmt.Errorf("create project: %w", err)
 		}
 	} else {
-		var mine int
-		if err := tx.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM project WHERE account_id IS NULL AND anon_session_hash = ?`, s.IDHash).Scan(&mine); err != nil {
-			return "", fmt.Errorf("create project: %w", err)
-		}
-		if mine > 0 {
-			return "", ErrAccountRequired
-		}
-		var max, used int
-		var revoked sql.NullString
-		if err := tx.QueryRowContext(ctx,
-			`SELECT i.max_anon_projects, i.revoked_at,
-			        (SELECT COUNT(*) FROM project p WHERE p.invitation_id = i.id AND p.account_id IS NULL)
-			 FROM invitation i WHERE i.id = ?`, s.InvitationID).Scan(&max, &revoked, &used); err != nil {
-			return "", fmt.Errorf("create project: %w", err)
-		}
-		// [EL DISEÑO NO LO DICE]: max_anon_projects counts the projects that
-		// exist, so one the cleanup removed frees its place.
-		// [EL DISEÑO NO LO DICE]: what a session from a link revoked later
-		// may do. Smallest choice: what exists stays reachable and no new
-		// project opens, with the same code as a full link.
-		if revoked.Valid || used >= max {
-			return "", ErrLinkFull
-		}
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO project (id, name, invitation_id, anon_session_hash, expires_at, created_at)
 			 VALUES (?, ?, ?, ?, ?, ?)`,
@@ -320,19 +338,34 @@ func (db *DB) CreateOwnedProject(ctx context.Context, s Session, name string, no
 	return id, nil
 }
 
+// OwnedProject is one project of «Tus proyectos» (P1).
+type OwnedProject struct {
+	Project
+	// LastActivity is its last event's moment, or its creation with none yet.
+	// [EL DISEÑO NO LO DICE]: the row says «último evento» and a new project
+	// has none; the smallest choice is its creation.
+	LastActivity string
+	// NoAccount: it belongs to a session without an account, so it goes with
+	// that session (B3-18, 2-nov).
+	NoAccount bool
+}
+
 // ListOwnedProjects returns the session's projects, newest first (P1).
-func (db *DB) ListOwnedProjects(ctx context.Context, s Session) ([]Project, error) {
+func (db *DB) ListOwnedProjects(ctx context.Context, s Session) ([]OwnedProject, error) {
 	rows, err := db.Reader.QueryContext(ctx,
-		`SELECT id, COALESCE(name, ''), created_at FROM project WHERE `+ownedBy+`
+		`SELECT id, COALESCE(name, ''), created_at,
+		        COALESCE((SELECT MAX(e.created_at) FROM event e WHERE e.project_id = project.id), created_at),
+		        account_id IS NULL
+		 FROM project WHERE `+ownedBy+`
 		 ORDER BY created_at DESC, id`, s.AccountID, s.IDHash)
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	out := []Project{}
+	out := []OwnedProject{}
 	for rows.Next() {
-		var p Project
-		if err := rows.Scan(&p.ID, &p.Name, &p.CreatedAt); err != nil {
+		var p OwnedProject
+		if err := rows.Scan(&p.ID, &p.Name, &p.CreatedAt, &p.LastActivity, &p.NoAccount); err != nil {
 			return nil, fmt.Errorf("list projects: %w", err)
 		}
 		out = append(out, p)
@@ -341,6 +374,17 @@ func (db *DB) ListOwnedProjects(ctx context.Context, s Session) ([]Project, erro
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
 	return out, nil
+}
+
+// SessionNames returns the session's username, empty without an account, and
+// its link's label (E.6). Never the link's token nor its hash.
+func (db *DB) SessionNames(ctx context.Context, s Session) (username, linkLabel string, err error) {
+	if err := db.Reader.QueryRowContext(ctx,
+		`SELECT COALESCE((SELECT a.username FROM account a WHERE a.id = ?), ''), i.label
+		 FROM invitation i WHERE i.id = ?`, s.AccountID, s.InvitationID).Scan(&username, &linkLabel); err != nil {
+		return "", "", fmt.Errorf("session names: %w", err)
+	}
+	return username, linkLabel, nil
 }
 
 // PurgeExpired is the hourly cleanup (B-88): it deletes the projects

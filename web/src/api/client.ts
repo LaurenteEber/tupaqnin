@@ -11,7 +11,8 @@ import type {
   EditorResponse,
   CreateProjectResponse,
   PostMessageResponse,
-  ProjectView,
+  ProjectLine,
+  SessionView,
   RequestView,
   SectionResponse,
   SectionRoleView,
@@ -39,8 +40,9 @@ async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Throws the code that refused it (home.cannot_create.<code>).
 export async function createProject(template = ""): Promise<CreateProjectResponse> {
-  return json(
+  return coded(
     await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,8 +51,48 @@ export async function createProject(template = ""): Promise<CreateProjectRespons
   );
 }
 
-export async function listProjects(): Promise<ProjectView[]> {
+export async function listProjects(): Promise<ProjectLine[]> {
   return json(await fetch("/api/projects"));
+}
+
+// Who you are for the home (E.6): null is no session, which is an answer and
+// not a failure.
+export async function getSession(): Promise<SessionView | null> {
+  const res = await fetch("/api/session");
+  if (res.status === 401) return null;
+  return json(res);
+}
+
+// A refusal of the account's forms: its message is Go's code, and a 429 carries
+// the wait Go asks for.
+export class AccountError extends Error {
+  retryAfterSeconds: number;
+  constructor(code: string, retryAfterSeconds: number) {
+    super(code);
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+async function accountForm(path: string, username: string, password: string): Promise<void> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) throw new AccountError(await errorCode(res), Number(res.headers.get("Retry-After")) || 0);
+}
+
+export function register(username: string, password: string): Promise<void> {
+  return accountForm("/api/account/register", username, password);
+}
+
+export function login(username: string, password: string): Promise<void> {
+  return accountForm("/api/account/login", username, password);
+}
+
+export async function logout(): Promise<void> {
+  const res = await fetch("/api/account/logout", { method: "POST" });
+  if (!res.ok) throw new AccountError(await errorCode(res), 0);
 }
 
 // U-1: you rename the project the understanding titled; Go refuses a

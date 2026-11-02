@@ -321,21 +321,6 @@ func (s *Server) createFromTemplate(r *http.Request) (string, int, string) {
 	return id, http.StatusCreated, ""
 }
 
-// GET /api/projects → only your projects (B3-18, P1).
-func (s *Server) listProjects(w http.ResponseWriter, r *http.Request) {
-	sess, _ := r.Context().Value(sessionKey{}).(store.Session)
-	projects, err := s.db.ListOwnedProjects(r.Context(), sess)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal")
-		return
-	}
-	views := make([]ProjectView, 0, len(projects))
-	for _, p := range projects {
-		views = append(views, ProjectView{ProjectID: p.ID, Name: p.Name, CreatedAt: p.CreatedAt})
-	}
-	writeJSON(w, http.StatusOK, views)
-}
-
 // GET /api/projects/{projectID}/request
 func (s *Server) getRequest(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
