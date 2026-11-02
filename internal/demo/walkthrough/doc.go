@@ -8,5 +8,8 @@
 // the slice-2 stretch of case 5 against Meta in make demo-check. Slice 3
 // adds the round of case 5 and the citation that does not exist, and
 // completes the scripts 4B and 6B (backlog-r3 3.7); make demo-check runs
-// that round against Meta and the real OpenAlex.
+// that round against Meta and the real OpenAlex. Slice 4 adds the full scripts of
+// cases 7 and 9 and the stretches of 3B, 6B, 8B and 10B that the earlier walkthroughs
+// cut (backlog-r4 4.6), each asserting the brake of its row in the table «Tabla de
+// frenos de la 4.6»; make demo-check runs a stretch of case 9 against Meta.
 package walkthrough

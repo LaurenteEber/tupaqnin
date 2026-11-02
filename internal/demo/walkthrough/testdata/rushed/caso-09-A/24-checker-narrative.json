@@ -1,0 +1,20 @@
+{
+  "turn_kind": "checker",
+  "script": "F16: the narrative of the process",
+  "when": "Tras descartar el plan mensual, la segunda decisión",
+  "output": {
+    "probes": [],
+    "candidates": [
+      {
+        "type": "process_narrative",
+        "section": "sec-1",
+        "new_passage": "Tras descartar el plan mensual, la segunda decisión fija la comisión, según dec-2.",
+        "clashing_passage": null,
+        "protected": null,
+        "citation": null,
+        "question": null,
+        "options": null
+      }
+    ]
+  }
+}

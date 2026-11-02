@@ -1,0 +1,18 @@
+{
+  "turn_kind": "understanding",
+  "script": "Earlier session (seed): Entendí: the environmental impact study for the authority",
+  "output": {
+    "understood": "Preparo el estudio de impacto ambiental de la planta para la autoridad, comparando con el estándar nacional.",
+    "project_title": "Estudio de impacto ambiental",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "Un valor comparado con el límite nacional de la categoría del río.", "does_not_count": "Un valor comparado con una guía de la OMS."}
+    ],
+    "material_readings": [{"case": "Tu procesamiento cuenta las mediciones que superan cada límite."}],
+    "evidence_required": {"value": false, "why": "Sale de tu monitoreo."},
+    "sections": [
+      {"id": "new-1", "title": "Calidad del río receptor", "role": "other", "focus": "Cuánto supera el río sus límites.", "evidence_from": "Tu monitoreo."},
+      {"id": "new-2", "title": "Área de influencia", "role": "other", "focus": "Qué tramo del río alcanza la planta.", "evidence_from": "Tu monitoreo."},
+      {"id": "new-3", "title": "Conclusiones", "role": "conclusion", "focus": "Si la planta es aceptable.", "evidence_from": "La calidad del río."}
+    ]
+  }
+}

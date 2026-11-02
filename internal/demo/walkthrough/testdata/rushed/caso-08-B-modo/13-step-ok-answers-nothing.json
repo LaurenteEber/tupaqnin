@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F15: «ok, lo vemos en la reunión»: «ok» does not answer the open questions; nothing changes",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: respondo sin editar.",
+    "closing_risk": "none",
+    "reply": "«ok» no responde las preguntas abiertas.",
+    "note": "No edité nada."
+  }
+}

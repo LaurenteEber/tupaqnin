@@ -1,0 +1,13 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F9: the chain stops with her question open",
+  "when": "retomemos donde quedamos",
+  "output": {
+    "answer": "Tu cambio en Grau toca otras secciones; hay preguntas abiertas.",
+    "done": [
+      "Revisé el estacionamiento."
+    ],
+    "next": "Decidir lo de Grau.",
+    "unseen": []
+  }
+}

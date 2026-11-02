@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F12: the principal sees its proposal open in «lo que cambió»",
+  "when": "is open: the person accepts or discards it",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: tu edición rige.",
+    "closing_risk": "none",
+    "note": "Veo mi propuesta abierta."
+  }
+}

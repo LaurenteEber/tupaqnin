@@ -1,0 +1,21 @@
+{
+  "turn_kind": "checker",
+  "script": "Earlier session (seed): the checker finds the comparison with the international guide contradicts her confirmed criterion (2.3, 2.4 · estados §4)",
+  "when": "supera la guía internacional recreativa",
+  "output": {
+    "probes": [
+      {"protected": "crit-1", "verdict": "contradicts", "passage": "El 31 % de las mediciones aguas abajo supera la guía internacional recreativa."}
+    ],
+    "candidates": [
+      {"type": "contradiction", "section": "sec-1",
+       "new_passage": "El 31 % de las mediciones aguas abajo supera la guía internacional recreativa.",
+       "clashing_passage": "Comparar con el estándar nacional, no con la OMS.",
+       "protected": "crit-1", "citation": null,
+       "question": "La calidad del río se compara con la guía internacional recreativa, y tu criterio pide el estándar nacional: ¿con cuál comparamos?",
+       "options": [
+         {"option": "Con el estándar nacional", "contrast": "la referencia que pide tu criterio", "consequence": "la cifra se recalcula con el límite nacional", "risk": "la cifra cambia en todo el estudio"},
+         {"option": "Con la guía internacional", "contrast": "una referencia más exigente", "consequence": "se mantiene la cifra actual", "risk": "la autoridad observa toda referencia no nacional"}
+       ]}
+    ]
+  }
+}

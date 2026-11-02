@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "F14: the chain stops at her question",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: espero tu respuesta.",
+    "closing_risk": "none",
+    "note": "Nada nuevo."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F17: «Evaluación» has no pendings: it proposes signing",
+  "output": {
+    "answer": "Evaluación sin pendientes: propongo firmar.",
+    "done": [
+      "Recalculé a 12 años con tasa nominal."
+    ],
+    "next": "Firmar Evaluación.",
+    "unseen": []
+  }
+}

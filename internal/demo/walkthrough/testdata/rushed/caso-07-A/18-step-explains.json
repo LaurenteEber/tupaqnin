@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F14: «¿18 %? ¿De dónde sale?»: the principal explains without editing",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: respondo sin editar.",
+    "closing_risk": "none",
+    "reply": "Sale de los 1 000 escenarios del cálculo; lo que más pesa es el precio de la red.",
+    "note": "Expliqué sin editar."
+  }
+}

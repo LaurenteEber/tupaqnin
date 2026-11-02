@@ -1,0 +1,31 @@
+{
+  "turn_kind": "step",
+  "input_tokens": 640000,
+  "script": "F8: 1 000 scenarios: the calculation enters as a source (F-1); this step's call crosses the 60 % of the window (B-86)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: agrego la sensibilidad.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-4",
+        "base_version": 3,
+        "anchor": "La producción se estima con 6,2 kWh por metro cuadrado al día.",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Sobre 1 000 escenarios a 12 años con tasa real del 10 %, el valor actual neto sale negativo en el 18 % de los escenarios."
+      }
+    ],
+    "citations": [
+      {
+        "claim_anchor": "el valor actual neto sale negativo en el 18 %",
+        "source_id": "src-5",
+        "passage": "Sobre 1 000 escenarios a 12 años con tasa real del 10 %, el valor actual neto sale negativo en el 18 % de los escenarios."
+      }
+    ],
+    "used_sources": [
+      "src-5"
+    ],
+    "note": "La sensibilidad viene del cálculo."
+  }
+}

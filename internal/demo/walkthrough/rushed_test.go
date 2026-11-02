@@ -49,9 +49,12 @@ type handMade struct {
 	When string `json:"when,omitempty"`
 	// Part, on a reader's output: the part of the round it answers, so two
 	// readers running at once each get theirs (0: whichever calls first).
-	Part      int             `json:"part,omitempty"`
-	Output    json.RawMessage `json:"output,omitempty"`
-	ToolCalls []struct {
+	Part int `json:"part,omitempty"`
+	// InputTokens is what the call reports it read (B-86): the step of 7A F8
+	// crosses the threshold with it.
+	InputTokens int             `json:"input_tokens,omitempty"`
+	Output      json.RawMessage `json:"output,omitempty"`
+	ToolCalls   []struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
 	} `json:"tool_calls,omitempty"`
@@ -143,7 +146,7 @@ func messageItem(text string) json.RawMessage {
 
 // fixture turns a hand-made output into the fake's recording for req.
 func (s *scripted) fixture(hm handMade, req provider.Request) (provider.Fixture, error) {
-	fx := provider.Fixture{Name: hm.name, TurnKind: hm.TurnKind}
+	fx := provider.Fixture{Name: hm.name, TurnKind: hm.TurnKind, Usage: provider.Usage{InputTokens: hm.InputTokens}}
 	if len(hm.ToolCalls) > 0 {
 		for i, c := range hm.ToolCalls {
 			s.calls++
@@ -173,6 +176,20 @@ func (s *scripted) fixture(hm handMade, req provider.Request) (provider.Fixture,
 			}
 		}
 		out, _ = json.Marshal(judged)
+	}
+	if hm.TurnKind == provider.TurnStopReport {
+		// The decisions the report lists are the app's (B-41): one plain line
+		// for each, as the fake's plain report; the rest is the script's.
+		var report map[string]any
+		if err := json.Unmarshal(out, &report); err != nil {
+			return fx, fmt.Errorf("%s: %w", hm.name, err)
+		}
+		unseen := make([]map[string]any, 0, len(req.ReportDecisions))
+		for _, d := range req.ReportDecisions {
+			unseen = append(unseen, map[string]any{"decision": d.Label, "gist": "Decision " + d.Label + ".", "sections": d.Sections})
+		}
+		report["unseen"] = unseen
+		out, _ = json.Marshal(report)
 	}
 	var compact bytes.Buffer
 	if err := json.Compact(&compact, out); err != nil {

@@ -1,0 +1,49 @@
+{
+  "turn_kind": "checker",
+  "script": "F8 and F11: the package is a doubtful case of «pago por uso»; «revisión del martes» is process narrative",
+  "when": "paquete prepagado de reservas",
+  "output": {
+    "probes": [
+      {
+        "protected": "crit-1",
+        "verdict": "doubt",
+        "passage": "Tras descartar el plan mensual en la revisión del martes, ofrecemos un paquete prepagado de reservas con descuento, que vence a los noventa días, según dec-1."
+      }
+    ],
+    "candidates": [
+      {
+        "type": "doubtful_term",
+        "section": "sec-1",
+        "new_passage": "Tras descartar el plan mensual en la revisión del martes, ofrecemos un paquete prepagado de reservas con descuento, que vence a los noventa días, según dec-1.",
+        "clashing_passage": "Pago por uso, nada de suscripción.",
+        "protected": "crit-1",
+        "citation": null,
+        "question": "¿Un paquete prepagado que vence a los noventa días cuenta como pago por uso?",
+        "options": [
+          {
+            "option": "No cuenta: se retira el paquete",
+            "contrast": "se paga antes de usar",
+            "consequence": "el modelo queda solo con comisión por reserva",
+            "risk": "se pierde una opción para los negocios grandes"
+          },
+          {
+            "option": "Cuenta como pago por uso",
+            "contrast": "se paga por reservas, aunque por adelantado",
+            "consequence": "el paquete queda en la especificación",
+            "risk": "los locales que cierran en temporada baja pierden lo prepagado"
+          }
+        ]
+      },
+      {
+        "type": "process_narrative",
+        "section": "sec-1",
+        "new_passage": "Tras descartar el plan mensual en la revisión del martes, ofrecemos un paquete prepagado de reservas con descuento, que vence a los noventa días, según dec-1.",
+        "clashing_passage": null,
+        "protected": null,
+        "citation": null,
+        "question": null,
+        "options": null
+      }
+    ]
+  }
+}

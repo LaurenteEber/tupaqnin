@@ -1,0 +1,27 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F3: the judge's three flaws: short columns, the water tank, the cost",
+  "output": {
+    "flaws": [
+      {
+        "section": "sec-2",
+        "passage": "Se refuerza por etapas, un pabellón a la vez, mientras el colegio sigue funcionando.",
+        "risk": "conclusions_and_recommendations",
+        "scenario": "1. En el pabellón C los muros bajos de las ventanas dejan columnas cortas. 2. La propuesta y el diagnóstico no las consideran."
+      },
+      {
+        "section": "sec-2",
+        "passage": "Se refuerza por etapas, un pabellón a la vez, mientras el colegio sigue funcionando.",
+        "risk": "figures_and_calculations",
+        "scenario": "1. El tanque de agua de la azotea no está en el modelo. 2. Las cargas del diagnóstico quedan cortas."
+      },
+      {
+        "section": "sec-2",
+        "passage": "La propuesta se presenta a los padres con el refuerzo de cada pabellón.",
+        "risk": "third_party_effect",
+        "scenario": "1. Reforzar por etapas cuesta cerca de un 30 % más y dura el doble. 2. Los padres no lo ven en la propuesta."
+      }
+    ],
+    "recheck": []
+  }
+}

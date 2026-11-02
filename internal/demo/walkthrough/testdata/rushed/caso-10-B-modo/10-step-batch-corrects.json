@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F12: the one correction: 12 %; it applies: the section is not signed",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Corrijo lo que señaló el juez.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-3",
+        "base_version": 4,
+        "anchor": "Aguas abajo, el 31 % de las mediciones supera la referencia.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "Aguas abajo, el 12 % de las mediciones supera la referencia."
+      }
+    ],
+    "used_decisions": [
+      "dec-3"
+    ],
+    "note": "Corregí la cifra de Conclusiones."
+  }
+}

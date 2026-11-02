@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F10: «Recomendación» depends on the horizon: the question of F5 blocks it too; no new one",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo la recomendación con las dos variantes · Riesgo: conclusiones.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-6",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "La recomendación depende del horizonte que elijas para la planta tras el cierre de la mina.\n\nCon la variante A conviene seguir con la red si el precio de la red no sube.\n\nCon la variante B conviene construir si se puede vender energía a la red."
+      }
+    ],
+    "used_decisions": [
+      "dec-2"
+    ],
+    "note": "La recomendación espera tu horizonte."
+  }
+}

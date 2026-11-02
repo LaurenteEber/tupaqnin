@@ -1,0 +1,12 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F8: only hers is left; the chain's stop before her answer",
+  "output": {
+    "answer": "Falta tu comisión y lo del plan mensual.",
+    "done": [
+      "La investigación y las cinco secciones."
+    ],
+    "next": "Elegir la comisión.",
+    "unseen": []
+  }
+}

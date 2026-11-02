@@ -1,0 +1,20 @@
+{
+  "turn_kind": "signoff",
+  "script": "F18: Wonder coincides; the origin question waits",
+  "output": {
+    "decisions": [
+      {
+        "decision": "dec-2",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      }
+    ],
+    "origin_question": {
+      "question": "¿De qué depende la elección de comisión?",
+      "answer": null
+    },
+    "previous_case": null,
+    "new_case": null
+  }
+}

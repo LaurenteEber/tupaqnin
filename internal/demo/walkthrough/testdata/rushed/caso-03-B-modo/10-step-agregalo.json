@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F14: «agrégalo»: it names a contract, not the rule; the agent does not touch it and says it contradicts D-a",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: respondo sin editar.",
+    "closing_risk": "none",
+    "reply": "Agregar el 47 contradice la decisión de contar solo terminación; esa decisión la revisas tú.",
+    "note": "No edité nada."
+  }
+}

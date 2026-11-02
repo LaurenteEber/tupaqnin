@@ -1,0 +1,36 @@
+{
+  "turn_kind": "step",
+  "script": "F11: the agent adjusts the two other sections with labelled variants and changes «Trazo», which is in «cambió»: that part stays a proposal (B-73 b)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: ajusto las secciones afectadas con variantes rotuladas, sin elegir.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 4,
+        "anchor": "En Av. Grau la ciclovía va con un carril por sentido, uno a cada lado.",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "En el paradero principal, una isla de paradero dejaría libre el carril sur."
+      },
+      {
+        "section_id": "sec-2",
+        "base_version": 3,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Variante (a): se quitan las plazas de la cuadra 3.\n\nVariante (b): carril compartido en la cuadra 3."
+      },
+      {
+        "section_id": "sec-3",
+        "base_version": 2,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Variante (a): los buses cruzan el carril sur.\n\nVariante (b): isla de paradero, si la vereda alcanza."
+      }
+    ],
+    "note": "Dejé variantes sin elegir."
+  }
+}

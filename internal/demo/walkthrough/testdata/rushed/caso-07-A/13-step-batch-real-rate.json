@@ -1,0 +1,39 @@
+{
+  "turn_kind": "step",
+  "script": "F9: one correction: the principal declares «tasa real» as a decision; it covers a figure: critical card; 18 % holds",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Corrijo lo que señaló el juez.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-4",
+        "base_version": 5,
+        "anchor": "Los precios nominales de la energía se descuentan a la tasa de tu criterio.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "Los precios se expresan en términos reales y se descuentan a una tasa real del 10 %."
+      }
+    ],
+    "new_decisions": [
+      {
+        "id": "new-1",
+        "statement": "Leer el 10 % de tu criterio como tasa real.",
+        "instead_of": "Leerlo como tasa nominal.",
+        "would_choose_if": "La política de la empresa fijara una tasa nominal.",
+        "assumption": true,
+        "used_in_sections": [
+          "sec-4",
+          "sec-6"
+        ]
+      }
+    ],
+    "figure_links": [
+      {
+        "figure_anchor": "una tasa real del 10 %",
+        "decision_id": "new-1"
+      }
+    ],
+    "note": "Declaré la tasa real; el 18 % se mantiene."
+  }
+}

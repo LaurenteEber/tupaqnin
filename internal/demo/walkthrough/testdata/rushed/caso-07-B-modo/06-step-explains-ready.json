@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F12: «¿ya está listo para firmar?»: the agent explains without touching the document",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: respondo sin editar.",
+    "closing_risk": "none",
+    "reply": "No. Evaluación, Valor después del cierre y Recomendación tienen algo por aclarar y no se pueden firmar. Contexto, Demanda e Inversión sí, si las explicas.",
+    "note": "Expliqué sin editar."
+  }
+}

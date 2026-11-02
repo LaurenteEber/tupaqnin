@@ -1,0 +1,13 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F13: only what she decides is left; the report names what to sign next",
+  "output": {
+    "answer": "El 12 % ya está en todo el estudio; falta el parámetro sin valor nacional.",
+    "done": [
+      "Conclusiones actualizadas al 12 %."
+    ],
+    "next": "siguiente: firmar «Área de influencia», sin pendientes.",
+    "unseen": []
+  },
+  "when": "resulta aceptable con tratamiento"
+}

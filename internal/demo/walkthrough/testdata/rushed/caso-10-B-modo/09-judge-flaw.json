@@ -1,0 +1,16 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F12: the judge's flaw: «Conclusiones» still cites 31 %",
+  "when": "resulta aceptable con tratamiento",
+  "output": {
+    "flaws": [
+      {
+        "section": "sec-3",
+        "passage": "Aguas abajo, el 31 % de las mediciones supera la referencia.",
+        "risk": "figures_and_calculations",
+        "scenario": "1. La autoridad compara la cifra con la de la calidad del río. 2. Encuentra 31 % en un lado y 12 % en otro y observa el estudio."
+      }
+    ],
+    "recheck": []
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F12: only what is Diego's is left; the fixed report",
+  "output": {
+    "answer": "Depende del horizonte: con 12 años, el valor actual neto sale negativo en el 18 % de los escenarios.",
+    "done": [
+      "El modelo y las seis secciones."
+    ],
+    "next": "siguiente: comparar con otras minas.",
+    "unseen": []
+  }
+}

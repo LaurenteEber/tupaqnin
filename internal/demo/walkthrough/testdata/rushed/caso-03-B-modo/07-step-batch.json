@@ -1,0 +1,38 @@
+{
+  "turn_kind": "step",
+  "script": "F10: the one correction: each contract's rate, declared as D-b",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Corrijo lo que señaló el juez.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-2",
+        "base_version": 2,
+        "anchor": "El comprador podría perder contratos por una exposición total de US$ 14,8 M, con el tipo de cambio de hoy.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "El comprador podría perder contratos por una exposición total de US$ 15,1 M, con el tipo de cada contrato."
+      }
+    ],
+    "new_decisions": [
+      {
+        "id": "new-1",
+        "statement": "Convertir con el tipo de cambio de cada contrato.",
+        "instead_of": "Convertir con el tipo de hoy.",
+        "would_choose_if": "Los contratos fueran todos de la misma fecha.",
+        "assumption": false,
+        "used_in_sections": [
+          "sec-2"
+        ]
+      }
+    ],
+    "figure_links": [
+      {
+        "figure_anchor": "US$ 15,1 M",
+        "decision_id": "new-1"
+      }
+    ],
+    "note": "Corregí la conversión."
+  }
+}

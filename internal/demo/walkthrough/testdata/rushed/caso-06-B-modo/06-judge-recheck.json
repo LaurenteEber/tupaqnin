@@ -1,0 +1,19 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F6: the one recheck, on the current text of «Propuesta» and of signed «Diagnóstico», which the batch left a proposal on (hueco 4): (1) and (2) go on in «Diagnóstico» and each opens its «por aclarar»; (3) was discarded",
+  "output": {
+    "flaws": [],
+    "recheck": [
+      {
+        "flaw": 1,
+        "verdict": "still_open",
+        "passage": "Los pabellones son de concreto armado, con muros de albañilería entre columnas."
+      },
+      {
+        "flaw": 2,
+        "verdict": "still_open",
+        "passage": "Los pabellones son de concreto armado, con muros de albañilería entre columnas."
+      }
+    ]
+  }
+}

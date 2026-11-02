@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F7: the principal proposes the monthly plan of S/ 89, in a step of its own: nothing declares it, so the checker says it",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: propongo un plan mensual.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 2,
+        "anchor": "con una reserva media sobre unos S/ 35 el 4 % deja más.",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "\n\nUn plan mensual costaría S/ 89 para más de 200 reservas."
+      }
+    ],
+    "used_decisions": [
+      "dec-1"
+    ],
+    "note": "Propongo un plan mensual."
+  }
+}

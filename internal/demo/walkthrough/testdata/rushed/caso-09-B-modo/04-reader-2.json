@@ -1,0 +1,47 @@
+{
+  "turn_kind": "reader",
+  "part": 2,
+  "script": "F5: the second reader, four apps",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "Agendame cobra 3,5 % más S/ 0,20 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "Hora Libre cobra 2,5 % más S/ 0,40 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "ReservaClub cobra 3 % más S/ 0,50 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "Slotea cobra 2,2 % más S/ 0,70 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "src-1"
+    ]
+  }
+}

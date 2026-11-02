@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "F10: the chain stops; the stale sections wait",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: espero.",
+    "closing_risk": "none",
+    "note": "Nada nuevo."
+  }
+}

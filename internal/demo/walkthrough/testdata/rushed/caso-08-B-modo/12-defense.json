@@ -1,0 +1,21 @@
+{
+  "turn_kind": "judge_defense",
+  "script": "F13: the team's likely questions, with the addressee in mind",
+  "output": {
+    "audience_questions": [
+      {
+        "question": "¿Cuántas plazas se pierden y dónde?",
+        "section": "sec-1"
+      },
+      {
+        "question": "¿Qué pasa en el paradero si la vereda no alcanza?",
+        "section": "sec-1"
+      },
+      {
+        "question": "¿Por qué no se usa Av. Comercio?",
+        "section": "sec-1"
+      }
+    ],
+    "not_covered": []
+  }
+}

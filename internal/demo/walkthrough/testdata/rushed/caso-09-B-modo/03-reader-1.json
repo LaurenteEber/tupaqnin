@@ -1,0 +1,47 @@
+{
+  "turn_kind": "reader",
+  "part": 1,
+  "script": "F5: the first reader, four apps",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "Reservia cobra 2,5 % más S/ 0,50 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "Canchero cobra 3 % más S/ 0,40 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "TurnoYa cobra 2 % más S/ 0,60 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "Pistas cobra 2,8 % más S/ 0,30 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "src-1"
+    ]
+  }
+}

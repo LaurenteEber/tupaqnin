@@ -1,0 +1,20 @@
+{
+  "name": "Especificación de pagos",
+  "text": "Spec de pagos para ingeniería, 5 secciones. Pago por uso, nada de suscripción. Mis clientes son locales chicos, cierran en temporada baja y odian los cargos fijos; la mitad de reservas cuesta S/ 15–20. No sé cómo cobran otras apps.",
+  "audience": "El equipo de ingeniería de la empresa.",
+  "criteria": [
+    "Pago por uso, nada de suscripción."
+  ],
+  "premise": "",
+  "exploratory": true,
+  "sources": [
+    {
+      "filename": "apps-de-reservas.md",
+      "kind": "file"
+    },
+    {
+      "filename": "calculos-comision.md",
+      "kind": "calculation"
+    }
+  ]
+}

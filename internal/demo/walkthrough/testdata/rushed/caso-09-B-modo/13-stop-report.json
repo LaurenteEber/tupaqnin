@@ -1,0 +1,13 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F13: the fixed report",
+  "output": {
+    "answer": "Falta elegir el modelo y decidir el paquete.",
+    "done": [
+      "La investigación y las cinco secciones."
+    ],
+    "next": "Decidir el modelo y el paquete.",
+    "unseen": []
+  },
+  "when": "Solo queda lo que ella decide"
+}

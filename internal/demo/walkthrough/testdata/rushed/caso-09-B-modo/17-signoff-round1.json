@@ -1,0 +1,20 @@
+{
+  "turn_kind": "signoff",
+  "script": "F16: Wonder: the mid-high bookings are missing, without saying the threshold",
+  "output": {
+    "decisions": [
+      {
+        "decision": "dec-1",
+        "verdict": "missing_in_explanation",
+        "missing": "Qué pasa con los negocios de reserva media alta.",
+        "passage": null
+      }
+    ],
+    "origin_question": {
+      "question": "¿De dónde sale que la mitad de las reservas cuesta S/ 15–20?",
+      "answer": null
+    },
+    "previous_case": null,
+    "new_case": null
+  }
+}

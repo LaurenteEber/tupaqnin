@@ -1,0 +1,26 @@
+{
+  "turn_kind": "signoff",
+  "script": "F18: Wonder: it coincides; the origin question waits",
+  "output": {
+    "decisions": [
+      {
+        "decision": "dec-1",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      },
+      {
+        "decision": "dec-3",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      }
+    ],
+    "origin_question": {
+      "question": "¿Por qué satelital?",
+      "answer": null
+    },
+    "previous_case": null,
+    "new_case": null
+  }
+}

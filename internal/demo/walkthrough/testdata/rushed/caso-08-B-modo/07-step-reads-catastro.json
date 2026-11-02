@@ -1,0 +1,56 @@
+{
+  "turn_kind": "step",
+  "script": "F7–F9: the agent reads «calle comercial» by the cadastre, and leaves the a/b/c of Av. Grau as her one question",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: reviso el estacionamiento con tu cambio de Av. Grau.",
+    "closing_risk": "contradicts_confirmed",
+    "new_text": [
+      {
+        "section_id": "sec-2",
+        "base_version": 2,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "La tercera cuadra de Av. Grau es de vivienda según el catastro, así que no es calle comercial y quitar sus plazas no toca tu criterio."
+      }
+    ],
+    "proposed_open_questions": [
+      {
+        "id": "new-1",
+        "question": "¿Qué hacemos con tu cambio de Av. Grau?",
+        "options": [
+          {
+            "option": "(a) Mantener el cambio y quitar las plazas",
+            "contrast": "la cuadra pierde plazas",
+            "consequence": "el carril queda separado",
+            "risk": "los comerciantes lo objetan"
+          },
+          {
+            "option": "(b) Mantener el cambio con carril compartido",
+            "contrast": "no se quitan plazas",
+            "consequence": "deja de servir si pasan muchas bicicletas",
+            "risk": "los autos pueden ir más rápido"
+          },
+          {
+            "option": "(c) Volver a la bidireccional norte",
+            "contrast": "el paradero queda libre",
+            "consequence": "choca con el giro de buses",
+            "risk": "la gerencia no lo acepta"
+          }
+        ],
+        "depends_on": [
+          "sec-1",
+          "sec-2",
+          "sec-3"
+        ],
+        "variants": [
+          "(a) quitar plazas",
+          "(b) carril compartido",
+          "(c) bidireccional norte"
+        ]
+      }
+    ],
+    "note": "Leí la cuadra con el catastro; lo de Grau lo decides tú."
+  }
+}

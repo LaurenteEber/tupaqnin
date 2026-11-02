@@ -1,0 +1,12 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F11: only what Rosa decides is left",
+  "output": {
+    "answer": "La exposición es de US$ 15,1 M; faltan tus decisiones.",
+    "done": [
+      "La tabla y la exposición."
+    ],
+    "next": "Decidir el alcance, la conversión y los contratos sin leer.",
+    "unseen": []
+  }
+}

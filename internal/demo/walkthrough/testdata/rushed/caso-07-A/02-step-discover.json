@@ -1,0 +1,58 @@
+{
+  "turn_kind": "step",
+  "script": "F4: discover · figures · delegates in 3 readers: independent parts (plan, curve, quotes); nobody answers what he expects",
+  "output": {
+    "stretch": "discover",
+    "triage_line": "Tramo: descubrir · Riesgo: cifras y cálculos · Delego en 3 lectores: partes independientes.",
+    "closing_risk": "none",
+    "research_request": {
+      "question": "¿Qué dicen el plan, la curva y las cotizaciones para el modelo?",
+      "doubt": "El horizonte, la demanda y la inversión.",
+      "delegation_reason": "independent_parts",
+      "scope": "Tus tres documentos.",
+      "parts": [
+        {
+          "question": "El plan de mina.",
+          "sources": [
+            {
+              "source_id": "src-1",
+              "what_for": "El horizonte"
+            }
+          ],
+          "where": [
+            "project"
+          ],
+          "queries": []
+        },
+        {
+          "question": "La curva de consumo.",
+          "sources": [
+            {
+              "source_id": "src-2",
+              "what_for": "La demanda"
+            }
+          ],
+          "where": [
+            "project"
+          ],
+          "queries": []
+        },
+        {
+          "question": "Las cotizaciones.",
+          "sources": [
+            {
+              "source_id": "src-3",
+              "what_for": "La inversión"
+            }
+          ],
+          "where": [
+            "project"
+          ],
+          "queries": []
+        }
+      ],
+      "references": []
+    },
+    "note": "Delego la lectura de tus documentos."
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "turn_kind": "step",
+  "script": "F13–F14: her «no»: the step retires the paragraph, on a base_version with her edit; what the business sees is hers: one question",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: retiro el paquete.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 7,
+        "anchor": "El paquete prepagado trae 10 reservas, con 15 % de descuento, y vence a los 90 días.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "No hay paquetes prepagados."
+      }
+    ],
+    "used_decisions": [
+      "dec-2"
+    ],
+    "proposed_open_questions": [
+      {
+        "id": "new-1",
+        "question": "¿Qué se le muestra al negocio?",
+        "options": [
+          {
+            "option": "(a) El desglose",
+            "contrast": "transparente",
+            "consequence": "el cargo fijo se ve",
+            "risk": "reclamos por el cargo"
+          },
+          {
+            "option": "(b) Solo el total",
+            "contrast": "más simple",
+            "consequence": "menos claro al conciliar",
+            "risk": "reclamos al conciliar"
+          }
+        ],
+        "depends_on": [
+          "sec-1"
+        ]
+      }
+    ],
+    "note": "Retiré el paquete."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F17: the pendings the app computed: the principal rewrites what is left, for engineering",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: limpio el código y el relato.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 10,
+        "anchor": "Tras descartar el plan mensual, la decisión de comisión fija la comisión, según dec-2.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "La comisión queda fija para todos los locales."
+      }
+    ],
+    "used_decisions": [
+      "dec-2"
+    ],
+    "note": "Limpié el texto."
+  }
+}

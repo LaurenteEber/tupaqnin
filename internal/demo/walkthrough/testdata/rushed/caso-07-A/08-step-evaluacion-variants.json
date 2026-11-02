@@ -1,0 +1,20 @@
+{
+  "turn_kind": "step",
+  "script": "F6: «Evaluación», which depends on the horizon, runs both labelled variants without choosing",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: evalúo los dos horizontes, rotulados.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-4",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Variante A, hasta el cierre: la planta se paga en parte.\n\nVariante B, vida completa: la planta se paga con la venta a la red."
+      }
+    ],
+    "note": "Corrí los dos horizontes."
+  }
+}

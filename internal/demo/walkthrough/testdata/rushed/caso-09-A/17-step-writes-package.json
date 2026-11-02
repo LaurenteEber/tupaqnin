@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F11: the agent reads C1 as compatible with a prepaid package and writes the paragraph",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: agrego el paquete prepagado.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 5,
+        "anchor": "La comisión es de 2,5 % más S/ 0,50 por reserva.",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "\n\nEl paquete prepagado trae 10 reservas, con 15 % de descuento, y vence a los 90 días."
+      }
+    ],
+    "used_decisions": [
+      "dec-2"
+    ],
+    "note": "Leí tu criterio como compatible con un paquete."
+  }
+}

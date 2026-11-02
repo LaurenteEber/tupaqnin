@@ -1,0 +1,13 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F15: after retiring the package",
+  "when": "Retiré el paquete",
+  "output": {
+    "answer": "El modelo está listo para firmar.",
+    "done": [
+      "Retiré el paquete."
+    ],
+    "next": "Firmar el modelo de cobro.",
+    "unseen": []
+  }
+}

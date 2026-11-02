@@ -1,0 +1,21 @@
+{
+  "turn_kind": "judge_defense",
+  "script": "F13: the likely questions of engineering",
+  "output": {
+    "audience_questions": [
+      {
+        "question": "¿Qué pasa con la tarifa fija en un reembolso?",
+        "section": "sec-1"
+      },
+      {
+        "question": "¿Quién mantiene las tarifas?",
+        "section": "sec-1"
+      },
+      {
+        "question": "¿Qué se muestra en la liquidación?",
+        "section": "sec-1"
+      }
+    ],
+    "not_covered": []
+  }
+}

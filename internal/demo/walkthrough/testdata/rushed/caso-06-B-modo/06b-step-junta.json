@@ -1,0 +1,38 @@
+{
+  "turn_kind": "step",
+  "script": "F7: two solutions for short columns: a joint or jacketing; the joint is critical: its card waits and the chain goes on",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Riesgo: ninguno.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-2",
+        "base_version": 4,
+        "anchor": "Se revisan las cargas de cada etapa.",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "En el pabellón C se separan los muros bajos de las columnas con una junta de 3 cm."
+      }
+    ],
+    "new_decisions": [
+      {
+        "id": "new-1",
+        "statement": "Usar una junta entre muro y columna en el pabellón C.",
+        "instead_of": "Encamisar las columnas.",
+        "would_choose_if": "A las columnas además les faltara resistencia.",
+        "assumption": false,
+        "used_in_sections": [
+          "sec-2"
+        ]
+      }
+    ],
+    "figure_links": [
+      {
+        "figure_anchor": "3 cm",
+        "decision_id": "new-1"
+      }
+    ],
+    "note": "Propongo la junta."
+  }
+}

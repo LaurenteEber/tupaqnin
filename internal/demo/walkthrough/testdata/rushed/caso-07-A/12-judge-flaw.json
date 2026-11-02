@@ -1,0 +1,16 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F9: the judge: nominal prices discounted at a real rate",
+  "when": "Los precios nominales de la energía se descuentan",
+  "output": {
+    "flaws": [
+      {
+        "section": "sec-4",
+        "passage": "Los precios nominales de la energía se descuentan a la tasa de tu criterio.",
+        "risk": "figures_and_calculations",
+        "scenario": "1. Los precios son nominales. 2. La tasa se lee como real. 3. El valor actual neto queda sobrestimado."
+      }
+    ],
+    "recheck": []
+  }
+}

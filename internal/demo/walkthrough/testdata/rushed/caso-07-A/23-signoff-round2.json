@@ -1,0 +1,26 @@
+{
+  "turn_kind": "signoff",
+  "script": "F18: «la estación no cubre años Niño»: it coincides",
+  "output": {
+    "decisions": [
+      {
+        "decision": "dec-1",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      },
+      {
+        "decision": "dec-3",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      }
+    ],
+    "origin_question": {
+      "question": "¿Por qué satelital?",
+      "answer": "answers"
+    },
+    "previous_case": null,
+    "new_case": null
+  }
+}

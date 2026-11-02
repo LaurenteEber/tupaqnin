@@ -1,0 +1,20 @@
+{
+  "turn_kind": "signoff",
+  "script": "F16: «Usa los puntos de monitoreo aguas abajo»: it coincides",
+  "output": {
+    "decisions": [
+      {
+        "decision": "dec-2",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      }
+    ],
+    "origin_question": {
+      "question": "¿De qué supuesto depende el límite aguas abajo?",
+      "answer": "answers"
+    },
+    "previous_case": null,
+    "new_case": null
+  }
+}

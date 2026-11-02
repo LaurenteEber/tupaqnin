@@ -1,0 +1,39 @@
+{
+  "turn_kind": "reader",
+  "part": 3,
+  "script": "F5: the third reader, three apps; the twelfth is the candidate (hueco 1)",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "MiCancha cobra 2,9 % más S/ 0,35 por reserva.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "Clubly ofrece un plan mensual para clubes grandes.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "Golazo ofrece un plan mensual para clubes grandes.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "src-1"
+    ]
+  }
+}

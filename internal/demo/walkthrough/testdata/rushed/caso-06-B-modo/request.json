@@ -1,0 +1,11 @@
+{
+  "name": "Refuerzo sísmico del colegio",
+  "text": "Evaluación sísmica del colegio, con la propuesta de refuerzo, para la dirección y la asociación de padres.",
+  "audience": "La dirección del colegio y la asociación de padres.",
+  "criteria": [],
+  "premise": "El colegio sigue funcionando durante la obra: se refuerza por etapas, un pabellón a la vez, en vez de cerrarlo un año; cerraría si un pabellón ocupado pudiera colapsar con un sismo moderado.",
+  "exploratory": false,
+  "sources": [
+    {"filename": "inspeccion-pabellones.md", "kind": "file"}
+  ]
+}

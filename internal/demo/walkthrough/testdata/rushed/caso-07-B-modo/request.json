@@ -1,0 +1,28 @@
+{
+  "name": "Planta solar para la mina",
+  "text": "Caso de negocio planta solar 40 MW para la mina, para el comité de inversiones. ¿Planta o seguir con la red? Tasa de descuento corporativa: 10 %, no se discute.",
+  "audience": "El comité de inversiones de la minera.",
+  "criteria": [
+    "Tasa de descuento corporativa: 10 %, no se discute."
+  ],
+  "premise": "",
+  "exploratory": false,
+  "sources": [
+    {
+      "filename": "plan-de-mina.md",
+      "kind": "file"
+    },
+    {
+      "filename": "irradiacion.md",
+      "kind": "file"
+    },
+    {
+      "filename": "cotizaciones.md",
+      "kind": "file"
+    },
+    {
+      "filename": "modelo-y-sensibilidad.md",
+      "kind": "calculation"
+    }
+  ]
+}

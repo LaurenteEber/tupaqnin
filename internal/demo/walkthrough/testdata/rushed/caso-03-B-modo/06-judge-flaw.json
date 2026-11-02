@@ -1,0 +1,16 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F10: the judge's flaw: the conversion uses today's rate and not each contract's",
+  "when": "con el tipo de cambio de hoy",
+  "output": {
+    "flaws": [
+      {
+        "section": "sec-2",
+        "passage": "El comprador podría perder contratos por una exposición total de US$ 14,8 M, con el tipo de cambio de hoy.",
+        "risk": "figures_and_calculations",
+        "scenario": "1. Los montos están en moneda original. 2. La suma usa el tipo de hoy y no el de cada contrato. 3. El comité ve una exposición que no es."
+      }
+    ],
+    "recheck": []
+  }
+}

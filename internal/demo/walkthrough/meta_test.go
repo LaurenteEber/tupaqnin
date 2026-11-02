@@ -258,3 +258,50 @@ func TestDemoCheckRound(t *testing.T) {
 	t.Logf("round stretch passed: %d findings to read, %d discarded, %d model calls, %.4f USD; inventory %+v",
 		entered, len(card.Discarded), len(rec.calls), spent, card.Coverage)
 }
+
+// TestDemoCheckCase9 runs a stretch of case 9 against Meta (backlog-r4 4.6; make
+// demo-check). Eber runs it. Profile B's request and material, submitted, and the
+// mode with its message: the chain runs on its own and the mode ends with its cause.
+// What the model writes is its own, so the stretch asserts the mode, not the text.
+// Her edit during a step goes in the browser check of the same row. A failing run
+// names the step and the model's last output.
+func TestDemoCheckCase9(t *testing.T) {
+	key := os.Getenv("META_API_KEY")
+	if key == "" || os.Getenv("TQ_PROVIDER") != "meta" {
+		t.Skip("demo-check needs TQ_PROVIDER=meta and META_API_KEY (make demo-check)")
+	}
+	rec := &recorder{}
+	w := newWalk(t, func(db *store.DB) (provider.Provider, memory.TokenCounter) {
+		meta := provider.NewMeta(key, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		rec.inner = meta
+		return rec, func(ctx context.Context, input []json.RawMessage) (int, error) {
+			return meta.CountTokens(ctx, provider.PrincipalModel, input)
+		}
+	}, rec.lastOutput)
+	ctx := context.Background()
+	r := &rushed{walk: w, name: "caso-09-B-modo", now: time.Now()}
+	r.open("F1")
+	w.do("F2", http.MethodPost, w.api("/request/submit"), nil, http.StatusAccepted, nil)
+	if err := w.starter.waitTurn(w.project); err != nil {
+		w.fail("F2", "%v", err)
+	}
+	const message = "Continúa hasta terminar"
+	if _, err := w.starter.runner.SetMode(ctx, w.project, graph.ModeRunToCompletion, message); err != nil {
+		w.fail("F3", "SetMode: %v", err)
+	}
+	if err := w.starter.waitTurn(w.project); err != nil {
+		w.fail("F12", "%v", err)
+	}
+	r.modeLiteral("F3", message)
+	mode, err := graph.CurrentMode(ctx, w.db, w.project)
+	if err != nil || mode.On() {
+		w.fail("F12", "the mode did not end: %+v (%v)", mode, err)
+	}
+	var report server.StopReportView
+	w.do("F12", http.MethodGet, w.api("/stop-report"), nil, http.StatusOK, &report)
+	if report.StopReason != "mode_finished" {
+		w.fail("F12", "report: %q cause %q, want mode_finished", report.StopReason, report.Cause)
+	}
+	spent, _ := w.db.ProjectSpend(ctx, w.project)
+	t.Logf("case 9 stretch passed: cause %s, %d model calls, %.4f USD", report.Cause, len(rec.calls), spent)
+}

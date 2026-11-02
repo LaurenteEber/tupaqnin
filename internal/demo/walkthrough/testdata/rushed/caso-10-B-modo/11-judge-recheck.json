@@ -1,0 +1,14 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F12: the one recheck: it passes",
+  "output": {
+    "flaws": [],
+    "recheck": [
+      {
+        "flaw": 1,
+        "verdict": "resolved",
+        "passage": null
+      }
+    ]
+  }
+}

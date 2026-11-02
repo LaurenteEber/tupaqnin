@@ -1,0 +1,39 @@
+{
+  "turn_kind": "checker",
+  "script": "F8: the monthly plan contradicts C1",
+  "when": "Un plan mensual costaría",
+  "output": {
+    "probes": [
+      {
+        "protected": "crit-1",
+        "verdict": "contradicts",
+        "passage": "Un plan mensual costaría S/ 89 para más de 200 reservas."
+      }
+    ],
+    "candidates": [
+      {
+        "type": "contradiction",
+        "section": "sec-1",
+        "new_passage": "Un plan mensual costaría S/ 89 para más de 200 reservas.",
+        "clashing_passage": "Pago por uso, nada de suscripción.",
+        "protected": "crit-1",
+        "citation": null,
+        "question": "El plan mensual contradice «nada de suscripción»: ¿lo sacamos?",
+        "options": [
+          {
+            "option": "Sacarlo",
+            "contrast": "sigue tu criterio",
+            "consequence": "solo comisión por reserva",
+            "risk": "menos opciones para clubes grandes"
+          },
+          {
+            "option": "Dejarlo",
+            "contrast": "una opción más",
+            "consequence": "contradice tu criterio",
+            "risk": "los locales odian los cargos fijos"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F16: the text says «según dec-n», «la segunda decisión» and «tras descartar…» (T-2: a real label)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: cierro el modelo.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 8,
+        "anchor": "No hay paquetes prepagados.",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "\n\nTras descartar el plan mensual, la segunda decisión fija la comisión, según dec-2."
+      }
+    ],
+    "used_decisions": [
+      "dec-2"
+    ],
+    "note": "Cerré el modelo."
+  }
+}

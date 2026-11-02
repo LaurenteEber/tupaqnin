@@ -1,0 +1,13 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F14: the fixed report, her change first",
+  "when": "Dejé variantes sin elegir",
+  "output": {
+    "answer": "Tu cambio en Grau no toca solo Grau: afecta 3 secciones y quita plazas en la cuadra 3.",
+    "done": [
+      "Ajusté las secciones afectadas con variantes."
+    ],
+    "next": "¿Abordamos estas preguntas?",
+    "unseen": []
+  }
+}

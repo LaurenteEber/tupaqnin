@@ -1,0 +1,11 @@
+{
+  "name": "Estudio de impacto ambiental",
+  "text": "Estudio de impacto ambiental de la planta de tratamiento de aguas residuales, para la autoridad ambiental. Comparar con el estándar nacional, no con la OMS.",
+  "audience": "La autoridad ambiental, que aprueba la obra.",
+  "criteria": ["Comparar con el estándar nacional, no con la OMS."],
+  "premise": "",
+  "exploratory": false,
+  "sources": [
+    {"filename": "monitoreo-2020-2024.md", "kind": "calculation"}
+  ]
+}

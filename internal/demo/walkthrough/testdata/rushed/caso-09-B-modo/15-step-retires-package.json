@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F15: the package is out: the principal retires the paragraph; its base_version already carries her edit",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Riesgo: contradice algo confirmado · Retiro el paquete.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 5,
+        "anchor": "Se ofrece un paquete prepagado de reservas con descuento, que vence a los noventa días.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "No hay paquetes prepagados: se paga solo por reserva cobrada."
+      }
+    ],
+    "used_decisions": [
+      "dec-1"
+    ],
+    "note": "Retiré el paquete."
+  }
+}

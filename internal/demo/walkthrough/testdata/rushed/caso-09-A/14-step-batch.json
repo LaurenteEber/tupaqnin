@@ -1,0 +1,23 @@
+{
+  "turn_kind": "step",
+  "script": "F10: one correction: «unos S/ 33»",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Corrijo lo que señaló el juez.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 4,
+        "anchor": "con una reserva media sobre unos S/ 35 el 4 % deja más.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "con una reserva media sobre unos S/ 33 el 4 % deja más."
+      }
+    ],
+    "used_decisions": [
+      "dec-2"
+    ],
+    "note": "Corregí el umbral."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "turn_kind": "reader",
+  "part": 1,
+  "script": "F5: the reader of the plan brings «Cierre de operaciones: 2037»",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "Cierre de operaciones: 2037.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "src-1"
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "turn_kind": "checker",
+  "script": "F11: a doubtful term or contradiction with the criterion: «por aclarar», not a card",
+  "when": "El paquete prepagado trae 10 reservas",
+  "output": {
+    "probes": [
+      {
+        "protected": "crit-1",
+        "verdict": "doubt",
+        "passage": "El paquete prepagado trae 10 reservas, con 15 % de descuento, y vence a los 90 días."
+      }
+    ],
+    "candidates": [
+      {
+        "type": "doubtful_term",
+        "section": "sec-1",
+        "new_passage": "El paquete prepagado trae 10 reservas, con 15 % de descuento, y vence a los 90 días.",
+        "clashing_passage": "Pago por uso, nada de suscripción.",
+        "protected": "crit-1",
+        "citation": null,
+        "question": "¿Un paquete prepagado que vence a los 90 días cuenta como pago por uso?",
+        "options": [
+          {
+            "option": "No cuenta: se retira",
+            "contrast": "se paga antes de usar",
+            "consequence": "solo comisión por reserva",
+            "risk": "menos opciones"
+          },
+          {
+            "option": "Cuenta",
+            "contrast": "se paga por reservas",
+            "consequence": "el paquete queda",
+            "risk": "el local que cierra pierde lo pagado"
+          }
+        ]
+      }
+    ]
+  }
+}

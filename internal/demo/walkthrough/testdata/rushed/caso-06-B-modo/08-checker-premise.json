@@ -1,0 +1,45 @@
+{
+  "turn_kind": "checker",
+  "script": "F9–10: the paragraph contradicts the premise «El colegio sigue funcionando…»: one «por aclarar» with the variants A, B and C",
+  "when": "Conviene desocupar todo el colegio",
+  "output": {
+    "probes": [
+      {
+        "protected": "prem-1",
+        "verdict": "contradicts",
+        "passage": "Conviene desocupar todo el colegio durante la obra: las columnas cortas podrían colapsar con un sismo moderado."
+      }
+    ],
+    "candidates": [
+      {
+        "type": "contradiction",
+        "section": "sec-2",
+        "new_passage": "Conviene desocupar todo el colegio durante la obra: las columnas cortas podrían colapsar con un sismo moderado.",
+        "clashing_passage": "El colegio sigue funcionando durante la obra",
+        "protected": "prem-1",
+        "citation": null,
+        "question": "¿Las columnas cortas cumplen tu condición «cerraría si…»? ¿Desocupar, por etapas o solo el pabellón C?",
+        "options": [
+          {
+            "option": "A: desocupar todo el colegio durante la obra",
+            "contrast": "tu condición ya se cumple",
+            "consequence": "el colegio cierra durante la obra",
+            "risk": "contradice tu premisa"
+          },
+          {
+            "option": "B: por etapas, un pabellón a la vez",
+            "contrast": "tu condición no se cumple",
+            "consequence": "el pabellón C sigue ocupado con columnas cortas hasta su etapa",
+            "risk": "un sismo moderado antes de su etapa"
+          },
+          {
+            "option": "C: desocupar solo el pabellón C mientras se refuerza",
+            "contrast": "la condición se cumple solo en C",
+            "consequence": "hay que reubicar sus aulas",
+            "risk": "menos aulas durante esa etapa"
+          }
+        ]
+      }
+    ]
+  }
+}

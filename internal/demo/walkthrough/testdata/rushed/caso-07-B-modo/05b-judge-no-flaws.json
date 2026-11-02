@@ -1,0 +1,8 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F9: the judge reviews the model and its variants; no flaws: no batch",
+  "output": {
+    "flaws": [],
+    "recheck": []
+  }
+}

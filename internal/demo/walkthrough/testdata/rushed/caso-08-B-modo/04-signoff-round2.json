@@ -1,0 +1,13 @@
+{
+  "turn_kind": "signoff",
+  "script": "Earlier session (seed): Wonder's second round: her origin answer answers it; the signoff coincides",
+  "output": {
+    "decisions": [
+      {"decision": "dec-1", "verdict": "match", "missing": null, "passage": null},
+      {"decision": "dec-2", "verdict": "match", "missing": null, "passage": null}
+    ],
+    "origin_question": {"question": "¿De qué supuesto sale que el trazo no pase por Av. Comercio?", "answer": "answers"},
+    "previous_case": null,
+    "new_case": null
+  }
+}

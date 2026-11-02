@@ -1,0 +1,12 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F10: the fixed report begins with the answer and proposes signing the three",
+  "output": {
+    "answer": "No se puede recomendar todavía: falta tu decisión sobre la planta tras el cierre.",
+    "done": [
+      "El modelo y sus dos variantes."
+    ],
+    "next": "Decidir el cierre y la tarjeta de irradiación; firmar Contexto, Demanda de energía e Inversión, sin pendientes. No verificado: comparar con otras minas.",
+    "unseen": []
+  }
+}

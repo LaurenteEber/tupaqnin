@@ -1,0 +1,20 @@
+{
+  "turn_kind": "signoff",
+  "script": "F18: «de que mi media esté en S/ 15–20»: it coincides",
+  "output": {
+    "decisions": [
+      {
+        "decision": "dec-2",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      }
+    ],
+    "origin_question": {
+      "question": "¿De qué depende la elección de comisión?",
+      "answer": "answers"
+    },
+    "previous_case": null,
+    "new_case": null
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "turn_kind": "step",
+  "script": "F10: the sequence with its variants labelled, without choosing; only what Carmen decides is left",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Riesgo: ninguno.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-3",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "Variante A: desocupar todo el colegio durante la obra.\n\nVariante B: por etapas, un pabellón a la vez.\n\nVariante C: desocupar solo el pabellón C mientras se refuerza."
+      }
+    ],
+    "note": "Dejé las variantes sin elegir."
+  }
+}

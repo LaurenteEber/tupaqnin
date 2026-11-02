@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "F16: the principal stops with its report",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: propongo firmar.",
+    "closing_risk": "none",
+    "note": "Nada nuevo."
+  }
+}

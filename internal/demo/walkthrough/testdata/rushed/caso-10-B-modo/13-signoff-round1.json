@@ -1,0 +1,20 @@
+{
+  "turn_kind": "signoff",
+  "script": "F14: Wonder: it does not contradict the history; the origin question waits",
+  "output": {
+    "decisions": [
+      {
+        "decision": "dec-2",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      }
+    ],
+    "origin_question": {
+      "question": "¿De qué supuesto depende el límite aguas abajo?",
+      "answer": null
+    },
+    "previous_case": null,
+    "new_case": null
+  }
+}

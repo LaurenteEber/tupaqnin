@@ -1,0 +1,22 @@
+{
+  "turn_kind": "checker",
+  "script": "F5/F9: the checker judges the step: reading «cambio de control» as termination only is a doubtful case of the person's term (fichas §3 and §8.2, R1)",
+  "when": "permite terminar el contrato, por encima del umbral",
+  "output": {
+    "probes": [
+      {"protected": "crit-1", "verdict": "doubt", "passage": "Cuentan los contratos cuya cláusula de cambio de control permite terminar el contrato, por encima del umbral de tu criterio."}
+    ],
+    "candidates": [
+      {"type": "doubtful_term", "section": "sec-1",
+       "new_passage": "Cuentan los contratos cuya cláusula de cambio de control permite terminar el contrato, por encima del umbral de tu criterio.",
+       "clashing_passage": "Solo cuenta cambio de control por encima de US$ 1 M.",
+       "protected": "crit-1", "citation": null,
+       "question": "¿Tu «cambio de control» cuenta solo las cláusulas que permiten terminar, o también las que permiten renegociar las condiciones económicas?",
+       "options": [
+         {"option": "Solo terminación", "contrast": "renegociar no es perder el contrato", "consequence": "el contrato de transporte refrigerado queda fuera", "risk": "el comité no ve lo que se encarece"},
+         {"option": "También renegociar las condiciones económicas", "contrast": "encarecer también es perder plata", "consequence": "suman cuatro contratos de tarifas y el de almacenaje", "risk": "la exposición sube"},
+         {"option": "Agregar solo el contrato que conoces", "contrast": "un caso puntual", "consequence": "las mismas cláusulas quedan tratadas distinto", "risk": "el comité lo nota"}
+       ]}
+    ]
+  }
+}

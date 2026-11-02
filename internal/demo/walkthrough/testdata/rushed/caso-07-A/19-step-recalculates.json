@@ -1,0 +1,42 @@
+{
+  "turn_kind": "step",
+  "script": "F16: in normal mode: 12 years with a nominal rate: 21 %; closes with a risk: the judge rechecks",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Riesgo: cifras y cálculos.",
+    "closing_risk": "figures_and_calculations",
+    "new_text": [
+      {
+        "section_id": "sec-4",
+        "base_version": 6,
+        "anchor": "Sobre 1 000 escenarios a 12 años con tasa real del 10 %, el valor actual neto sale negativo en el 18 % de los escenarios.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "Con tasa nominal del 10 %, a 12 años, el valor actual neto sale negativo en el 21 % de los escenarios."
+      },
+      {
+        "section_id": "sec-4",
+        "base_version": 6,
+        "anchor": "Los precios se expresan en términos reales y se descuentan a una tasa real del 10 %.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "Los precios nominales se descuentan a la tasa nominal."
+      }
+    ],
+    "used_decisions": [
+      "dec-3"
+    ],
+    "handled_changes": [
+      {
+        "change_id": "chg-1",
+        "result": "updated"
+      },
+      {
+        "change_id": "chg-2",
+        "result": "reviewed_unchanged",
+        "reason": "Porque la recomendación ya espera su decisión."
+      }
+    ],
+    "note": "Recalculé a 12 años con tasa nominal: 21 %."
+  }
+}

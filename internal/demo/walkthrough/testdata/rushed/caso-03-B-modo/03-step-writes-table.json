@@ -1,0 +1,39 @@
+{
+  "turn_kind": "step",
+  "script": "F5–F6: the agent applies «cambio de control» as «only if the clause allows termination» (D-a, critical, its card waits) and writes the table; the mode goes on",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: armo la tabla con los contratos que cuentan.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Cuentan los contratos cuya cláusula de cambio de control permite terminar el contrato, por encima del umbral de tu criterio.\n\nQuedan fuera los que solo permiten revisar la tarifa, como el de transporte refrigerado, de US$ 1,8 M."
+      }
+    ],
+    "new_decisions": [
+      {
+        "id": "new-1",
+        "statement": "Contar solo las cláusulas de cambio de control que permiten terminar el contrato.",
+        "instead_of": "Incluir también las que permiten revisar tarifas: sumaría cuatro contratos más.",
+        "would_choose_if": "Al comité le importara también lo que se encarece.",
+        "assumption": false,
+        "used_in_sections": [
+          "sec-1",
+          "sec-2"
+        ]
+      }
+    ],
+    "figure_links": [
+      {
+        "figure_anchor": "US$ 1,8 M",
+        "decision_id": "new-1"
+      }
+    ],
+    "note": "Leí cambio de control como terminación."
+  }
+}

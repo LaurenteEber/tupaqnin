@@ -1,0 +1,41 @@
+{
+  "turn_kind": "step",
+  "script": "F4: the principal looks at the material before the triage; the sensitivity is one of its sources (F-1)",
+  "tool_calls": [
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-1",
+        "span": null
+      }
+    },
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-2",
+        "span": null
+      }
+    },
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-3",
+        "span": null
+      }
+    },
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-4",
+        "span": null
+      }
+    },
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-5",
+        "span": null
+      }
+    }
+  ]
+}

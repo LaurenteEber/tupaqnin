@@ -1,0 +1,60 @@
+{
+  "turn_kind": "digest",
+  "script": "F5: the digest, without a contrast: no expectation was given",
+  "output": {
+    "answer": "La mayoría cobra un porcentaje más una tarifa fija por reserva; algunas ofrecen un plan mensual.",
+    "outline": [
+      "Porcentaje más tarifa fija.",
+      "Plan mensual."
+    ],
+    "findings": [
+      {
+        "finding": 1,
+        "outline_line": 1
+      },
+      {
+        "finding": 2,
+        "outline_line": 1
+      },
+      {
+        "finding": 3,
+        "outline_line": 1
+      },
+      {
+        "finding": 4,
+        "outline_line": 1
+      },
+      {
+        "finding": 5,
+        "outline_line": 1
+      },
+      {
+        "finding": 6,
+        "outline_line": 1
+      },
+      {
+        "finding": 7,
+        "outline_line": 1
+      },
+      {
+        "finding": 8,
+        "outline_line": 1
+      },
+      {
+        "finding": 9,
+        "outline_line": 1
+      },
+      {
+        "finding": 10,
+        "outline_line": 2
+      },
+      {
+        "finding": 11,
+        "outline_line": 2
+      }
+    ],
+    "expectation_contrast": null,
+    "reduced_doubt": "yes",
+    "contradictions": []
+  }
+}

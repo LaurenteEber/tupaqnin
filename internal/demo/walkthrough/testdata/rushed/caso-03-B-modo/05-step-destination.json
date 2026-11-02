@@ -1,0 +1,58 @@
+{
+  "turn_kind": "step",
+  "script": "F8–F9: what to tell the committee of the unread contracts is hers: «por aclarar»; the agent adds up the exposure and closes with a listed risk (F9: the sum goes in the output, F-1)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: sumo la exposición · Riesgo: cifras y cálculos.",
+    "closing_risk": "figures_and_calculations",
+    "new_text": [
+      {
+        "section_id": "sec-2",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "El comprador podría perder contratos por una exposición total de US$ 14,8 M, con el tipo de cambio de hoy."
+      }
+    ],
+    "used_decisions": [
+      "dec-1"
+    ],
+    "figure_links": [
+      {
+        "figure_anchor": "US$ 14,8 M",
+        "decision_id": "dec-1"
+      }
+    ],
+    "proposed_open_questions": [
+      {
+        "id": "new-1",
+        "question": "¿Qué le decimos al comité de los contratos escaneados que no se pueden leer?",
+        "options": [
+          {
+            "option": "Conseguir copias legibles",
+            "contrast": "se leen antes de cerrar",
+            "consequence": "el informe se retrasa",
+            "risk": "no llegar al viernes"
+          },
+          {
+            "option": "Reportarlos como no revisados",
+            "contrast": "el comité ve el vacío",
+            "consequence": "la exposición queda incompleta y dicha",
+            "risk": "el comité pide más plazo"
+          },
+          {
+            "option": "Omitirlos",
+            "contrast": "el informe sale limpio",
+            "consequence": "nadie ve el vacío",
+            "risk": "exposición oculta ante terceros"
+          }
+        ],
+        "depends_on": [
+          "sec-2"
+        ]
+      }
+    ],
+    "note": "Sumé la exposición."
+  }
+}

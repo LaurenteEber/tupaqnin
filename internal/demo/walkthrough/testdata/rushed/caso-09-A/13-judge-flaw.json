@@ -1,0 +1,16 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F10: the judge: 0,88 and 0,60 are right; the exact crossing is S/ 33,3, the text says «unos S/ 35»",
+  "when": "La comisión es de 2,5 % más S/ 0,50 por reserva",
+  "output": {
+    "flaws": [
+      {
+        "section": "sec-1",
+        "passage": "En una reserva de S/ 15, 2,5 % más S/ 0,50 deja S/ 0,88 y 4 % deja S/ 0,60; con una reserva media sobre unos S/ 35 el 4 % deja más.",
+        "risk": "figures_and_calculations",
+        "scenario": "1. Ingeniería usa el umbral del texto. 2. El cruce exacto es S/ 33,3. 3. La regla queda corrida."
+      }
+    ],
+    "recheck": []
+  }
+}

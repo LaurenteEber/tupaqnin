@@ -1,0 +1,57 @@
+{
+  "turn_kind": "step",
+  "script": "F7: «Modelo de cobro»: 0,88 and 0,60, «unos S/ 35», and the monthly plan; the commission is a provisional decision the other sections use; choosing it is Natalia's: one question",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Riesgo: cifras y cálculos.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Para los negocios: pagas solo cuando cobras una reserva.\n\nEn una reserva de S/ 15, 2,5 % más S/ 0,50 deja S/ 0,88 y 4 % deja S/ 0,60; con una reserva media sobre unos S/ 35 el 4 % deja más."
+      }
+    ],
+    "new_decisions": [
+      {
+        "id": "new-1",
+        "statement": "Redactar con el 4 % mientras eliges la comisión.",
+        "instead_of": "Redactar con la comisión mixta.",
+        "would_choose_if": "La reserva media fuera alta.",
+        "assumption": true,
+        "used_in_sections": [
+          "sec-1",
+          "sec-2",
+          "sec-3"
+        ]
+      }
+    ],
+    "proposed_open_questions": [
+      {
+        "id": "new-2",
+        "question": "¿Qué comisión cobramos?",
+        "options": [
+          {
+            "option": "(a) 2,5 % más S/ 0,50",
+            "contrast": "más ingreso en reservas bajas",
+            "consequence": "el cargo fijo se ve por reserva",
+            "risk": "pesa en las reservas chicas"
+          },
+          {
+            "option": "(b) 4 %",
+            "contrast": "simple",
+            "consequence": "deja menos en las reservas bajas",
+            "risk": "menos ingreso en tus reservas típicas"
+          }
+        ],
+        "depends_on": [
+          "sec-1"
+        ]
+      }
+    ],
+    "note": "La comisión la eliges tú."
+  }
+}

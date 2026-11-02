@@ -1,0 +1,18 @@
+{
+  "turn_kind": "understanding",
+  "script": "Earlier session (seed): Entendí: the district's bike lane plan",
+  "output": {
+    "understood": "Preparo el plan de ciclovías del distrito para el equipo de movilidad: una red que conecte el mercado, los colegios y el paradero principal.",
+    "project_title": "Plan de ciclovías",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "Quitar plazas en una calle de locales.", "does_not_count": "Quitar plazas en una calle de casas."}
+    ],
+    "material_readings": [{"case": "El catastro registra el uso de cada cuadra."}],
+    "evidence_required": {"value": false, "why": "Es un documento interno."},
+    "sections": [
+      {"id": "new-1", "title": "Trazo propuesto", "role": "other", "focus": "Por dónde va la red.", "evidence_from": "Tus decisiones."},
+      {"id": "new-2", "title": "Estacionamiento", "role": "other", "focus": "Qué plazas se tocan.", "evidence_from": "El catastro."},
+      {"id": "new-3", "title": "Paraderos", "role": "other", "focus": "Cómo cruza la red los paraderos.", "evidence_from": "Los conteos."}
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "turn_kind": "reader",
+  "part": 2,
+  "script": "F5: the reader of the curve",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "La mina consume 40 MW de forma pareja durante el día.",
+        "source_id": "src-2",
+        "hit": null,
+        "reference": null,
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "src-2"
+    ]
+  }
+}

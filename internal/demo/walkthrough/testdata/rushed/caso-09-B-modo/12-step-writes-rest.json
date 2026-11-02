@@ -1,0 +1,44 @@
+{
+  "turn_kind": "step",
+  "script": "F12: the other four sections with labelled variants; only what she decides is left",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo las otras cuatro secciones con variantes rotuladas.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-2",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Variante A: al devolver, se devuelve el porcentaje y no la tarifa fija.\n\nVariante B: al devolver, se devuelve el porcentaje."
+      },
+      {
+        "section_id": "sec-3",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Variante A: se muestra el desglose.\n\nVariante B: se muestra el total."
+      },
+      {
+        "section_id": "sec-4",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Variante A: la liquidación separa porcentaje y tarifa.\n\nVariante B: la liquidación muestra solo el porcentaje."
+      },
+      {
+        "section_id": "sec-5",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Variante A: los locales pasan con tarifa mixta.\n\nVariante B: los locales pasan con solo porcentaje."
+      }
+    ],
+    "note": "Solo queda lo que ella decide."
+  }
+}

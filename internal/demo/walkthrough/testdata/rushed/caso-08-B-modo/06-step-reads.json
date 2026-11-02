@@ -1,0 +1,8 @@
+{
+  "turn_kind": "step",
+  "script": "F5–6: the reader over the sections and the calculation against the cadastre and the counts, substituted: the principal reads them with read_source",
+  "tool_calls": [
+    {"name": "read_source", "arguments": {"source": "src-1", "span": null}},
+    {"name": "read_source", "arguments": {"source": "src-2", "span": null}}
+  ]
+}

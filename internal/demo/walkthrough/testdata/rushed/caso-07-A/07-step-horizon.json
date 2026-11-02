@@ -1,0 +1,49 @@
+{
+  "turn_kind": "step",
+  "script": "F5: the plant lasts 25 years and the mine closes in 12: scope, Diego's alone: one question with two options, that the sections depending on it share",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: el cierre cambia el horizonte; avanzo las dos variantes y te pregunto.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-5",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Variante A: evaluar hasta el cierre de la mina y vender los equipos.\n\nVariante B: evaluar la vida completa de la planta vendiendo energía a la red."
+      }
+    ],
+    "proposed_open_questions": [
+      {
+        "id": "new-1",
+        "question": "¿Qué pasa con la planta al cerrar la mina?",
+        "options": [
+          {
+            "option": "12 años y vender equipos",
+            "contrast": "solo los años de la mina",
+            "consequence": "el valor actual neto sale negativo en parte de los escenarios",
+            "risk": "pesa sobre todo el precio de la red"
+          },
+          {
+            "option": "25 años y vender a la red",
+            "contrast": "años sin la mina",
+            "consequence": "el valor actual neto es más atractivo",
+            "risk": "depende de vender a la red sin la mina"
+          }
+        ],
+        "depends_on": [
+          "sec-4",
+          "sec-5",
+          "sec-6"
+        ],
+        "variants": [
+          "Variante A: 12 años",
+          "Variante B: 25 años"
+        ]
+      }
+    ],
+    "note": "El horizonte es tuyo; dejé las dos variantes rotuladas."
+  }
+}

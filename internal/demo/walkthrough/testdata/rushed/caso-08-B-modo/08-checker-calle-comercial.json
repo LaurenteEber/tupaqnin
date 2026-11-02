@@ -1,0 +1,21 @@
+{
+  "turn_kind": "checker",
+  "script": "F7: applying her term «calle comercial» to the third block by the cadastre is a doubtful case (2.3, 2.4)",
+  "when": "no es calle comercial",
+  "output": {
+    "probes": [
+      {"protected": "crit-1", "verdict": "doubt", "passage": "La tercera cuadra de Av. Grau es de vivienda según el catastro, así que no es calle comercial y quitar sus plazas no toca tu criterio."}
+    ],
+    "candidates": [
+      {"type": "doubtful_term", "section": "sec-2",
+       "new_passage": "La tercera cuadra de Av. Grau es de vivienda según el catastro, así que no es calle comercial y quitar sus plazas no toca tu criterio.",
+       "clashing_passage": "No se quita estacionamiento en la calle comercial.",
+       "protected": "crit-1", "citation": null,
+       "question": "¿La tercera cuadra de Av. Grau cuenta como calle comercial, aunque el catastro la registre como vivienda?",
+       "options": [
+         {"option": "Sí, es comercial", "contrast": "cuentan los locales que hay", "consequence": "no se quitan sus plazas", "risk": "el cambio de Av. Grau necesita otra salida"},
+         {"option": "No, vale el catastro", "contrast": "cuenta el uso registrado", "consequence": "se quitan plazas en esa cuadra", "risk": "los comerciantes lo objetan"}
+       ]}
+    ]
+  }
+}

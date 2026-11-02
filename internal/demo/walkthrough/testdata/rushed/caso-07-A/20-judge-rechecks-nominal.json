@@ -1,0 +1,9 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F16: the judge rechecks: no flaws",
+  "when": "Los precios nominales se descuentan a la tasa nominal",
+  "output": {
+    "flaws": [],
+    "recheck": []
+  }
+}

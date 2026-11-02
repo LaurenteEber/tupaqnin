@@ -1,0 +1,38 @@
+{
+  "turn_kind": "step",
+  "script": "F7: the agent chooses the satellite series; it covers a figure: critical, its card waits and the chain goes on",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: elijo la irradiación.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-4",
+        "base_version": 2,
+        "anchor": "Variante B, vida completa: la planta se paga con la venta a la red.",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "La producción se estima con 6,2 kWh por metro cuadrado al día."
+      }
+    ],
+    "new_decisions": [
+      {
+        "id": "new-1",
+        "statement": "Usar la serie satelital de 20 años para la irradiación.",
+        "instead_of": "Usar la estación de la mina, que solo tiene 3 años de datos.",
+        "would_choose_if": "La estación tuviera una serie larga.",
+        "assumption": false,
+        "used_in_sections": [
+          "sec-4"
+        ]
+      }
+    ],
+    "figure_links": [
+      {
+        "figure_anchor": "6,2 kWh",
+        "decision_id": "new-1"
+      }
+    ],
+    "note": "Elegí la serie satelital."
+  }
+}

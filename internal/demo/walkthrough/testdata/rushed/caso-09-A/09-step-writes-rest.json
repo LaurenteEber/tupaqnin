@@ -1,0 +1,47 @@
+{
+  "turn_kind": "step",
+  "script": "F8: the principal goes on with the other sections: the chain did not stop",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo las otras secciones con el 4 %.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-2",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Al devolver una reserva se devuelve el 4 %."
+      },
+      {
+        "section_id": "sec-3",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "La liquidación descuenta la comisión de cada reserva."
+      },
+      {
+        "section_id": "sec-4",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "El negocio ve lo que cobró por cada reserva."
+      },
+      {
+        "section_id": "sec-5",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "material",
+        "text": "Los locales pasan al modelo nuevo sin un plan."
+      }
+    ],
+    "used_decisions": [
+      "dec-1"
+    ],
+    "note": "Escribí las otras secciones."
+  }
+}

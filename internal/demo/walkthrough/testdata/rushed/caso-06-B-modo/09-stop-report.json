@@ -1,0 +1,13 @@
+{
+  "turn_kind": "stop_report",
+  "script": "F11: only what Carmen decides is left",
+  "when": "Conviene desocupar todo el colegio",
+  "output": {
+    "answer": "Falta tu decisión sobre A, B o C y la tarjeta de la junta.",
+    "done": [
+      "La corrección y las variantes."
+    ],
+    "next": "Decidir A, B o C.",
+    "unseen": []
+  }
+}

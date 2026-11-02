@@ -1,0 +1,34 @@
+{
+  "turn_kind": "step",
+  "script": "F4 and F6: the agent builds the model; the model and the sensitivity enter as a source (F-1)",
+  "tool_calls": [
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-1",
+        "span": null
+      }
+    },
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-2",
+        "span": null
+      }
+    },
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-3",
+        "span": null
+      }
+    },
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-4",
+        "span": null
+      }
+    }
+  ]
+}

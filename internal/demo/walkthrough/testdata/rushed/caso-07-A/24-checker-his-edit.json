@@ -1,0 +1,9 @@
+{
+  "turn_kind": "checker",
+  "script": "F19: the checker on his edit (B-36): nothing to say; hueco 3: no judge on his edit",
+  "when": "No construir con estas condiciones",
+  "output": {
+    "probes": [],
+    "candidates": []
+  }
+}

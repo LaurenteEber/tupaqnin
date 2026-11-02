@@ -1,0 +1,67 @@
+{
+  "turn_kind": "step",
+  "script": "F3: four readers in the script; the round admits three, over the project's material (hueco 1); the twelfth app is a candidate",
+  "output": {
+    "stretch": "discover",
+    "triage_line": "Tramo: descubrir · Riesgo: fuentes y citas · Delego en 3 lectores.",
+    "closing_risk": "none",
+    "named_references": [
+      {
+        "text": "Pagafacil, tras inicio de sesión",
+        "title": "Pagafacil: tarifas",
+        "authors": null,
+        "year": null,
+        "doi": null
+      }
+    ],
+    "research_request": {
+      "question": "¿Cómo cobran otras apps de reservas?",
+      "doubt": "Cómo cobra el mercado.",
+      "delegation_reason": "independent_parts",
+      "scope": "Las apps del material.",
+      "parts": [
+        {
+          "question": "Las primeras cuatro apps.",
+          "sources": [
+            {
+              "source_id": "src-1",
+              "what_for": "Sus tarifas"
+            }
+          ],
+          "where": [
+            "project"
+          ],
+          "queries": []
+        },
+        {
+          "question": "Las siguientes cuatro apps.",
+          "sources": [
+            {
+              "source_id": "src-1",
+              "what_for": "Sus tarifas"
+            }
+          ],
+          "where": [
+            "project"
+          ],
+          "queries": []
+        },
+        {
+          "question": "Las últimas apps.",
+          "sources": [
+            {
+              "source_id": "src-1",
+              "what_for": "Sus tarifas"
+            }
+          ],
+          "where": [
+            "project"
+          ],
+          "queries": []
+        }
+      ],
+      "references": []
+    },
+    "note": "Delego la lectura en tres lectores."
+  }
+}

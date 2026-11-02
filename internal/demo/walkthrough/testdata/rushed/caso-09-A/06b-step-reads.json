@@ -1,0 +1,20 @@
+{
+  "turn_kind": "step",
+  "script": "F7: the principal reads the calculation (F-1)",
+  "tool_calls": [
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-1",
+        "span": null
+      }
+    },
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-2",
+        "span": null
+      }
+    }
+  ]
+}

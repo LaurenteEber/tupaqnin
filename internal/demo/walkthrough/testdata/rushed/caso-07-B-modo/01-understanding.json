@@ -1,0 +1,21 @@
+{
+  "turn_kind": "understanding",
+  "script": "F2: Entendí: build the plant or keep buying from the grid, NPV at 10 % (C1), in six sections; no premise",
+  "output": {
+    "understood": "Comparo construir la planta solar frente a seguir comprando a la red, con el valor actual neto a la tasa de tu criterio, para el comité, en seis secciones.",
+    "project_title": "Planta solar para la mina",
+    "criteria": [
+      {"criterion": "crit-1", "counts": "El valor actual neto descontado a la tasa corporativa.", "does_not_count": "Una tasa distinta para que la planta salga más atractiva."}
+    ],
+    "material_readings": [{"case": "El plan de mina fija la fecha de cierre."}],
+    "evidence_required": {"value": false, "why": "El modelo sale de tus documentos."},
+    "sections": [
+      {"id": "new-1", "title": "Contexto", "role": "other", "focus": "Por qué se evalúa la planta.", "evidence_from": "Tu encargo."},
+      {"id": "new-2", "title": "Demanda de energía", "role": "other", "focus": "Cuánta energía consume la mina.", "evidence_from": "Tu curva de consumo."},
+      {"id": "new-3", "title": "Inversión", "role": "other", "focus": "Cuánto cuesta la planta.", "evidence_from": "Las cotizaciones."},
+      {"id": "new-4", "title": "Evaluación", "role": "other", "focus": "El valor actual neto y su riesgo.", "evidence_from": "El modelo."},
+      {"id": "new-5", "title": "Valor después del cierre", "role": "other", "focus": "Qué pasa con la planta al cerrar la mina.", "evidence_from": "El plan de mina."},
+      {"id": "new-6", "title": "Recomendación", "role": "conclusion", "focus": "Planta o red.", "evidence_from": "La evaluación."}
+    ]
+  }
+}

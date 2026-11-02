@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F4: «ni idea, quiero ver»: her message, not an expectation; the agent only answers",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: respondo sin editar.",
+    "closing_risk": "none",
+    "reply": "Bien; la tabla ya está en la ronda.",
+    "note": "No edité nada."
+  }
+}

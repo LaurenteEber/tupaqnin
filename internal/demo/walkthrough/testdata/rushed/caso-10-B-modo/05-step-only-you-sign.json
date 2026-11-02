@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F2: «firma tú»: only she can sign; three things need her decision first; the agent edits nothing",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: respondo sin editar.",
+    "closing_risk": "none",
+    "reply": "Solo tú puedes firmar. Para firmar explicas cada sección sin mirar. Hay cosas que necesitan tu decisión antes.",
+    "note": "No edité nada."
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "turn_kind": "digest",
+  "script": "F5: the digest, with no contrast: he gave no expectation",
+  "output": {
+    "answer": "La mina cierra en 2037, consume parejo y la planta cuesta unos US$ 42 M.",
+    "outline": [
+      "El horizonte.",
+      "La demanda y la inversión."
+    ],
+    "findings": [
+      {
+        "finding": 1,
+        "outline_line": 1
+      },
+      {
+        "finding": 2,
+        "outline_line": 2
+      },
+      {
+        "finding": 3,
+        "outline_line": 2
+      }
+    ],
+    "expectation_contrast": null,
+    "reduced_doubt": "yes",
+    "contradictions": []
+  }
+}

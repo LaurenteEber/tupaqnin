@@ -1,0 +1,20 @@
+{
+  "turn_kind": "signoff",
+  "script": "F17: «de nuestros datos de clientes»: it coincides",
+  "output": {
+    "decisions": [
+      {
+        "decision": "dec-1",
+        "verdict": "match",
+        "missing": null,
+        "passage": null
+      }
+    ],
+    "origin_question": {
+      "question": "¿De dónde sale que la mitad de las reservas cuesta S/ 15–20?",
+      "answer": "answers"
+    },
+    "previous_case": null,
+    "new_case": null
+  }
+}

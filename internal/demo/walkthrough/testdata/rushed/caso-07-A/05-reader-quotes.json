@@ -1,0 +1,23 @@
+{
+  "turn_kind": "reader",
+  "part": 3,
+  "script": "F5: the reader of the quotes",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "El primer proveedor cotiza la planta llave en mano en US$ 42 M.",
+        "source_id": "src-3",
+        "hit": null,
+        "reference": null,
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "src-3"
+    ]
+  }
+}

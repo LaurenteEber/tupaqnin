@@ -1,0 +1,29 @@
+{
+  "turn_kind": "step",
+  "script": "F12: the mode's first step takes the change on «Conclusiones» and closes with listed risks: the judge runs with no click (B-67, B-85)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: verificar · Riesgo: cifras, conclusiones, efecto ante terceros.",
+    "closing_risk": "conclusions_and_recommendations",
+    "new_text": [
+      {
+        "section_id": "sec-3",
+        "base_version": 2,
+        "anchor": "Aguas abajo, el 31 % de las mediciones supera la referencia.",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "La planta resulta aceptable con tratamiento adicional."
+      }
+    ],
+    "handled_changes": [
+      {
+        "change_id": "chg-1",
+        "result": "updated"
+      }
+    ],
+    "note": "Atiendo el cambio de Conclusiones.",
+    "used_decisions": [
+      "dec-3"
+    ]
+  }
+}
