@@ -254,7 +254,7 @@ func TestB86_EveryHandlerThatClosesASignoffSaysSo(t *testing.T) {
 	// P-114: the accepted text waits for the checker's pass and its decision.
 	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
 		if _, err := tx.AppendEvent(store.EventInput{Type: store.EventProbe, Actor: "app",
-			Data: map[string]any{"sections": []string{"sec-1"}}}); err != nil {
+			Data: map[string]any{"sections": []string{"sec-1"}, "saw_versions": map[string]int{"sec-1": versionOf(t, db, projectID, "sec-1")}}}); err != nil {
 			return err
 		}
 		_, err := tx.AppendEvent(store.EventInput{Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal",
@@ -383,5 +383,19 @@ func TestB86_TheConversationSaysTheAgentAnswersWhenTheSignoffEnds(t *testing.T) 
 	}
 	if waits() {
 		t.Fatal("the line outlived the signoff")
+	}
+	// Answered, a later signoff does not bring the line back.
+	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal",
+			Data: map[string]any{"turn_kind": "step"}})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if rec := do(t, h, http.MethodPost, base+"/sections/sec-1/signoff", nil); rec.Code != http.StatusCreated {
+		t.Fatalf("signoff: %d %s", rec.Code, rec.Body.String())
+	}
+	if waits() {
+		t.Fatal("the line came back on an answered message")
 	}
 }

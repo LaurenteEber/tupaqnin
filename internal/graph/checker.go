@@ -102,22 +102,27 @@ func IsAcceptedText(ev store.Event) bool {
 	return texts && data["accepted_by"] == "human"
 }
 
-// acceptedUnchecked is «sin comprobar» for an accepted proposal's text, until the
-// checker's next pass over the section (P-114): no agent text reaches a signoff
-// unchecked. A pass that fails stays «sin comprobar» through uncheckedOpen.
-func acceptedUnchecked(events []store.Event, section store.Object) bool {
-	open := false
+// AcceptedUnchecked is «sin comprobar» for an accepted proposal's text (P-114):
+// no agent text reaches a signoff unchecked. Only a pass that read that version
+// clears it: a step's pass gets that step's passage, and a batch already running
+// when you accepted read the text before. One that fails clears nothing and the
+// next trigger sends it again, as a queued probe (P-74).
+func AcceptedUnchecked(events []store.Event, section store.Object) bool {
+	accepted, read := 0, 0
 	for _, ev := range events {
-		data := eventData(ev)
-		switch {
-		case IsAcceptedText(ev) && ev.ObjectID == section.ID:
-			open = true
-		case ev.Type == store.EventProbe && contains(data["sections"], section.Label),
-			ev.Type == store.EventOutputRetry && data["turn_kind"] == "checker" && data["result"] == "unchecked" && contains(data["sections"], section.Label):
-			open = false
+		if IsAcceptedText(ev) && ev.ObjectID == section.ID {
+			accepted = ev.NewVersion
+		}
+		if ev.Type != store.EventProbe {
+			continue
+		}
+		if saw, ok := eventData(ev)["saw_versions"].(map[string]any); ok {
+			if v, ok := saw[section.Label].(float64); ok {
+				read = max(read, int(v))
+			}
 		}
 	}
-	return open
+	return read < accepted
 }
 
 // QueuedProbe is a probe of what is protected (by label) against the

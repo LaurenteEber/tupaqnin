@@ -284,3 +284,129 @@ func TestE1_SignReadsThePendingsInsideItsTransaction(t *testing.T) {
 		t.Fatal("signed over an objection")
 	}
 }
+
+// appendProbe is a checker's pass over sec-1, as far as the history says.
+func appendProbe(t *testing.T, db *store.DB, data map[string]any) {
+	t.Helper()
+	data["sections"] = []string{"sec-1"}
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventProbe, Actor: "agent", Data: data})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// C1: only a pass that read the accepted version clears it: not a step's pass, which
+// gets that step's passage, and not a batch that read the section before you accepted.
+func TestB50_OnlyAPassThatReadTheAcceptedTextClearsIt(t *testing.T) {
+	db := openTemp(t)
+	seedSignable(t, db, false)
+	ctx := context.Background()
+	label := proposeOnSigned(t, db)
+	if _, err := cycle.NewGate(db).AcceptProposal(ctx, "p1", label); err != nil {
+		t.Fatal(err)
+	}
+	version := func() int {
+		sec, err := db.GetObject(ctx, "p1", "sec-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sec.CurrentVersion
+	}
+	stillOpen := func(when string) {
+		t.Helper()
+		if _, pendings := status(t, db, "sec-1"); !hasKind(pendings, graph.PendingUnchecked) {
+			t.Fatalf("%s: it reads as checked: %v", when, pendings)
+		}
+		if edits, err := checks.YourEditsToCheck(ctx, db, "p1"); err != nil || len(edits.Sections) != 1 {
+			t.Fatalf("%s: the next batch lacks it: %+v, %v", when, edits, err)
+		}
+	}
+	appendProbe(t, db, map[string]any{"kind": "probe"})
+	stillOpen("after a step's pass")
+	appendProbe(t, db, map[string]any{"kind": "probe", "saw_versions": map[string]int{"sec-1": version() - 1}})
+	stillOpen("after a batch that read the version before")
+	appendProbe(t, db, map[string]any{"kind": "probe", "saw_versions": map[string]int{"sec-1": version()}})
+	if _, pendings := status(t, db, "sec-1"); hasKind(pendings, graph.PendingUnchecked) {
+		t.Fatalf("after the pass that read it: %v", pendings)
+	}
+	if edits, err := checks.YourEditsToCheck(ctx, db, "p1"); err != nil || len(edits.Sections) != 0 {
+		t.Fatalf("the batch goes on asking: %+v, %v", edits, err)
+	}
+}
+
+// C1: a pass that fails leaves it unchecked and the next trigger sends it again
+// (P-74), so it cannot stay blocked with nothing left to clear it.
+func TestB50_AFailedPassOverAnAcceptedTextIsRetriedAtTheNextTrigger(t *testing.T) {
+	db := openTemp(t)
+	seedSignable(t, db, false)
+	label := proposeOnSigned(t, db)
+	ctx := context.Background()
+	if _, err := cycle.NewGate(db).AcceptProposal(ctx, "p1", label); err != nil {
+		t.Fatal(err)
+	}
+	err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventOutputRetry, Actor: "app",
+			Data: map[string]any{"turn_kind": "checker", "result": "unchecked", "sections": []string{"sec-1"}}})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if edits, err := checks.YourEditsToCheck(ctx, db, "p1"); err != nil || len(edits.Sections) != 1 {
+		t.Fatalf("the next trigger does not send it: %+v, %v", edits, err)
+	}
+}
+
+// C4: a step that leaves a proposal is not idle, even with no text of its own: a new
+// section declared after the plan (B-77), together with a question.
+func TestB83_AStepThatLeavesAProposalDoesNotCountAsIdle(t *testing.T) {
+	db := seedStepProject(t)
+	ctx := context.Background()
+	if _, err := cycle.ConfirmPlan(ctx, db, "p1"); err != nil {
+		t.Fatal(err)
+	}
+	proposes := `{"stretch":"build","triage_line":"C.","closing_risk":"none","note":"n",` + proposedQuestion +
+		`,"proposed_roles":[{"section_id":"new-9","role":"other","title":"Otra"}]}`
+	var fixtures []provider.Fixture
+	for range 4 {
+		fixtures = append(fixtures, textFixture(t, proposes))
+	}
+	// The fake replays its list in a loop, so the idle steps are listed too.
+	for range cycle.ModeMaxIdleSteps {
+		fixtures = append(fixtures, textFixture(t, proposalOpenQuestionStep))
+	}
+	runner, cap, pub := modeRunnerOn(t, db, nil, fixtures...)
+	modeOn(t, db, "")
+	if err := runner.RunTurn(ctx, "p1", "turn-1", "Sigue."); err != nil {
+		t.Fatal(err)
+	}
+	if len(cap.sent) != 4+cycle.ModeMaxIdleSteps {
+		t.Fatalf("steps: %d, want %d", len(cap.sent), 4+cycle.ModeMaxIdleSteps)
+	}
+	wantModeFinished(t, db, pub, "no_work", "")
+}
+
+// C1: a section you accepted into being (B-77) waits for its pass too.
+func TestB50_AnAcceptedNewSectionStaysUnchecked(t *testing.T) {
+	db := seedStepProject(t)
+	ctx := context.Background()
+	if _, err := cycle.ConfirmPlan(ctx, db, "p1"); err != nil {
+		t.Fatal(err)
+	}
+	applied, err := cycle.NewGate(db).ApplyStep(ctx, "p1", "turn-x", json.RawMessage(`{"stretch":"build","triage_line":"C.","closing_risk":"none","note":"n",`+
+		`"new_text":[{"section_id":"new-9","base_version":0,"anchor":"","claim_origin":"material","operation":"insert_after","text":"Sección nueva."}],`+
+		`"proposed_roles":[{"section_id":"new-9","role":"other","title":"Otra"}]}`))
+	if err != nil || len(applied.Proposals) != 1 {
+		t.Fatalf("ApplyStep: %+v, %v", applied, err)
+	}
+	out, err := cycle.NewGate(db).AcceptProposal(ctx, "p1", applied.Proposals[0])
+	if err != nil || out.State != "accepted" {
+		t.Fatalf("AcceptProposal: %+v, %v", out, err)
+	}
+	if _, pendings := status(t, db, out.Section); !hasKind(pendings, graph.PendingUnchecked) {
+		t.Fatalf("%s: %v", out.Section, pendings)
+	}
+}

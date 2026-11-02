@@ -666,6 +666,9 @@ func Apply(ctx context.Context, db *store.DB, projectID, turnID string, change C
 		}
 		event := func(objectID string, data map[string]any) error {
 			data["sections"] = sections
+			if change.SawVersions != nil {
+				data["saw_versions"] = change.SawVersions
+			}
 			if change.Queued != 0 {
 				data["queued_probe"] = change.Queued
 			}
@@ -908,9 +911,8 @@ func YourEditsToCheck(ctx context.Context, q store.Querier, projectID string) (C
 		var data map[string]any
 		_ = json.Unmarshal(ev.Data, &data)
 		switch {
-		case ev.Type == store.EventEdit && ev.Actor == "human", ev.Type == store.EventEditUndone, graph.IsAcceptedText(ev):
-			// A restored version goes through the same checks (flujos §1), and so
-			// does the text of a proposal you accepted (P-114).
+		case ev.Type == store.EventEdit && ev.Actor == "human", ev.Type == store.EventEditUndone:
+			// A restored version goes through the same checks (flujos §1).
 			edited[ev.ObjectID] = ev.Seq
 		case ev.Type == store.EventProbe,
 			ev.Type == store.EventOutputRetry && data["turn_kind"] == "checker" && data["result"] == "unchecked":
@@ -927,8 +929,9 @@ func YourEditsToCheck(ctx context.Context, q store.Querier, projectID string) (C
 		return change, err
 	}
 	for _, sec := range sections {
+		// The text of a proposal you accepted goes too, until a pass reads it (P-114).
 		seq, ok := edited[sec.ID]
-		if !ok || seq <= judged[sec.Label] {
+		if (!ok || seq <= judged[sec.Label]) && !graph.AcceptedUnchecked(events, sec) {
 			continue
 		}
 		text := bodyText(sec, "text")
@@ -937,6 +940,10 @@ func YourEditsToCheck(ctx context.Context, q store.Querier, projectID string) (C
 		}
 		change.Sections = append(change.Sections, sec.ID)
 		change.Passages = append(change.Passages, Passage{Section: sec.ID, Text: text})
+		if change.SawVersions == nil {
+			change.SawVersions = map[string]int{}
+		}
+		change.SawVersions[sec.Label] = sec.CurrentVersion
 	}
 	return change, nil
 }

@@ -552,27 +552,30 @@ func (r *Runner) endModeAfterFailure(ctx context.Context, projectID, turnID stri
 // call, and the mode back to normal, so the bar never says it runs and your next
 // visit has its return line (B-85). The app calls it once, before it serves.
 // [EL DISEÑO NO LO DICE]: what you queued stays in the history for your next
-// message, as any queued message of a mode that ended; nothing reopens a chain.
+// message or a signoff's close, as any queued message of a mode that ended; the
+// sweep opens no chain.
 func (r *Runner) EndModesLeftRunning(ctx context.Context) error {
 	projects, err := r.db.ProjectsWithMode(ctx)
 	if err != nil {
 		return err
 	}
+	// One project that fails does not leave the others saying the mode runs.
+	var failed []error
 	for _, projectID := range projects {
 		mode, err := r.mode(ctx, projectID)
 		if err != nil {
-			return err
+			failed = append(failed, err)
+			continue
 		}
 		if !mode.On() || !r.tryAcquireTurn(projectID) {
 			continue
 		}
-		err = r.endModeLeftRunning(ctx, projectID)
-		r.releaseTurn(projectID)
-		if err != nil {
-			return err
+		if err := r.endModeLeftRunning(ctx, projectID); err != nil {
+			failed = append(failed, err)
 		}
+		r.releaseTurn(projectID)
 	}
-	return nil
+	return errors.Join(failed...)
 }
 
 func (r *Runner) endModeLeftRunning(ctx context.Context, projectID string) error {

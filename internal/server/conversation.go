@@ -73,9 +73,14 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 	// P-85: the turns whose chain ended in a stop report; a step that
 	// ended any other chain shows why it stopped itself.
 	reported := map[string]bool{}
+	// The last step: a message before it was answered (P-114).
+	lastStep := 0
 	for _, ev := range events {
 		if ev.Type == store.EventStopReport {
 			reported[ev.TurnID] = true
+		}
+		if ev.Type == store.EventStepEnded {
+			lastStep = ev.Seq
 		}
 	}
 	signing, err := graph.SectionsInSignoff(r.Context(), s.db, projectID)
@@ -93,7 +98,7 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 		case ev.Type == store.EventHumanMessage:
 			entry.Kind, entry.Text = "message", str(data, "text")
 			// P-114: the line under your message, while its signoff lasts.
-			if waits, _ := data["waits_signoff"].(bool); waits && inSignoff {
+			if waits, _ := data["waits_signoff"].(bool); waits && inSignoff && ev.Seq > lastStep {
 				entry.WaitsSignoff = true
 			}
 		case ev.Type == store.EventStepEnded && str(data, "turn_kind") == "understanding":

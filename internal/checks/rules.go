@@ -78,6 +78,9 @@ type Change struct {
 
 	// Your edit: the section's text at the base version, before the save.
 	BaseText string
+	// SawVersions: on a batch, each section's version whose whole text the
+	// checker reads, by label: what an accepted proposal's text waits for (P-114).
+	SawVersions map[string]int
 
 	// Changed are the ids of the decisions, figures and sources whose
 	// content this change changed (rule 4, B-45), with who changed them
