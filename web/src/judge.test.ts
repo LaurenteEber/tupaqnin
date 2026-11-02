@@ -95,3 +95,13 @@ test("P-100: the refusals are in both catalogs", () => {
     }
   }
 });
+
+// 3.7, B-59: the card names a discard with the words of the design.
+test("3.7: a discard reads «fuente inexistente» and «pasaje ausente»", () => {
+  const es = JSON.parse(readFileSync(new URL("./i18n/es.json", import.meta.url), "utf8"));
+  assert.equal(es["digest.reason.source_not_found"], "fuente inexistente");
+  assert.equal(es["digest.reason.passage_not_found"], "pasaje ausente");
+  const en = JSON.parse(readFileSync(new URL("./i18n/en.json", import.meta.url), "utf8"));
+  assert.equal(en["digest.reason.source_not_found"], "source does not exist");
+  assert.equal(en["digest.reason.passage_not_found"], "passage not found");
+});

@@ -1,0 +1,22 @@
+{
+  "turn_kind": "reader",
+  "script": "F6: the reader: the traffic never reaches zero, with its passage",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "El tráfico de escritura nunca llega a cero, tampoco de madrugada.",
+        "source_id": "src-1",
+        "hit": null,
+        "reference": null,
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "src-1"
+    ]
+  }
+}

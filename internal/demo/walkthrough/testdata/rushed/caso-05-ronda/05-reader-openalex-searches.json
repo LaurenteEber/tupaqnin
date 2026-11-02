@@ -1,0 +1,15 @@
+{
+  "turn_kind": "reader",
+  "part": 1,
+  "script": "Step 7: the OpenAlex reader searches the minimum particle size (B-71), over the recorded query",
+  "tool_calls": [
+    {
+      "name": "search_literature",
+      "arguments": {
+        "query": "microplastics drinking water detection minimum particle size",
+        "where": "openalex",
+        "year_from": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "Step 7: the chain stops; «Buscarla» is your act (B-72)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: espero lo que decidas sobre la cita.",
+    "closing_risk": "none",
+    "note": "No escribí nada en este paso."
+  }
+}

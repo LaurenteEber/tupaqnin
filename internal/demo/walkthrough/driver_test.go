@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 	"unicode"
 
 	"golang.org/x/text/unicode/norm"
@@ -42,6 +44,9 @@ const (
 	originAnswer = "Del supuesto de que el conteo depende del tamaño mínimo que cada estudio puede ver: con filtros distintos no se cuenta lo mismo."
 	caseAnswer   = "Solo los comparo desde el tamaño mínimo que ambos ven; si no, la diferencia sale del filtro y no del agua."
 	maxRounds    = 4
+	// turnWait bounds how long an act waits for its background turn; real
+	// model calls take minutes (make demo-check).
+	turnWait = 20 * time.Minute
 	// caseFigure is the datum of case 5: 1,5 times, not 60.
 	caseFigure = "1,5"
 	// ruleWord marks the comparison rule (P-55), compared without case
@@ -133,6 +138,70 @@ func (s *syncStarter) SignoffAnswers(projectID, sign, origin, answer string) (st
 
 func (s *syncStarter) SignoffAsk(string, string, string) (string, error) {
 	return "", fmt.Errorf("the walkthrough does not ask the agent")
+}
+
+// waitTurn waits for the turn a round or an audit left running in the
+// background, so the next act sees the state it left. The runner has no
+// «is a turn running» to ask: a «Buscarla» on candidate 0 needs the turn
+// slot first, answers ErrTurnRunning while one runs and otherwise refuses
+// without writing anything.
+func (s *syncStarter) waitTurn(projectID string) error {
+	deadline := time.Now().Add(turnWait)
+	for time.Now().Before(deadline) {
+		_, _, err := s.runner.StartCandidateRound(projectID, []int{0})
+		if !errors.Is(err, cycle.ErrTurnRunning) {
+			return nil
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return fmt.Errorf("the turn did not end in %s", turnWait)
+}
+
+// The round acts (server.RoundRunner): the runner's, each one waiting for
+// its turn, as StartTurn does.
+
+func (s *syncStarter) Round(ctx context.Context, projectID, label string) (cycle.RoundView, error) {
+	return s.runner.Round(ctx, projectID, label)
+}
+
+func (s *syncStarter) StartRound(projectID string) (string, string, error) {
+	label, turn, err := s.runner.StartRound(projectID)
+	if err == nil {
+		err = s.waitTurn(projectID)
+	}
+	return label, turn, err
+}
+
+func (s *syncStarter) StartCandidateRound(projectID string, references []int) (string, string, error) {
+	label, turn, err := s.runner.StartCandidateRound(projectID, references)
+	if err == nil {
+		err = s.waitTurn(projectID)
+	}
+	return label, turn, err
+}
+
+func (s *syncStarter) RepeatRound(projectID, label, question string) (string, string, float64, error) {
+	newLabel, turn, cost, err := s.runner.RepeatRound(projectID, label, question)
+	if err == nil {
+		err = s.waitTurn(projectID)
+	}
+	return newLabel, turn, cost, err
+}
+
+func (s *syncStarter) LeaveRoundOpen(ctx context.Context, projectID, label string) (string, error) {
+	return s.runner.LeaveRoundOpen(ctx, projectID, label)
+}
+
+func (s *syncStarter) AuditSection(projectID, section string) (string, string, error) {
+	label, turn, err := s.runner.AuditSection(projectID, section)
+	if err == nil {
+		err = s.waitTurn(projectID)
+	}
+	return label, turn, err
+}
+
+func (s *syncStarter) DiscardFlaw(ctx context.Context, projectID, label string, n int) error {
+	return s.runner.DiscardFlaw(ctx, projectID, label, n)
 }
 
 // walk is one run of the walkthrough over a fresh database.

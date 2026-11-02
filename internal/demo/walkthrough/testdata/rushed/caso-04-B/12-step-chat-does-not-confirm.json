@@ -1,0 +1,11 @@
+{
+  "turn_kind": "step",
+  "script": "F8: «ok, dale, reescríbelo» in the chat confirms nothing: the agent points at the card",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: el chat no confirma; responde la tarjeta.",
+    "closing_risk": "none",
+    "reply": "La decisión está en su tarjeta: elige una opción y di por qué.",
+    "note": "No escribí nada en este paso."
+  }
+}

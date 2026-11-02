@@ -1,0 +1,13 @@
+{
+  "turn_kind": "step",
+  "script": "Step 4: the principal reads Paula's note, the 16th source (B-70)",
+  "tool_calls": [
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-16",
+        "span": null
+      }
+    }
+  ]
+}

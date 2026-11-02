@@ -50,8 +50,11 @@ microtest-signoff:
 # model's last output; a passing run replaces the recorded answers in
 # internal/demo/walkthrough/testdata/recorded/, which the default test
 # replays with the fake. Same keychain key as microtest. Eber runs this.
+# TestDemoCheckRound adds slice 3's stretch (backlog-r3 3.7): «Buscarla» on
+# the citation of Paula's note, with Meta and the real OpenAlex, no arXiv;
+# TQ_CONTACT_EMAIL goes in its User-Agent (B-60).
 demo-check:
-	TQ_PROVIDER=meta META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/demo/walkthrough/ -run TestDemoCheck -count=1 -v -timeout 30m
+	TQ_PROVIDER=meta META_API_KEY="$$(security find-generic-password -s tupaqnin-meta-api -w)" go test -tags=meta ./internal/demo/walkthrough/ -run TestDemoCheck -count=1 -v -timeout 60m
 
 # Real checker outputs for the checker tests (backlog-r2 2.3, P-68),
 # recorded into internal/provider/testdata/checker/ only when the

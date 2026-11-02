@@ -1,0 +1,63 @@
+{
+  "turn_kind": "step",
+  "script": "F4 and F7: the correction batch: the principal delegates the 30 days of logs to a reader (too much for one pass) and proposes dual writing with its contrast (critical: two sections)",
+  "output": {
+    "stretch": "discover",
+    "triage_line": "Tramo: verificar · Riesgo: contradice algo confirmado · Delego en un lector: 30 días de registros, más de lo que cabe en una pasada.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 2,
+        "anchor": "Copiamos todo y cortamos un domingo de madrugada, con las escrituras congeladas unos minutos.",
+        "operation": "replace",
+        "claim_origin": "material",
+        "text": "Escritura dual en 4 fases: la base antigua sigue recibiendo cada cambio hasta la fase 4."
+      },
+      {
+        "section_id": "sec-2",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "La escritura dual exige conciliación diaria y permite volver atrás cambiando de dónde se lee."
+      }
+    ],
+    "new_decisions": [
+      {
+        "id": "new-1",
+        "statement": "Reemplazar el corte de domingo por escritura dual en 4 fases.",
+        "instead_of": "El corte de domingo: simple y corto, con una caída de minutos.",
+        "would_choose_if": "El tráfico de madrugada fuera realmente cero.",
+        "assumption": false,
+        "used_in_sections": [
+          "sec-1",
+          "sec-2"
+        ]
+      }
+    ],
+    "research_request": {
+      "question": "¿El tráfico de escritura llega a cero de madrugada?",
+      "doubt": "Si congelar las escrituras unos minutos es una caída.",
+      "delegation_reason": "too_much_to_read",
+      "scope": "Tus registros de 30 días.",
+      "parts": [
+        {
+          "question": "¿Cuánto tráfico de escritura hay de madrugada?",
+          "where": [
+            "project"
+          ],
+          "sources": [
+            {
+              "source_id": "src-1",
+              "what_for": "Los 30 días de registros."
+            }
+          ],
+          "queries": []
+        }
+      ],
+      "references": []
+    },
+    "note": "El juez marca una falla contra tu criterio; propongo la escritura dual y pido leer los registros."
+  }
+}

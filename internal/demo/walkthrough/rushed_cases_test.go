@@ -212,65 +212,6 @@ func TestH1_Rushed03B_ScopeOpenQuestionBlocksTheTable(t *testing.T) {
 	r.allUsed()
 }
 
-// H-1 (backlog-r2 2.10, row 4B): no brake in slices 1 and 2: the
-// contradiction comes from the judge with a reader, asked with «Auditar»
-// at F4 (slice 3). The test proves slice 2 does not invent a brake: up to
-// F3, nothing is open. Cut at F4.
-func TestH1_Rushed04B_NothingOpenBeforeTheAudit(t *testing.T) {
-	r := newRushed(t, "caso-04-B")
-	r.open("F1")
-	r.submit("F1–F2")
-	// F1: Martín pastes his draft of «Plan de migración».
-	// The sections are born with the understanding (1.9), so the draft he
-	// pastes at F1 goes in right after it, as his edit.
-	plan := r.section("F1", "Plan de migración")
-	r.do("F1", http.MethodPut, r.api("/sections/"+plan.Label), map[string]any{"base_version": plan.Version,
-		"text": "Copiamos todo y cortamos un domingo de madrugada, con las escrituras congeladas unos minutos.\n\nNo migramos en caliente: lo haríamos si fuéramos más de tres en el equipo."},
-		http.StatusOK, nil)
-	// F3: «sí».
-	r.say("F3", "sí")
-
-	todo := r.todo("F3")
-	if len(todo.Cards) != 0 || len(todo.OpenQuestions) != 0 {
-		r.fail("F3", "want nothing open up to F3, got cards %+v and «por aclarar» %+v", todo.Cards, todo.OpenQuestions)
-	}
-	r.allUsed()
-}
-
-// H-1 (backlog-r2 2.10, row 6B): no brake in slices 1 and 2: everything
-// starts from the judge's findings (F2–3, slice 3). The seeded earlier
-// session leaves «Diagnóstico» signed and the report seen; at F1's
-// return there is no pending report and nothing is open. Cut at F2.
-func TestH1_Rushed06B_NothingOpenAtTheReturn(t *testing.T) {
-	r := newRushed(t, "caso-06-B")
-	// Seed: the earlier session, through the same API.
-	r.open("seed")
-	r.submit("seed")
-	r.do("seed", http.MethodPost, r.api("/stop-report/seen"), nil, http.StatusNoContent, nil)
-	diag := r.section("seed", "Diagnóstico")
-	var view graph.SignoffView
-	r.do("seed", http.MethodPost, r.api("/sections/"+diag.Label+"/signoff"), nil, http.StatusCreated, &view)
-	r.do("seed", http.MethodPost, r.api("/signoffs/"+view.Label+"/explanation"),
-		map[string]any{"text": "Los pabellones son de concreto con muros entre columnas."}, http.StatusOK, nil)
-	r.do("seed", http.MethodPost, r.api("/signoffs/"+view.Label+"/sign"), nil, http.StatusOK, nil)
-
-	// F1: she opens the project: no pending report; «Diagnóstico» signed.
-	var report server.StopReportView
-	r.do("F1", http.MethodGet, r.api("/stop-report"), nil, http.StatusOK, &report)
-	if !report.Seen {
-		r.fail("F1", "the last report is unseen; the script has no pending report")
-	}
-	if sec := r.section("F1", "Diagnóstico"); sec.Status != "signed" {
-		r.fail("F1", "«Diagnóstico» is %q, want signed", sec.Status)
-	}
-	// Nothing open up to the judge (F2).
-	todo := r.todo("F1")
-	if len(todo.Cards) != 0 || len(todo.OpenQuestions) != 0 {
-		r.fail("F1", "want nothing open before the judge, got cards %+v and «por aclarar» %+v", todo.Cards, todo.OpenQuestions)
-	}
-	r.allUsed()
-}
-
 // H-1 (backlog-r2 2.10, row 7B; 1.4 · T-1, 2.4, 1.7): at F7 the horizon
 // arrives as a «por aclarar» of scope; at F13 the irradiation card
 // answered «ok» stays open with answer_without_reason and the signoff of

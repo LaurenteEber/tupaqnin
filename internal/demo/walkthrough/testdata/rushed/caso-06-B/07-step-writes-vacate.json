@@ -1,0 +1,21 @@
+{
+  "turn_kind": "step",
+  "script": "F8: the agent reads «cerraría si…» and writes a paragraph to vacate the school; it learned why «Diagnóstico» was not applied (B-14)",
+  "when": "sec-1 is signed (or changed since it was signed)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Riesgo: ninguno.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-2",
+        "base_version": 4,
+        "anchor": "En el pabellón C se separan los muros bajos de las columnas con una junta.",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "Conviene desocupar todo el colegio durante la obra: las columnas cortas podrían colapsar con un sismo moderado."
+      }
+    ],
+    "note": "Las columnas cortas podrían cumplir tu condición."
+  }
+}

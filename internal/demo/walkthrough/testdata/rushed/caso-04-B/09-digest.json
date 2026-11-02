@@ -1,0 +1,19 @@
+{
+  "turn_kind": "digest",
+  "script": "F7: the principal's digest of the reader's finding",
+  "output": {
+    "answer": "El tráfico de escritura nunca llega a cero: congelar escrituras unos minutos es una caída para quien escribe en ese momento.",
+    "outline": [
+      "El tráfico nunca llega a cero, tampoco de madrugada."
+    ],
+    "findings": [
+      {
+        "finding": 1,
+        "outline_line": 1
+      }
+    ],
+    "expectation_contrast": "No coincide con tu decisión: el corte de domingo supone que de madrugada no hay tráfico.",
+    "reduced_doubt": "yes",
+    "contradictions": []
+  }
+}

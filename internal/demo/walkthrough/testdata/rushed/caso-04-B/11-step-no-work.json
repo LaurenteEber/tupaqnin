@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "P-99: the step after a round's digest; the chain stops here and writes its report",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: la tarjeta espera tu opción y tu porque.",
+    "closing_risk": "none",
+    "note": "No escribí nada en este paso."
+  }
+}

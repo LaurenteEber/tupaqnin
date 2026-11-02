@@ -1,0 +1,13 @@
+{
+  "turn_kind": "reader",
+  "script": "F6: the reader reads the logs",
+  "tool_calls": [
+    {
+      "name": "read_source",
+      "arguments": {
+        "source": "src-1",
+        "span": null
+      }
+    }
+  ]
+}

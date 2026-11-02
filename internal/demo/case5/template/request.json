@@ -68,6 +68,10 @@
     {
       "filename": "calculo-comparacion.md",
       "kind": "calculation"
+    },
+    {
+      "filename": "notas-paula.md",
+      "kind": "file"
     }
   ]
 }

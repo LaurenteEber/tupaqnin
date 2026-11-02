@@ -1,0 +1,24 @@
+{
+  "turn_kind": "digest",
+  "script": "Step 7: the principal's digest of what entered; the app adds what it discarded (B-63)",
+  "output": {
+    "answer": "Tu material da 1,5 veces con el mismo tamaño mínimo; la literatura real muestra métodos muy distintos entre estudios.",
+    "outline": [
+      "Con 20 micras, la embotellada trae 1,5 veces más.",
+      "Los métodos varían entre estudios."
+    ],
+    "findings": [
+      {
+        "finding": 1,
+        "outline_line": 2
+      },
+      {
+        "finding": 2,
+        "outline_line": 1
+      }
+    ],
+    "expectation_contrast": "Coincide en que la embotellada trae más, pero mucho menos de lo que sugieren los conteos crudos.",
+    "reduced_doubt": "partly",
+    "contradictions": []
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F10: the one recheck: the flaw is no longer in the text",
+  "output": {
+    "flaws": [],
+    "recheck": [
+      {
+        "flaw": 1,
+        "verdict": "resolved",
+        "passage": null
+      }
+    ]
+  }
+}

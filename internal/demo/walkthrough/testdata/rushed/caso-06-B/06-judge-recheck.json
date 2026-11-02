@@ -1,0 +1,24 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F6: the one recheck: «Diagnóstico» did not change, so the flaws stay; each opens its «por aclarar» (B-67)",
+  "output": {
+    "flaws": [],
+    "recheck": [
+      {
+        "flaw": 1,
+        "verdict": "still_open",
+        "passage": "Se refuerza por etapas, un pabellón a la vez, mientras el colegio sigue funcionando."
+      },
+      {
+        "flaw": 2,
+        "verdict": "still_open",
+        "passage": "Se refuerza por etapas, un pabellón a la vez, mientras el colegio sigue funcionando."
+      },
+      {
+        "flaw": 3,
+        "verdict": "still_open",
+        "passage": "La propuesta se presenta a los padres con el refuerzo de cada pabellón."
+      }
+    ]
+  }
+}

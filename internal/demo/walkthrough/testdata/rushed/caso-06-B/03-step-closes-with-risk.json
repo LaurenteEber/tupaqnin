@@ -1,0 +1,20 @@
+{
+  "turn_kind": "step",
+  "script": "F1–F2: «Revisa la propuesta…»: a step that closes with a listed risk brings the judge (B-67 a); the app's trigger, not the agent's triage",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: verificar · Riesgo: conclusiones y recomendaciones, efecto ante terceros.",
+    "closing_risk": "conclusions_and_recommendations",
+    "new_text": [
+      {
+        "section_id": "sec-2",
+        "base_version": 2,
+        "anchor": "Se refuerza por etapas, un pabellón a la vez, mientras el colegio sigue funcionando.",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "La propuesta se presenta a los padres con el refuerzo de cada pabellón."
+      }
+    ],
+    "note": "Dejo la propuesta lista para presentarla."
+  }
+}

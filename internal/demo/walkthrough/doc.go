@@ -5,5 +5,8 @@
 // make demo-check (-tags=meta), which records the answers again. It also
 // runs the rushed profile's ten walkthroughs (backlog-r2 2.10), each with
 // hand-made outputs and the brake of the table «Frenos esperados», and
-// the slice-2 stretch of case 5 against Meta in make demo-check.
+// the slice-2 stretch of case 5 against Meta in make demo-check. Slice 3
+// adds the round of case 5 and the citation that does not exist, and
+// completes the scripts 4B and 6B (backlog-r3 3.7); make demo-check runs
+// that round against Meta and the real OpenAlex.
 package walkthrough

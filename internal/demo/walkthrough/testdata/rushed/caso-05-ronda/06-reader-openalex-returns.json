@@ -1,0 +1,36 @@
+{
+  "turn_kind": "reader",
+  "part": 1,
+  "script": "Step 7: the reader brings a passage of a real abstract and writes the citation that does not exist as a reference (B-70)",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "Methods used in studies so far show a huge diversity regarding experimental setups",
+        "source_id": null,
+        "hit": "hit-4",
+        "reference": null,
+        "note": null
+      },
+      {
+        "kind": "fact",
+        "passage": "Los conteos del agua embotellada andina superan a los del agua de red.",
+        "source_id": null,
+        "hit": null,
+        "reference": {
+          "title": "Microplásticos en agua embotellada andina: una comparación con el agua de red",
+          "authors": "Valdivia, R. y Ortiz, M.",
+          "year": 2022,
+          "doi": null
+        },
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "hit-4"
+    ]
+  }
+}

@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/LaurenteEber/tupaqnin/internal/evidence"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/memory"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
@@ -200,4 +202,59 @@ func TestDemoCheckSlice2(t *testing.T) {
 	}
 	spent, _ := w.db.ProjectSpend(ctx, w.project)
 	t.Logf("slice-2 stretch passed: %d model calls, %.4f USD", len(rec.calls), spent)
+}
+
+// TestDemoCheckRound runs slice 3's stretch of case 5 against Meta and the
+// real OpenAlex (backlog-r3 3.7, B-70, B-72; make demo-check, with
+// TQ_CONTACT_EMAIL for the User-Agent, B-60). No arXiv: «Buscarla» does not
+// use it. Eber runs it. The principal has to name the citation of Paula's
+// note as a candidate by itself: nothing forces it. Then «Buscarla», and
+// the app's Lookup discards the citation in sight, whatever the readers do
+// (B-59 d). A round with no finding that enters fails with its inventory,
+// to decide with Eber («Si algo no está»).
+func TestDemoCheckRound(t *testing.T) {
+	key := os.Getenv("META_API_KEY")
+	if key == "" || os.Getenv("TQ_PROVIDER") != "meta" {
+		t.Skip("demo-check needs TQ_PROVIDER=meta and META_API_KEY (make demo-check)")
+	}
+	rec := &recorder{}
+	w := newWalk(t, func(db *store.DB) (provider.Provider, memory.TokenCounter) {
+		meta := provider.NewMeta(key, db, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		rec.inner = meta
+		return rec, func(ctx context.Context, input []json.RawMessage) (int, error) {
+			return meta.CountTokens(ctx, provider.PrincipalModel, input)
+		}
+	}, rec.lastOutput)
+	w.starter.runner.Evidence = evidence.New(evidence.Options{ContactEmail: os.Getenv("TQ_CONTACT_EMAIL")})
+
+	var created server.CreateProjectResponse
+	w.do("1 demo case", http.MethodPost, "/api/projects", map[string]any{"template": "case-5"}, http.StatusCreated, &created)
+	w.project = created.ProjectID
+	w.do("2 request", http.MethodPost, w.api("/request/submit"), nil, http.StatusAccepted, nil)
+
+	// 7. The citation as a candidate, and «Buscarla».
+	candidate := w.candidateNaming("7 candidate", "Valdivia")
+	if candidate.Title == "" && candidate.DOI == "" {
+		w.fail("7 candidate", "candidate %+v has nothing Lookup can look for", candidate)
+	}
+	var started server.StartRoundResponse
+	w.do("7 Buscarla", http.MethodPost, w.api("/rounds"), map[string]any{"references": []int{candidate.N}},
+		http.StatusAccepted, &started)
+	card := w.round("7 round", started.Label)
+	for _, part := range card.Parts {
+		if slices.Contains(part.Where, "arxiv") {
+			w.fail("7 round", "a part searches arXiv: %+v (B-72)", card.Parts)
+		}
+	}
+	if _, ok := discardedNotFound(card, candidate.Text); !ok {
+		w.fail("7 digest", "%q is not discarded as «fuente inexistente»: discarded %+v; not verified %+v",
+			candidate.Text, card.Discarded, card.Unverified)
+	}
+	entered := enteredFindings(card)
+	if entered == 0 {
+		w.fail("7 digest", "no finding entered; inventory: %+v", card.Coverage)
+	}
+	spent, _ := w.db.ProjectSpend(context.Background(), w.project)
+	t.Logf("round stretch passed: %d findings to read, %d discarded, %d model calls, %.4f USD; inventory %+v",
+		entered, len(card.Discarded), len(rec.calls), spent, card.Coverage)
 }

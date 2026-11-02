@@ -1,0 +1,28 @@
+{
+  "turn_kind": "step",
+  "script": "F5: to correct (1) and (2) the batch edits signed «Diagnóstico»: that item is rejected (B-14, as B-11 until slice 4); the junta goes in «Propuesta»",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Tramo: construir · Riesgo: ninguno · Corrijo lo que señaló el juez.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 2,
+        "anchor": "Los pabellones son de concreto armado, con muros de albañilería entre columnas.",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "El tanque de agua de la azotea suma una carga que el modelo no tenía, y en el pabellón C los muros bajos dejan columnas cortas."
+      },
+      {
+        "section_id": "sec-2",
+        "base_version": 3,
+        "anchor": "La propuesta se presenta a los padres con el refuerzo de cada pabellón.",
+        "operation": "insert_after",
+        "claim_origin": "model_knowledge",
+        "text": "En el pabellón C se separan los muros bajos de las columnas con una junta."
+      }
+    ],
+    "note": "Corrijo el diagnóstico y la propuesta."
+  }
+}

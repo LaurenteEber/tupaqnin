@@ -3,3 +3,5 @@
 *Material ficticio para la prueba del perfil apurado (caso 4).*
 
 Hay escrituras todas las madrugadas de domingo, por los pedidos programados y los reintentos de pago.
+
+El tráfico de escritura nunca llega a cero, tampoco de madrugada.

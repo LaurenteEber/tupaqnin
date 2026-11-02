@@ -1,8 +1,7 @@
 // Package case5 embeds the case-5 demo template (B-12).
 //
-// The real template lives in docs/demo/caso-5/plantilla/ and Eber
-// copies it over this one; until then this is a test template with
-// the same format: request.json plus one file per source.
+// The template is a copy of docs/demo/caso-5/plantilla/ (B-70): request.json
+// plus one file per source, notas-paula.md last.
 package case5
 
 import (

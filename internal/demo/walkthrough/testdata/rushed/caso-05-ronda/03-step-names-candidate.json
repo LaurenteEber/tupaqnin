@@ -1,0 +1,29 @@
+{
+  "turn_kind": "step",
+  "script": "Step 7: the principal names the note's citation as a candidate, without a source (B-69, R-2)",
+  "output": {
+    "stretch": "build",
+    "triage_line": "Construir: escribo los estudios incluidos; nombro una cita de tu nota, sin verificar.",
+    "closing_risk": "none",
+    "new_text": [
+      {
+        "section_id": "sec-1",
+        "base_version": 1,
+        "anchor": "",
+        "operation": "insert_after",
+        "claim_origin": "external",
+        "text": "Valdivia y Ortiz (2022) comparan el agua embotellada andina con el agua de red."
+      }
+    ],
+    "named_references": [
+      {
+        "text": "Valdivia y Ortiz (2022)",
+        "title": "Microplásticos en agua embotellada andina: una comparación con el agua de red",
+        "authors": "Valdivia, R. y Ortiz, M.",
+        "year": 2022,
+        "doi": null
+      }
+    ],
+    "note": "La cita viene de tu nota; no tengo su fuente."
+  }
+}

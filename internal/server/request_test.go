@@ -151,7 +151,7 @@ func TestB12_ProjectFromTemplateBringsRequestCriteriaAndSources(t *testing.T) {
 
 	rec := do(t, h, http.MethodGet, base+"/request", nil)
 	got := decode[server.RequestView](t, rec)
-	if got.Text == "" || len(got.Criteria) != 2 || len(got.Sources) != 15 {
+	if got.Text == "" || len(got.Criteria) != 2 || len(got.Sources) != 16 {
 		t.Fatalf("template request: criteria=%d sources=%d text=%q", len(got.Criteria), len(got.Sources), got.Text)
 	}
 	calculations := 0

@@ -46,7 +46,10 @@ type handMade struct {
 	// the output to answer that call. A checker call whose brief does not
 	// hold it gets the fake's «no» on every probe (provider.Fake) and the
 	// output waits for its call.
-	When      string          `json:"when,omitempty"`
+	When string `json:"when,omitempty"`
+	// Part, on a reader's output: the part of the round it answers, so two
+	// readers running at once each get theirs (0: whichever calls first).
+	Part      int             `json:"part,omitempty"`
 	Output    json.RawMessage `json:"output,omitempty"`
 	ToolCalls []struct {
 		Name      string          `json:"name"`
@@ -184,16 +187,21 @@ func (s *scripted) Respond(ctx context.Context, req provider.Request, onDelta fu
 	var fake *provider.Fake
 	var hook func()
 	q := s.queue[req.TurnKind]
-	if len(q) > 0 && (q[0].When == "" || strings.Contains(inputText(req.Input), q[0].When)) {
-		fx, err := s.fixture(q[0], req)
+	next := 0
+	for next < len(q) && q[next].Part != 0 && q[next].Part != req.Part {
+		next++
+	}
+	if next < len(q) && (q[next].When == "" || strings.Contains(inputText(req.Input), q[next].When)) {
+		hm := q[next]
+		fx, err := s.fixture(hm, req)
 		if err != nil {
 			s.mu.Unlock()
 			return provider.Response{}, err
 		}
-		s.queue[req.TurnKind] = q[1:]
-		s.served = append(s.served, q[0].name)
-		s.last = fmt.Sprintf("%s (%s)", q[0].name, q[0].Script)
-		hook = s.before[q[0].name]
+		s.queue[req.TurnKind] = append(append([]handMade{}, q[:next]...), q[next+1:]...)
+		s.served = append(s.served, hm.name)
+		s.last = fmt.Sprintf("%s (%s)", hm.name, hm.Script)
+		hook = s.before[hm.name]
 		fake = provider.NewFake(fx)
 	} else {
 		// The fake's plain answer for a checker, stop report or defense
@@ -559,7 +567,7 @@ func (r *rushed) openQuestionView(step, label string) (server.OpenQuestionView, 
 func intPtr(i int) *int { return &i }
 
 // openTemplate is F1 on the demo case (B3-19): Paula's request and the
-// 15 sources of case 5, not yet submitted.
+// 16 sources of case 5, not yet submitted.
 func (r *rushed) openTemplate(step string) {
 	r.t.Helper()
 	var created server.CreateProjectResponse

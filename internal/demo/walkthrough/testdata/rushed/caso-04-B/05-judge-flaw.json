@@ -1,0 +1,15 @@
+{
+  "turn_kind": "judge_verify",
+  "script": "F6: the judge's flaw: frozen writes with traffic above zero contradict the confirmed criterion «cero caída»",
+  "output": {
+    "flaws": [
+      {
+        "section": "sec-1",
+        "passage": "Copiamos todo y cortamos un domingo de madrugada, con las escrituras congeladas unos minutos.",
+        "risk": "contradicts_confirmed",
+        "scenario": "1. Un cliente confirma un pedido el domingo de madrugada. 2. Las escrituras están congeladas unos minutos. 3. Su pedido falla: contradice el criterio confirmado «cero caída»."
+      }
+    ],
+    "recheck": []
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "turn_kind": "reader",
+  "part": 2,
+  "script": "Step 7: the reader of your material brings the calculation at 20 microns",
+  "output": {
+    "findings": [
+      {
+        "kind": "fact",
+        "passage": "Embotellada frente a grifo: 1,5 veces.",
+        "source_id": "src-15",
+        "hit": null,
+        "reference": null,
+        "note": null
+      }
+    ],
+    "covered": [
+      "crit-1"
+    ],
+    "sources_read": [
+      "src-15",
+      "src-16"
+    ]
+  }
+}

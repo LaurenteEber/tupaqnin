@@ -1,0 +1,8 @@
+{
+  "service": "openalex",
+  "query": "title.search:Microplásticos en agua embotellada andina: una comparación con el agua de red",
+  "url": "https://api.openalex.org/works?filter=title.search%3AMicropl%C3%A1sticos+en+agua+embotellada+andina%3A+una+comparaci%C3%B3n+con+el+agua+de+red&per-page=10",
+  "status": 200,
+  "content_type": "application/json",
+  "body": "{\"meta\": {\"count\": 0}, \"results\": []}"
+}
