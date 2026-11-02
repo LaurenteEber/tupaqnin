@@ -17,7 +17,7 @@ test("P-115: «Object» sends the reason on the card, and with none it asks", ()
 });
 
 test("P-115: «Saved» only when the text on screen is what was saved", () => {
-  assert.equal(editingKind("texto nuevo", "texto"), "saving");
+  assert.equal(editingKind("texto nuevo", "texto"), "unsaved");
   assert.equal(editingKind("texto", "texto"), "saved");
 });
 

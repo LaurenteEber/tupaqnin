@@ -127,6 +127,8 @@ button.small { padding: 3px 9px; font-size: 12px; }
 .decbody { font-size: 12.5px; display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-left: 4px; }
 .decbody b { font-weight: 500; }
 .links { display: flex; gap: 10px; flex-wrap: wrap; }
+.decision-acts { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.decision-acts > div, .decision-acts > p { flex-basis: 100%; }
 .link { border: 0; background: none; color: var(--accent); padding: 0; text-decoration: underline; text-underline-offset: 2px; font-size: 12.5px; text-align: left; }
 .tlist { gap: 2px; }
 .tlist button { width: 100%; text-align: left; border: 0; background: none; padding: 6px 8px; display: flex; justify-content: space-between; gap: 6px; align-items: center; }

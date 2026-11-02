@@ -1,4 +1,4 @@
-import { editingKind } from "../saveStatus";
+import { createAutosave, editingKind, shouldAutosave } from "../saveStatus";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
@@ -77,6 +77,11 @@ export function SectionEditor({
 }) {
   const base = useRef({ version, savedText: text });
   const status = useRef<((kind: string) => void) | null>(null);
+  // One save at a time, 2 s after you stop typing (P-116); a version conflict stays
+  // on screen until the next blur, as before.
+  const rawSave = useRef<() => Promise<void>>(async () => {});
+  const autosave = useRef(createAutosave(() => rawSave.current()));
+  const conflicted = useRef(false);
   // The editor's text as it last loaded or saved (P-93): equal to what
   // it holds now means you have not typed since.
   const shown = useRef<string | null>(null);
@@ -95,9 +100,12 @@ export function SectionEditor({
     editorProps: {
       attributes: { class: "section-editor-content" },
     },
-    // P-115: what you type is not saved yet; no «Saved» until its PUT returns.
+    // P-115, P-116: what you type waits to be saved; no «Saved» until its PUT returns.
     onUpdate: ({ editor: e }) => {
-      status.current?.(editingKind(joinParagraphs(e.state.doc, separators), base.current.savedText));
+      const current = joinParagraphs(e.state.doc, separators);
+      if (shouldAutosave(current, base.current.savedText, conflicted.current)) autosave.current.changed();
+      else if (!conflicted.current) autosave.current.cancel();
+      if (!conflicted.current && !autosave.current.busy()) status.current?.(editingKind(current, base.current.savedText));
     },
   });
 
@@ -162,6 +170,7 @@ export function SectionEditor({
     const value = currentText();
     if (value === base.current.savedText) return; // the client does not send an unchanged document
     status.current?.("saving");
+    conflicted.current = false;
     const result = await saveSection(projectID, label, base.current.version, value);
     if (result.kind === "saved") {
       base.current = { version: result.version, savedText: value };
@@ -173,14 +182,16 @@ export function SectionEditor({
       shown.current = value;
       status.current?.(editingKind(currentText(), value));
     } else if (result.kind === "conflict") {
+      conflicted.current = true;
       status.current?.("conflict");
     } else {
       status.current?.("error");
     }
   }
 
-  const saveRef = useRef(saveNow);
-  saveRef.current = saveNow;
+  rawSave.current = saveNow;
+  const saveRef = useRef(() => autosave.current.flush());
+  useEffect(() => () => autosave.current.cancel(), []);
 
   useEffect(() => {
     registerSave(() => saveRef.current());
@@ -371,6 +382,8 @@ function SaveStatus({
       ref.current.textContent =
         kind === "saving"
           ? translate(lang, "save.saving")
+          : kind === "unsaved"
+            ? translate(lang, "save.unsaved")
           : kind === "conflict"
             ? translate(lang, "save.conflict")
             : kind === "error"
