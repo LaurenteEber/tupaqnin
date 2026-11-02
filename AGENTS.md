@@ -12,7 +12,7 @@ The design is the source of truth, written in Spanish. Code names come from the 
 
 | You need | Read |
 |---|---|
-| What to build next, and what to read for it | `docs/construccion/backlog.md` (slice 0) · `docs/construccion/backlog-r1.md` (slice 1) |
+| What to build next, and what to read for it | `docs/construccion/backlog-entrega.md` (slice Entrega, next) · `docs/construccion/backlog-r4.md` (slice 4, after Entrega) · earlier: `backlog.md`, `backlog-r1.md` to `backlog-r3.md` |
 | Data model, write gate, signing, deploy, stack | `docs/diseno/bloque-3/bloque-3-especificacion.md` |
 | Technical defaults (ids, anchors, criticality, dates, tests…) | `docs/diseno/bloque-3/defaults-tecnicos.md` |
 | The principal's fixed output | `docs/diseno/bloque-3/salida-principal.schema.json` |
