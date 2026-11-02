@@ -1370,7 +1370,7 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		}
 		// B-67: the batch applied: its one recheck.
 		if result.Status == StatusAccepted && batch != "" {
-			if err := r.recheckJudgeRounds(ctx, projectID); err != nil {
+			if err := r.recheckJudgeRounds(ctx, projectID, judgeFailed); err != nil {
 				r.fail(projectID, turnID, "turn_failed")
 				return "", err
 			}

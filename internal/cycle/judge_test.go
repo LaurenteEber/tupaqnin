@@ -964,3 +964,292 @@ func publishedErrors(p *fakePublisher) []string {
 	defer p.mu.Unlock()
 	return append([]string{}, p.errs...)
 }
+
+// Backlog-r4 v0.8, hueco 4 (B-67 with B-73 b): the judge's round covers the section
+// the step closed and each signed section where that step or its batch left a proposal.
+
+const signedPassage = "Los conteos subieron 60 veces en 2023."
+
+// seedSignedAndDraft is sec-1 signed (judgedText) and sec-2, a draft the steps close.
+func seedSignedAndDraft(t *testing.T, db *store.DB) {
+	t.Helper()
+	seedJudged(t, db)
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{"title": "Cierre", "text": "# Cierre\n\nLa muestra alcanza.",
+			"role": map[string]any{"value": "other", "state": "confirmed"}, "open_changes": []any{}},
+			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	setSectionSigned(t, db, "sec-1")
+}
+
+func judgedOnSigned(text string) map[string]any {
+	return map[string]any{"section_id": "sec-1", "base_version": 1, "anchor": signedPassage,
+		"claim_origin": "model_knowledge", "operation": "insert_after", "text": text}
+}
+
+func judgedOnDraft(text string) map[string]any {
+	return map[string]any{"section_id": "sec-2", "base_version": 1, "anchor": "La muestra alcanza.",
+		"claim_origin": "model_knowledge", "operation": "insert_after", "text": text}
+}
+
+func stepOn(risk string, texts ...map[string]any) string {
+	raw, _ := json.Marshal(map[string]any{"stretch": "build", "triage_line": "Construir: sigo.",
+		"closing_risk": risk, "note": "Sigo.", "new_text": texts})
+	return string(raw)
+}
+
+// The step that closes sec-2 also leaves a proposal on signed sec-1: the first call
+// has sec-1's text and may name a flaw there; its still_open moves sec-1 to «cambió».
+func TestB67_ARoundCoversTheSignedSectionWhereItsStepLeftAProposal(t *testing.T) {
+	db, runner, cap, _ := newCaptureRunner(t,
+		textFixture(t, stepOn("figures_and_calculations", judgedOnSigned("Añado una nota al diagnóstico."), judgedOnDraft("Se revisa la muestra."))),
+		verifyFlaws(t, oneFlaw("sec-1", signedPassage, "figures_and_calculations")),
+		textFixture(t, stepOn("none", judgedDraftAt(2, "Se revisa otra vez."))),
+		verifyRecheck(t, flawStillOpen(1, signedPassage)))
+	seedSignedAndDraft(t, db)
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Revisa."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	if len(cap.verifies) != 2 {
+		t.Fatalf("judge calls: %d, want the first and the recheck", len(cap.verifies))
+	}
+	for i, call := range cap.verifies {
+		if text := itemsText(call.Input); !strings.Contains(text, judgedText) || !strings.Contains(text, "Se revisa la muestra.") {
+			t.Fatalf("call %d lacks the current text of a covered section:\n%s", i, text)
+		}
+	}
+	if text := itemsText(cap.verifies[0].Input); strings.Contains(text, "Añado una nota") {
+		t.Fatalf("the judge read the proposal, not the current text:\n%s", text)
+	}
+	if text := itemsText(cap.sent[1]); !strings.Contains(text, "Flaw 1 · risk figures_and_calculations · section sec-1.") {
+		t.Fatalf("the batch does not say where the flaw is:\n%s", text)
+	}
+	oqs := flawOQs(t, db)
+	if len(oqs) != 1 || oqs[0].State != "open" {
+		t.Fatalf("flaw «por aclarar»: %+v", oqs)
+	}
+	st, pendings := status(t, db, "sec-1")
+	if st != graph.StatusChangedSinceSignoff || !hasPending(pendings, graph.PendingOpenQuestion, oqs[0].Label) {
+		t.Fatalf("sec-1: %s %v, want changed_since_signoff with its «por aclarar»", st, pendings)
+	}
+	if _, pendings := status(t, db, "sec-2"); hasPending(pendings, graph.PendingOpenQuestion, oqs[0].Label) {
+		t.Fatalf("the failure in sec-1 blocks sec-2: %v", pendings)
+	}
+}
+
+// The batch leaves the proposal: the recheck reads sec-1's current text, not the
+// proposal's; a failure there moves it to «cambió», and the section stayed signed
+// until that recheck.
+func TestB67_TheRecheckReadsTheSignedSectionWhereTheBatchLeftAProposal(t *testing.T) {
+	passage := "La muestra alcanza."
+	db, runner, cap, _ := newCaptureRunner(t,
+		textFixture(t, stepOn("figures_and_calculations", judgedOnDraft("Se revisa la muestra."))),
+		verifyFlaws(t, oneFlaw("sec-2", passage, "figures_and_calculations")),
+		textFixture(t, stepOn("none", judgedOnSigned("Corrijo el diagnóstico."), judgedDraftAt(2, "Se revisa otra vez."))),
+		verifyRecheck(t, flawStillOpen(1, signedPassage)))
+	seedSignedAndDraft(t, db)
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Revisa."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	if len(cap.verifies) != 2 {
+		t.Fatalf("judge calls: %d", len(cap.verifies))
+	}
+	if text := itemsText(cap.verifies[0].Input); strings.Contains(text, judgedText) {
+		t.Fatalf("the first call read sec-1, where no proposal was left yet:\n%s", text)
+	}
+	recheck := itemsText(cap.verifies[1].Input)
+	if !strings.Contains(recheck, judgedText) || strings.Contains(recheck, "Corrijo el diagnóstico.") {
+		t.Fatalf("the recheck reads the current text of sec-1:\n%s", recheck)
+	}
+	oqs := flawOQs(t, db)
+	if len(oqs) != 1 {
+		t.Fatalf("flaw «por aclarar»: %+v", oqs)
+	}
+	if st, _ := status(t, db, "sec-1"); st != graph.StatusChangedSinceSignoff {
+		t.Fatalf("sec-1: %s", st)
+	}
+	var open []store.Object
+	all, err := db.ListObjects(context.Background(), "p1", store.ObjectProposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range all {
+		if p.State == "open" {
+			open = append(open, p)
+		}
+	}
+	if len(open) != 1 {
+		t.Fatalf("the proposal stays open: %+v", all)
+	}
+}
+
+// A failure in the closed section leaves the covered signed section signed, and a
+// passage literal in neither is the retry's error of shape.
+func TestB67_AFailureOnlyInTheClosedSectionLeavesTheSignedSectionSigned(t *testing.T) {
+	passage := "La muestra alcanza."
+	db, runner, _, _ := newCaptureRunner(t,
+		textFixture(t, stepOn("figures_and_calculations", judgedOnDraft("Se revisa la muestra."))),
+		verifyFlaws(t, oneFlaw("sec-2", passage, "figures_and_calculations")),
+		textFixture(t, stepOn("none", judgedOnSigned("Corrijo el diagnóstico."))),
+		verifyRecheck(t, flawStillOpen(1, "Este pasaje no está en ninguna sección.")),
+		verifyRecheck(t, flawStillOpen(1, passage)))
+	seedSignedAndDraft(t, db)
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Revisa."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	oqs := flawOQs(t, db)
+	if len(oqs) != 1 {
+		t.Fatalf("flaw «por aclarar»: %+v", oqs)
+	}
+	if st, _ := status(t, db, "sec-1"); st != graph.StatusSigned {
+		t.Fatalf("sec-1: %s, want signed", st)
+	}
+	if _, pendings := status(t, db, "sec-2"); !hasPending(pendings, graph.PendingOpenQuestion, oqs[0].Label) {
+		t.Fatalf("sec-2 pendings: %v", pendings)
+	}
+}
+
+// A signed section where no step left a proposal stays out of the round: only the
+// section the step closed is judged, as before.
+func TestB67_ASignedSectionWithoutAProposalStaysOutOfTheRound(t *testing.T) {
+	db, runner, cap, _ := newCaptureRunner(t,
+		textFixture(t, stepOn("figures_and_calculations", judgedOnDraft("Se revisa la muestra."))),
+		judgeVerifyFixture(t, map[string]any{"flaws": []any{}, "recheck": []any{}}))
+	seedSignedAndDraft(t, db)
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Revisa."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	if len(cap.verifies) != 1 || strings.Contains(itemsText(cap.verifies[0].Input), judgedText) {
+		t.Fatalf("the judge read a signed section with no proposal: %d calls", len(cap.verifies))
+	}
+	if st, _ := status(t, db, "sec-1"); st != graph.StatusSigned {
+		t.Fatalf("sec-1: %s", st)
+	}
+}
+
+// judgedDraftAt is a text on sec-2 from the version the earlier step left.
+func judgedDraftAt(version int, text string) map[string]any {
+	m := judgedOnDraft(text)
+	m["base_version"] = version
+	return m
+}
+
+// addJudgedDraft is one more draft section the steps close.
+func addJudgedDraft(t *testing.T, db *store.DB, title, text string) {
+	t.Helper()
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{"title": title, "text": text,
+			"role": map[string]any{"value": "other", "state": "confirmed"}, "open_changes": []any{}},
+			store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A recheck that could not verify does not lose the signed section its batch left a
+// proposal on: the batch's step carries no risk, so only the round remembers it.
+func TestB67_AFailedRecheckLeavesTheBatchsSignedSectionForTheNextChain(t *testing.T) {
+	passage := "La muestra alcanza."
+	wrong := verifyRecheck(t, flawStillOpen(9, passage))
+	db, runner, cap, _ := newCaptureRunner(t,
+		textFixture(t, stepOn("figures_and_calculations", judgedOnDraft("Se revisa la muestra."))),
+		verifyFlaws(t, oneFlaw("sec-2", passage, "figures_and_calculations")),
+		textFixture(t, stepOn("none", judgedOnSigned("Corrijo el diagnóstico."))),
+		wrong, wrong,
+		loadAppFixture(t, "04-principal-no-work.json"),
+		judgeVerifyFixture(t, map[string]any{"flaws": []any{}, "recheck": []any{}}))
+	seedSignedAndDraft(t, db)
+	ctx := context.Background()
+	if err := runner.RunTurn(ctx, "p1", "turn-1", "Revisa."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	if len(cap.verifies) != 3 {
+		t.Fatalf("judge calls in the chain: %d, want the first and a recheck that failed twice", len(cap.verifies))
+	}
+	if err := runner.RunTurn(ctx, "p1", "turn-2", "Sigue."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	if len(cap.verifies) != 4 || !strings.Contains(itemsText(cap.verifies[3].Input), judgedText) {
+		t.Fatalf("the next chain did not read the signed section: %d calls", len(cap.verifies))
+	}
+}
+
+// A flaw in a covered section shows there, not in the round's section.
+func TestB67_AFlawInACoveredSectionIsShownInThatSection(t *testing.T) {
+	db := openTemp(t)
+	seedSignedAndDraft(t, db)
+	ctx := context.Background()
+	err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+		closed, err := tx.GetObject(ctx, "p1", "sec-2")
+		if err != nil {
+			return err
+		}
+		signed, err := tx.GetObject(ctx, "p1", "sec-1")
+		if err != nil {
+			return err
+		}
+		_, err = tx.CreateObject(store.ObjectRound, "open", cycle.RoundBody{Kind: "judge", SectionID: closed.ID, Covered: []string{signed.ID},
+			JudgeStatus: cycle.JudgeDone, Flaws: []cycle.JudgeFlaw{{N: 1, Section: "sec-1", Passage: signedPassage, Risk: "unverifiable", Scenario: "1. Falla."}}},
+			store.EventInput{Type: store.EventStateChanged, Actor: "app"})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	flawIn := func(label string) []graph.Warning {
+		list, err := graph.SectionWarnings(ctx, db, "p1", label)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []graph.Warning
+		for _, w := range list {
+			if w.Kind == graph.WarningFlaw {
+				out = append(out, w)
+			}
+		}
+		return out
+	}
+	if got := flawIn("sec-1"); len(got) != 1 || got[0].End == 0 {
+		t.Fatalf("sec-1: %+v, want the flaw underlined", got)
+	}
+	if got := flawIn("sec-2"); len(got) != 0 {
+		t.Fatalf("sec-2: %+v, want none", got)
+	}
+}
+
+// One batch reads a signed section once, also with two rounds waiting.
+func TestB67_OneBatchReadsASignedSectionOnce(t *testing.T) {
+	two := judgedOnDraft("Se revisa la muestra.")
+	three := map[string]any{"section_id": "sec-3", "base_version": 1, "anchor": "Tres alcanza.",
+		"claim_origin": "model_knowledge", "operation": "insert_after", "text": "Se revisa la tercera."}
+	db, runner, cap, _ := newCaptureRunner(t,
+		textFixture(t, stepOn("figures_and_calculations", two, three)),
+		verifyFlaws(t, oneFlaw("sec-2", "La muestra alcanza.", "figures_and_calculations")),
+		verifyFlaws(t, oneFlaw("sec-3", "Tres alcanza.", "figures_and_calculations")),
+		textFixture(t, stepOn("none", judgedOnSigned("Corrijo."))),
+		verifyRecheck(t, flawStillOpen(1, signedPassage)),
+		verifyRecheck(t, flawStillOpen(1, "Tres alcanza.")))
+	seedSignedAndDraft(t, db)
+	addJudgedDraft(t, db, "Tres", "# Tres\n\nTres alcanza.")
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Revisa."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	reads := 0
+	for _, call := range cap.verifies[2:] {
+		if strings.Contains(itemsText(call.Input), judgedText) {
+			reads++
+		}
+	}
+	if len(cap.verifies) != 4 || reads != 1 {
+		t.Fatalf("judge calls %d, reads of the signed section in the batch: %d", len(cap.verifies), reads)
+	}
+	if st, _ := status(t, db, "sec-1"); st != graph.StatusChangedSinceSignoff {
+		t.Fatalf("sec-1: %s", st)
+	}
+}

@@ -521,6 +521,7 @@ export interface OpenJudgeRound {
  * OpenFlaw is one flaw of an open judge round.
  */
 export interface OpenFlaw {
+  Section: string;
   N: number /* int */;
   Passage: string;
   Scenario: string;

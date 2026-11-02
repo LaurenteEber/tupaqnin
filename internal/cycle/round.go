@@ -140,13 +140,16 @@ type RoundBody struct {
 	// judge last read), the risks that brought it, the judge's status, the
 	// flaws in the list's numbering, whether the correction batch started,
 	// and what the recheck found new (it opens nothing).
-	SectionID      string      `json:"section_id,omitempty"`
-	SectionVersion int         `json:"section_version,omitempty"`
-	Risks          []string    `json:"risks,omitempty"`
-	JudgeStatus    string      `json:"judge_status,omitempty"`
-	Flaws          []JudgeFlaw `json:"flaws,omitempty"`
-	BatchStarted   bool        `json:"batch_started,omitempty"`
-	LateFlaws      []JudgeFlaw `json:"late_flaws,omitempty"`
+	SectionID      string   `json:"section_id,omitempty"`
+	SectionVersion int      `json:"section_version,omitempty"`
+	Risks          []string `json:"risks,omitempty"`
+	JudgeStatus    string   `json:"judge_status,omitempty"`
+	// Covered are the signed sections the judge round also reads, besides
+	// SectionID: where its step or its batch left a proposal (B-67 with B-73 b).
+	Covered      []string    `json:"covered_sections,omitempty"`
+	Flaws        []JudgeFlaw `json:"flaws,omitempty"`
+	BatchStarted bool        `json:"batch_started,omitempty"`
+	LateFlaws    []JudgeFlaw `json:"late_flaws,omitempty"`
 }
 
 // questionLine is how a round's question follows its label in a model's

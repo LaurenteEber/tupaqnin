@@ -116,13 +116,15 @@ type RoundFlaw struct {
 	Verdict        string `json:"verdict,omitempty"`
 	RecheckPassage string `json:"recheck_passage,omitempty"`
 	OpenQuestion   string `json:"open_question,omitempty"`
+	// SectionTitle: the flaw is in a section the round covers, not its own.
+	SectionTitle string `json:"section_title,omitempty"`
 }
 
 func roundFlaws(list []cycle.FlawView) []RoundFlaw {
 	var out []RoundFlaw
 	for _, f := range list {
 		out = append(out, RoundFlaw{N: f.N, Passage: f.Passage, Risk: f.Risk, Scenario: f.Scenario, Discarded: f.Discarded,
-			Verdict: f.Verdict, RecheckPassage: f.RecheckPassage, OpenQuestion: f.OpenQuestion})
+			Verdict: f.Verdict, RecheckPassage: f.RecheckPassage, OpenQuestion: f.OpenQuestion, SectionTitle: f.SectionTitle})
 	}
 	return out
 }

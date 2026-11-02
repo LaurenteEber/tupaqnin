@@ -759,6 +759,10 @@ export interface RoundFlaw {
   verdict?: string;
   recheck_passage?: string;
   open_question?: string;
+  /**
+   * SectionTitle: the flaw is in a section the round covers, not its own.
+   */
+  section_title?: string;
 }
 /**
  * RoundFinding is one finding as the card shows it (cycle.FindingView):

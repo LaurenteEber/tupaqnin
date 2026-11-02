@@ -53,7 +53,7 @@ export function JudgeCard({ lang, projectID, card, reload }: {
               const outcome = flawOutcomeKey(f);
               return (
                 <li key={f.n}>
-                  «{f.passage}» <span className="meta">· {t(`judge.risk.${f.risk}`)}</span>
+                  «{f.passage}» <span className="meta">· {t(`judge.risk.${f.risk}`)}{f.section_title && ` · ${f.section_title}`}</span>
                   <br />
                   {f.scenario}
                   {outcome && <span className="meta"> · {t(outcome)}</span>}

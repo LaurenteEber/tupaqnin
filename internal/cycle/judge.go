@@ -174,7 +174,7 @@ func validateJudgeShape(raw string) ([]string, judgeOutput, error) {
 // [EL DISEÑO NO LO DICE]: a passage that is not literal in the section is
 // an error of shape (retried): «pasaje literal» (bloque-1 §4), and only a
 // literal one can be underlined.
-func validateFirstCall(raw, section, text string) ([]string, judgeOutput, error) {
+func validateFirstCall(raw string, judged []judgedSection) ([]string, judgeOutput, error) {
 	errs, out, err := validateJudgeShape(raw)
 	if err != nil || len(errs) > 0 {
 		return errs, out, err
@@ -182,12 +182,14 @@ func validateFirstCall(raw, section, text string) ([]string, judgeOutput, error)
 	if len(out.Recheck) > 0 {
 		errs = append(errs, "/recheck: it is empty in the first call")
 	}
-	compared := graph.Compare(text)
 	for i, f := range out.Flaws {
-		if f.Section != section {
-			errs = append(errs, fmt.Sprintf("/flaws/%d/section: %s is not the section in question, %s", i, f.Section, section))
+		idx := slices.IndexFunc(judged, func(s judgedSection) bool { return s.label == f.Section })
+		if idx < 0 {
+			errs = append(errs, fmt.Sprintf("/flaws/%d/section: %s is not the section in question, %s", i, f.Section, judgedLabels(judged)))
+			// The primary's text, as ever: the passage's error comes with it.
+			idx = 0
 		}
-		if len(compared.Find(f.Passage)) == 0 {
+		if len(graph.Compare(judged[idx].text).Find(f.Passage)) == 0 {
 			errs = append(errs, fmt.Sprintf("/flaws/%d/passage: it is not literal in the section's current text", i))
 		}
 	}
@@ -198,12 +200,11 @@ func validateFirstCall(raw, section, text string) ([]string, judgeOutput, error)
 // each listed flaw, by its number, and on still_open a passage literal in
 // the current text. What it brings in flaws is not an error: it opens
 // nothing (bloque-1 §4), and the round keeps it.
-func validateRecheck(raw, text string, listed []int) ([]string, judgeOutput, error) {
+func validateRecheck(raw string, judged []judgedSection, listed []int) ([]string, judgeOutput, error) {
 	errs, out, err := validateJudgeShape(raw)
 	if err != nil || len(errs) > 0 {
 		return errs, out, err
 	}
-	compared := graph.Compare(text)
 	given := map[int]bool{}
 	for i, c := range out.Recheck {
 		switch {
@@ -216,7 +217,7 @@ func validateRecheck(raw, text string, listed []int) ([]string, judgeOutput, err
 		switch {
 		case c.Verdict == FlawStillOpen && c.Passage == nil:
 			errs = append(errs, fmt.Sprintf("/recheck/%d/passage: still_open needs the passage where it stays", i))
-		case c.Verdict == FlawStillOpen && len(compared.Find(*c.Passage)) == 0:
+		case c.Verdict == FlawStillOpen && len(sectionsHolding(judged, *c.Passage)) == 0:
 			errs = append(errs, fmt.Sprintf("/recheck/%d/passage: it is not literal in the section's current text", i))
 		case c.Verdict == FlawResolved && c.Passage != nil:
 			errs = append(errs, fmt.Sprintf("/recheck/%d/passage: resolved has a null passage", i))
@@ -228,6 +229,97 @@ func validateRecheck(raw, text string, listed []int) ([]string, judgeOutput, err
 		}
 	}
 	return errs, out, nil
+}
+
+// judgedSection is one section a judge round reads, in its current text: the
+// section the step closed first, then the signed ones it covers (B-67, hueco 4).
+type judgedSection struct {
+	id, label, text string
+}
+
+func judgedLabels(judged []judgedSection) string {
+	labels := make([]string, len(judged))
+	for i, s := range judged {
+		labels[i] = s.label
+	}
+	return strings.Join(labels, ", ")
+}
+
+// sectionsHolding are the ids of the judged sections where the passage is
+// literal: a failure blocks each.
+// [EL DISEÑO NO LO DICE]: the recheck's output names no section, so the app
+// locates it by its passage (T-4); a passage in two sections blocks both, so
+// no signed section passes on a tie.
+func sectionsHolding(judged []judgedSection, passage string) []string {
+	var ids []string
+	for _, s := range judged {
+		if len(graph.Compare(s.text).Find(passage)) > 0 {
+			ids = append(ids, s.id)
+		}
+	}
+	return ids
+}
+
+// judgedSections reads the current text of what the round covers.
+func (r *Runner) judgedSections(ctx context.Context, projectID string, body RoundBody) ([]store.Object, []judgedSection, error) {
+	ids := append([]string{body.SectionID}, body.Covered...)
+	objs := make([]store.Object, 0, len(ids))
+	judged := make([]judgedSection, 0, len(ids))
+	for _, id := range ids {
+		sec, err := r.db.GetObject(ctx, projectID, id)
+		if err != nil {
+			return nil, nil, err
+		}
+		objs = append(objs, sec)
+		judged = append(judged, judgedSection{id: sec.ID, label: sec.Label, text: bodyStr(bodyOf(sec), "text")})
+	}
+	return objs, judged, nil
+}
+
+// signedProposalSections are the sections of the proposals a step left on a
+// signed section (B-73 b), by the labels its step_ended keeps.
+func signedProposalSections(ctx context.Context, q store.Querier, projectID string, labels []string) ([]string, error) {
+	var ids []string
+	for _, label := range labels {
+		obj, err := q.GetObject(ctx, projectID, label)
+		if err != nil {
+			return nil, err
+		}
+		var b graph.ProposalBody
+		if err := json.Unmarshal(obj.Body, &b); err != nil {
+			return nil, err
+		}
+		if b.Origin == graph.ProposalFromSigned && !slices.Contains(ids, b.SectionID) {
+			ids = append(ids, b.SectionID)
+		}
+	}
+	return ids, nil
+}
+
+// batchSignedSections are the signed sections where the round's correction
+// batch left a proposal, read from the history so a restart before the recheck
+// does not lose them.
+func (r *Runner) batchSignedSections(ctx context.Context, projectID, roundID string) ([]string, error) {
+	events, err := r.db.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		return nil, err
+	}
+	started := false
+	var labels []string
+	for _, ev := range events {
+		var data struct {
+			BatchStarted bool     `json:"batch_started"`
+			Proposals    []string `json:"proposals"`
+		}
+		_ = json.Unmarshal(ev.Data, &data)
+		switch {
+		case ev.ObjectID == roundID && data.BatchStarted:
+			started = true
+		case started && ev.Type == store.EventStepEnded:
+			labels = append(labels, data.Proposals...)
+		}
+	}
+	return signedProposalSections(ctx, r.db, projectID, labels)
 }
 
 // callJudge makes the judge's call: Spark 1.3 high, a clean context, no
@@ -341,44 +433,63 @@ func (g *Gate) ShouldVerify(ctx context.Context, projectID, section string) (boo
 // humanOnly: text, no open changes, and every pending an open card or an
 // open «por aclarar».
 func (g *Gate) risksToVerify(ctx context.Context, projectID, section string) ([]string, error) {
+	risks, _, err := g.judgeScope(ctx, projectID, section)
+	return risks, err
+}
+
+// judgeScope is risksToVerify plus the signed sections where the steps that
+// brought those risks left a proposal (B-67 with B-73 b; backlog-r4 v0.8): the
+// round covers them too.
+// [EL DISEÑO NO LO DICE]: a step that closes no section and only leaves a
+// proposal brings no round: its text is not in any current text yet, and the
+// round needs a section the step closed.
+func (g *Gate) judgeScope(ctx context.Context, projectID, section string) ([]string, []string, error) {
 	sec, err := sectionOf(ctx, g.db, projectID, section)
 	if errors.Is(err, ErrNotSection) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if strings.TrimSpace(bodyStr(bodyOf(sec), "text")) == "" || len(graph.OpenChanges(sec)) > 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	_, pendings, err := graph.SectionStatus(ctx, g.db, projectID, sec.Label)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, p := range pendings {
 		if p.Kind != graph.PendingOpenCard && p.Kind != graph.PendingOpenQuestion {
-			return nil, nil
+			return nil, nil, nil
 		}
 	}
 	rounds, bodies, err := judgeRoundsOf(ctx, g.db, projectID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	since := 0
+	// What a round that could not verify covered is the next round's: a batch's
+	// step may carry no risk of its own, and nothing else remembers it.
+	var unread []string
 	for i, body := range bodies {
-		if body.SectionID != sec.ID || body.JudgeStatus != JudgeDone {
+		if body.SectionID != sec.ID {
+			continue
+		}
+		unread = nil
+		if body.JudgeStatus != JudgeDone {
+			unread = body.Covered
 			continue
 		}
 		if rounds[i].State == "open" {
-			return nil, nil
+			return nil, nil, nil
 		}
 		since = max(since, body.SectionVersion)
 	}
 	events, err := g.db.EventsSince(ctx, projectID, 0)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var risks []string
+	var risks, proposals []string
 	version := 0
 	for _, ev := range events {
 		if ev.ObjectID == sec.ID && ev.NewVersion > 0 {
@@ -390,26 +501,38 @@ func (g *Gate) risksToVerify(ctx context.Context, projectID, section string) ([]
 		var data struct {
 			ClosingRisk string   `json:"closing_risk"`
 			Written     []string `json:"written_sections"`
+			Proposals   []string `json:"proposals"`
 		}
 		_ = json.Unmarshal(ev.Data, &data)
-		if data.ClosingRisk == "" || data.ClosingRisk == "none" || !slices.Contains(data.Written, sec.Label) ||
-			slices.Contains(risks, data.ClosingRisk) {
+		if data.ClosingRisk == "" || data.ClosingRisk == "none" || !slices.Contains(data.Written, sec.Label) {
 			continue
 		}
-		risks = append(risks, data.ClosingRisk)
+		proposals = append(proposals, data.Proposals...)
+		if !slices.Contains(risks, data.ClosingRisk) {
+			risks = append(risks, data.ClosingRisk)
+		}
 	}
-	return risks, nil
+	covered, err := signedProposalSections(ctx, g.db, projectID, proposals)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, id := range unread {
+		if !slices.Contains(covered, id) {
+			covered = append(covered, id)
+		}
+	}
+	return risks, slices.DeleteFunc(covered, func(id string) bool { return id == sec.ID }), nil
 }
 
 // createJudgeRound creates the section's judge round, open (estados §7):
 // the app's when a risk brought it, yours when you asked for the audit.
-func (r *Runner) createJudgeRound(ctx context.Context, projectID string, sec store.Object, reason string, risks []string,
+func (r *Runner) createJudgeRound(ctx context.Context, projectID string, sec store.Object, reason string, risks, covered []string,
 	actor, turnID string) (store.Object, error) {
 	if risks == nil {
 		risks = []string{}
 	}
 	body := RoundBody{Kind: "judge", DelegationReason: reason, Parts: []RoundPart{}, References: []namedReference{},
-		TurnID: turnID, SectionID: sec.ID, SectionVersion: sec.CurrentVersion, Risks: risks}
+		TurnID: turnID, SectionID: sec.ID, SectionVersion: sec.CurrentVersion, Risks: risks, Covered: covered}
 	var round store.Object
 	err := r.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		var err error
@@ -448,17 +571,17 @@ func (r *Runner) judgeRound(ctx context.Context, projectID string, round store.O
 	if err != nil {
 		return 0, err
 	}
-	sec, err := r.db.GetObject(ctx, projectID, body.SectionID)
+	objs, judged, err := r.judgedSections(ctx, projectID, body)
 	if err != nil {
 		return 0, err
 	}
-	text := bodyStr(bodyOf(sec), "text")
-	brief, err := r.judgeBrief(ctx, projectID, sec, body, nil)
+	sec := objs[0]
+	brief, err := r.judgeBrief(ctx, projectID, objs, body, nil)
 	if err != nil {
 		return 0, err
 	}
 	out, status, callErr := r.callJudge(ctx, projectID, body.TurnID, brief, nil, func(raw string) ([]string, judgeOutput, error) {
-		return validateFirstCall(raw, sec.Label, text)
+		return validateFirstCall(raw, judged)
 	})
 	writeCtx := ctx
 	if callErr != nil {
@@ -505,7 +628,7 @@ func (r *Runner) RunJudgeVerify(ctx context.Context, projectID, section, reason 
 	if err != nil {
 		return "", err
 	}
-	round, err := r.createJudgeRound(ctx, projectID, sec, reason, risks, "app", turnID)
+	round, err := r.createJudgeRound(ctx, projectID, sec, reason, risks, nil, "app", turnID)
 	if err != nil {
 		return "", err
 	}
@@ -545,11 +668,12 @@ func (r *Runner) verifyTouched(ctx context.Context, projectID, publishTurn strin
 	}
 	over := capErr != nil
 	waiting := false
+	coveredNow := map[string]bool{}
 	for _, label := range touched {
 		if failed[label] || (over && slices.Contains(notVerified, label)) {
 			continue
 		}
-		risks, err := r.gate.risksToVerify(ctx, projectID, label)
+		risks, covered, err := r.gate.judgeScope(ctx, projectID, label)
 		if err != nil {
 			return false, err
 		}
@@ -564,7 +688,12 @@ func (r *Runner) verifyTouched(ctx context.Context, projectID, publishTurn strin
 		if err != nil {
 			return false, err
 		}
-		round, err := r.createJudgeRound(ctx, projectID, sec, JudgeReasonRisk, risks, "app", turnID)
+		// One round reads a signed section, also when the step closed two.
+		covered = slices.DeleteFunc(covered, func(id string) bool { return coveredNow[id] })
+		for _, id := range covered {
+			coveredNow[id] = true
+		}
+		round, err := r.createJudgeRound(ctx, projectID, sec, JudgeReasonRisk, risks, covered, "app", turnID)
 		if err != nil {
 			return false, err
 		}
@@ -656,7 +785,11 @@ func (r *Runner) startJudgeBatch(ctx context.Context, projectID string) (string,
 			if f.Discarded {
 				continue
 			}
-			fmt.Fprintf(&b, "Flaw %d · risk %s. Passage:\n%s\nScenario:\n%s\n", f.N, f.Risk,
+			where := ""
+			if f.Section != sectionLabel {
+				where = " · section " + f.Section
+			}
+			fmt.Fprintf(&b, "Flaw %d · risk %s%s. Passage:\n%s\nScenario:\n%s\n", f.N, f.Risk, where,
 				graph.Delimit(graph.DataSection, f.Passage), graph.Delimit(graph.DataPassage, f.Scenario))
 		}
 	}
@@ -664,16 +797,37 @@ func (r *Runner) startJudgeBatch(ctx context.Context, projectID string) (string,
 }
 
 // recheckJudgeRounds makes the one recheck of each round whose batch
-// started, after the batch step applied.
-func (r *Runner) recheckJudgeRounds(ctx context.Context, projectID string) error {
+// started, after the batch step applied. One batch reads a signed section once:
+// a section one round already reads is not added to another. A round whose recheck
+// could not verify goes to failed: its «siguiente oportunidad» is the next chain.
+func (r *Runner) recheckJudgeRounds(ctx context.Context, projectID string, failed map[string]bool) error {
 	rounds, bodies, err := judgeRoundsOf(ctx, r.db, projectID)
 	if err != nil {
 		return err
 	}
+	claimed := map[string]bool{}
 	for i, round := range rounds {
 		if round.State == "open" && bodies[i].BatchStarted {
-			if err := r.RunJudgeRecheck(ctx, projectID, round.Label); err != nil {
-				return err
+			claimed[bodies[i].SectionID] = true
+			for _, id := range bodies[i].Covered {
+				claimed[id] = true
+			}
+		}
+	}
+	for i, round := range rounds {
+		if round.State != "open" || !bodies[i].BatchStarted {
+			continue
+		}
+		if err := r.recheckRound(ctx, projectID, round.Label, claimed); err != nil {
+			return err
+		}
+		done, err := r.db.GetObject(ctx, projectID, round.ID)
+		if err != nil {
+			return err
+		}
+		if b, err := roundBodyOf(done); err == nil && b.JudgeStatus != JudgeDone {
+			if sec, err := r.db.GetObject(ctx, projectID, b.SectionID); err == nil {
+				failed[sec.Label] = true
 			}
 		}
 	}
@@ -690,6 +844,12 @@ func (r *Runner) recheckJudgeRounds(ctx context.Context, projectID string) error
 // its flaws stay visible, they open nothing, and it does not count as the
 // last verification. The caller holds the project's turn slot.
 func (r *Runner) RunJudgeRecheck(ctx context.Context, projectID, roundLabel string) error {
+	return r.recheckRound(ctx, projectID, roundLabel, map[string]bool{})
+}
+
+// recheckRound is RunJudgeRecheck; claimed are the sections another round of the
+// same batch reads, and those it adds.
+func (r *Runner) recheckRound(ctx context.Context, projectID, roundLabel string, claimed map[string]bool) error {
 	round, err := r.db.GetObject(ctx, projectID, roundLabel)
 	if errors.Is(err, store.ErrNotFound) || (err == nil && round.Type != store.ObjectRound) {
 		return ErrNotRound
@@ -705,11 +865,21 @@ func (r *Runner) RunJudgeRecheck(ctx context.Context, projectID, roundLabel stri
 	if err != nil {
 		return err
 	}
-	sec, err := r.db.GetObject(ctx, projectID, body.SectionID)
+	fromBatch, err := r.batchSignedSections(ctx, projectID, round.ID)
 	if err != nil {
 		return err
 	}
-	text := bodyStr(bodyOf(sec), "text")
+	for _, id := range fromBatch {
+		if !claimed[id] {
+			claimed[id] = true
+			body.Covered = append(body.Covered, id)
+		}
+	}
+	objs, judged, err := r.judgedSections(ctx, projectID, body)
+	if err != nil {
+		return err
+	}
+	sec := objs[0]
 	var keep []JudgeFlaw
 	var listed []int
 	for _, f := range body.Flaws {
@@ -718,12 +888,12 @@ func (r *Runner) RunJudgeRecheck(ctx context.Context, projectID, roundLabel stri
 			listed = append(listed, f.N)
 		}
 	}
-	brief, err := r.judgeBrief(ctx, projectID, sec, body, keep)
+	brief, err := r.judgeBrief(ctx, projectID, objs, body, keep)
 	if err != nil {
 		return err
 	}
 	out, status, callErr := r.callJudge(ctx, projectID, body.TurnID, brief, listed, func(raw string) ([]string, judgeOutput, error) {
-		return validateRecheck(raw, text, listed)
+		return validateRecheck(raw, judged, listed)
 	})
 	writeCtx := ctx
 	if callErr != nil {
@@ -746,7 +916,7 @@ func (r *Runner) RunJudgeRecheck(ctx context.Context, projectID, roundLabel stri
 						continue
 					}
 					f.RecheckPassage = *c.Passage
-					oq, err := openFlawQuestion(ctx, tx, round.ID, sec.ID, body.TurnID, *f)
+					oq, err := openFlawQuestion(ctx, tx, round.ID, sectionsHolding(judged, *c.Passage), body.TurnID, *f)
 					if err != nil {
 						return err
 					}
@@ -777,12 +947,12 @@ func (r *Runner) RunJudgeRecheck(ctx context.Context, projectID, roundLabel stri
 // [EL DISEÑO NO LO DICE]: its question is the scenario, literal; a resolved
 // one reaches the principal in what changed (memory), with your «porque»
 // as the indication.
-func openFlawQuestion(ctx context.Context, tx *store.Tx, roundID, sectionID, turnID string, f JudgeFlaw) (store.Object, error) {
+func openFlawQuestion(ctx context.Context, tx *store.Tx, roundID string, sections []string, turnID string, f JudgeFlaw) (store.Object, error) {
 	return checks.Open(ctx, tx, checks.OpenQuestion{Question: f.Scenario,
 		Options: []map[string]any{
 			{"option": "", "code": FlawOptionRedoPassage, "contrast": "", "consequence": "", "risk": ""},
 			{"option": "", "code": FlawOptionAcceptRisk, "contrast": "", "consequence": "", "risk": ""}},
-		DependsOn: []string{sectionID},
+		DependsOn: sections,
 		Extra: map[string]any{"origin": "judge", "kind": OpenQuestionJudgeFlaw, "round_id": roundID,
 			"new_passage": f.RecheckPassage, "flaw_risk": f.Risk, "undeclared_by_agent": false},
 		Event: store.EventInput{Type: store.EventStateChanged, Actor: "app", TurnID: turnID,
@@ -901,7 +1071,7 @@ func (r *Runner) AuditSection(projectID, section string) (label, turnID string, 
 	if turnID, err = newTurnID(); err != nil {
 		return "", "", err
 	}
-	round, err := r.createJudgeRound(ctx, projectID, sec, JudgeReasonAudit, nil, "human", turnID)
+	round, err := r.createJudgeRound(ctx, projectID, sec, JudgeReasonAudit, nil, nil, "human", turnID)
 	if err != nil {
 		return "", "", err
 	}
@@ -946,7 +1116,8 @@ func (r *Runner) AuditSection(projectID, section string) (label, turnID string, 
 // text goes between the markers (P-83); labels only, never ids (T-2).
 // [EL DISEÑO NO LO DICE]: the question, the doubt and the scope of a judge
 // round (the principal does not ask for it): fixed text of the app.
-func (r *Runner) judgeBrief(ctx context.Context, projectID string, sec store.Object, body RoundBody, recheck []JudgeFlaw) (string, error) {
+func (r *Runner) judgeBrief(ctx context.Context, projectID string, secs []store.Object, body RoundBody, recheck []JudgeFlaw) (string, error) {
+	sec := secs[0]
 	request, err := r.requestText(ctx, projectID)
 	if err != nil {
 		return "", err
@@ -978,27 +1149,38 @@ func (r *Runner) judgeBrief(ctx context.Context, projectID string, sec store.Obj
 	}
 	line("")
 	line("## 4. Scope")
-	line("Only section %s, in its current text. Do not judge the rest of the document.", sec.Label)
+	if len(secs) == 1 {
+		line("Only section %s, in its current text. Do not judge the rest of the document.", sec.Label)
+	} else {
+		labels := make([]string, len(secs))
+		for i, s := range secs {
+			labels[i] = s.Label
+		}
+		line("Only sections %s, in their current text. Do not judge the rest of the document.", strings.Join(labels, ", "))
+		line("Each section after the first was signed when the agent left it a proposal: judge its current text, and a proposal still open is not part of it.")
+	}
 	line("")
 	line("## 5. Sources")
-	edges, err := r.db.EdgesFrom(ctx, projectID, sec.ID)
-	if err != nil {
-		return "", err
-	}
-	sources := 0
-	for _, e := range edges {
-		if e.Type != store.EdgeUses {
-			continue
+	sources := map[string]bool{}
+	for _, s := range secs {
+		edges, err := r.db.EdgesFrom(ctx, projectID, s.ID)
+		if err != nil {
+			return "", err
 		}
-		src, err := r.db.GetObject(ctx, projectID, e.ToID)
-		if err != nil || src.Type != store.ObjectSource {
-			continue
+		for _, e := range edges {
+			if e.Type != store.EdgeUses || sources[e.ToID] {
+				continue
+			}
+			src, err := r.db.GetObject(ctx, projectID, e.ToID)
+			if err != nil || src.Type != store.ObjectSource {
+				continue
+			}
+			sources[e.ToID] = true
+			line("%s, the section uses it. Title:", src.Label)
+			line("%s", graph.Delimit(graph.DataSource, graph.SourceTitle(src)))
 		}
-		sources++
-		line("%s, the section uses it. Title:", src.Label)
-		line("%s", graph.Delimit(graph.DataSource, graph.SourceTitle(src)))
 	}
-	if sources == 0 {
+	if len(sources) == 0 {
 		line("None: the section uses no source.")
 	}
 	line("")
@@ -1009,33 +1191,35 @@ func (r *Runner) judgeBrief(ctx context.Context, projectID string, sec store.Obj
 	line("Your fixed output only: flaw, literal passage, the risk it touches, scenario in steps. Suggestions only inform.")
 	line("")
 	line("## Claims with risk")
-	line("Current text of section %s:", sec.Label)
-	line("%s", graph.Delimit(graph.DataSection, bodyStr(bodyOf(sec), "text")))
 	citations, err := r.db.ListObjects(ctx, projectID, store.ObjectCitation)
 	if err != nil {
 		return "", err
 	}
-	for _, c := range citations {
-		cb := bodyOf(c)
-		if bodyStr(cb, "section_id") != sec.ID {
-			continue
-		}
-		source := "none: the app did not find its passage in a source"
-		citEdges, err := r.db.EdgesFrom(ctx, projectID, c.ID)
-		if err != nil {
-			return "", err
-		}
-		for _, e := range citEdges {
-			if e.Type == store.EdgeComesFrom {
-				if l, err := labeler.ToLabel(e.ToID); err == nil {
-					source = l
+	for _, s := range secs {
+		line("Current text of section %s:", s.Label)
+		line("%s", graph.Delimit(graph.DataSection, bodyStr(bodyOf(s), "text")))
+		for _, c := range citations {
+			cb := bodyOf(c)
+			if bodyStr(cb, "section_id") != s.ID {
+				continue
+			}
+			source := "none: the app did not find its passage in a source"
+			citEdges, err := r.db.EdgesFrom(ctx, projectID, c.ID)
+			if err != nil {
+				return "", err
+			}
+			for _, e := range citEdges {
+				if e.Type == store.EdgeComesFrom {
+					if l, err := labeler.ToLabel(e.ToID); err == nil {
+						source = l
+					}
 				}
 			}
+			line("Citation, source %s. Claim:", source)
+			line("%s", graph.Delimit(graph.DataPassage, bodyStr(cb, "anchor")))
+			line("Passage of its source:")
+			line("%s", graph.Delimit(graph.DataSource, bodyStr(cb, "passage")))
 		}
-		line("Citation, source %s. Claim:", source)
-		line("%s", graph.Delimit(graph.DataPassage, bodyStr(cb, "anchor")))
-		line("Passage of its source:")
-		line("%s", graph.Delimit(graph.DataSource, bodyStr(cb, "passage")))
 	}
 	if recheck != nil {
 		line("")
@@ -1091,6 +1275,8 @@ type FlawView struct {
 	Verdict        string `json:"verdict,omitempty"`
 	RecheckPassage string `json:"recheck_passage,omitempty"`
 	OpenQuestion   string `json:"open_question,omitempty"`
+	// SectionTitle: the flaw is in a section the round covers, not its own.
+	SectionTitle string `json:"section_title,omitempty"`
 }
 
 // judgeView fills a judge round's part of the card.
@@ -1104,6 +1290,11 @@ func (r *Runner) judgeView(ctx context.Context, projectID string, body RoundBody
 	view := func(f JudgeFlaw) FlawView {
 		fv := FlawView{N: f.N, Passage: f.Passage, Risk: f.Risk, Scenario: f.Scenario, Discarded: f.Discarded,
 			Verdict: f.Verdict, RecheckPassage: f.RecheckPassage}
+		if f.Section != sec.Label {
+			if other, err := r.db.GetObject(ctx, projectID, f.Section); err == nil {
+				fv.SectionTitle = bodyStr(bodyOf(other), "title")
+			}
+		}
 		if f.OpenQuestionID != "" {
 			if l, err := labeler.ToLabel(f.OpenQuestionID); err == nil {
 				fv.OpenQuestion = l

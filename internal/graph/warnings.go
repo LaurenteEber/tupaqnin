@@ -123,10 +123,12 @@ func SectionWarnings(ctx context.Context, q store.Querier, projectID, label stri
 		return nil, err
 	}
 	for _, jr := range judgeRounds {
-		if jr.SectionID != section.ID {
-			continue
-		}
 		for _, f := range jr.Flaws {
+			// A flaw is where the judge named it: its round may cover a signed
+			// section (B-67); a round written before that names its own.
+			if f.Section != section.Label && (f.Section != "" || jr.SectionID != section.ID) {
+				continue
+			}
 			w := Warning{Kind: WarningFlaw, What: f.Scenario, Target: jr.Label}
 			w.place(text, f.Passage)
 			out = append(out, w)

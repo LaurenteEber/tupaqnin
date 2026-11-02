@@ -19,6 +19,7 @@ type OpenJudgeRound struct {
 
 // OpenFlaw is one flaw of an open judge round.
 type OpenFlaw struct {
+	Section  string `json:"section,omitempty"`
 	N        int
 	Passage  string
 	Scenario string
@@ -42,6 +43,7 @@ func OpenJudgeRounds(ctx context.Context, q store.Querier, projectID string) ([]
 			BatchStarted bool   `json:"batch_started"`
 			Flaws        []struct {
 				N         int    `json:"n"`
+				Section   string `json:"section"`
 				Passage   string `json:"passage"`
 				Scenario  string `json:"scenario"`
 				Discarded bool   `json:"discarded"`
@@ -53,7 +55,7 @@ func OpenJudgeRounds(ctx context.Context, q store.Querier, projectID string) ([]
 		jr := OpenJudgeRound{Label: round.Label, SectionID: b.SectionID, BatchStarted: b.BatchStarted}
 		for _, f := range b.Flaws {
 			if !f.Discarded {
-				jr.Flaws = append(jr.Flaws, OpenFlaw{N: f.N, Passage: f.Passage, Scenario: f.Scenario})
+				jr.Flaws = append(jr.Flaws, OpenFlaw{N: f.N, Section: f.Section, Passage: f.Passage, Scenario: f.Scenario})
 			}
 		}
 		if len(jr.Flaws) > 0 {
