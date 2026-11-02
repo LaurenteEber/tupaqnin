@@ -10,6 +10,7 @@ import {
   getSection,
   undoEdit,
   getSession,
+  logout,
   listProjects,
   listSections,
   reorderSections,
@@ -42,7 +43,7 @@ import { StopReportPanel } from "./components/StopReportPanel";
 import { ModeBar } from "./components/ModeBar";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
-import { HomePage } from "./components/HomePage";
+import { HomePage, type HomeForm } from "./components/HomePage";
 import { LeftPanel } from "./components/LeftPanel";
 import { RightPanel } from "./components/RightPanel";
 import { CenterHeader } from "./components/CenterHeader";
@@ -71,6 +72,8 @@ export function App() {
   const [sessionFailed, setSessionFailed] = useState(false);
   // The code that refused the last new project (B3-18, B3-20).
   const [createError, setCreateError] = useState("");
+  // The form the left panel opens on the home (U.2); the tick reopens it.
+  const [homeForm, setHomeForm] = useState<{ form: HomeForm; tick: number }>({ form: "", tick: 0 });
   const [projects, setProjects] = useState<ProjectLine[]>([]);
   const [understandingKey, setUnderstandingKey] = useState(0);
   const [projectID, setProjectID] = useState("");
@@ -426,6 +429,33 @@ export function App() {
     void refreshSession();
   }
 
+  // «Crear usuario» and «Entrar» from the left: the home, with that form open.
+  function openHomeForm(form: HomeForm) {
+    setHomeForm((prev) => ({ form, tick: prev.tick + 1 }));
+    closeProject();
+  }
+
+  // The brand: the home, with no form open.
+  function goHome() {
+    openHomeForm("");
+  }
+
+  // «Salir» from the left: back to the home, as leaving from there. The session
+  // ends first and is read once after, so no read races the logout. A failure
+  // shows on the home, like a refused project.
+  async function leaveAccount() {
+    let failed = false;
+    try {
+      await logout();
+    } catch {
+      failed = true;
+    }
+    setHomeForm((prev) => ({ form: "", tick: prev.tick + 1 }));
+    openProject("");
+    if (failed) setCreateError("internal");
+    await refreshSession();
+  }
+
   // «Te toca» leads to the card, the understanding or the signoff
   // button; the frame never opens from the signoff (§9).
   function reach(id: string) {
@@ -680,26 +710,12 @@ export function App() {
       projectID={projectID}
       onOpen={openProject}
       onNew={(template) => void newProject(template)}
-      footer={
-        <>
-          {projectID && (
-            // [EL DISEÑO NO LO DICE]: how you go back to P1 from a project; a
-            // button in the header, since the frame's menu stays as it is.
-            <button type="button" className="small" onClick={closeProject}>
-              {t("home.back")}
-            </button>
-          )}
-          {projectID && (
-            // Backlog-r2 2.8 (B-47): the .md comes from Go, unsigned
-            // sections marked. [EL DISEÑO NO LO DICE]: where the download
-            // goes; the header, beside the language switch.
-            <a className="export" href={exportURL(projectID, lang)} download>
-              {t("export.download")}
-            </a>
-          )}
-          {langSwitch}
-        </>
-      }
+      session={session ?? null}
+      onHome={goHome}
+      onForm={openHomeForm}
+      onLogout={() => void leaveAccount()}
+      downloadHref={projectID ? exportURL(projectID, lang) : ""}
+      langSwitch={langSwitch}
     />
   );
 
@@ -714,6 +730,8 @@ export function App() {
           <div className="center-home">
             {(session !== undefined || sessionFailed) && (
               <HomePage
+                key={homeForm.tick}
+                openForm={homeForm.form}
                 lang={lang}
                 session={session ?? null}
                 sessionFailed={sessionFailed}

@@ -688,5 +688,12 @@
   "center.doc": "Documento",
   "center.activity": "La conversación tiene algo nuevo",
   "history.tab": "Historia",
-  "left.new": "Nuevo proyecto"
+  "left.new": "Nuevo proyecto",
+  "left.project.counts": "{sections} secciones · {signed} firmadas",
+  "left.project.count_one": "1 sección · {signed} firmadas",
+  "left.notice.lead": "Sin cuenta, tu proyecto se pierde al cerrar el navegador",
+  "left.notice.download": "descárgalo",
+  "left.notice.or": "o",
+  "left.notice.register": "crea tu usuario",
+  "language.label": "Idioma"
 }

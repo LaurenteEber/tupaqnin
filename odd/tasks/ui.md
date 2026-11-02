@@ -22,7 +22,7 @@ Quoted verbatim from `docs/construccion/backlog-ui.md` and from Eber's request (
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S1, S2, S3 | inline (no Writer trigger: pieces depend on each other) | done | RED `layout.test.ts` (module missing), GREEN; smoke `u1` |
-| T2 | S4, S5, S6 | inline | pending | |
+| T2 | S4, S5, S6 | inline | done | RED `home.test.ts` (exports missing), GREEN; smoke `u2` |
 | T3 | S7, S8, S9 | inline | pending | |
 
 ## Log

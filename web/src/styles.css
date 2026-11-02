@@ -311,8 +311,9 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .left { width: 264px; flex: none; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .left-off .left { width: 52px; }
 .left-top { display: flex; align-items: center; gap: 8px; padding: 12px 11px 8px; }
-.left .brand { display: block; min-width: 0; }
-.left .brand h1 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.01em; }
+.left .brand { display: block; min-width: 0; border: 0; background: none; padding: 2px 4px; text-align: left; border-radius: 6px; }
+.left .brand:hover:not(:disabled) { background: rgba(0, 0, 0, 0.05); }
+.left .brand b { display: block; font-size: 14px; font-weight: 700; letter-spacing: 0.01em; }
 .left .brand small { display: block; color: var(--muted); font-size: 11px; line-height: 1.3; }
 .left-actions { padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
 .nav-item { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; text-align: left; padding: 8px 8px; border-radius: 8px; }
@@ -322,6 +323,12 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .projects { flex: 1; min-height: 0; overflow: auto; padding: 0 8px; display: flex; flex-direction: column; gap: 2px; }
 .project-row { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; overflow-wrap: anywhere; }
 .project-row.active, .project-row.active:hover:not(:disabled) { background: #e3e0d8; color: var(--ink); }
+.project-row .meta { display: block; font-size: 11px; line-height: 1.35; }
+.left-notice { background: var(--todo-soft); color: var(--todo); border-radius: 8px; padding: 8px 10px; }
+.left-notice .link { font-size: inherit; color: inherit; }
+.left-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.left-account { overflow-wrap: anywhere; }
+.left-bottom .lang-switch button { padding: 2px 8px; font-size: 12px; }
 .left-bottom { border-top: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; margin-top: auto; }
 
 .center {

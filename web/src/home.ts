@@ -100,3 +100,41 @@ export function projectProgress(p: { signed: number; sections: number }): Text {
   if (p.sections === 0) return { key: "home.project.no_sections" };
   return { key: "home.project.signed", params: { signed: String(p.signed), sections: String(p.sections) } };
 }
+
+// The left panel's line for a project (U.2), from what Go counted.
+export function projectLineTexts(
+  p: { last_activity: string; sections: number; signed: number; no_account: boolean },
+  now: number,
+): Text[] {
+  const signed = String(p.signed);
+  const counts: Text =
+    p.sections === 0
+      ? { key: "home.project.no_sections" }
+      : p.sections === 1
+        ? { key: "left.project.count_one", params: { signed } }
+        : { key: "left.project.counts", params: { sections: String(p.sections), signed } };
+  const line = [activityAgo(p.last_activity, now), counts];
+  if (p.no_account) line.push({ key: "home.project.no_account" });
+  return line;
+}
+
+// A project's name, or the catalog's: never an internal id (rule 7).
+export function projectNameText(p: { name: string }): string | Text {
+  return p.name || { key: "project.untitled" };
+}
+
+// What the left panel offers (U.2): the same rules as the home, plus the notice
+// of B3-18, whose «descárgalo» needs a project open.
+export function leftBottom(session: HomeSession | null, projectOpen: boolean) {
+  const view = homeView(session);
+  const notice = session !== null && session.account === "";
+  return {
+    start: view.start,
+    list: view.list,
+    notice,
+    noticeDownload: notice && projectOpen,
+    register: view.register,
+    login: view.login,
+    logout: view.logout,
+  };
+}

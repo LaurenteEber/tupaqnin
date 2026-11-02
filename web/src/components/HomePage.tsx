@@ -4,7 +4,8 @@ import type { ProjectLine, SessionView } from "../api/types";
 import { accountErrorText, activityAgo, createErrorKey, homeNoticeKeys, homeView, loginNoticeKey, projectProgress } from "../home";
 import { translate, type Lang } from "../i18n";
 
-type Form = "" | "register" | "login";
+export type HomeForm = "" | "register" | "login";
+type Form = HomeForm;
 
 // P1: the screen when no project is open. Go says who you are and what opens;
 // this shows it and asks for the two forms (1a, 1c, 1d, 1e, 1f, 1g, 1h).
@@ -14,6 +15,7 @@ export function HomePage({
   sessionFailed,
   projects,
   createError,
+  openForm: askedForm = "",
   onOpen,
   onNew,
   onSessionChanged,
@@ -23,13 +25,15 @@ export function HomePage({
   sessionFailed: boolean;
   projects: ProjectLine[];
   createError: string;
+  // The form the left panel asked for (U.2).
+  openForm?: HomeForm;
   onOpen: (id: string) => void;
   onNew: (template?: string) => void;
   onSessionChanged: () => Promise<void>;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const say = (text: { key: string; params?: Record<string, string> }) => t(text.key, text.params);
-  const [form, setForm] = useState<Form>("");
+  const [form, setForm] = useState<Form>(askedForm);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");

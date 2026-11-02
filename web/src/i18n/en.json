@@ -688,5 +688,12 @@
   "center.doc": "Document",
   "center.activity": "The conversation has something new",
   "history.tab": "History",
-  "left.new": "New project"
+  "left.new": "New project",
+  "left.project.counts": "{sections} sections · {signed} signed",
+  "left.project.count_one": "1 section · {signed} signed",
+  "left.notice.lead": "Without an account, your project is lost when the browser closes",
+  "left.notice.download": "download it",
+  "left.notice.or": "or",
+  "left.notice.register": "create your user",
+  "language.label": "Language"
 }
