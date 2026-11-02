@@ -199,6 +199,13 @@ export function App() {
     setProjects(await listProjects());
   }, []);
 
+  // The left panel's line counts sections and signed ones (U.2): it follows them,
+  // whatever moved them (a section by hand, a signoff, an undo).
+  const signedCount = sections.filter((s) => s.state === "signed").length;
+  useEffect(() => {
+    if (projectID) void refreshProjects();
+  }, [projectID, sections.length, signedCount, refreshProjects]);
+
   // The session, and your projects only with one: a visitor with no session
   // asks for no list. It runs once on load and after anything that changes them.
   const refreshSession = useCallback(async () => {
