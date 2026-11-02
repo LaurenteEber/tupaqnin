@@ -440,9 +440,9 @@ func (w *walk) toSignoff() (string, string, bool) {
 				map[string]any{"option": "keep", "reason": otherCardReason}, http.StatusOK, nil)
 		case graph.PendingOpenQuestion:
 			// P-79: an open «por aclarar» blocks the signoff too (2.4); the
-			// jury answers it from «Te toca», keeping what was decided,
-			// with a «porque».
-			w.keepOpenQuestion(p.About)
+			// jury answers it from «Te toca», keeping what was decided or
+			// the confirmed criterion, with a «porque» (P-109).
+			w.answerOpenQuestion(p.About)
 		case graph.PendingUnsourcedClaim:
 			// [EL DISEÑO NO LO DICE] (2.11): the slice-1 recording of case 5
 			// proposes evidence_required but writes without reading or
@@ -485,27 +485,47 @@ func (w *walk) wonderFirstRound(sign string) {
 	}
 }
 
-// keepOpenQuestion answers an open «por aclarar» from «Te toca» with
-// its «mantener» option and a «porque» (P-79). The app adds «mantener»
-// first when the question protects the premise or a decision (2.4).
-func (w *walk) keepOpenQuestion(label string) {
+// answerOpenQuestion answers an open «por aclarar» from «Te toca» with a
+// «porque» (P-79, P-109).
+func (w *walk) answerOpenQuestion(label string) {
 	var todo server.TodoView
 	w.do("6 open questions", http.MethodGet, w.api("/todo"), nil, http.StatusOK, &todo)
 	for _, q := range todo.OpenQuestions {
 		if q.Label != label {
 			continue
 		}
-		for i, opt := range q.Options {
-			if opt.Keep {
-				w.do("6 open questions", http.MethodPost, w.api("/open-questions/"+label+"/answer"),
-					map[string]any{"option": i, "reason": keepReason}, http.StatusOK, nil)
-				return
-			}
-		}
-		w.fail("6 open questions", "«por aclarar» %s has no «mantener» option: %+v", label, q.Options)
+		option, reason := openQuestionAnswer(q.Options)
+		w.do("6 open questions", http.MethodPost, w.api("/open-questions/"+label+"/answer"),
+			map[string]any{"option": option, "reason": reason}, http.StatusOK, nil)
 		return
 	}
 	w.fail("6 open questions", "«por aclarar» %s blocks the signoff but is not in «Te toca»", label)
+}
+
+// keepsCriterion are the words by which a variant says it keeps the confirmed
+// criterion, «Solo estudios de campo, no de laboratorio»: it leaves out what
+// is not of the field. The variants are the model's own, so they vary.
+var keepsCriterion = []string{"fuera", "excluy", "excluir", "excluí", "no cuenta", "no contar", "no incluir",
+	"no es de campo", "no son de campo", "solo de campo", "solo estudios de campo", "solo campo", "sin el piloto", "sin pilotos"}
+
+// openQuestionAnswer picks the option the walkthrough answers with (P-109).
+// The app adds «mantener» only when the question protects the premise or a
+// decision (2.4); one about the sense of your own term carries variants:
+// then the variant that keeps the criterion, by its text, or else the first.
+func openQuestionAnswer(options []server.OpenQuestionOption) (int, string) {
+	for i, opt := range options {
+		if opt.Keep {
+			return i, keepReason
+		}
+	}
+	for i, opt := range options {
+		for _, word := range keepsCriterion {
+			if namesWord(opt.Option, word) {
+				return i, otherCardReason
+			}
+		}
+	}
+	return 0, otherCardReason
 }
 
 // signAfterRounds answers Wonder until the signoff coincides, signs

@@ -192,7 +192,7 @@ func TestDemoCheckSlice2(t *testing.T) {
 	}
 
 	// Answered with an option and a «porque», it no longer blocks.
-	option := 0
+	option, _ := openQuestionAnswer(campo.Options)
 	w.do("7 campo answered", http.MethodPost, w.api("/open-questions/"+campo.Label+"/answer"),
 		map[string]any{"option": option, "reason": campoReason}, http.StatusOK, nil)
 	for _, sec := range campo.Sections {

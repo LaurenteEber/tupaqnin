@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -44,6 +45,62 @@ func (w *walk) candidateNaming(step, word string) graph.Candidate {
 	}
 	w.fail(step, "no candidate names %q; candidates: %+v", word, frame.Candidates)
 	return graph.Candidate{}
+}
+
+// P-109: every «por aclarar» the walkthrough answers: «mantener» if there is
+// one; otherwise the variant that keeps the confirmed criterion, by its text;
+// otherwise the first; always with its «porque».
+func TestP109_AnOpenQuestionIsAnsweredWithKeepOrTheVariantThatKeepsTheCriterion(t *testing.T) {
+	opt := func(text string, keep bool) server.OpenQuestionOption {
+		return server.OpenQuestionOption{Option: text, Keep: keep}
+	}
+	cases := []struct {
+		name    string
+		options []server.OpenQuestionOption
+		want    int
+		reason  string
+	}{
+		{"keep wins over a matching variant", []server.OpenQuestionOption{
+			opt("Dejar fuera el piloto", false), opt("Mantener lo decidido", true)}, 1, keepReason},
+		{"the variant that leaves the pilot out", []server.OpenQuestionOption{
+			opt("Contar el piloto como campo", false), opt("Dejar el piloto fuera del capítulo", false)}, 1, otherCardReason},
+		{"accents and case do not hide it", []server.OpenQuestionOption{
+			opt("Incluirlo", false), opt("EXCLUÍR los pilotos de laboratorio", false)}, 1, otherCardReason},
+		{"the criterion's own words", []server.OpenQuestionOption{
+			opt("Incluirlo", false), opt("Solo estudios de campo", false)}, 1, otherCardReason},
+		{"no match takes the first", []server.OpenQuestionOption{
+			opt("Una variante", false), opt("Otra variante", false)}, 0, otherCardReason},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, reason := openQuestionAnswer(tc.options)
+			if got != tc.want || reason != tc.reason {
+				t.Fatalf("answer %d %q, want %d %q", got, reason, tc.want, tc.reason)
+			}
+		})
+	}
+}
+
+// P-109: Paula's note shows the citation in its card, whose first lines are
+// the first two that are not empty (sourceCardLines): the principal reads the
+// index before the text.
+func TestP109_PaulaNoteCardShowsTheCitation(t *testing.T) {
+	raw, err := os.ReadFile("../case5/template/sources/notas-paula.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.TrimSpace(line) != "" {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) < 2 || !strings.Contains(lines[1], "Valdivia, R. y Ortiz, M. (2022)") {
+		t.Fatalf("second line of the note: %q", lines)
+	}
+	if !strings.Contains(lines[len(lines)-1], "ficticia") {
+		t.Fatalf("the note does not end in its disclaimer: %q", lines[len(lines)-1])
+	}
 }
 
 // enteredFindings counts the card's findings that entered: an unverified
