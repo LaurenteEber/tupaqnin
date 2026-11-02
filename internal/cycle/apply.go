@@ -186,6 +186,12 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		return TrackCriticality(ctx, tx, turnID, func() error {
 			var err error
+			p.lastStep = last
+			if !work {
+				if p.earlierRound, err = roundEarlierInTurn(ctx, tx, turnID); err != nil {
+					return err
+				}
+			}
 			labels, err = p.apply(tx, turnID, out, plan, stop)
 			return err
 		})
@@ -208,6 +214,41 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 		Stretch: p.stretch, Reclassified: p.reclassified, Change: p.change, Round: p.round}, nil
 }
 
+// roundStepStop is the stop_reason of a step whose only work is its round
+// (P-99, B-24): none while the chain goes on after the digest; the reason
+// runChain stops for otherwise, so the step that ended the chain says why.
+func (p *project) roundStepStop() StopReason {
+	switch {
+	case p.earlierRound:
+		return StopNoWork
+	case p.lastStep:
+		return StopStepLimit
+	}
+	return ""
+}
+
+// roundEarlierInTurn says whether an earlier step of the turn asked for a
+// round: the same count as runChain's, read from the history inside the
+// step's transaction.
+func roundEarlierInTurn(ctx context.Context, tx *store.Tx, turnID string) (bool, error) {
+	events, err := tx.EventsSince(ctx, tx.ProjectID(), 0)
+	if err != nil {
+		return false, err
+	}
+	for _, ev := range events {
+		if ev.Type != store.EventStepEnded || ev.TurnID != turnID {
+			continue
+		}
+		var data struct {
+			Round string `json:"round"`
+		}
+		if json.Unmarshal(ev.Data, &data) == nil && data.Round != "" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // beforeApplyWrite runs between ApplyStep's read and its write; tests
 // use it to change the project in between.
 var beforeApplyWrite = func() {}
@@ -220,6 +261,9 @@ type project struct {
 	reclassified []string
 	// round is the round the step's research_request created (B-57).
 	round string
+	// lastStep is the chain's last allowed step, and earlierRound says an
+	// earlier step of this turn already asked for a round (P-99, B-24).
+	lastStep, earlierRound bool
 	// rejectedCloses are the handled_changes rule 7 rejected, each with
 	// its message for the agent (specification §3).
 	rejectedCloses []map[string]any
@@ -1292,8 +1336,10 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	if err := json.Unmarshal(out.NamedReferences, &named); err == nil && len(named) > 0 {
 		data["named_references"] = named
 	}
-	// P-99: a step whose work is the round it asked for is not «no work».
-	if stop != "" && (stop != StopNoWork || p.round == "") { // B-24
+	if stop == StopNoWork && p.round != "" {
+		stop = p.roundStepStop()
+	}
+	if stop != "" { // B-24
 		data["stop_reason"] = string(stop)
 	}
 	ev := agent(store.EventStepEnded)

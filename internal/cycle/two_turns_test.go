@@ -2,8 +2,11 @@ package cycle_test
 
 import (
 	"context"
+	"encoding/json"
+	"slices"
 	"testing"
 
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -74,6 +77,29 @@ func TestP99_TheChainDoesNotGoOnAfterASecondRound(t *testing.T) {
 	if len(rounds) != 2 {
 		t.Fatalf("rounds: %d, want 2 and then the stop; stop reasons %v", len(rounds), stopReasons(t, db))
 	}
+	// B-24: the step that stopped the chain says why.
+	if got := stopReasons(t, db); len(got) != 2 || got[0] != "" || got[1] != "no_work" {
+		t.Fatalf("stop reasons %q, want the first round's step without one and the second's no_work", got)
+	}
+	if n := len(eventsOfType(t, db, store.EventStopReport)); n != 1 {
+		t.Fatalf("stop reports: %d, want 1", n)
+	}
+}
+
+// P-99, B-24: a later turn's first round is again that chain's first: a
+// round in an earlier turn does not make its step stop the chain.
+func TestP99_ARoundInAnEarlierTurnDoesNotStopTheNextTurnsChain(t *testing.T) {
+	step := discoverStep("too_much_to_read", "["+openAlexPart+"]")
+	db, runner, _ := newRoundRunner(t, false, append(principalSteps(t, step), readerFixtures(t)...)...)
+	for _, turn := range []string{"turn-1", "turn-2"} {
+		if err := runner.RunTurn(context.Background(), "p1", turn, "Investiga."); err != nil {
+			t.Fatalf("RunTurn %s: %v", turn, err)
+		}
+	}
+	want := []string{"", "no_work", "", "no_work"}
+	if got := stopReasons(t, db); !slices.Equal(got, want) {
+		t.Fatalf("stop reasons %q, want %q", got, want)
+	}
 }
 
 // P-99: a request the app vetoed creates no round, so its step without
@@ -90,5 +116,19 @@ func TestP99_AVetoedRoundStillStopsAsNoWork(t *testing.T) {
 	rounds, err := db.ListObjects(context.Background(), "p1", store.ObjectRound)
 	if err != nil || len(rounds) != 0 {
 		t.Fatalf("a vetoed request created rounds: %d, %v", len(rounds), err)
+	}
+}
+
+// P-99, B-24: a round step on the chain's last allowed step says the limit
+// stopped the chain.
+func TestP99_ARoundOnTheLastAllowedStepSaysStepLimit(t *testing.T) {
+	step := discoverStep("too_much_to_read", "["+openAlexPart+"]")
+	db, _, _ := newRoundRunner(t, false)
+	applied, err := cycle.NewGate(db).ApplyChainStep(context.Background(), "p1", "turn-1", json.RawMessage(step), true)
+	if err != nil || !applied.Applied || applied.Round == "" {
+		t.Fatalf("apply: %+v, %v", applied, err)
+	}
+	if got := stopReasons(t, db); len(got) != 1 || got[0] != "step_limit" {
+		t.Fatalf("stop reasons %q", got)
 	}
 }
