@@ -35,7 +35,7 @@ flowchart LR
 ┌──────────────────────────────────────────────────────────────┐
 │ tupaqnin · lo que firmas, lo entiendes y lo puedes defender  │
 │ Aviso: qué es · no subas datos sensibles · sin cuenta, tu    │
-│ proyecto vence en 7 días                         [Entrega]   │
+│ proyecto se pierde al cerrar el navegador        [Entrega]   │
 ├──────────────────────────────────────────────────────────────┤
 │ [ Probar con el caso de demo ]   [ Proyecto en blanco ]      │
 ├──────────────────────────────────────────────────────────────┤

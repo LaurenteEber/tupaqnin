@@ -32,7 +32,7 @@ flowchart LR
 | 1c | Tú ves tus proyectos en el inicio y vuelves a uno | Entrega | B3-18 |
 | 1d | App muestra lo gastado frente al tope del proyecto; avisa al 80 %; al tope, el agente se detiene y la firma conserva su saldo. El inicio avisa si no hay disco para proyectos nuevos o si se llegó al tope del día | 1 (lo gastado) · Entrega (avisos y saldo) | B3-20 · esp. §6 |
 | 1e | Tú te registras con usuario y clave, sin correo: tu proyecto sin cuenta pasa a tu cuenta. Entras y sales | Entrega | B3-18 · B3-22 · esp. §1.7 |
-| 1f | App te avisa cuántos días le quedan a tu proyecto sin cuenta (vence 7 días después de tu última actividad) | Entrega | B3-18 |
+| 1f | App te avisa que tu proyecto sin cuenta se pierde al cerrar el navegador (B3-18, 2-nov) | Entrega | B3-18 |
 | 1g | App te dice que, para un segundo proyecto, necesitas una cuenta; con cuenta tienes hasta 3 | Entrega | esp. §1.7 y §6 · B3-18 |
 | 1h | App avisa que el link agotó su saldo: ya no abre proyectos nuevos, y los que existen siguen. Dónde se ve: en el inicio `[inferencia]` | Entrega | B3-18 (detalle «Abuso») · B3-22 |
 

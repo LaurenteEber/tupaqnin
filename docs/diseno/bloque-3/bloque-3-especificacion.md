@@ -189,7 +189,7 @@ erDiagram
 | `invitation` · el link | `id` · `token_hash` · `label` (por ejemplo, jurado o invitados) · `budget_usd` · `spent_usd` · `max_accounts` · `max_anon_projects` · `revoked_at` · `created_at` | El token nunca se guarda en claro. Lo crea y lo revoca un comando en el servidor; no hay pantalla de administración. Por defecto `[inicial]`: invitados, 10 USD, 3 cuentas y 5 proyectos sin cuenta; jurado, 30 USD, 10 cuentas y 10 proyectos sin cuenta |
 | `account` · la cuenta | `id` · `invitation_id` · `username` (único) · `password_hash` · `created_at` | Solo se registra quien llegó con un link. Clave de 10 a 64 caracteres, con bcrypt de costo 12. Sin correo, así que no hay recuperación de clave |
 | `session` · la sesión | `id_hash` · `account_id` (vacío si es sin cuenta) · `invitation_id` · `expires_at` · `created_at` | La base guarda solo el hash de la cookie. Sesión nueva al registrarte, entrar y salir. Dura 14 días `[inicial]` |
-| `project` suma | `account_id` (vacío si es sin cuenta) · `anon_session_hash` | Sin cuenta: un proyecto por navegador, que vence 7 días `[inicial]` después de tu última actividad (`expires_at`). Al registrarte, pasa a tu cuenta y deja de vencer. Con cuenta: hasta 3 proyectos `[inicial]` |
+| `project` suma | `account_id` (vacío si es sin cuenta) · `anon_session_hash` | Sin cuenta: un proyecto por navegador, que vive mientras dure la sesión del navegador (cookie de sesión; en el servidor vence a las 24 h `[inicial]` sin actividad, `expires_at`; B3-18, 2-nov). Al registrarte, pasa a tu cuenta y deja de vencer. Con cuenta: hasta 3 proyectos `[inicial]` |
 
 ## 2. Escritura
 
@@ -270,7 +270,7 @@ Lo que pasa la validación se aplica; luego corren las comprobaciones (flujo §1
 - **Tamaño (se toma):** sección ≤ 200 KB, fuente ≤ 5 MB (un PDF, además, ≤ 100 páginas y ≤ 10 s de extracción, sin OCR `[inicial]`, B-9), 25 MB por proyecto; al 80 % del disco no se aceptan proyectos nuevos, salvo del jurado.
 - **Seguridad (se toma):** Mermaid ≥ 11.15 sin HTML crudo; CSP sin scripts en línea; cookies `__Host-`; `http.CrossOriginProtection`; el streaming nunca reenvía errores crudos del proveedor; una prueba recorre todas las rutas con la cookie de otro visitante y con otra cuenta.
 - **Seguridad mínima de la demo pública (B3-22),** cada punto con su prueba: límite de intentos de entrada por IP (tomada solo de `Fly-Client-IP`) y espera creciente por cuenta, sin bloqueo total · un solo control de dueño en toda ruta con `{projectID}`; las herramientas del agente usan el proyecto del turno · fuentes de una lista cerrada de tipos (PDF, CSV, XLSX, MD y TXT `[inicial]`), servidas como descarga · markdown sin HTML crudo (goldmark sin `WithUnsafe`) ni enlaces `javascript:`, y React sin `innerHTML` para el texto · al comprobar una URL, solo `http` y `https`, sin IP privadas, locales ni de enlace (también tras una redirección), con 5 s y 5 MB como máximo · tope de cuerpo en toda petición · `Strict-Transport-Security` · copia diaria en almacenamiento privado.
-- **Vencimiento (B3-18):** un proyecto sin cuenta vence 7 días `[inicial]` después de tu última actividad, y el aviso lo dice. Con cuenta, el proyecto se conserva.
+- **Vencimiento (B3-18, 2-nov):** un proyecto sin cuenta se pierde al cerrar el navegador (en el servidor, a las 24 h `[inicial]` sin actividad), y el aviso lo dice. Con cuenta, el proyecto se conserva.
 
 ## 7. Pila (se toma)
 
