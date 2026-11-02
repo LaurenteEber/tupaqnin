@@ -11,6 +11,8 @@ import (
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
+	"github.com/LaurenteEber/tupaqnin/internal/memory"
+	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -45,6 +47,98 @@ func (w *walk) candidateNaming(step, word string) graph.Candidate {
 	}
 	w.fail(step, "no candidate names %q; candidates: %+v", word, frame.Candidates)
 	return graph.Candidate{}
+}
+
+// paulaNudge is what the jury would say if the agent passes over the citation
+// in the notes (P-110).
+const paulaNudge = "¿Puedes revisar la cita de Valdivia y Ortiz (2022) que está en mis notas?"
+
+// reachCandidate goes on until a candidate names word (P-110); if the goal
+// loop does not get there it sends nudge once, logging it. It says whether
+// the candidate is there: the caller's candidateNaming fails the step if not.
+func (w *walk) reachCandidate(step, word, nudge string) bool {
+	w.t.Helper()
+	named := func() bool {
+		var frame graph.Frame
+		w.do(step, http.MethodGet, w.api("/frame"), nil, http.StatusOK, &frame)
+		for _, c := range frame.Candidates {
+			if strings.Contains(c.Text, word) {
+				return true
+			}
+		}
+		return false
+	}
+	if w.reachGoal(step, named, nil) {
+		return true
+	}
+	w.t.Logf("%s: needed a nudge", step)
+	w.say(step, nudge)
+	return named()
+}
+
+// P-110: the Meta walkthrough's loop, on the fake: a goal that already holds
+// sends nothing; it answers «Te toca» and asks to go on until the goal holds;
+// it gives up after maxGoalRounds; a skipped card stays open.
+func TestP110_TheGoalLoopAnswersWhatIsYoursAndGoesOnUpToItsCap(t *testing.T) {
+	w := newWalk(t, func(db *store.DB) (provider.Provider, memory.TokenCounter) {
+		fake := provider.NewFake(recordedFixtures(t)...)
+		fake.Recorder = db
+		return fake, func(ctx context.Context, input []json.RawMessage) (int, error) {
+			return fake.CountTokens(ctx, provider.PrincipalModel, input)
+		}
+	}, nil)
+	var created server.CreateProjectResponse
+	w.do("1", http.MethodPost, "/api/projects", map[string]any{"template": "case-5"}, http.StatusCreated, &created)
+	w.project = created.ProjectID
+	w.do("2", http.MethodPost, w.api("/request/submit"), nil, http.StatusAccepted, nil)
+	messages := func() int {
+		events, err := w.db.EventsSince(context.Background(), w.project, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for _, ev := range events {
+			if ev.Type == store.EventHumanMessage {
+				n++
+			}
+		}
+		return n
+	}
+	openCards := func() []server.CardView {
+		var todo server.TodoView
+		w.do("todo", http.MethodGet, w.api("/todo"), nil, http.StatusOK, &todo)
+		return todo.Cards
+	}
+	cards := openCards()
+	if len(cards) == 0 {
+		t.Fatal("the recordings leave no open card to skip")
+	}
+	all := func(server.CardView) bool { return true }
+
+	before := messages()
+	if !w.reachGoal("held", func() bool { return true }, all) || messages() != before {
+		t.Fatalf("a goal that holds sent messages: %d, was %d", messages(), before)
+	}
+	calls := 0
+	if !w.reachGoal("third", func() bool { calls++; return calls == 3 }, all) || messages() != before+2 {
+		t.Fatalf("goal at its third look: %d messages, was %d", messages(), before)
+	}
+	if got := openCards(); len(got) < len(cards) {
+		t.Fatalf("skipped cards were answered: %d open, were %d", len(got), len(cards))
+	}
+	before = messages()
+	if w.reachGoal("never", func() bool { return false }, all) || messages() != before+maxGoalRounds {
+		t.Fatalf("a goal that never holds: %d messages, was %d, want %d more", messages(), before, maxGoalRounds)
+	}
+	w.reachGoal("answers", func() bool { return len(openCards()) == 0 }, nil)
+	if got := openCards(); len(got) != 0 {
+		t.Fatalf("cards left in «Te toca»: %+v", got)
+	}
+	// One nudge after the loop, and only one.
+	before = messages()
+	if w.reachCandidate("nudge", "un nombre que nadie cita", paulaNudge) || messages() != before+maxGoalRounds+1 {
+		t.Fatalf("nudge: %d messages, was %d, want %d more", messages(), before, maxGoalRounds+1)
+	}
 }
 
 // P-109: every «por aclarar» the walkthrough answers: «mantener» if there is

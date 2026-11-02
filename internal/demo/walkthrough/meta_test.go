@@ -97,6 +97,7 @@ func TestDemoCheck(t *testing.T) {
 			return meta.CountTokens(ctx, provider.PrincipalModel, input)
 		}
 	}, rec.lastOutput)
+	w.byGoal = true
 	section, sign, historyDecision := w.toSignoff()
 	w.wonderFirstRound(sign)
 	want, names := stepEvents(section, historyDecision)
@@ -232,7 +233,9 @@ func TestDemoCheckRound(t *testing.T) {
 	w.project = created.ProjectID
 	w.do("2 request", http.MethodPost, w.api("/request/submit"), nil, http.StatusAccepted, nil)
 
-	// 7. The citation as a candidate, and «Buscarla».
+	// 7. The citation as a candidate, and «Buscarla». P-110: the goal loop
+	// first, then one nudge, which the log says; nothing forces the model.
+	w.reachCandidate("7 candidate", "Valdivia", paulaNudge)
 	candidate := w.candidateNaming("7 candidate", "Valdivia")
 	if candidate.Title == "" && candidate.DOI == "" {
 		w.fail("7 candidate", "candidate %+v has nothing Lookup can look for", candidate)

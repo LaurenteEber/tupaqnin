@@ -212,6 +212,9 @@ type walk struct {
 	dir     string
 	starter *syncStarter
 	project string
+	// byGoal is the Meta walkthrough: its steps go by goal (P-110). The fake's
+	// recordings fix the order, so its walkthrough keeps its fixed steps.
+	byGoal bool
 	// lastOutput gives the model's last output for the report when a
 	// step fails (backlog-r1 1.8: «en qué paso y con qué salida»).
 	lastOutput func() string
@@ -367,39 +370,17 @@ func (w *walk) toSignoff() (string, string, bool) {
 	// copied from the calculation (docs/demo/caso-5: «La cifra 1,5 es un
 	// dato copiado del cálculo (A-3)»; P-53). A copied datum has no
 	// covers edge, so the frame's block is not the way to find it.
-	var sections []server.SectionView
-	w.do("4 agent works", http.MethodGet, w.api("/sections"), nil, http.StatusOK, &sections)
-	var ruleSection server.SectionView
-	block := 0
-	for _, sec := range sections {
-		for i, b := range graph.Blocks(sec.Text) {
-			if strings.Contains(b, caseFigure) && block == 0 {
-				ruleSection, block = sec, i+1
-			}
-		}
+	if w.byGoal {
+		// P-110: with Meta the model sets the order: go on until the goal.
+		// The rule's own card waits for step 5.
+		w.reachGoal("4 agent works", func() bool {
+			_, _, rule, _ := w.findRule()
+			return rule.Label != ""
+		}, func(c server.CardView) bool { return hasRuleWord(c.Statement) || hasRuleWord(c.InsteadOf) })
 	}
+	ruleSection, block, rule, critical := w.findRule()
 	if block == 0 {
 		w.fail("4 agent works", "the agent wrote %q in no section (the comparison of case 5 is missing from the text)", caseFigure)
-	}
-	var frame graph.Frame
-	w.do("4 agent works", http.MethodGet, w.api("/frame"), nil, http.StatusOK, &frame)
-	var rule graph.FrameDecision
-	var critical []string
-	for _, s := range frame.Sections {
-		if s.Label != ruleSection.Label {
-			continue
-		}
-		for _, d := range s.Decisions {
-			if d.Card == "" {
-				continue
-			}
-			critical = append(critical, d.Label+": "+d.Statement+" / instead of: "+d.InsteadOf)
-			// The comparison rule of case 5 names the particle size
-			// (P-55): «micra» in its statement or its contrast.
-			if rule.Label == "" && (hasRuleWord(d.Statement) || hasRuleWord(d.InsteadOf)) {
-				rule = d
-			}
-		}
 	}
 	if rule.Label == "" {
 		w.fail("4 agent works", "%s has %q but none of its critical decisions with a card is the comparison rule "+
@@ -431,6 +412,20 @@ func (w *walk) toSignoff() (string, string, bool) {
 	// Every other open card that blocks the section is answered first,
 	// as the jury would from «Te toca» (P-56): the app blocks the
 	// signoff while a decision the section uses has an open card.
+	if w.byGoal {
+		// P-110: the agent's own pendings on the section block the signoff
+		// and only the agent closes them.
+		w.reachGoal("6 agent pendings", func() bool {
+			var d server.SectionDetail
+			w.do("6 agent pendings", http.MethodGet, w.api("/sections/"+ruleSection.Label), nil, http.StatusOK, &d)
+			for _, p := range d.Pendings {
+				if !yoursToAnswer(p.Kind) {
+					return false
+				}
+			}
+			return true
+		}, nil)
+	}
 	var detail server.SectionDetail
 	w.do("6 open cards", http.MethodGet, w.api("/sections/"+ruleSection.Label), nil, http.StatusOK, &detail)
 	for _, p := range detail.Pendings {
@@ -483,6 +478,125 @@ func (w *walk) wonderFirstRound(sign string) {
 		w.fail("6 Wonder first round", "want a critical decision missing_in_explanation and a new case; "+
 			"critical %q, verdicts %+v, open case %q", view.CriticalDecisions, view.Verdicts, view.OpenCase)
 	}
+}
+
+// findRule looks for step 4's goal: the section whose text has the datum
+// 1,5, its block, and the comparison rule among its critical decisions with
+// a card, whose statements it returns for the report.
+func (w *walk) findRule() (server.SectionView, int, graph.FrameDecision, []string) {
+	w.t.Helper()
+	var sections []server.SectionView
+	w.do("4 agent works", http.MethodGet, w.api("/sections"), nil, http.StatusOK, &sections)
+	var ruleSection server.SectionView
+	block := 0
+	for _, sec := range sections {
+		for i, b := range graph.Blocks(sec.Text) {
+			if strings.Contains(b, caseFigure) && block == 0 {
+				ruleSection, block = sec, i+1
+			}
+		}
+	}
+	if block == 0 {
+		return ruleSection, 0, graph.FrameDecision{}, nil
+	}
+	var frame graph.Frame
+	w.do("4 agent works", http.MethodGet, w.api("/frame"), nil, http.StatusOK, &frame)
+	var rule graph.FrameDecision
+	var critical []string
+	for _, s := range frame.Sections {
+		if s.Label != ruleSection.Label {
+			continue
+		}
+		for _, d := range s.Decisions {
+			if d.Card == "" {
+				continue
+			}
+			critical = append(critical, d.Label+": "+d.Statement+" / instead of: "+d.InsteadOf)
+			// The comparison rule of case 5 names the particle size
+			// (P-55): «micra» in its statement or its contrast.
+			if rule.Label == "" && (hasRuleWord(d.Statement) || hasRuleWord(d.InsteadOf)) {
+				rule = d
+			}
+		}
+	}
+	return ruleSection, block, rule, critical
+}
+
+// maxGoalRounds and goOnMessage are the Meta walkthrough's way forward
+// (P-110): the model sets the order of the work, so a step answers what is
+// in «Te toca» and asks to go on until its goal holds.
+const (
+	maxGoalRounds = 4
+	goOnMessage   = "Sigue"
+)
+
+// reachGoal runs up to maxGoalRounds rounds of «answer what is yours, send
+// Sigue, wait for the chain» until goal holds, logging each round, and says
+// whether it held. A card skipCard names stays open for its own step. The
+// step that needs the goal decides what a miss means.
+func (w *walk) reachGoal(step string, goal func() bool, skipCard func(server.CardView) bool) bool {
+	w.t.Helper()
+	for round := 1; round <= maxGoalRounds; round++ {
+		if goal() {
+			w.t.Logf("%s: goal holds before round %d", step, round)
+			return true
+		}
+		answered := w.answerTodo(step, skipCard)
+		w.say(step, goOnMessage)
+		w.t.Logf("%s: round %d of %d: answered %v, sent %q", step, round, maxGoalRounds, answered, goOnMessage)
+	}
+	held := goal()
+	w.t.Logf("%s: goal holds after %d rounds: %v", step, maxGoalRounds, held)
+	return held
+}
+
+// say sends a message once no turn runs (a background defense takes the
+// slot, P-90) and returns when its chain ends.
+func (w *walk) say(step, text string) {
+	w.t.Helper()
+	if err := w.starter.waitTurn(w.project); err != nil {
+		w.fail(step, "%v", err)
+	}
+	w.do(step, http.MethodPost, w.api("/messages"), map[string]any{"text": text}, http.StatusAccepted, nil)
+}
+
+// answerTodo answers what «Te toca» lists: each open question with the
+// P-109 chooser, each card with an option and a «porque». It returns the
+// labels it answered, for the log.
+func (w *walk) answerTodo(step string, skipCard func(server.CardView) bool) []string {
+	w.t.Helper()
+	var todo server.TodoView
+	w.do(step, http.MethodGet, w.api("/todo"), nil, http.StatusOK, &todo)
+	answered := []string{}
+	for _, q := range todo.OpenQuestions {
+		option, reason := openQuestionAnswer(q.Options)
+		w.do(step, http.MethodPost, w.api("/open-questions/"+q.Label+"/answer"),
+			map[string]any{"option": option, "reason": reason}, http.StatusOK, nil)
+		answered = append(answered, q.Label)
+	}
+	for _, c := range todo.Cards {
+		if skipCard != nil && skipCard(c) {
+			continue
+		}
+		var option any = "keep"
+		if c.OwnEdit { // it asks only for the «porque» (B-49)
+			option = nil
+		}
+		w.do(step, http.MethodPost, w.api("/cards/"+c.Label+"/answer"),
+			map[string]any{"option": option, "reason": otherCardReason}, http.StatusOK, nil)
+		answered = append(answered, c.Label)
+	}
+	return answered
+}
+
+// yoursToAnswer says a pending is one the jury answers on its own at step 6,
+// not one only the agent can close.
+func yoursToAnswer(kind string) bool {
+	switch kind {
+	case graph.PendingOpenCard, graph.PendingOpenQuestion, graph.PendingUnsourcedClaim:
+		return true
+	}
+	return false
 }
 
 // answerOpenQuestion answers an open «por aclarar» from «Te toca» with a
