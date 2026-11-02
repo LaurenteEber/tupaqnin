@@ -4,8 +4,10 @@
 package server
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -20,14 +22,68 @@ import (
 var staticFiles embed.FS
 
 // securityHeaders sets the security headers required by specification
-// §6 (CSP with no inline scripts, no MIME sniffing, no framing).
+// §6 (CSP with no inline scripts, no MIME sniffing, no framing) and HSTS
+// on every response (B3-22 row 10).
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Strict-Transport-Security", "max-age=31536000")
 		next.ServeHTTP(w, r)
+	})
+}
+
+const (
+	// defaultBodyBytes is the cap of every request's body (B3-22 row 10):
+	// a section of 200 KB fits, with its JSON around it. [inicial]
+	defaultBodyBytes = 256 << 10
+	// strangerBodyBytes is the cap without a session: an account's form fits,
+	// and many stalled connections cannot fill the memory. [inicial]
+	strangerBodyBytes = 4 << 10
+	// sourceBodyBytes is the upload's cap: a source of 5 MB and its form.
+	sourceBodyBytes = maxSourceBytes + (1 << 20)
+	// sourcesPattern is the upload's route, the one over the default cap.
+	sourcesPattern = "/api/projects/{projectID}/sources"
+)
+
+// bodyCap is the one body cap (B3-22 row 10), so no handler can forget it:
+// a body over the cap answers 413 before any handler reads it, whatever the
+// handler would have done with a cut body. The route is the one the mux
+// picks, so the decision is on decoded segments, as the mux's. The upload
+// reads its own body as it goes: its handler answers source_too_large.
+// The body is held in memory, so without a session the cap is far smaller.
+// [EL DISEÑO NO LO DICE]: B3-22 fixes one cap; this second one exists because
+// the owner control lets through every path outside /api/projects.
+func bodyCap(mux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body == nil || r.Body == http.NoBody {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if _, pattern := mux.Handler(r); pattern == http.MethodPost+" "+sourcesPattern {
+			r.Body = http.MaxBytesReader(w, r.Body, sourceBodyBytes)
+			mux.ServeHTTP(w, r)
+			return
+		}
+		limit := int64(strangerBodyBytes)
+		if _, hasSession := r.Context().Value(sessionKey{}).(store.Session); hasSession {
+			limit = defaultBodyBytes
+		}
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
+		if err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				// [EL DISEÑO NO LO DICE]: the code of this 413.
+				writeError(w, http.StatusRequestEntityTooLarge, "body_too_large")
+				return
+			}
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		mux.ServeHTTP(w, r)
 	})
 }
 
@@ -154,7 +210,11 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 	}
 	mux.Handle("GET /", http.FileServer(http.FS(staticFS)))
 
-	return requestLog(logger, securityHeaders(s.ownerControl(mux)))
+	// The log and the headers wrap every answer, refusals included; the
+	// owner check runs first, so a project route never reads a stranger's
+	// body; every other path reads at most strangerBodyBytes of it.
+	crossOrigin := http.NewCrossOriginProtection()
+	return requestLog(logger, securityHeaders(crossOrigin.Handler(s.ownerControl(bodyCap(mux)))))
 }
 
 // route is one row of the route table (B-87): a test walks the table,
@@ -196,7 +256,7 @@ func (s *Server) apiRoutes() []route {
 		{"GET", "/api/projects", s.listProjects},
 		{"GET", "/api/projects/{projectID}/request", s.getRequest},
 		{"PUT", "/api/projects/{projectID}/request", s.putRequest},
-		{"POST", "/api/projects/{projectID}/sources", s.uploadSource},
+		{"POST", sourcesPattern, s.uploadSource},
 		{"GET", "/api/projects/{projectID}/sources/{label}/download", s.downloadSource},
 		{"GET", "/api/projects/{projectID}/sources/{label}", s.getSource},
 		{"POST", "/api/projects/{projectID}/request/submit", s.submitRequest},

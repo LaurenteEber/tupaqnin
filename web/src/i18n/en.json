@@ -53,6 +53,7 @@
   "source.kind.calculation": "Calculation",
   "source.upload": "Upload source",
   "source.empty": "No sources yet.",
+  "source.error.http_413": "That text is too long to save. Shorten it and try again.",
   "source.error.source_unsupported_type": "That file is not supported. Use MD, TXT, CSV or PDF.",
   "source.error.source_pdf_no_text": "That PDF has no text (for example, it is scanned). Upload it as text or use another file.",
   "source.error.source_pdf_too_many_pages": "That PDF has more than 100 pages. Split it and upload it in parts.",

@@ -862,3 +862,49 @@ func TestB9_FetchTextWaitsForTheBusyPDFExtractor(t *testing.T) {
 		t.Fatalf("waited %v", waited)
 	}
 }
+
+// B3-22 row 9: the server visits only what checkURL lets through, at
+// the first hop and after a redirect from a public URL, and nothing
+// refused gets a connection. FetchText is the one way in; the limits
+// (5 s, 5 MB) are TestB60_Limits and its neighbours.
+func TestB3_22_9_NoInternalURLs(t *testing.T) {
+	t.Parallel()
+	internal := []string{"http://169.254.169.254/", "http://10.0.0.1/", "http://[::1]/", "http://x.internal/"}
+
+	f, c := pageNet(t)
+	for _, u := range internal {
+		if _, err := c.FetchText(context.Background(), u); !errors.Is(err, ErrBlocked) {
+			t.Errorf("FetchText(%s): got %v, want ErrBlocked", u, err)
+		}
+	}
+	if n := f.dialCount(); n != 0 {
+		t.Errorf("internal addresses were dialed %d times", n)
+	}
+
+	f.serve("pages.example", "93.184.216.20", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, r.URL.Query().Get("to"), http.StatusFound)
+	})
+	for _, to := range internal {
+		_, err := c.FetchText(context.Background(), "http://pages.example/go?to="+url.QueryEscape(to))
+		if !errors.Is(err, ErrBlocked) {
+			t.Errorf("redirect to %s: got %v, want ErrBlocked", to, err)
+		}
+	}
+	f.mu.Lock()
+	dials := append([]string(nil), f.dials...)
+	f.mu.Unlock()
+	for _, d := range dials {
+		if !strings.HasPrefix(d, "93.184.216.20:") {
+			t.Errorf("dialed %s", d)
+		}
+	}
+
+	for _, u := range []string{"ftp://pages.example/", "file:///etc/passwd", "javascript:alert(1)"} {
+		if _, err := c.FetchText(context.Background(), u); !errors.Is(err, ErrBlocked) {
+			t.Errorf("FetchText(%s): got %v, want ErrBlocked", u, err)
+		}
+	}
+	if Timeout != 5*time.Second || MaxBytes != 5<<20 {
+		t.Errorf("limits: %v, %d", Timeout, MaxBytes)
+	}
+}

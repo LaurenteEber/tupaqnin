@@ -53,6 +53,7 @@
   "source.kind.calculation": "Cálculo",
   "source.upload": "Subir fuente",
   "source.empty": "Todavía no hay fuentes.",
+  "source.error.http_413": "Ese texto es demasiado largo para guardarlo. Acórtalo e inténtalo de nuevo.",
   "source.error.source_unsupported_type": "Ese archivo no es válido. Usa MD, TXT, CSV o PDF.",
   "source.error.source_pdf_no_text": "Ese PDF no tiene texto (por ejemplo, está escaneado). Súbelo como texto o usa otro archivo.",
   "source.error.source_pdf_too_many_pages": "Ese PDF tiene más de 100 páginas. Divídelo y súbelo por partes.",

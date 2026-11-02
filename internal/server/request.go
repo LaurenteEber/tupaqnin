@@ -492,9 +492,13 @@ func (s *Server) uploadSource(w http.ResponseWriter, r *http.Request) {
 	if !s.requireProject(w, r, projectID) {
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, maxSourceBytes+(1<<20))
 	if err := r.ParseMultipartForm(maxSourceBytes); err != nil {
-		writeError(w, http.StatusBadRequest, "source_too_large")
+		status := http.StatusBadRequest
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) { // bodyCap's limit (B3-22 row 10)
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeError(w, status, "source_too_large")
 		return
 	}
 	file, header, err := r.FormFile("file")

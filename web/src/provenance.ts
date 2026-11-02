@@ -27,6 +27,15 @@ export function safeLink(url?: string): string {
   return url && /^https?:\/\//i.test(url) ? url : "";
 }
 
+// Where a finding's passage opens: its source's link (the URL an API
+// gave, B-58) or, for your material, its download; "" when it has none.
+export function sourceHref(projectID: string, f: { source?: string; source_url?: string }): string {
+  const link = safeLink(f.source_url); // no javascript: link (B3-22 row 8)
+  if (link) return link;
+  if (f.source) return `/api/projects/${projectID}/sources/${f.source}/download`;
+  return "";
+}
+
 // The custom property holding an origin's label in the editor's marks.
 export function originVar(origin: string): string {
   return `--origin-${origin.replace(/_/g, "-")}`;

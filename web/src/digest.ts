@@ -61,11 +61,3 @@ export function offersRepeat(card: { repeat?: { estimated_cost_usd: number } | n
 export function offersLeaveOpen(card: { repeat?: { estimated_cost_usd: number } | null; scope_question?: string }): boolean {
   return !!card.repeat && !card.scope_question;
 }
-
-// Where a finding's passage opens: its source's link (the URL an API
-// gave, B-58) or, for your material, its download; "" when it has none.
-export function sourceHref(projectID: string, f: { source?: string; source_url?: string }): string {
-  if (f.source_url) return f.source_url;
-  if (f.source) return `/api/projects/${projectID}/sources/${f.source}/download`;
-  return "";
-}

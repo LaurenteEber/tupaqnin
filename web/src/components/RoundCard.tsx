@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { getRound, leaveRoundOpen, repeatRound } from "../api/client";
 import type { RoundCard as RoundCardView, RoundFinding } from "../api/types";
-import { coverageLines, findingReasonKey, offersLeaveOpen, offersRepeat, sourceHref } from "../digest";
+import { coverageLines, findingReasonKey, offersLeaveOpen, offersRepeat } from "../digest";
+import { sourceHref } from "../provenance";
 import { numberLocale, translate, type Lang } from "../i18n";
 import { JudgeCard } from "./JudgeCard";
 import { ROUND_POLL_MS, roundKeepsPolling } from "../live";

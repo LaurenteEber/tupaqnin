@@ -2,7 +2,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { coverageLines, findingReasonKey, offersLeaveOpen, offersRepeat, sourceHref } from "./digest.ts";
+import { coverageLines, findingReasonKey, offersLeaveOpen, offersRepeat } from "./digest.ts";
+import { sourceHref } from "./provenance.ts";
 
 const catalog = (lang: string): Record<string, string> =>
   JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"));
