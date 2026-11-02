@@ -15,6 +15,23 @@ export function shouldAutosave(current: string, saved: string, conflicted: boole
   return !conflicted && current !== saved;
 }
 
+// Browsers refuse a keepalive request over 64 KiB: a longer text goes as a plain
+// save, which closing the tab can still cancel.
+export const KEEPALIVE_MAX_BYTES = 60 * 1024;
+
+// saveRequest is the PUT of a section. Fired as the page hides it is keepalive, so
+// closing the tab does not cancel it (P-116).
+export function saveRequest(tabID: string, baseVersion: number, text: string, hiding: boolean) {
+  const body = JSON.stringify({ tab_id: tabID, base_version: baseVersion, text });
+  const fits = new TextEncoder().encode(body).length <= KEEPALIVE_MAX_BYTES;
+  return {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body,
+    ...(hiding && fits ? { keepalive: true } : {}),
+  };
+}
+
 type Schedule = (fn: () => void, ms: number) => () => void;
 
 const realTimer: Schedule = (fn, ms) => {
@@ -25,7 +42,7 @@ const realTimer: Schedule = (fn, ms) => {
 // createAutosave runs save after delayMs without changes, or at once on flush, one
 // at a time: a save uses the version the last one returned, so two in flight would
 // answer as a conflict with yourself.
-export function createAutosave(save: () => Promise<void>, delayMs = AUTOSAVE_DELAY_MS, schedule: Schedule = realTimer) {
+export function createAutosave(save: (hiding: boolean) => Promise<void>, delayMs = AUTOSAVE_DELAY_MS, schedule: Schedule = realTimer) {
   let cancelTimer: (() => void) | null = null;
   let tail: Promise<void> = Promise.resolve();
   let pending = 0;
@@ -33,10 +50,10 @@ export function createAutosave(save: () => Promise<void>, delayMs = AUTOSAVE_DEL
     cancelTimer?.();
     cancelTimer = null;
   };
-  const flush = (): Promise<void> => {
+  const flush = (hiding = false): Promise<void> => {
     cancel();
     pending++;
-    tail = tail.catch(() => {}).then(save).finally(() => { pending--; });
+    tail = tail.catch(() => {}).then(() => save(hiding)).finally(() => { pending--; });
     return tail;
   };
   return {

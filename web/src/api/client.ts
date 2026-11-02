@@ -1,3 +1,4 @@
+import { saveRequest } from "../saveStatus";
 import type {
   UndoResponse,
   RoundCard,
@@ -593,12 +594,9 @@ export async function saveSection(
   label: string,
   baseVersion: number,
   text: string,
+  hiding = false,
 ): Promise<SaveResult> {
-  const res = await fetch(`/api/projects/${projectID}/sections/${label}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tab_id: TAB_ID, base_version: baseVersion, text }),
-  });
+  const res = await fetch(`/api/projects/${projectID}/sections/${label}`, saveRequest(TAB_ID, baseVersion, text, hiding));
   if (res.status === 204) return { kind: "unchanged" };
   if (res.status === 409) return { kind: "conflict" };
   if (!res.ok) return { kind: "error" };

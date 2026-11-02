@@ -79,8 +79,8 @@ export function SectionEditor({
   const status = useRef<((kind: string) => void) | null>(null);
   // One save at a time, 2 s after you stop typing (P-116); a version conflict stays
   // on screen until the next blur, as before.
-  const rawSave = useRef<() => Promise<void>>(async () => {});
-  const autosave = useRef(createAutosave(() => rawSave.current()));
+  const rawSave = useRef<(hiding: boolean) => Promise<void>>(async () => {});
+  const autosave = useRef(createAutosave((hiding) => rawSave.current(hiding)));
   const conflicted = useRef(false);
   // The editor's text as it last loaded or saved (P-93): equal to what
   // it holds now means you have not typed since.
@@ -165,13 +165,13 @@ export function SectionEditor({
     editor.view.dispatch(editor.state.tr.setMeta(underlinePlugin, marks));
   }, [editor, underlinesSig, lang]);
 
-  async function saveNow() {
+  async function saveNow(hiding = false) {
     if (!editor || readOnly) return;
     const value = currentText();
     if (value === base.current.savedText) return; // the client does not send an unchanged document
     status.current?.("saving");
     conflicted.current = false;
-    const result = await saveSection(projectID, label, base.current.version, value);
+    const result = await saveSection(projectID, label, base.current.version, value, hiding);
     if (result.kind === "saved") {
       base.current = { version: result.version, savedText: value };
       shown.current = value;
@@ -190,7 +190,7 @@ export function SectionEditor({
   }
 
   rawSave.current = saveNow;
-  const saveRef = useRef(() => autosave.current.flush());
+  const saveRef = useRef((hiding = false) => autosave.current.flush(hiding));
   useEffect(() => () => autosave.current.cancel(), []);
 
   useEffect(() => {
@@ -199,13 +199,17 @@ export function SectionEditor({
 
   useEffect(() => {
     const timer = window.setInterval(() => void saveRef.current(), 30_000);
+    // P-116: keepalive, so closing the tab does not cancel this save.
+    const onHide = () => void saveRef.current(true).catch(() => {});
     const onVisibility = () => {
-      if (document.hidden) void saveRef.current();
+      if (document.hidden) onHide();
     };
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onHide);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onHide);
     };
   }, []);
 

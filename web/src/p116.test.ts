@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { AUTOSAVE_DELAY_MS, createAutosave, editingKind, shouldAutosave } from "./saveStatus.ts";
+import { AUTOSAVE_DELAY_MS, KEEPALIVE_MAX_BYTES, createAutosave, editingKind, saveRequest, shouldAutosave } from "./saveStatus.ts";
 import { detectedLine } from "./detected.ts";
 import en from "./i18n/en.json" with { type: "json" };
 import es from "./i18n/es.json" with { type: "json" };
@@ -166,4 +166,35 @@ test("P-116: «Object» and «Revoke» are separated in the frame", () => {
   assert.match(rule![1], /display:\s*flex/);
   assert.match(rule![1], /gap:/);
   assert.match(rule![1], /flex-wrap:\s*wrap/);
+});
+
+test("P-116: a save fired as the page hides is keepalive, so closing the tab does not cancel it", () => {
+  const hiding = saveRequest("tab-1", 3, "Texto", true);
+  assert.equal(hiding.keepalive, true);
+  assert.equal(hiding.method, "PUT");
+  assert.deepEqual(JSON.parse(hiding.body), { tab_id: "tab-1", base_version: 3, text: "Texto" });
+});
+
+test("P-116: the other saves are as they were, without keepalive", () => {
+  assert.equal(saveRequest("tab-1", 3, "Texto", false).keepalive, undefined);
+});
+
+test("P-116: a body over the browser's keepalive limit still goes, without it", () => {
+  const big = saveRequest("tab-1", 3, "ñ".repeat(KEEPALIVE_MAX_BYTES), true);
+  assert.equal(big.keepalive, undefined);
+});
+
+test("P-116: flush tells the save it was fired by hiding", async () => {
+  const seen: boolean[] = [];
+  const auto = createAutosave(async (hiding) => { seen.push(hiding); }, AUTOSAVE_DELAY_MS, fakeTimers().schedule);
+  await auto.flush(true);
+  await auto.flush();
+  assert.deepEqual(seen, [true, false]);
+});
+
+test("P-116: the editor saves on both visibilitychange and pagehide, as hiding", () => {
+  const code = readFileSync(join(srcDir, "components", "SectionEditor.tsx"), "utf8");
+  assert.match(code, /document\.addEventListener\("visibilitychange", onVisibility\)/);
+  assert.match(code, /window\.addEventListener\("pagehide", onHide\)/);
+  assert.match(code, /saveRef\.current\(true\)/);
 });
