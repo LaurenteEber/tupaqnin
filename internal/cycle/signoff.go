@@ -395,39 +395,18 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 	return g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		return TrackCriticality(ctx, tx, "", func() error {
 			body.SectionFingerprint = fingerprint.Section(bodyStr(bodyOf(section), "text"))
-			body.Criteria, body.Sources, body.AnsweredCards = []graph.SignedRef{}, []graph.SignedSource{}, []string{}
+			body.AnsweredCards = []string{}
 			critIDs := map[string]bool{}
 			for i, d := range critical {
 				body.Critical[i].Version = d.CurrentVersion
 				critIDs[d.ID] = true
-				edges, err := tx.EdgesFrom(ctx, projectID, d.ID)
-				if err != nil {
-					return err
-				}
-				for _, e := range edges {
-					if e.Type != store.EdgeApplies {
-						continue
-					}
-					crit, err := tx.Object(e.ToID)
-					if err != nil {
-						return err
-					}
-					body.Criteria = append(body.Criteria, graph.SignedRef{ID: crit.ID, Version: crit.CurrentVersion})
-				}
 			}
-			uses, err := tx.EdgesFrom(ctx, projectID, section.ID)
-			if err != nil {
+			var err error
+			if body.Criteria, err = graph.SignedCriteria(ctx, tx, projectID, critical); err != nil {
 				return err
 			}
-			for _, e := range uses {
-				if e.Type != store.EdgeUses {
-					continue
-				}
-				src, err := tx.Object(e.ToID)
-				if err != nil {
-					return err
-				}
-				body.Sources = append(body.Sources, graph.SignedSource{ID: src.ID, Fingerprint: bodyStr(bodyOf(src), "fingerprint")})
+			if body.Sources, err = graph.SignedSources(ctx, tx, projectID, section.ID); err != nil {
+				return err
 			}
 			cards, err := tx.ListObjects(ctx, projectID, store.ObjectCard)
 			if err != nil {

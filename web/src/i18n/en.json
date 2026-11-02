@@ -639,5 +639,22 @@
   "turn.stop.mode_finished.agent_pending": "The mode finished: the agent could not finish a step.",
   "turn.stop.mode_finished.provider_error": "The mode finished: the model call failed.",
   "return.title_mode": "The agent finished what you left it",
-  "return.act.mode": "you changed the mode"
+  "return.act.mode": "you changed the mode",
+  "undo.button": "Undo",
+  "undo.error": "Could not undo. Try again.",
+  "undo.reason.no_edit": "There is no edit of yours to undo.",
+  "undo.reason.agent_wrote": "The agent wrote after your edit: it can no longer be undone. Discard or correct it with a message.",
+  "undo.reason.proposal_accepted": "You accepted a proposal after your edit: it can no longer be undone.",
+  "undo.reason.later_edit": "You edited after this: undo your later edit first.",
+  "card.undo": "It was a mistake · undo",
+  "alert.question": "Did you mean to?",
+  "alert.deliberate": "I meant to",
+  "alert.reason.paragraph_deleted": "You deleted a whole paragraph.",
+  "alert.reason.over_half": "You removed more than half of the section.",
+  "alert.reason.figure_anchor": "You removed the figure that supports «{what}».",
+  "alert.reason.citation_anchor": "You removed the cited text «{what}».",
+  "alert.reason.decision_text": "You removed the paragraph that holds «{what}».",
+  "alert.reason.signed_text": "You removed text you had signed.",
+  "alert.reason.other_section": "You removed text here while you were working on «{what}».",
+  "alert.reason.pasted": "You pasted a text that is already in «{what}»."
 }

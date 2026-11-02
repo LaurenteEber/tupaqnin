@@ -639,5 +639,22 @@
   "turn.stop.mode_finished.agent_pending": "Terminó el modo: el agente no pudo terminar un paso.",
   "turn.stop.mode_finished.provider_error": "Terminó el modo: falló la llamada al modelo.",
   "return.title_mode": "El agente terminó lo que le dejaste",
-  "return.act.mode": "cambiaste el modo"
+  "return.act.mode": "cambiaste el modo",
+  "undo.button": "Deshacer",
+  "undo.error": "No se pudo deshacer. Inténtalo de nuevo.",
+  "undo.reason.no_edit": "No hay ninguna edición tuya que deshacer.",
+  "undo.reason.agent_wrote": "El agente escribió después de tu edición: ya no se puede deshacer. Descártalo o corrígelo con un mensaje.",
+  "undo.reason.proposal_accepted": "Aceptaste una propuesta después de tu edición: ya no se puede deshacer.",
+  "undo.reason.later_edit": "Editaste después de esto: deshaz primero tu edición posterior.",
+  "card.undo": "Fue un error · deshacer",
+  "alert.question": "¿Fue a propósito?",
+  "alert.deliberate": "Fue a propósito",
+  "alert.reason.paragraph_deleted": "Borraste un párrafo entero.",
+  "alert.reason.over_half": "Quitaste más de la mitad de la sección.",
+  "alert.reason.figure_anchor": "Quitaste la cifra que sostiene «{what}».",
+  "alert.reason.citation_anchor": "Quitaste el texto citado «{what}».",
+  "alert.reason.decision_text": "Quitaste el párrafo que sostiene «{what}».",
+  "alert.reason.signed_text": "Quitaste texto que habías firmado.",
+  "alert.reason.other_section": "Quitaste texto aquí mientras trabajabas en «{what}».",
+  "alert.reason.pasted": "Pegaste un texto que ya está en «{what}»."
 }

@@ -104,7 +104,8 @@ func BlockHistory(ctx context.Context, db *store.DB, projectID, sectionLabel str
 		if ev.ObjectID != section.ID || ev.NewVersion == 0 {
 			continue
 		}
-		if ev.Type != store.EventEdit && !(ev.Type == store.EventStateChanged && ev.NewVersion == 1) {
+		// An undo brings text back, by you, like an edit (B-79).
+		if ev.Type != store.EventEdit && ev.Type != store.EventEditUndone && !(ev.Type == store.EventStateChanged && ev.NewVersion == 1) {
 			continue
 		}
 		var in bool
@@ -176,7 +177,7 @@ func editInBlock(block, prev, next string) bool {
 // blockDecisions are the decisions covering the block's figures and
 // the decisions the block's steps declared for the section (P-60), each
 // at its birth, and the decisions they replaced, discarded (fichas §9).
-func blockDecisions(ctx context.Context, db *store.DB, projectID, sectionID string, b Compared, events []store.Event,
+func blockDecisions(ctx context.Context, db store.Querier, projectID, sectionID string, b Compared, events []store.Event,
 	steps []string) ([]Entry, error) {
 	add, out, err := decisionAdder(ctx, db, projectID, events)
 	if err != nil {
@@ -224,7 +225,7 @@ func blockDecisions(ctx context.Context, db *store.DB, projectID, sectionID stri
 // [EL DISEÑO NO LO DICE]: «declared for the section» is read as
 // declared by the step and used in the section; in the order the
 // steps declared them.
-func stepDecisions(ctx context.Context, db *store.DB, projectID, sectionID string, events []store.Event,
+func stepDecisions(ctx context.Context, db store.Querier, projectID, sectionID string, events []store.Event,
 	steps []string) ([]string, error) {
 	inBlock := map[string]bool{}
 	for _, t := range steps {
@@ -438,7 +439,7 @@ func DecisionHistory(ctx context.Context, db *store.DB, projectID, decisionLabel
 
 // decisionAdder returns add, which appends a decision entry (with the
 // ones it replaced, discarded) to *out once per decision.
-func decisionAdder(ctx context.Context, db *store.DB, projectID string, events []store.Event) (
+func decisionAdder(ctx context.Context, db store.Querier, projectID string, events []store.Event) (
 	func(decID, figure string, discarded bool) error, *[]Entry, error) {
 	born := map[string]store.Event{}
 	for _, ev := range events {
@@ -490,7 +491,7 @@ func decisionAdder(ctx context.Context, db *store.DB, projectID string, events [
 }
 
 // cardReasons maps each decision to the «porque» of its answered card.
-func cardReasons(ctx context.Context, db *store.DB, projectID string) (map[string]string, error) {
+func cardReasons(ctx context.Context, db store.Querier, projectID string) (map[string]string, error) {
 	cards, err := db.ListObjects(ctx, projectID, store.ObjectCard)
 	if err != nil {
 		return nil, err

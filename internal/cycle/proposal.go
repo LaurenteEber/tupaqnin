@@ -233,8 +233,9 @@ func (g *Gate) DiscardProposal(ctx context.Context, projectID, label string) (Pr
 // AcceptProposal is «Aceptar» (B-75, T-4): it applies the proposal with its
 // anchor and operation on the current text. When it cannot be applied as it
 // is (the anchor no longer appears once, or, for a replace_all, the section
-// changed since your save) nothing is applied: the proposal goes to discarded
-// with that reason and the agent is asked for a new step. The text is the
+// changed since your save and that save was not what you undid, B-79) nothing
+// is applied: the proposal goes to discarded with that reason and the agent is
+// asked for a new step. The text is the
 // agent's: an edit with actor agent and accepted_by human. It never merges
 // texts and never calls a model.
 func (g *Gate) AcceptProposal(ctx context.Context, projectID, label string) (ProposalOutcome, error) {
@@ -328,6 +329,17 @@ func (p *project) acceptTextProposal(ctx context.Context, tx *store.Tx, obj stor
 		return err
 	}
 	out.Section = sec.Label
+	if b.Operation == graph.OperationReplaceAll {
+		// B-79: you undid the edit that displaced it and nothing moved since:
+		// it still replaces the section's text.
+		undid, err := graph.LastWriteUndid(ctx, tx, tx.ProjectID(), sec.ID, b.BaseVersion)
+		if err != nil {
+			return err
+		}
+		if undid {
+			saved = bodyStr(bodyOf(sec), "text")
+		}
+	}
 	result, why := textAfterProposal(bodyStr(bodyOf(sec), "text"), b, saved)
 	if why != "" {
 		out.State, out.Why, out.NewStep = "discarded", why, true
@@ -489,7 +501,7 @@ func AgentOnTop(ctx context.Context, q store.Querier, projectID, sectionID strin
 	}
 	found := false
 	for _, ev := range events {
-		if ev.ObjectID != sectionID || ev.Type != store.EventEdit || ev.NewVersion <= baseVersion {
+		if ev.ObjectID != sectionID || ev.Type != store.EventEdit && ev.Type != store.EventEditUndone || ev.NewVersion <= baseVersion {
 			continue
 		}
 		if ev.Actor != "agent" {

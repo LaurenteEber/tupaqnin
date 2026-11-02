@@ -82,8 +82,9 @@ type SectionDetail struct {
 	Text      string `json:"text"`
 	Role      string `json:"role"`
 	RoleState string `json:"role_state"`
-	// UndoAvailable: «Deshacer» is on (B-79); the button is piece 4.2's.
+	// UndoAvailable: «Deshacer» is on; UndoReason says why it is off (B-79).
 	UndoAvailable bool            `json:"undo_available"`
+	UndoReason    string          `json:"undo_reason"`
 	Pendings      []graph.Pending `json:"pendings"`
 	Figures       []LinkedAnchor  `json:"figures"`
 	Citations     []LinkedAnchor  `json:"citations"`
@@ -94,6 +95,8 @@ type SectionDetail struct {
 	// its kind, the literal passage where it goes and the label it leads
 	// to. Go places them; the page only presents them.
 	Warnings []graph.Warning `json:"warnings"`
+	// Alerts are the suspicious edits still waiting on the band (B-80).
+	Alerts []graph.EditAlert `json:"alerts"`
 }
 
 // LinkedAnchor is a figure (to its decision) or a citation (to its
@@ -124,12 +127,17 @@ func (s *Server) getSection(w http.ResponseWriter, r *http.Request) {
 	}
 	b := bodyMap(sec)
 	role, _ := b["role"].(map[string]any)
-	undo, err := graph.UndoAvailable(ctx, s.db, projectID, sec.ID)
+	undo, err := graph.SectionUndo(ctx, s.db, projectID, sec.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	detail := SectionDetail{UndoAvailable: undo, Label: sec.Label, Title: str(b, "title"), Focus: str(b, "focus"), Version: sec.CurrentVersion,
+	alerts, err := graph.EditAlerts(ctx, s.db, projectID, sec.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	detail := SectionDetail{UndoAvailable: undo.Available, UndoReason: undo.Reason, Alerts: alerts, Label: sec.Label, Title: str(b, "title"), Focus: str(b, "focus"), Version: sec.CurrentVersion,
 		Status: string(status), Text: str(b, "text"), Role: str(role, "value"), RoleState: str(role, "state"),
 		Pendings: pendings, Figures: []LinkedAnchor{}, Citations: []LinkedAnchor{}}
 	for _, kind := range []struct {

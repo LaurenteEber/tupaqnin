@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { answerCard, answerOpenQuestion, getTodo } from "../api/client";
 import type { CardView, OpenQuestionView } from "../api/types";
 import { translate, type Lang } from "../i18n";
+import { undoReasonKey } from "../undo";
 
 // P4 (backlog-r1 1.4): the open cards, what is yours to do. Each one
 // reads its decision, why it is critical and the sections that use it;
@@ -10,12 +11,14 @@ import { translate, type Lang } from "../i18n";
 // shows each open «por aclarar» (P4 [2], backlog-r2 2.4): the question,
 // each option with its contrast, consequence and risk, what it blocks,
 // the variants folded, and option + «porque» + «Aplicar».
-export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
+export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo }: {
   lang: Lang;
   projectID: string;
   refreshKey: number | string;
   // P-92: whether your answer left a defense being prepared.
   onAnswered: (defensePreparing: boolean) => void;
+  // «Fue un error · deshacer» on the card of your critical edit (B-78).
+  onUndo: (section: string, editVersion: number) => Promise<void>;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [cards, setCards] = useState<CardView[]>([]);
@@ -85,7 +88,20 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered }: {
           {card.would_choose_if && <p>{t("card.would_choose_if")}: {card.would_choose_if}</p>}
           <p>{t("card.sections")}: {card.sections.map((s) => s.title || t("section.untitled")).join(", ")}</p>
           {card.own_edit ? (
-            <p>{t("card.own_edit")}</p>
+            <>
+              <p>{t("card.own_edit")}</p>
+              {/* B-78: it closes the card as obsolete; Go says when that edit can no longer be undone. */}
+              <button
+                type="button"
+                className="small"
+                disabled={!card.undo_available}
+                title={card.undo_reason ? t(undoReasonKey(card.undo_reason)) : undefined}
+                onClick={() => void onUndo(card.edit_section ?? "", card.edit_version ?? 0).finally(refresh)}
+              >
+                {t("card.undo")}
+              </button>
+              {!card.undo_available && card.undo_reason && <p className="meta">{t(undoReasonKey(card.undo_reason))}</p>}
+            </>
           ) : (
             <>
               <label>

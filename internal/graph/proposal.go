@@ -254,22 +254,3 @@ func ProposalStepNotice(label, section string) string {
 	return fmt.Sprintf("The person accepted your proposal %s, but %s no longer has the text it was written against: it was not applied. "+
 		"Write a new step for %s against its current text", label, section, section)
 }
-
-// UndoAvailable says whether «Deshacer» is on for a section (B-79): the
-// last text written is yours. After a step of the agent or a proposal you
-// accepted, which is the agent's text (B-75), it is off.
-// [EL DISEÑO NO LO DICE]: 4.1 only computes it, for its «Listo cuando»;
-// the button and its reason are 4.2's.
-func UndoAvailable(ctx context.Context, q store.Querier, projectID, sectionID string) (bool, error) {
-	events, err := q.EventsSince(ctx, projectID, 0)
-	if err != nil {
-		return false, err
-	}
-	on := false
-	for _, ev := range events {
-		if ev.Type == store.EventEdit && ev.ObjectID == sectionID {
-			on = ev.Actor == "human"
-		}
-	}
-	return on, nil
-}

@@ -305,6 +305,7 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .warnings-band { background: var(--todo-soft); border-radius: 6px; padding: 8px 10px; margin: 6px 0 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .warnings-band ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .warnings-band li { overflow-wrap: anywhere; }
+.edit-alert { display: flex; flex-direction: column; gap: 4px; }
 .warnings-actions, .warnings-reason { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 8px; }
 .warnings-reason input { min-width: 0; flex: 1 1 160px; }
 .warning-underline { text-decoration: underline wavy var(--todo); text-underline-offset: 3px; cursor: pointer; }

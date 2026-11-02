@@ -204,7 +204,7 @@ func (idx *signoffIndex) latest(sectionID string) (store.Object, bool) {
 // CurrentSignoff is the section's current signature: its newest signoff
 // that was signed (spec §9: «la explicación de firma vigente»). A
 // signoff in progress, paused or cancelled is not a signature.
-func CurrentSignoff(ctx context.Context, db *store.DB, projectID, sectionID string) (SignoffBody, bool, error) {
+func CurrentSignoff(ctx context.Context, db store.Querier, projectID, sectionID string) (SignoffBody, bool, error) {
 	idx, _, err := loadSignoffs(ctx, db, projectID)
 	if err != nil {
 		return SignoffBody{}, false, err
@@ -767,4 +767,99 @@ func WonderBrief(ctx context.Context, db *store.DB, projectID, signID string) (s
 		}
 	}
 	return b.String(), nil
+}
+
+// SignedCriteria are the criteria the given critical decisions apply, as a
+// signature records them (specification §4).
+func SignedCriteria(ctx context.Context, q store.Querier, projectID string, critical []store.Object) ([]SignedRef, error) {
+	out := []SignedRef{}
+	for _, d := range critical {
+		edges, err := q.EdgesFrom(ctx, projectID, d.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range edges {
+			if e.Type != store.EdgeApplies {
+				continue
+			}
+			crit, err := q.GetObject(ctx, projectID, e.ToID)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, SignedRef{ID: crit.ID, Version: crit.CurrentVersion})
+		}
+	}
+	return out, nil
+}
+
+// SignedSources are the sources the section uses, with their fingerprints, as a
+// signature records them (specification §4).
+func SignedSources(ctx context.Context, q store.Querier, projectID, sectionID string) ([]SignedSource, error) {
+	uses, err := q.EdgesFrom(ctx, projectID, sectionID)
+	if err != nil {
+		return nil, err
+	}
+	out := []SignedSource{}
+	for _, e := range uses {
+		if e.Type != store.EdgeUses {
+			continue
+		}
+		src, err := q.GetObject(ctx, projectID, e.ToID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, SignedSource{ID: src.ID, Fingerprint: bodyString(src, "fingerprint")})
+	}
+	return out, nil
+}
+
+// EqualsSignature says the section is, by components, what its current
+// signature holds (specification §4: «cambió» compares by components): the text
+// fingerprint, the critical decisions and criteria with their versions, and the
+// sources with their fingerprints.
+func EqualsSignature(ctx context.Context, q store.Querier, projectID string, section store.Object, signed SignoffBody) (bool, error) {
+	if signed.SectionFingerprint != fingerprint.Section(bodyString(section, "text")) {
+		return false, nil
+	}
+	critical, err := SectionCriticalDecisions(ctx, q, projectID, section.ID)
+	if err != nil {
+		return false, err
+	}
+	now := make([]SignedRef, 0, len(critical))
+	for _, d := range critical {
+		now = append(now, SignedRef{ID: d.ID, Version: d.CurrentVersion})
+	}
+	if !sameMembers(now, signed.Critical) {
+		return false, nil
+	}
+	criteria, err := SignedCriteria(ctx, q, projectID, critical)
+	if err != nil {
+		return false, err
+	}
+	if !sameMembers(criteria, signed.Criteria) {
+		return false, nil
+	}
+	sources, err := SignedSources(ctx, q, projectID, section.ID)
+	if err != nil {
+		return false, err
+	}
+	return sameMembers(sources, signed.Sources), nil
+}
+
+// sameMembers compares two lists whatever their order, repeats included.
+func sameMembers[T comparable](a, b []T) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	count := map[T]int{}
+	for _, x := range a {
+		count[x]++
+	}
+	for _, x := range b {
+		if count[x] == 0 {
+			return false
+		}
+		count[x]--
+	}
+	return true
 }

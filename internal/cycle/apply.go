@@ -344,7 +344,8 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 	}
 	yourEdits := map[string]int{}
 	for _, ev := range events {
-		if ev.Type == store.EventEdit && ev.Actor == "human" && ev.NewVersion > yourEdits[ev.ObjectID] {
+		yours := ev.Type == store.EventEdit && ev.Actor == "human" || ev.Type == store.EventEditUndone
+		if yours && ev.NewVersion > yourEdits[ev.ObjectID] {
 			yourEdits[ev.ObjectID] = ev.NewVersion
 		}
 	}

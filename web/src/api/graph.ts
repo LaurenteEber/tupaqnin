@@ -1335,6 +1335,126 @@ export interface Compared {
 }
 
 //////////
+// source: undo.go
+
+/**
+ * Why «Deshacer» is off (B-79).
+ */
+export const UndoReasonNoEdit = "no_edit";
+/**
+ * Why «Deshacer» is off (B-79).
+ */
+export const UndoReasonAgentWrote = "agent_wrote";
+/**
+ * Why «Deshacer» is off (B-79).
+ */
+export const UndoReasonProposalAccepted = "proposal_accepted";
+/**
+ * UndoReasonLaterEdit: the edit named (a card's, an alert's) is not your
+ * last one; only the last one is reverted (B-79).
+ */
+export const UndoReasonLaterEdit = "later_edit";
+/**
+ * EditReadVersion is the key, in the data of your edit that displaced the
+ * agent's text (B-73 d), of the version your tab read: the one undoing it
+ * brings back.
+ */
+export const EditReadVersion = "read_version";
+/**
+ * UndoState is that answer: on, with the edit it reverts and the version whose
+ * text comes back; or off, with its reason.
+ */
+export interface UndoState {
+  Available: boolean;
+  Reason: string;
+  /**
+   * Version is the version your last edit made; Restores the one it reverts to.
+   */
+  Version: number /* int */;
+  Restores: number /* int */;
+}
+/**
+ * CardUndo is «Fue un error · deshacer» on a card of your edit (B-78): the
+ * section and edit it names and whether the undo reverts that edit now.
+ * [EL DISEÑO NO LO DICE]: a card whose edit has a later edit of yours on top
+ * says so instead of reverting a different edit; undo that one first.
+ */
+export interface CardUndo {
+  Section: string;
+  Version: number /* int */;
+  Available: boolean;
+  Reason: string;
+}
+/**
+ * Why an edit of yours looks accidental (rule 6, B-80).
+ */
+export const SuspiciousParagraphDeleted = "paragraph_deleted";
+/**
+ * Why an edit of yours looks accidental (rule 6, B-80).
+ */
+export const SuspiciousOverHalf = "over_half";
+/**
+ * Why an edit of yours looks accidental (rule 6, B-80).
+ */
+export const SuspiciousFigureAnchor = "figure_anchor";
+/**
+ * Why an edit of yours looks accidental (rule 6, B-80).
+ */
+export const SuspiciousCitationAnchor = "citation_anchor";
+/**
+ * Why an edit of yours looks accidental (rule 6, B-80).
+ */
+export const SuspiciousDecisionText = "decision_text";
+/**
+ * Why an edit of yours looks accidental (rule 6, B-80).
+ */
+export const SuspiciousSignedText = "signed_text";
+/**
+ * Why an edit of yours looks accidental (rule 6, B-80).
+ */
+export const SuspiciousOtherSection = "other_section";
+/**
+ * Why an edit of yours looks accidental (rule 6, B-80).
+ */
+export const SuspiciousPasted = "pasted";
+/**
+ * SuspiciousReason is one motive of a suspicious_edit_alert: the rule of B-80,
+ * its kind, what it is about (literal: an anchor, the title of a section or a
+ * source), and, when it holds a decision, its label and statement.
+ */
+export interface SuspiciousReason {
+  rule: number /* int */;
+  kind: string;
+  about?: string;
+  decision?: string;
+  statement?: string;
+}
+/**
+ * EditAlert is an alert for the band under the title: unanswered, on an edit
+ * not undone. Seq is its event's, what POST /alerts/{n}/answer takes.
+ * Undoable says «Deshacer» reverts that edit now, or UndoReason why not.
+ * [EL DISEÑO NO LO DICE]: an alert leaves the band when you undo its edit, as
+ * when you answer it; both stay in the history.
+ */
+export interface EditAlert {
+  seq: number /* int */;
+  version: number /* int */;
+  reasons: SuspiciousReason[];
+  undoable: boolean;
+  undo_reason?: string;
+}
+/**
+ * EditAlertData is the data of an alert's event; an answer has answer_to.
+ */
+export interface EditAlertData {
+  section: string;
+  version: number /* int */;
+  reasons: SuspiciousReason[];
+  answer_to?: number /* int */;
+  deliberate?: boolean;
+}
+
+//////////
 // source: warnings.go
 
 /**

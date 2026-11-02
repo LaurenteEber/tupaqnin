@@ -26,6 +26,13 @@ type CardView struct {
 	// OwnEdit marks the card of your critical edit (R4, B-49): it asks
 	// only for the «porque», with option null.
 	OwnEdit bool `json:"own_edit"`
+	// EditSection and EditVersion name the edit that opened that card, and
+	// UndoAvailable says «Fue un error · deshacer» still undoes it, or UndoReason
+	// why not (B-78, B-79).
+	EditSection   string `json:"edit_section,omitempty"`
+	EditVersion   int    `json:"edit_version,omitempty"`
+	UndoAvailable bool   `json:"undo_available,omitempty"`
+	UndoReason    string `json:"undo_reason,omitempty"`
 }
 
 // SectionRef names a section on screen by its title (P-36, B-18); the
@@ -66,6 +73,13 @@ func (s *Server) cardView(r *http.Request, projectID string, card store.Object) 
 		return view, err
 	}
 	view.OwnEdit = str(bodyMap(card), "kind") == cycle.CardOwnEdit
+	if view.OwnEdit {
+		undo, err := graph.UndoOfCard(ctx, s.db, projectID, card)
+		if err != nil {
+			return view, err
+		}
+		view.EditSection, view.EditVersion, view.UndoAvailable, view.UndoReason = undo.Section, undo.Version, undo.Available, undo.Reason
+	}
 	b := bodyMap(dec)
 	view.Decision, view.Statement = dec.Label, str(b, "statement")
 	view.InsteadOf, view.WouldChooseIf = str(b, "instead_of"), str(b, "would_choose_if")

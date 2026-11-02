@@ -262,7 +262,16 @@ type Version struct {
 // Versions returns every version of an object, oldest first. History
 // only grows (specification §1): what was replaced stays here.
 func (db *DB) Versions(ctx context.Context, projectID, objectID string) ([]Version, error) {
-	rows, err := db.Reader.QueryContext(ctx,
+	return versions(ctx, db.Reader, projectID, objectID)
+}
+
+// Versions reads inside the transaction, its own writes included.
+func (tx *Tx) Versions(ctx context.Context, projectID, objectID string) ([]Version, error) {
+	return versions(ctx, tx.tx, projectID, objectID)
+}
+
+func versions(ctx context.Context, q queryer, projectID, objectID string) ([]Version, error) {
+	rows, err := q.QueryContext(ctx,
 		`SELECT version, body, created_at FROM version
 		 WHERE project_id = ? AND object_id = ? ORDER BY version`, projectID, objectID)
 	if err != nil {

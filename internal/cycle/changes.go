@@ -128,14 +128,102 @@ func editedAfterEntered(ctx context.Context, tx *store.Tx, sectionID, label stri
 	for _, ev := range events {
 		var data map[string]any
 		_ = json.Unmarshal(ev.Data, &data)
-		switch {
-		case ev.Type == store.EventUsageChange && data["kind"] == checks.UsageEntered && data["change"] == label:
+		if ev.Type == store.EventUsageChange && data["kind"] == checks.UsageEntered && data["change"] == label {
 			entered = ev.Seq
-		case entered > 0 && ev.Type == store.EventEdit && ev.Actor == "human" && ev.ObjectID == sectionID:
-			return true, nil
 		}
 	}
-	return false, nil
+	return entered > 0 && editStandsSince(events, sectionID, entered), nil
+}
+
+// editStandsSince reports an edit of yours on the section after seq that was
+// not undone (B-79).
+func editStandsSince(events []store.Event, sectionID string, seq int) bool {
+	standing := map[int]bool{}
+	for _, ev := range events {
+		if ev.ObjectID != sectionID || ev.Seq <= seq {
+			continue
+		}
+		switch {
+		case ev.Type == store.EventEdit && ev.Actor == "human":
+			standing[ev.NewVersion] = true
+		case ev.Type == store.EventEditUndone:
+			var data struct {
+				UndoneVersion int `json:"undone_version"`
+			}
+			_ = json.Unmarshal(ev.Data, &data)
+			delete(standing, data.UndoneVersion)
+		}
+	}
+	return len(standing) > 0
+}
+
+// reopenUndoneUpdates is what an undo leaves of «Actualizado» (A-1): a change
+// you closed as updated goes back to the section's list when no edit of yours
+// since it entered stands any more, with a new usage_change, and a draft goes
+// back to stale (estados §1).
+// [EL DISEÑO NO LO DICE]: the same label comes back, with why edit_undone; the
+// close stays in the history. A close of the agent's rested on its own step, and
+// a reviewed_unchanged on your reason: neither reopens.
+func reopenUndoneUpdates(ctx context.Context, tx *store.Tx, sec store.Object) (store.Object, error) {
+	events, err := tx.EventsSince(ctx, tx.ProjectID(), 0)
+	if err != nil {
+		return sec, err
+	}
+	type closed struct {
+		label, about, aboutKind string
+		entered                 int
+		yours                   bool
+	}
+	byLabel := map[string]*closed{}
+	var order []*closed
+	for _, ev := range events {
+		if ev.Type != store.EventUsageChange || ev.ObjectID != sec.ID {
+			continue
+		}
+		var data struct {
+			Kind      string `json:"kind"`
+			Change    string `json:"change"`
+			About     string `json:"about"`
+			AboutKind string `json:"about_kind"`
+		}
+		_ = json.Unmarshal(ev.Data, &data)
+		c := byLabel[data.Change]
+		switch data.Kind {
+		case checks.UsageEntered:
+			if c == nil {
+				c = &closed{label: data.Change}
+				byLabel[data.Change] = c
+				order = append(order, c)
+			}
+			c.about, c.aboutKind, c.entered, c.yours = data.About, data.AboutKind, ev.Seq, false
+		case checks.UsageUpdated:
+			if c != nil {
+				c.yours = ev.Actor == "human"
+			}
+		case checks.UsageReviewedUnchanged:
+			if c != nil {
+				c.yours = false
+			}
+		}
+	}
+	for _, c := range order {
+		if !c.yours || editStandsSince(events, sec.ID, c.entered) {
+			continue
+		}
+		body := bodyOf(sec)
+		body["open_changes"] = append(graph.OpenChanges(sec), graph.OpenChange{Label: c.label, Kind: c.aboutKind, About: c.about})
+		state := sec.State
+		if state == "draft" {
+			state = "stale"
+		}
+		if sec, err = tx.UpdateObject(sec.ID, sec.CurrentVersion, state, body, store.EventInput{
+			Type: store.EventUsageChange, Actor: "app",
+			Data: map[string]any{"kind": checks.UsageEntered, "change": c.label, "section": sec.Label,
+				"about": c.about, "about_kind": c.aboutKind, "why": "edit_undone"}}); err != nil {
+			return sec, err
+		}
+	}
+	return sec, nil
 }
 
 // handledChange is one entry of the principal's handled_changes.

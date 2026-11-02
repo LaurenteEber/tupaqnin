@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/fingerprint"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
@@ -369,8 +370,13 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		if state == "signed" {
 			state = "changed_since_signoff"
 		}
-		updated, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, state, body,
-			store.EventInput{Type: store.EventEdit, Actor: "human"})
+		ev := store.EventInput{Type: store.EventEdit, Actor: "human"}
+		if displaced {
+			// Undoing it goes back to what your tab read, not to the agent's
+			// text, which stays in its proposal (B-79).
+			ev.Data = map[string]any{graph.EditReadVersion: req.BaseVersion}
+		}
+		updated, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, state, body, ev)
 		if err != nil {
 			return err
 		}
@@ -391,6 +397,11 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if _, err := cycle.CheckYourEdit(r.Context(), tx, current.ID, edited); err != nil {
+			return err
+		}
+		// Rule 6, on your edits only and without blocking (B-80).
+		if err := checks.AlertSuspiciousEdit(r.Context(), tx, checks.SuspectEdit{
+			Section: updated, BaseText: edited, WasSigned: obj.State == "signed", Now: s.now()}); err != nil {
 			return err
 		}
 		// Your edit of a section in signoff cancels the signoff in

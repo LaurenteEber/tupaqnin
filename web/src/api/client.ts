@@ -1,4 +1,5 @@
 import type {
+  UndoResponse,
   RoundCard,
   StartRoundResponse,
   RepeatRoundResponse,
@@ -343,6 +344,31 @@ export async function listSections(projectID: string): Promise<SectionView[]> {
 // by Go (kind, passage, block, offsets and the label each leads to).
 export async function getSection(projectID: string, label: string): Promise<SectionDetail> {
   return json(await fetch(`/api/projects/${projectID}/sections/${label}`));
+}
+
+// «Deshacer» (B-79): your last edit of the section, or, with editVersion, that
+// edit only (a card's, an alert's). A refusal throws its reason.
+export async function undoEdit(projectID: string, label: string, editVersion?: number): Promise<UndoResponse> {
+  const res = await fetch(`/api/projects/${projectID}/sections/${label}/undo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tab_id: TAB_ID, edit_version: editVersion }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string; reason?: string };
+    throw new Error(body.reason ?? body.error ?? "internal");
+  }
+  return (await res.json()) as UndoResponse;
+}
+
+// «Fue a propósito» (B-80): n is the seq of the alert's event.
+export async function answerAlert(projectID: string, seq: number): Promise<void> {
+  const res = await fetch(`/api/projects/${projectID}/alerts/${seq}/answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tab_id: TAB_ID }),
+  });
+  if (!res.ok) throw new Error(`http_${res.status}`);
 }
 
 // Closing a change from the section's band (fichas §3 «Cierre de un

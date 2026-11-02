@@ -8,6 +8,7 @@ import {
   answerAudienceQuestion,
   getConversation,
   getSection,
+  undoEdit,
   getSession,
   listProjects,
   listSections,
@@ -21,7 +22,8 @@ import {
   exportURL,
 } from "./api/client";
 import type { ConversationEntry, ProjectLine, SectionView, SessionView, SignoffBlocked, SummaryView } from "./api/types";
-import type { Warning } from "./api/graph";
+import type { EditAlert, Warning } from "./api/graph";
+import { undoLineKey, undoReasonKey } from "./undo";
 import { MessageInput } from "./components/MessageInput";
 import { RequestPanel } from "./components/RequestPanel";
 import { UnderstandingPanel } from "./components/UnderstandingPanel";
@@ -32,6 +34,7 @@ import { SectionDetails } from "./components/SectionDetails";
 import { SectionEditor } from "./components/SectionEditor";
 import { ProposalPanel } from "./components/ProposalPanel";
 import { SectionWarnings } from "./components/SectionWarnings";
+import { EditAlerts } from "./components/EditAlerts";
 import { FramePanel, type TodoTarget } from "./components/FramePanel";
 import { SignoffPanel } from "./components/SignoffPanel";
 import { ConversationPanel } from "./components/ConversationPanel";
@@ -107,6 +110,7 @@ export function App() {
   const [signing, setSigning] = useState("");
   const [signBlocked, setSignBlocked] = useState<SignoffBlocked | null>(null);
   const [signError, setSignError] = useState("");
+  const [undoError, setUndoError] = useState("");
   const saveRef = useRef<() => Promise<void>>(async () => {});
   const registerSave = useCallback((fn: () => Promise<void>) => {
     saveRef.current = fn;
@@ -415,6 +419,24 @@ export function App() {
     window.setTimeout(() => el.classList.remove("flash"), 900);
   }
 
+  // «Deshacer» (B-79): what you typed saves first, so it is your last edit; the
+  // card or the alert names its edit, and Go refuses it under a later one. An
+  // undo can close a signoff, which can reopen the mode's chain (B-86).
+  async function undoLastEdit(section: string, editVersion?: number) {
+    if (!projectID) return;
+    setUndoError("");
+    try {
+      await saveRef.current();
+      await undoEdit(projectID, section, editVersion);
+    } catch (e) {
+      setUndoError(e instanceof Error ? e.message : "internal");
+    }
+    setWarningsTick((k) => k + 1);
+    bumpFrame();
+    await refreshSections(projectID);
+    applySummary(await getSummary(projectID));
+  }
+
   // A warning leads to its «por aclarar», or a flaw's to its judge round.
   function reachWarning(target: string) {
     reach(warnings.some((w) => w.kind === "flaw" && w.target === target) ? `round-${target}` : `oq-${target}`);
@@ -534,15 +556,30 @@ export function App() {
   // computed and placed by Go, refetched when the section moves.
   const [warnings, setWarnings] = useState<Warning[]>([]);
   const [warningsTick, setWarningsTick] = useState(0);
+  // «Deshacer» and the band of suspicious edits (B-79, B-80), from the same read.
+  const [undo, setUndo] = useState({ available: false, reason: "" });
+  const [alerts, setAlerts] = useState<EditAlert[]>([]);
   useEffect(() => {
     if (!projectID || !current) {
       setWarnings([]);
+      setUndo({ available: false, reason: "" });
+      setAlerts([]);
       return;
     }
     let live = true;
     getSection(projectID, current.label)
-      .then((detail) => live && setWarnings(detail.warnings ?? []))
-      .catch(() => live && setWarnings([]));
+      .then((detail) => {
+        if (!live) return;
+        setWarnings(detail.warnings ?? []);
+        setUndo({ available: detail.undo_available, reason: detail.undo_reason });
+        setAlerts((detail.alerts ?? []) as EditAlert[]);
+      })
+      .catch(() => {
+        if (!live) return;
+        setWarnings([]);
+        setUndo({ available: false, reason: "" });
+        setAlerts([]);
+      });
     return () => {
       live = false;
     };
@@ -765,6 +802,7 @@ export function App() {
                   void refreshConversation(projectID); // the answered card (U-5)
                   if (defense) setDefensePreparing(true); // P-92
                 }}
+                onUndo={undoLastEdit}
               />
             )}
           </div>
@@ -802,6 +840,15 @@ export function App() {
               </button>
               <button
                 type="button"
+                className="small"
+                disabled={!current || !editor || !undo.available}
+                title={undo.reason ? t(undoReasonKey(undo.reason)) : undefined}
+                onClick={() => current && void undoLastEdit(current.label)}
+              >
+                {t("undo.button")}
+              </button>
+              <button
+                type="button"
                 id="sign-section"
                 className="primary small"
                 disabled={!current || !editor || current.state === "signed"}
@@ -811,6 +858,8 @@ export function App() {
               </button>
             </div>
             <div className="scroll">
+              {undoLineKey(undo.available, undo.reason) && <p className="meta">{t(undoLineKey(undo.available, undo.reason))}</p>}
+              {undoError && <p className="turn-error">{t(undoReasonKey(undoError))}</p>}
               {signQueued && <p className="meta" role="status">{t("signoff.request.queued")}</p>}
               {signBlocked && (
                 <div className="sign-blocked" role="status">
@@ -856,20 +905,30 @@ export function App() {
                     />
                   }
                   band={
-                    <SectionWarnings
-                      lang={lang}
-                      projectID={projectID}
-                      warnings={warnings}
-                      readOnly={!editor}
-                      onClosed={() => {
-                        // Closing a change can free the section (A-1).
-                        setWarningsTick((k) => k + 1);
-                        bumpFrame();
-                        void refreshSections(projectID);
-                      }}
-                      onQuestion={reachWarning}
-                      onHistory={(block) => openSection(current.label, block)}
-                    />
+                    <>
+                      <EditAlerts
+                        lang={lang}
+                        projectID={projectID}
+                        alerts={alerts}
+                        readOnly={!editor}
+                        onUndo={(version) => void undoLastEdit(current.label, version)}
+                        onAnswered={() => setWarningsTick((k) => k + 1)}
+                      />
+                      <SectionWarnings
+                        lang={lang}
+                        projectID={projectID}
+                        warnings={warnings}
+                        readOnly={!editor}
+                        onClosed={() => {
+                          // Closing a change can free the section (A-1).
+                          setWarningsTick((k) => k + 1);
+                          bumpFrame();
+                          void refreshSections(projectID);
+                        }}
+                        onQuestion={reachWarning}
+                        onHistory={(block) => openSection(current.label, block)}
+                      />
+                    </>
                   }
                   underlines={warnings.filter(
                     (w) => w.kind === "open_question" || w.kind === "agent_pending" || w.kind === "flaw",
