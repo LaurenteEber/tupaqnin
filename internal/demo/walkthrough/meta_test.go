@@ -113,7 +113,7 @@ const campoReason = "Porque mi criterio pide muestrear donde se toma el agua; un
 // (backlog-r2 2.10, «Listo cuando»; make demo-check runs it with
 // TestDemoCheck, TQ_PROVIDER=meta, key from the keychain). Eber runs it:
 // after the understanding and the agent's chain, the «por aclarar» on
-// «campo» (D1) is open and the signoff of each section it blocks lists
+// «campo» (D1) is open, blocks some section (P-112), and the signoff of each section it blocks lists
 // it; once answered with an option and a «porque», it no longer blocks.
 // A failing run names the step and the model's last output.
 func TestDemoCheckSlice2(t *testing.T) {
@@ -146,24 +146,21 @@ func TestDemoCheckSlice2(t *testing.T) {
 	// P-82: an open question depends on sections or decisions, never on
 	// a criterion (the app rejects one). What counts is an open «por
 	// aclarar» that names the pilot or «campo» (case- and
-	// accent-insensitive) and blocks «Estudios incluidos», where the pilot
-	// is classified.
+	// accent-insensitive) and blocks a section. P-112: which section is the
+	// model's call («Síntesis» in Eber's fourth run); the fake's walkthrough
+	// still pins «Estudios incluidos» (rushed_cases_test.go).
 	for _, q := range todo.OpenQuestions {
 		open = append(open, q.Question)
 		if !namesWord(q.Question, "piloto") && !namesWord(q.Question, "campo") {
 			continue
 		}
-		for _, sec := range q.Sections {
-			if namesWord(sec.Title, "Estudios incluidos") {
-				campo = q
-			}
-		}
-		if campo.Label != "" {
+		if len(q.Sections) > 0 {
+			campo = q
 			break
 		}
 	}
 	if campo.Label == "" {
-		w.fail("7 campo", "no open «por aclarar» naming the pilot or «campo» that blocks «Estudios incluidos»; open: %q", open)
+		w.fail("7 campo", "no open «por aclarar» naming the pilot or «campo» that blocks a section; open: %q", open)
 	}
 
 	// Its sections cannot be signed while it is open.
