@@ -140,3 +140,9 @@ test("B-96: with its history closed, the «Historia» tab falls back to the fram
   assert.equal(effectiveTab("history", true), "history");
   assert.equal(effectiveTab("frame", true), "frame");
 });
+
+test("U.3: the «Markdown» tab is remembered, and it needs no open history", () => {
+  const store = memoryStore({ "tq.rightTab": "markdown" });
+  assert.equal(readPrefs(() => store).rightTab, "markdown");
+  assert.equal(effectiveTab("markdown", false), "markdown");
+});

@@ -23,7 +23,7 @@ Quoted verbatim from `docs/construccion/backlog-ui.md` and from Eber's request (
 |---|---|---|---|---|
 | T1 | S1, S2, S3 | inline (no Writer trigger: pieces depend on each other) | done | RED `layout.test.ts` (module missing), GREEN; smoke `u1` |
 | T2 | S4, S5, S6 | inline | done | RED `home.test.ts` (exports missing), GREEN; smoke `u2` |
-| T3 | S7, S8, S9 | inline | pending | |
+| T3 | S7, S8, S9 | inline | done | RED `markdown.test.ts` (module missing), GREEN; smoke `u3` |
 
 ## Log
 
@@ -31,3 +31,5 @@ Quoted verbatim from `docs/construccion/backlog-ui.md` and from Eber's request (
 - **L2:** Step 0 was already committed as `2d52a92` with its web test, before `0b67759`; not repeated.
 - **L3:** Base-commit differential (`0b67759`, scratch copy, same walk): the CSP log with hash `sha256-PlumsSlv…` and the 404 on `history?block=1` of an empty paragraph appear there too; not caused by this work, reported to Eber.
 - **L4:** `edge.test.ts` (B3-22 row 8) forbids `innerHTML` in `web/src`, which B-97's `renderMarkdown(src): string` would need to display. U.3 keeps the security rule and renders to React nodes.
+- **L5:** `0df07c1` (U.2) was committed in a chained command that did not stop on a failed smoke: a read of `stop-report` got a 401 during sign-out, with no visible effect. History is not rewritten; `1bb40a2` fixes the order, 3 of 3 clean runs. Later commits are gated on the smoke.
+- **L6:** The second CSP hash, `sha256-5sxII…`, is the origin marks' `<style>` in `SectionEditor`; it also appears at `0b67759` in a local run. Reported to Eber, not changed.

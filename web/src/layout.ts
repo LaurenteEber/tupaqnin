@@ -3,7 +3,7 @@
 // Nothing here has evidence value: it only places what Go already computed.
 
 export type CenterView = "conv" | "doc";
-export type RightTab = "frame" | "history";
+export type RightTab = "frame" | "history" | "markdown";
 
 export interface Prefs {
   leftOff: boolean;
@@ -32,7 +32,7 @@ export const LEFT_OFF_W = 52;
 export const ARROW_STEP = 24;
 export const NARROW_W = 900;
 
-const RIGHT_TABS: readonly string[] = ["frame", "history"];
+const RIGHT_TABS: readonly string[] = ["frame", "history", "markdown"];
 
 // The getter is itself guarded: reading localStorage can throw when the
 // browser blocks site data.

@@ -695,5 +695,13 @@
   "left.notice.download": "descárgalo",
   "left.notice.or": "o",
   "left.notice.register": "crea tu usuario",
-  "language.label": "Idioma"
+  "language.label": "Idioma",
+  "markdown.title": "Markdown",
+  "markdown.view": "Vista",
+  "markdown.source": "Fuente",
+  "markdown.copy": "Copiar",
+  "markdown.copied": "Copiado",
+  "markdown.copy_failed": "No se pudo copiar",
+  "markdown.error": "No se pudo leer el documento.",
+  "markdown.footer": "Es lo que se descarga: tu documento tal como está ahora, sin notas del proceso"
 }

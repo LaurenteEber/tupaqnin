@@ -19,7 +19,7 @@ export function LeftPanel({
   onHome,
   onForm,
   onLogout,
-  downloadHref,
+  onDownload,
   langSwitch,
 }: {
   lang: Lang;
@@ -33,7 +33,7 @@ export function LeftPanel({
   onHome: () => void;
   onForm: (form: HomeForm) => void;
   onLogout: () => void;
-  downloadHref: string;
+  onDownload: () => void;
   langSwitch: ReactNode;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
@@ -97,9 +97,9 @@ export function LeftPanel({
                 {t("left.notice.lead")} ·{" "}
                 {view.noticeDownload && (
                   <>
-                    <a className="link" href={downloadHref} download>
+                    <button type="button" className="link" onClick={onDownload}>
                       {t("left.notice.download")}
-                    </a>{" "}
+                    </button>{" "}
                     {t("left.notice.or")}{" "}
                   </>
                 )}
@@ -107,12 +107,6 @@ export function LeftPanel({
                   {t("left.notice.register")}
                 </button>
               </div>
-            )}
-            {downloadHref && (
-              // Until the Markdown tab (U.3).
-              <a className="export" href={downloadHref} download>
-                {t("export.download")}
-              </a>
             )}
             <div className="left-row">
               <span>{t("language.label")}</span>

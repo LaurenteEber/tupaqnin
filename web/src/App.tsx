@@ -20,7 +20,6 @@ import {
   startRound,
   subscribeTurn,
   type StreamDelta,
-  exportURL,
 } from "./api/client";
 import type { ConversationEntry, ProjectLine, SectionView, SessionView, SignoffBlocked, SummaryView } from "./api/types";
 import type { EditAlert, Warning } from "./api/graph";
@@ -46,6 +45,7 @@ import { ProjectTitle } from "./components/ProjectTitle";
 import { HomePage, type HomeForm } from "./components/HomePage";
 import { LeftPanel } from "./components/LeftPanel";
 import { RightPanel } from "./components/RightPanel";
+import { MarkdownPanel } from "./components/MarkdownPanel";
 import { CenterHeader } from "./components/CenterHeader";
 import { Shell, useLayout } from "./components/Shell";
 import { centerView, effectiveTab, routeTarget } from "./layout";
@@ -713,7 +713,10 @@ export function App() {
       onHome={goHome}
       onForm={openHomeForm}
       onLogout={() => void leaveAccount()}
-      downloadHref={projectID ? exportURL(projectID, lang) : ""}
+      onDownload={() => {
+        layout.setRightTab("markdown");
+        layout.setRightOff(false);
+      }}
       langSwitch={langSwitch}
     />
   );
@@ -1085,6 +1088,15 @@ export function App() {
                 onCreated={(label) => void sectionCreated(label)}
               />
             </div>
+          }
+          markdown={
+            <MarkdownPanel
+              key={projectID}
+              lang={lang}
+              projectID={projectID}
+              active={rightTab === "markdown" && !layout.rightOff}
+              refreshKey={`${frameTick}-${understandingKey}`}
+            />
           }
           history={
             current && (

@@ -174,6 +174,13 @@ export function exportURL(projectID: string, lang: string): string {
   return `/api/projects/${projectID}/export.md?lang=${lang}`;
 }
 
+// The same document the download gives (B-47), for the Markdown tab (U.3).
+export async function getExportText(projectID: string, lang: string): Promise<string> {
+  const res = await fetch(exportURL(projectID, lang));
+  if (!res.ok) throw new Error("internal");
+  return res.text();
+}
+
 // Uploads one source; on failure throws the catalog code the API
 // returned (source.error.<code> in the i18n catalog).
 export async function uploadSource(

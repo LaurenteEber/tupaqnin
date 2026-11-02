@@ -12,6 +12,7 @@ export function RightPanel({
   onClose,
   frame,
   history,
+  markdown,
 }: {
   lang: Lang;
   tab: RightTab;
@@ -20,6 +21,7 @@ export function RightPanel({
   onClose: () => void;
   frame: ReactNode;
   history: ReactNode;
+  markdown: ReactNode;
 }) {
   const t = (key: string) => translate(lang, key);
   const tabButton = (id: RightTab, label: string) => (
@@ -39,6 +41,7 @@ export function RightPanel({
         <div className="tabs" role="tablist" aria-label={t("layout.right_view")}>
           {tabButton("frame", t("frame.title"))}
           {historyOpen && tabButton("history", t("history.tab"))}
+          {tabButton("markdown", t("markdown.title"))}
         </div>
         <span className="spacer" />
         <button type="button" className="icon-btn" title={t("layout.right_close")} aria-label={t("layout.right_close")} onClick={onClose}>
@@ -54,6 +57,9 @@ export function RightPanel({
             {history}
           </section>
         )}
+        <section className={`right-pane${tab === "markdown" ? "" : " off"}`} role="tabpanel" aria-label={t("markdown.title")}>
+          {markdown}
+        </section>
       </div>
     </>
   );

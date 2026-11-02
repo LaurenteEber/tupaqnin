@@ -379,6 +379,20 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .right-pane { position: absolute; inset: 0; overflow: auto; padding: 14px 16px 40px; }
 .frame-pane { display: flex; flex-direction: column; gap: 14px; }
 
+/* Markdown (U.3): one font family (U-4); code alone is monospaced, as elsewhere. */
+.md-pane { display: flex; flex-direction: column; gap: 10px; }
+.md-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.button-link { background: var(--accent); color: var(--panel); border-radius: 7px; padding: 3px 9px; font-size: 12px; text-decoration: none; }
+.md-preview { font-size: 14.5px; line-height: 1.6; overflow-wrap: anywhere; }
+.md-preview h1 { font-size: 20px; margin: 0 0 10px; }
+.md-preview h2 { font-size: 16px; margin: 18px 0 6px; }
+.md-preview h3 { font-size: 14.5px; margin: 14px 0 4px; }
+.md-preview p { margin: 0 0 10px; white-space: pre-wrap; }
+.md-preview ul, .md-preview ol { margin: 0 0 10px; padding-left: 20px; }
+.md-preview code, .md-raw { font-family: var(--mono); font-size: 12px; }
+.md-preview code { background: var(--sunk); border-radius: 4px; padding: 0 4px; }
+.md-raw { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+
 /* Under 900 px the side panels open over the center (the mockup's overlay);
    the left's strip stays in place. */
 @media (max-width: 899px) {

@@ -695,5 +695,13 @@
   "left.notice.download": "download it",
   "left.notice.or": "or",
   "left.notice.register": "create your user",
-  "language.label": "Language"
+  "language.label": "Language",
+  "markdown.title": "Markdown",
+  "markdown.view": "View",
+  "markdown.source": "Source",
+  "markdown.copy": "Copy",
+  "markdown.copied": "Copied",
+  "markdown.copy_failed": "Could not copy",
+  "markdown.error": "Could not read the document.",
+  "markdown.footer": "This is what downloads: your document as it is now, without process notes"
 }
