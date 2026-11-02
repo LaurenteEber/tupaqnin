@@ -3,7 +3,6 @@ package cycle
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -108,13 +107,4 @@ func ConfirmPlanTx(ctx context.Context, tx *store.Tx, projectID string) (bool, e
 		}
 	}
 	return true, nil
-}
-
-// planMessage tells the agent why its new section was not created
-// (B-54): with the plan confirmed, it proposes the section in reply and
-// the person creates it with «+ Section» (K-17).
-func planMessage(id, title string) string {
-	return fmt.Sprintf("the plan is confirmed, so the app does not create new sections: %s («%s») was not created and "+
-		"its new_text was not applied; the rest of your step was. Propose the section in reply; "+
-		"the person creates it with «+ Section» if they agree", id, title)
 }

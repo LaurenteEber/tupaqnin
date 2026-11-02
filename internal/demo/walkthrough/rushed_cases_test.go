@@ -373,9 +373,9 @@ func TestH1_Rushed09B_PackageOpenQuestionBlocksTheModel(t *testing.T) {
 		r.fail("F8", "want one «por aclarar» of the checker blocking «%s», got %+v", model, qs)
 	}
 	q := qs[0]
-	// F9: the agent's step over her edit was rejected (B-11).
-	if !r.staleRejection("F9") {
-		r.fail("F9", "no rejected step for a section that changed since the agent read it (B-11)")
+	// F9: the agent's step over her edit is a proposal (B-73 a).
+	if !r.openProposalOn("F9", r.section("F9", model).Label) {
+		r.fail("F9", "no open proposal on «%s» after her edit (B-73 a)", model)
 	}
 	if sec := r.section("F9", model); !strings.Contains(sec.Text, "sin cargos fijos") {
 		r.fail("F9", "her sentence does not rule in «%s»: %q", model, sec.Text)

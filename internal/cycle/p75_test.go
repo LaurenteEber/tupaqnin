@@ -122,17 +122,21 @@ func TestP75_AWellFormedReportIsNotIncomplete(t *testing.T) {
 	}
 }
 
-// rejectedThenClean writes on sec-1 while it is being signed (B-14: that
-// text is rejected) and a new section with text and no pendings, so the
-// chain stops right after this step (section_ready).
+// rejectedThenClean declares a close rule 7 rejects (since 4.1 a text on
+// sec-1 while it is being signed is a proposal, B-73, so a close is what
+// PendingRejections still carries) and a new section with text and no
+// pendings, so the chain stops right after this step (section_ready).
 const rejectedThenClean = `{"stretch": "build", "triage_line": "Construir.", "closing_risk": "none", "note": "n",
-  "new_text": [{"section_id": "sec-1", "base_version": 1, "anchor": "Así la comparación es justa.", "claim_origin": "material", "operation": "replace", "text": "Así es justa."},
-    {"section_id": "new-1", "base_version": 0, "anchor": "", "claim_origin": "material", "operation": "insert_after", "text": "# Muestra\n\nRevisamos estudios de la cuenca."}],
+  "new_text": [{"section_id": "new-1", "base_version": 0, "anchor": "", "claim_origin": "material", "operation": "insert_after", "text": "# Muestra\n\nRevisamos estudios de la cuenca."}],
+  "handled_changes": [{"change_id": "chg-9", "result": "reviewed_unchanged", "reason": "No afecta a esta sección porque habla de otra cosa."}],
   "proposed_roles": [{"section_id": "new-1", "role": "other", "title": "Muestra"}]}`
+
+// rejectedMessage starts the message of the close rule 7 rejects.
+const rejectedMessage = "chg-9 is not in the list of changes"
 
 // B-14 (P-75): when the chain stops right after the rejected step, the
 // rejection reaches the principal in its next turn, once.
-func TestB14_TheRejectionReachesTheNextTurnWhenTheChainStoppedAfterIt(t *testing.T) {
+func TestP75_TheRejectionReachesTheNextTurnWhenTheChainStoppedAfterIt(t *testing.T) {
 	db, runner, cap, _ := newCaptureRunner(t, stepFixture("rejected", rejectedThenClean),
 		loadAppFixture(t, "04-principal-no-work.json"))
 	seedSignable(t, db, true)
@@ -148,7 +152,7 @@ func TestB14_TheRejectionReachesTheNextTurnWhenTheChainStoppedAfterIt(t *testing
 		t.Fatalf("RunTurn 2: %v", err)
 	}
 	got := lastUserText(t, cap.sent[1])
-	if !strings.HasPrefix(got, "sec-1 is being signed by the person") || !strings.HasSuffix(got, "Sigue") {
+	if !strings.HasPrefix(got, rejectedMessage) || !strings.HasSuffix(got, "Sigue") {
 		t.Fatalf("next turn's message: %q", got)
 	}
 	// Turn 3: the notice was delivered once; it is not repeated.
@@ -162,7 +166,7 @@ func TestB14_TheRejectionReachesTheNextTurnWhenTheChainStoppedAfterIt(t *testing
 
 // B-14 (P-75): after a restart (a new instance with its startup), the
 // pending rejection still reaches the principal's next turn, once.
-func TestB14_TheRejectionReachesTheStartupAfterARestart(t *testing.T) {
+func TestP75_TheRejectionReachesTheStartupAfterARestart(t *testing.T) {
 	db, runner, cap, _ := newCaptureRunner(t, stepFixture("rejected", rejectedThenClean),
 		loadAppFixture(t, "04-principal-no-work.json"))
 	seedSignable(t, db, true)
@@ -180,7 +184,7 @@ func TestB14_TheRejectionReachesTheStartupAfterARestart(t *testing.T) {
 	}
 	n := 0
 	for _, item := range cap.sent[1] {
-		n += strings.Count(string(item), "sec-1 is being signed by the person")
+		n += strings.Count(string(item), rejectedMessage)
 	}
 	if n != 1 {
 		t.Fatalf("the startup carries the rejection %d times, want 1", n)
@@ -189,10 +193,10 @@ func TestB14_TheRejectionReachesTheStartupAfterARestart(t *testing.T) {
 
 // B-14: a rejection followed by another chained step reaches that step
 // once, and not the next turn again.
-func TestB14_TheRejectionReachesTheNextChainedStepOnlyOnce(t *testing.T) {
+func TestP75_TheRejectionReachesTheNextChainedStepOnlyOnce(t *testing.T) {
 	onSigning := stepFixture("on-signing", `{"stretch": "build", "triage_line": "Construir.", "closing_risk": "none", "note": "n",
-	  "new_text": [{"section_id": "sec-1", "base_version": 1, "anchor": "Así la comparación es justa.", "claim_origin": "material", "operation": "replace", "text": "Así es justa."},
-	    {"section_id": "new-1", "base_version": 0, "anchor": "", "claim_origin": "material", "operation": "insert_after", "text": "Revisamos 12 estudios."}],
+	  "new_text": [{"section_id": "new-1", "base_version": 0, "anchor": "", "claim_origin": "material", "operation": "insert_after", "text": "Revisamos 12 estudios."}],
+	  "handled_changes": [{"change_id": "chg-9", "result": "reviewed_unchanged", "reason": "No afecta a esta sección porque habla de otra cosa."}],
 	  "proposed_roles": [{"section_id": "new-1", "role": "other", "title": "Muestra"}]}`)
 	noWork := loadAppFixture(t, "04-principal-no-work.json")
 	db, runner, cap, _ := newCaptureRunner(t, onSigning, noWork, noWork)
@@ -204,7 +208,7 @@ func TestB14_TheRejectionReachesTheNextChainedStepOnlyOnce(t *testing.T) {
 	if len(cap.sent) != 2 {
 		t.Fatalf("step calls: %d, want 2", len(cap.sent))
 	}
-	if got := lastUserText(t, cap.sent[1]); strings.Count(got, "sec-1 is being signed by the person") != 1 {
+	if got := lastUserText(t, cap.sent[1]); strings.Count(got, rejectedMessage) != 1 {
 		t.Fatalf("second step message: %q", got)
 	}
 	if err := runner.RunTurn(context.Background(), "p1", "turn-2", "Sigue"); err != nil {

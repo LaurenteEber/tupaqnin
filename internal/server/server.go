@@ -318,6 +318,9 @@ func (s *Server) apiRoutes() []route {
 		{"GET", "/api/projects/{projectID}/signoffs/{label}", s.getSignoff},
 		{"POST", "/api/projects/{projectID}/signoffs/{label}/sign", s.signSignoff},
 		{"POST", "/api/projects/{projectID}/signoffs/{label}/leave", s.leaveSignoff},
+		{"GET", "/api/projects/{projectID}/proposals", s.listProposals},
+		{"POST", "/api/projects/{projectID}/proposals/{label}/accept", s.acceptProposal},
+		{"POST", "/api/projects/{projectID}/proposals/{label}/discard", s.discardProposal},
 	}
 }
 

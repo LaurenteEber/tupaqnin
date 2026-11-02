@@ -553,14 +553,14 @@ func TestH1_Rushed06B_BatchOnSignedSectionIsRejectedAndBComoDijeLeavesItOpen(t *
 		r.fail("F3", "judge round %+v, want the risk's, with three flaws", judge)
 	}
 
-	// F5: the step on signed «Diagnóstico» is rejected (B-14, B-11):
+	// F5: the step on signed «Diagnóstico» is a proposal (B-73 b):
 	// nothing of it applied, the section signed and unchanged.
 	after := r.section("F5", "Diagnóstico")
 	if after.Status != "signed" || after.Version != before.Version || after.Text != before.Text {
 		r.fail("F5", "«Diagnóstico» %+v, want it signed and unchanged from %+v", after, before)
 	}
-	if !r.signedSectionRejected("F5", diag.Label) {
-		r.fail("F5", "no step_ended keeps the text not applied on %s", diag.Label)
+	if !r.openProposalOn("F5", diag.Label) {
+		r.fail("F5", "no open proposal on %s", diag.Label)
 	}
 
 	// F6: the one recheck keeps the flaws open, each in its «por aclarar».
@@ -607,22 +607,12 @@ func TestH1_Rushed06B_BatchOnSignedSectionIsRejectedAndBComoDijeLeavesItOpen(t *
 	r.allUsed()
 }
 
-// signedSectionRejected reports whether a step_ended keeps, in what it did
-// not apply, a text on the section.
-func (r *rushed) signedSectionRejected(step, label string) bool {
+// openProposalOn says whether the section has an open proposal (B-73).
+func (r *rushed) openProposalOn(step, label string) bool {
 	r.t.Helper()
-	events, err := r.db.EventsSince(context.Background(), r.project, 0)
+	views, err := graph.OpenProposals(context.Background(), r.db, r.project, label)
 	if err != nil {
-		r.fail(step, "events: %v", err)
+		r.fail(step, "proposals: %v", err)
 	}
-	for _, ev := range events {
-		if ev.Type != store.EventStepEnded {
-			continue
-		}
-		raw, _ := json.Marshal(eventData(ev)["not_applied"])
-		if strings.Contains(string(raw), label) && strings.Contains(string(raw), "signed") {
-			return true
-		}
-	}
-	return false
+	return len(views) > 0
 }

@@ -471,6 +471,10 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 				}
 				return err
 			}
+			// B-76: what you signed without accepting goes to the history.
+			if err := discardAtSigning(ctx, tx, section, sign.Label); err != nil {
+				return err
+			}
 			_, err = tx.AppendEvent(actTimed(sign, "signed", opened))
 			return err
 		})

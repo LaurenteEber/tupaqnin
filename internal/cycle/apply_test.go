@@ -339,13 +339,13 @@ const lockedStep = `{
   "figure_links": [{"figure_anchor": "1,5 veces", "decision_id": "new-2"}]
 }`
 
-func requireOnlyLockedTextRejected(t *testing.T, db *store.DB, applied cycle.ApplyResult, version int) {
+func requireLockedTextProposed(t *testing.T, db *store.DB, applied cycle.ApplyResult, version int) {
 	t.Helper()
 	if !applied.Applied {
 		t.Fatalf("the rest of the step must apply: %v", applied.Errors)
 	}
-	if len(applied.Rejected) != 1 || !strings.Contains(applied.Rejected[0], "sec-1") {
-		t.Fatalf("rejected: %v, want one message for the agent naming sec-1", applied.Rejected)
+	if len(applied.Rejected) != 0 || len(applied.Proposals) != 1 {
+		t.Fatalf("rejected %v, proposals %v: want one proposal and nothing rejected", applied.Rejected, applied.Proposals)
 	}
 	sec, b := object(t, db, "sec-1")
 	if sec.CurrentVersion != version || strings.Contains(b["text"].(string), "1,5") {
@@ -359,27 +359,37 @@ func requireOnlyLockedTextRejected(t *testing.T, db *store.DB, applied cycle.App
 		t.Fatalf("the new decision must apply: %v", err)
 	}
 	if figures, _ := db.ListObjects(context.Background(), "p1", store.ObjectFigure); len(figures) != 0 {
-		t.Fatalf("the figure of the rejected text must not apply: %d", len(figures))
+		t.Fatalf("the figure of the proposed text must wait for it: %d", len(figures))
+	}
+	prop, pb := object(t, db, applied.Proposals[0])
+	if prop.Type != store.ObjectProposal || prop.State != "open" || pb["text"] != "Cierre con 1,5 veces." {
+		t.Fatalf("proposal: %+v %v", prop, pb)
+	}
+	if figures, _ := pb["figures"].([]any); len(figures) != 1 {
+		t.Fatalf("the proposal keeps the figure: %v", pb)
 	}
 	ended := eventsOfType(t, db, store.EventStepEnded)
-	notApplied, _ := eventData(t, ended[len(ended)-1])["not_applied"].(map[string]any)
-	if texts, _ := notApplied["new_text"].([]any); len(texts) != 1 {
-		t.Fatalf("not_applied: %v, want the rejected new_text", notApplied)
+	data := eventData(t, ended[len(ended)-1])
+	if notApplied, _ := data["not_applied"].(map[string]any); len(notApplied) != 0 {
+		t.Fatalf("not_applied: %v, want nothing: the text went to a proposal", notApplied)
+	}
+	if list, _ := data["proposals"].([]any); len(list) != 1 || list[0] != applied.Proposals[0] {
+		t.Fatalf("step_ended proposals: %v", data["proposals"])
 	}
 }
 
-// B-14: an agent step that touches a section in signoff: only that
-// new_text is rejected, with a message for the agent; the rest applies.
-func TestB14_StepOnASectionInSignoffRejectsOnlyThatText(t *testing.T) {
+// B-14, B-73 c: an agent step that touches a section in signoff: only that
+// new_text goes to a proposal (B-73 c); the rest applies.
+func TestB73c_StepOnASectionInSignoffProposesOnlyThatText(t *testing.T) {
 	db := seedStepProject(t)
 	if open, err := cycle.NewGate(db).RequestSignoff(context.Background(), "p1", "sec-1"); err != nil || !open.Opened {
 		t.Fatalf("RequestSignoff: %+v, %v", open, err)
 	}
-	requireOnlyLockedTextRejected(t, db, applyRecorded(t, db, json.RawMessage(lockedStep)), 1)
+	requireLockedTextProposed(t, db, applyRecorded(t, db, json.RawMessage(lockedStep)), 1)
 }
 
-// B-14: the same for a signed section (until slice 4).
-func TestB14_StepOnASignedSectionRejectsOnlyThatText(t *testing.T) {
+// B-73 b: the same for a signed section.
+func TestB73b_StepOnASignedSectionProposesOnlyThatText(t *testing.T) {
 	db := seedStepProject(t)
 	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
 		sec, err := tx.GetObject(context.Background(), "p1", "sec-1")
@@ -395,7 +405,7 @@ func TestB14_StepOnASignedSectionRejectsOnlyThatText(t *testing.T) {
 		t.Fatalf("sign sec-1: %v", err)
 	}
 	// The section is at version 2 now; the step reads it there.
-	requireOnlyLockedTextRejected(t, db,
+	requireLockedTextProposed(t, db,
 		applyRecorded(t, db, json.RawMessage(strings.Replace(lockedStep, `"base_version": 1`, `"base_version": 2`, 1))), 2)
 }
 
@@ -415,10 +425,10 @@ func TestB14_StepOnASectionNotInSignoffStillApplies(t *testing.T) {
 	}
 }
 
-// P-40: a section in changed_since_signoff rejects the agent's text like
-// a signed one (estados §1: until the new signature, steps arrive as
-// proposals, slice 4).
-func TestP40_StepOnAChangedSinceSignoffSectionRejectsOnlyThatText(t *testing.T) {
+// P-40, B-73 b: a section in changed_since_signoff takes the agent's text
+// like a signed one (estados §1: until the new signature, steps arrive as
+// proposals).
+func TestB73b_StepOnAChangedSinceSignoffSectionProposesOnlyThatText(t *testing.T) {
 	db := seedStepProject(t)
 	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
 		sec, err := tx.GetObject(context.Background(), "p1", "sec-1")
@@ -433,7 +443,7 @@ func TestP40_StepOnAChangedSinceSignoffSectionRejectsOnlyThatText(t *testing.T) 
 	if err != nil {
 		t.Fatalf("change sec-1: %v", err)
 	}
-	requireOnlyLockedTextRejected(t, db,
+	requireLockedTextProposed(t, db,
 		applyRecorded(t, db, json.RawMessage(strings.Replace(lockedStep, `"base_version": 1`, `"base_version": 2`, 1))), 2)
 }
 
@@ -503,16 +513,33 @@ func TestP84_ConfirmingThePlanBetweenTheReadAndTheStepDoesNotRejectIt(t *testing
 	}
 }
 
-// B-11 still holds: a change of the text between the read and the
-// output rejects the step, and the section keeps the person's text.
-func TestB11_ATextChangeBetweenTheReadAndTheStepStillRejectsIt(t *testing.T) {
+// B-73 a: a change of the text by you between the read and the output is
+// a proposal, and the section keeps your text.
+func TestB73a_YourTextChangeBetweenTheReadAndTheStepIsAProposal(t *testing.T) {
 	db := seedStepProject(t)
 	bumpSec1(t, db, store.EventInput{Type: store.EventEdit, Actor: "human"}, func(b map[string]any) {
 		b["text"] = "La síntesis compara estudios. Los estudios usan filtros. Cierre. Escrito por la persona."
 	})
 	out := strings.Replace(string(stepFile(t, "stale")), `"base_version": 0`, `"base_version": 1`, 1)
-	requireRejected(t, applyRecorded(t, db, json.RawMessage(out)), "sec-1 changed since the version you read")
+	applied := applyRecorded(t, db, json.RawMessage(out))
+	if !applied.Applied || len(applied.Proposals) != 1 {
+		t.Fatalf("applied: %+v, want one proposal", applied)
+	}
 	if _, b := object(t, db, "sec-1"); b["text"] != "La síntesis compara estudios. Los estudios usan filtros. Cierre. Escrito por la persona." {
 		t.Fatalf("sec-1 text %q, want the person's text", b["text"])
+	}
+}
+
+// B-11 still holds for the agent's own version: a change of the text by
+// another of its steps rejects the step, without a proposal.
+func TestB11_ATextChangeOfTheAgentBetweenTheReadAndTheStepStillRejectsIt(t *testing.T) {
+	db := seedStepProject(t)
+	bumpSec1(t, db, store.EventInput{Type: store.EventEdit, Actor: "agent"}, func(b map[string]any) {
+		b["text"] = "La síntesis compara estudios. Los estudios usan filtros. Cierre. Escrito por otro paso."
+	})
+	out := strings.Replace(string(stepFile(t, "stale")), `"base_version": 0`, `"base_version": 1`, 1)
+	requireRejected(t, applyRecorded(t, db, json.RawMessage(out)), "sec-1 changed since the version you read")
+	if props, _ := db.ListObjects(context.Background(), "p1", store.ObjectProposal); len(props) != 0 {
+		t.Fatalf("proposals: %d, want none", len(props))
 	}
 }

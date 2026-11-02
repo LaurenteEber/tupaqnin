@@ -28,8 +28,9 @@ import type {
   AnswerAudienceQuestionResponse,
   CriterionView,
   SectionDetail,
+  ProposalActResponse,
 } from "./types";
-import type { Frame, SignoffView } from "./graph";
+import type { Frame, ProposalView, SignoffView } from "./graph";
 
 // Thin API client. It only transports what Go computes (AGENTS.md
 // rule 5): no state, fingerprint or validity is decided here.
@@ -346,6 +347,25 @@ export async function getSection(projectID: string, label: string): Promise<Sect
 // Closing a change from the section's band (fichas §3 «Cierre de un
 // cambio», 2.2's route): «updated» after editing, or «reviewed_unchanged»
 // with a «porque»; Go checks both and answers with the error code.
+export async function listProposals(projectID: string, section?: string): Promise<ProposalView[]> {
+  const query = section ? `?section=${encodeURIComponent(section)}` : "";
+  return json(await fetch(`/api/projects/${projectID}/proposals${query}`)) as Promise<ProposalView[]>;
+}
+
+// Accepting or discarding (B-75); Go says what it left.
+export async function actOnProposal(
+  projectID: string,
+  label: string,
+  verb: "accept" | "discard",
+): Promise<ProposalActResponse> {
+  const res = await fetch(`/api/projects/${projectID}/proposals/${label}/${verb}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tab_id: TAB_ID }),
+  });
+  return json(res) as Promise<ProposalActResponse>;
+}
+
 export async function closeChange(
   projectID: string,
   change: string,

@@ -40,7 +40,7 @@ type Essentials struct {
 	PremiseExploratory bool          `json:"premise_exploratory"`
 	SectionRoles       []SectionRole `json:"section_roles"`
 	// PlanConfirmed: you answered the «Entendí»'s plan (B-53); from then
-	// on a new section is proposed in reply, not created (B-54, P-70).
+	// on a new section is a proposal, not created (B-77, P-70).
 	PlanConfirmed        bool       `json:"plan_confirmed,omitempty"`
 	Decisions            []Decision `json:"decisions"`
 	OpenCards            []string   `json:"open_cards"`

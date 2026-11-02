@@ -10,10 +10,10 @@ import (
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
-// B-54: with the plan confirmed, a new-n section of the agent is
-// rejected with a message for it; its text goes with it, and the rest
-// of the step (sec-1's text, the new decision) applies.
-func TestB54_NewSectionIsRejectedOnceThePlanIsConfirmed(t *testing.T) {
+// B-77 (it replaces B-54's rejection): once the plan is confirmed, a new
+// section of the agent is a section proposal, with its text; the rest of
+// the step (sec-1's text, the new decision) applies.
+func TestB77_NewSectionIsAProposalOnceThePlanIsConfirmed(t *testing.T) {
 	db := seedStepProject(t)
 	if _, err := cycle.ConfirmPlan(context.Background(), db, "p1"); err != nil {
 		t.Fatalf("ConfirmPlan: %v", err)
@@ -21,12 +21,8 @@ func TestB54_NewSectionIsRejectedOnceThePlanIsConfirmed(t *testing.T) {
 	before, _ := db.ListObjects(context.Background(), "p1", store.ObjectSection)
 
 	applied := applyRecorded(t, db, json.RawMessage(lockedStep))
-	if !applied.Applied {
-		t.Fatalf("the rest of the step must apply: %v", applied.Errors)
-	}
-	if len(applied.Rejected) != 1 || !strings.Contains(applied.Rejected[0], "new-1") ||
-		!strings.Contains(applied.Rejected[0], "+ Section") {
-		t.Fatalf("rejected: %v, want one message for the agent naming new-1 and «+ Section»", applied.Rejected)
+	if !applied.Applied || len(applied.Rejected) != 0 || len(applied.Proposals) != 1 {
+		t.Fatalf("applied: %+v", applied)
 	}
 	if _, ok := applied.Labels["new-1"]; ok {
 		t.Fatalf("new-1 got a label: %v", applied.Labels)
@@ -41,19 +37,18 @@ func TestB54_NewSectionIsRejectedOnceThePlanIsConfirmed(t *testing.T) {
 	if _, err := db.GetObject(context.Background(), "p1", applied.Labels["new-2"]); err != nil {
 		t.Fatalf("the new decision must apply: %v", err)
 	}
-	ended := eventsOfType(t, db, store.EventStepEnded)
-	notApplied, _ := eventData(t, ended[len(ended)-1])["not_applied"].(map[string]any)
-	sections, _ := notApplied["new_sections"].([]any)
-	if len(sections) != 1 || sections[0].(map[string]any)["section_id"] != "new-1" ||
-		sections[0].(map[string]any)["title"] != "Otra" {
-		t.Fatalf("not_applied: %v, want new_sections with new-1", notApplied)
+	_, pb := object(t, db, applied.Proposals[0])
+	section, _ := pb["new_section"].(map[string]any)
+	if section["title"] != "Otra" || pb["text"] != "Texto de la otra sección." {
+		t.Fatalf("proposal: %v", pb)
 	}
-	if texts, _ := notApplied["new_text"].([]any); len(texts) != 1 {
-		t.Fatalf("not_applied: %v, want new-1's text", notApplied)
+	ended := eventsOfType(t, db, store.EventStepEnded)
+	if notApplied, _ := eventData(t, ended[len(ended)-1])["not_applied"].(map[string]any); len(notApplied) != 0 {
+		t.Fatalf("not_applied: %v, want nothing", notApplied)
 	}
 }
 
-// B-54: before the plan is confirmed, the same step creates the section
+// B-77: before the plan is confirmed, the same step creates the section
 // as today.
 func TestB54_NewSectionIsCreatedBeforeThePlanIsConfirmed(t *testing.T) {
 	db := seedStepProject(t)

@@ -97,10 +97,13 @@ type ApplyResult struct {
 	Errors  []string
 	Labels  map[string]string
 	Work    bool
-	// Rejected are the new_text items not applied because their section
-	// is in signoff or signed (B-14), each with a message for the agent;
-	// the rest of the step applied.
+	// Rejected are what the step did not apply and the agent must hear:
+	// closes rule 7 rejected, each with its message; the rest of the step
+	// applied.
 	Rejected []string
+	// Proposals are the labels of the proposals the step left (B-73, B-77):
+	// its texts that were not applied, and go to the person.
+	Proposals []string
 	// Stretch is the stretch the app settled after rule 0 (B-43);
 	// Reclassified says why a direct step became build, nil otherwise.
 	Stretch      string
@@ -162,16 +165,7 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	if len(errs) > 0 {
 		return ApplyResult{Errors: errs}, nil
 	}
-	// One message per rejected section (B-54), however many of its
-	// texts were skipped with it.
 	var rejected []string
-	seen := map[string]bool{}
-	for _, msg := range plan.rejectedMessages() {
-		if !seen[msg] {
-			seen[msg] = true
-			rejected = append(rejected, msg)
-		}
-	}
 
 	work := len(out.NewText) > 0 || len(out.NewDecisions) > 0
 	var stop StopReason
@@ -211,7 +205,7 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	for _, c := range p.rejectedCloses { // rule 7: only that close is rejected
 		rejected = append(rejected, c["message"].(string))
 	}
-	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Work: work,
+	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Proposals: p.proposals, Work: work,
 		Stretch: p.stretch, Reclassified: p.reclassified, Change: p.change, Round: p.round}, nil
 }
 
@@ -288,8 +282,13 @@ type project struct {
 	// inSignoff are the sections with a signoff in progress (B-14).
 	inSignoff map[string]bool
 	// planConfirmed: you answered the plan, so a new section of the
-	// agent is rejected (B-54).
+	// agent is a proposal (B-77).
 	planConfirmed bool
+	// yourEdits is, by section, the last version your edits made: a step on
+	// an older one is a proposal (B-73 a).
+	yourEdits map[string]int
+	// proposals are the labels of the proposals this step left.
+	proposals []string
 	// newCitations and change are what the checker judges after the step
 	// (backlog-r2 2.3): the citations the step created and its change.
 	newCitations []string
@@ -327,7 +326,17 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 	if err != nil {
 		return nil, err
 	}
-	p := &project{labels: labeler, byID: make(map[string]store.Object, len(objects)),
+	events, err := g.db.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		return nil, err
+	}
+	yourEdits := map[string]int{}
+	for _, ev := range events {
+		if ev.Type == store.EventEdit && ev.Actor == "human" && ev.NewVersion > yourEdits[ev.ObjectID] {
+			yourEdits[ev.ObjectID] = ev.NewVersion
+		}
+	}
+	p := &project{labels: labeler, byID: make(map[string]store.Object, len(objects)), yourEdits: yourEdits,
 		edgesOut: make(map[string][]store.Edge), inSignoff: inSignoff, planConfirmed: planConfirmed}
 	p.versionText = func(id string, version int) (string, bool) {
 		versions, err := g.db.Versions(ctx, projectID, id)
@@ -402,6 +411,7 @@ type edit struct {
 	text       string
 	anchor     string
 	origin     string // claim_origin (R-1)
+	operation  string
 }
 
 // sectionPlan is the text a step writes in one section.
@@ -415,65 +425,58 @@ type sectionPlan struct {
 	base        string // NFC base text
 	edits       []edit
 	result      string
+	// why is set when the text is not applied and goes to a proposal (B-73,
+	// B-77): newRole for a new section, sectionID for an existing one, and
+	// the figures and citations whose anchor is only in the proposed text.
+	why       string
+	sectionID string
+	newRole   *proposedRole
+	figures   []figureLink
+	citations []citationItem
 }
 
 type plan struct {
 	sections []*sectionPlan // in the order of their first new_text item
 	declared map[string]string
 	newRoles map[string]proposedRole
-	// rejected are the new_text items on a section in signoff or signed
-	// (B-14); the figures and citations whose anchor is only in them are
-	// skipped with them.
-	rejected []rejectedText
-	// rejectedSections are the new sections not created because the
-	// plan is confirmed (B-54); their texts are in rejected.
-	rejectedSections []rejectedSection
-	skipFigures      map[int]bool
-	skipCitations    map[int]bool
+	// proposals are the sections whose texts go to a proposal (B-73, B-77),
+	// in the order of their first new_text item.
+	proposals []*sectionPlan
+	// proposedSections are the new sections with the plan confirmed (B-77).
+	proposedSections map[string]proposedRole
+	// skipFigures and skipCitations are the links not applied now; held are
+	// those that go with a proposal, the rest into a section that takes no
+	// text from the agent (P-52).
+	skipFigures, heldFigures     map[int]bool
+	skipCitations, heldCitations map[int]bool
 }
 
-// rejectedMessages are the messages of what the step did not apply:
-// texts on locked sections (B-14) and new sections (B-54).
-func (pl *plan) rejectedMessages() []string {
-	var out []string
-	for _, r := range pl.rejectedSections {
-		out = append(out, r.message)
-	}
-	for _, r := range pl.rejected {
-		out = append(out, r.message)
-	}
-	return out
-}
-
-// sectionRejected is the message of a new section not created (B-54),
-// or "".
-func (pl *plan) sectionRejected(id string) string {
-	for _, r := range pl.rejectedSections {
-		if r.id == id {
-			return r.message
+// isProposed says whether a section (label or new-n) goes to a proposal.
+func (pl *plan) isProposed(ref string) bool {
+	for _, sp := range pl.proposals {
+		if sp.ref == ref {
+			return true
 		}
 	}
-	return ""
+	return false
 }
 
-// rejectedSection is a new section of the agent not created (B-54).
-type rejectedSection struct {
-	id, title, role, message string
-}
-
-// rejectedText is one new_text item not applied (B-14).
-type rejectedText struct {
-	section string
-	text    string
-	message string
+// proposedAnchor is the proposal whose result holds the anchor, or nil.
+func (pl *plan) proposedAnchor(anchor string) *sectionPlan {
+	for _, sp := range pl.proposals {
+		if len(graph.Compare(sp.result).Find(anchor)) > 0 {
+			return sp
+		}
+	}
+	return nil
 }
 
 // errLocked is a section whose signoff started, or that was signed,
 // between the step's validation and its write (P-89, B-14): the whole
 // step is rejected, since its transaction rolls back, and retried once.
 // [EL DISEÑO NO LO DICE]: the whole step, not only that text, is
-// rejected at the write; the retry validates again and then rejects
-// only that text (lockedMessage).
+// rejected at the write; the retry validates again and then that text is
+// a proposal (B-73).
 type errLocked struct {
 	label   string
 	signing bool
@@ -482,22 +485,10 @@ type errLocked struct {
 func (e errLocked) Error() string {
 	if e.signing {
 		return fmt.Sprintf("%s started being signed by the person after you read it: your step was not applied. "+
-			"Do not write in %s while it is being signed; send the rest of your step again", e.label, e.label)
+			"Send your step again", e.label)
 	}
 	return fmt.Sprintf("%s was signed by the person after you read it: your step was not applied. "+
-		"Do not write in it until the person signs it again; send the rest of your step again", e.label)
-}
-
-// lockedMessage tells the agent why its text on a section was not
-// applied (B-14): until slice 4 a step on a section in signoff or
-// signed is rejected there; the rest of the step applies.
-func lockedMessage(label string, signing bool) string {
-	if signing {
-		return fmt.Sprintf("%s is being signed by the person: your new_text for it was not applied; the rest of your step was. "+
-			"Do not write in %s while it is being signed", label, label)
-	}
-	return fmt.Sprintf("%s is signed (or changed since it was signed): your new_text for it was not applied; the rest of your step was. "+
-		"Do not write in it until the person signs it again", label)
+		"Send your step again", e.label)
 }
 
 // rawHTML finds the start of an HTML tag, comment or declaration (rule 3).
@@ -514,7 +505,8 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 		errs = append(errs, path+": "+fmt.Sprintf(format, args...))
 	}
 	pl := &plan{declared: map[string]string{}, newRoles: map[string]proposedRole{},
-		skipFigures: map[int]bool{}, skipCitations: map[int]bool{}}
+		proposedSections: map[string]proposedRole{}, skipFigures: map[int]bool{}, heldFigures: map[int]bool{},
+		skipCitations: map[int]bool{}, heldCitations: map[int]bool{}}
 
 	// Rule 4: each new-n is declared once (a decision or an open
 	// question with its id; a new section in proposed_roles).
@@ -544,15 +536,13 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 		if strings.TrimSpace(r.Title) == "" {
 			fail(fmt.Sprintf("/proposed_roles/%d/title", i), "a new section needs its title")
 		}
-		// B-54: with the plan confirmed, only this part of the step is
-		// rejected; what names the section (its text, used_in_sections,
-		// depends_on) is skipped with it, and the rest applies.
-		// [EL DISEÑO NO LO DICE]: what happens to what names the rejected
-		// section; its text is not applied (like B-14) and its links are
-		// not created.
+		// B-77: with the plan confirmed, the section is a proposal. Its text
+		// and the decisions used in it go with it; a depends_on naming it is
+		// skipped, and the rest applies.
+		// [EL DISEÑO NO LO DICE]: what happens to a depends_on naming a
+		// proposed section; like B-54, it is not created.
 		if p.planConfirmed {
-			pl.rejectedSections = append(pl.rejectedSections, rejectedSection{id: r.SectionID, title: r.Title,
-				role: r.Role, message: planMessage(r.SectionID, r.Title)})
+			pl.proposedSections[r.SectionID] = r
 			continue
 		}
 		pl.newRoles[r.SectionID] = r
@@ -682,39 +672,42 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 					fail(path+"/section_id", "%s is not declared as a new section in proposed_roles", item.SectionID)
 					continue
 				}
-				if msg := pl.sectionRejected(item.SectionID); msg != "" { // B-54
-					pl.rejected = append(pl.rejected, rejectedText{section: item.SectionID, text: item.Text, message: msg})
-					continue
+				if role, ok := pl.proposedSections[item.SectionID]; ok { // B-77
+					sp.why, sp.newRole = graph.ProposalFromPlan, &role
 				}
 			} else {
 				obj, ok := ref(path+"/section_id", item.SectionID, section)
 				if !ok {
 					continue
 				}
-				// B-14: a section in signoff or signed rejects only this
-				// text, before B-11 looks at its version. P-40: a section
-				// in changed_since_signoff too (estados §1: steps arrive as
-				// proposals until the new signature; proposals are slice 4).
-				if signing := p.inSignoff[obj.ID]; signing || obj.State == "signed" || obj.State == "changed_since_signoff" {
-					pl.rejected = append(pl.rejected, rejectedText{section: item.SectionID, text: item.Text,
-						message: lockedMessage(item.SectionID, signing)})
-					continue
-				}
-				// B-11 looks at the text only (P-84, T-4, K-17): a version
-				// that changed the title, focus, position or role but kept
-				// the text of the version read does not make it stale.
+				// B-73: what you edited, what is signed or in «cambió», and what
+				// is being signed get a proposal; its anchors are looked for in
+				// the version the agent read (T-4 (2)). B-11 stays for the rest:
+				// it looks at the text only (P-84, T-4, K-17): a version that
+				// changed the title, focus, position or role but kept the text
+				// of the version read does not make it stale.
 				current := bodyStr(bodyOf(obj), "text")
+				sp.sectionID = obj.ID
+				sp.why = p.proposalWhy(obj, item.BaseVersion)
 				if obj.CurrentVersion != item.BaseVersion {
-					if text, ok := p.versionText(obj.ID, item.BaseVersion); !ok || text != current {
+					text, ok := p.versionText(obj.ID, item.BaseVersion)
+					if !ok || sp.why == "" && text != current {
 						fail(path+"/base_version", "%s", errStale{label: item.SectionID}.Error())
 						continue
+					}
+					if sp.why != "" {
+						current = text
 					}
 				}
 				sp.readVersion, sp.readText = obj.CurrentVersion, current
 				sp.base = graph.Compare(current).Orig
 			}
 			bySection[item.SectionID] = sp
-			pl.sections = append(pl.sections, sp)
+			if sp.why != "" {
+				pl.proposals = append(pl.proposals, sp)
+			} else {
+				pl.sections = append(pl.sections, sp)
+			}
 		} else if sp.baseVersion != item.BaseVersion {
 			// [EL DISEÑO NO LO DICE]: texts of one section against two
 			// base versions; §3 does not cover it, so it is rejected.
@@ -725,7 +718,7 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 			fail(path, "a new section is written with base_version 0, an empty anchor and insert_after")
 			continue
 		}
-		e := edit{index: i, text: item.Text, anchor: item.Anchor, origin: item.ClaimOrigin}
+		e := edit{index: i, text: item.Text, anchor: item.Anchor, origin: item.ClaimOrigin, operation: item.Operation}
 		if item.Anchor == "" {
 			if item.Operation != "insert_after" {
 				fail(path+"/anchor", "an empty anchor is only valid with insert_after")
@@ -751,49 +744,69 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 		}
 		sp.result = applyEdits(sp.base, sp.edits)
 	}
+	for _, sp := range pl.proposals {
+		if msg := overlap(sp); msg != "" {
+			fail("/new_text", "%s", msg)
+		}
+		sp.result = applyEdits(sp.base, sp.edits)
+	}
+	// B-77: a new section declared without text is a proposal too.
+	for _, r := range out.ProposedRoles {
+		if role, ok := pl.proposedSections[r.SectionID]; ok && !pl.isProposed(r.SectionID) {
+			pl.proposals = append(pl.proposals, &sectionPlan{ref: r.SectionID, why: graph.ProposalFromPlan, newRole: &role})
+		}
+	}
 
 	// Figure and citation anchors are found in the text that results
 	// from the step, in any section (P-52: the schema's «pasaje literal
 	// de la cifra en el texto que resulta del paso»; B-15 closes «cifra
 	// sin decisión» «al vincularla»), so a step can link what an earlier
 	// step wrote. They name no section: each must appear once in the
-	// project. An anchor found only in a text rejected by B-14 is skipped
-	// with it.
+	// project. An anchor found only in a proposed text goes with its
+	// proposal and is applied at accepting (B-73).
 	after := p.textsAfter(pl)
-	written := func(path, anchor string) (skip bool) {
+	written := func(path, anchor string) (skip bool, proposal *sectionPlan) {
 		n, locked := 0, false
 		for key, text := range after {
 			found := len(graph.Compare(text).Find(anchor))
 			n += found
 			locked = locked || found > 0 && p.locked(key)
 		}
+		if n == 0 || n == 1 && locked {
+			if sp := pl.proposedAnchor(anchor); sp != nil {
+				return true, sp
+			}
+		}
 		// B-14: linking into a section in signoff or signed touches it;
 		// the link is not applied, like a text there.
 		// [EL DISEÑO NO LO DICE]: P-52 does not say it; the smallest
 		// choice follows B-14.
 		if n == 1 && locked {
-			return true
-		}
-		if n == 0 {
-			for _, r := range pl.rejected {
-				if len(graph.Compare(r.text).Find(anchor)) > 0 {
-					return true
-				}
-			}
+			return true, nil
 		}
 		if n != 1 {
 			fail(path, "the anchor appears %d times in the document after this step; give a longer anchor that appears once", n)
 		}
-		return false
+		return false, nil
 	}
 	for i, f := range out.FigureLinks {
-		pl.skipFigures[i] = written(fmt.Sprintf("/figure_links/%d/figure_anchor", i), f.FigureAnchor)
+		skip, sp := written(fmt.Sprintf("/figure_links/%d/figure_anchor", i), f.FigureAnchor)
+		pl.skipFigures[i] = skip
+		if sp != nil {
+			pl.heldFigures[i] = true
+			sp.figures = append(sp.figures, f)
+		}
 		if len(graph.Numbers(f.FigureAnchor)) == 0 {
 			fail(fmt.Sprintf("/figure_links/%d/figure_anchor", i), "the anchor of a figure must contain its number")
 		}
 	}
 	for i, c := range out.Citations {
-		pl.skipCitations[i] = written(fmt.Sprintf("/citations/%d/claim_anchor", i), c.ClaimAnchor)
+		skip, sp := written(fmt.Sprintf("/citations/%d/claim_anchor", i), c.ClaimAnchor)
+		pl.skipCitations[i] = skip
+		if sp != nil {
+			pl.heldCitations[i] = true
+			sp.citations = append(sp.citations, c)
+		}
 	}
 	return pl, errs
 }
@@ -847,8 +860,25 @@ func (p *project) checkSupersedes(path string, old store.Object, label string, f
 
 func isNew(s string) bool { return strings.HasPrefix(s, "new-") }
 
-// locked reports whether a section (by id) rejects the agent's steps
-// (B-14, P-40).
+// proposalWhy says why a step's text on this section goes to a proposal
+// (B-73 a to c), or "". «Cambió por tu edición» is an edit event of yours
+// with a new version above the step's base version.
+func (p *project) proposalWhy(obj store.Object, baseVersion int) string {
+	switch {
+	case p.inSignoff[obj.ID]:
+		return graph.ProposalFromSignoff
+	case obj.State == "signed":
+		return graph.ProposalFromSigned
+	case obj.State == "changed_since_signoff":
+		return graph.ProposalFromChanged
+	case p.yourEdits[obj.ID] > baseVersion:
+		return graph.ProposalFromYourEdit
+	}
+	return ""
+}
+
+// locked reports whether a section (by id) takes no text of the agent's
+// steps, which go to a proposal (B-14, P-40, B-73).
 func (p *project) locked(id string) bool {
 	obj, ok := p.byID[id]
 	return ok && (p.inSignoff[id] || obj.State == "signed" || obj.State == "changed_since_signoff")
@@ -1171,21 +1201,7 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		if pl.skipFigures[i] {
 			continue
 		}
-		sec := inSection(f.FigureAnchor)
-		value := graph.Numbers(f.FigureAnchor)[0].Raw
-		// [EL DISEÑO NO LO DICE]: a figure's value is the first number of
-		// its anchor.
-		fig, err := tx.CreateObject(store.ObjectFigure, "",
-			map[string]any{"section_id": sec, "anchor": f.FigureAnchor, "value": value},
-			agent(store.EventStateChanged))
-		if err != nil {
-			return nil, err
-		}
-		decID := resolve(f.DecisionID)
-		if err := edges.add(store.EdgeCovers, fig.ID, decID, f.FigureAnchor); err != nil {
-			return nil, err
-		}
-		if err := edges.add(store.EdgeUsedIn, decID, sec, ""); err != nil {
+		if err := linkFigure(tx, edges, inSection(f.FigureAnchor), f.FigureAnchor, resolve(f.DecisionID), agent(store.EventStateChanged)); err != nil {
 			return nil, err
 		}
 		for v := range graph.NumberValues(f.FigureAnchor) {
@@ -1196,21 +1212,12 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		if pl.skipCitations[i] {
 			continue
 		}
-		cit, err := tx.CreateObject(store.ObjectCitation, "",
-			map[string]any{"section_id": inSection(c.ClaimAnchor), "anchor": c.ClaimAnchor, "passage": c.Passage},
-			agent(store.EventStateChanged))
+		src, _ := p.object(c.SourceID)
+		id, err := p.linkCitation(tx, edges, inSection(c.ClaimAnchor), c.ClaimAnchor, c.Passage, src, agent(store.EventStateChanged))
 		if err != nil {
 			return nil, err
 		}
-		p.newCitations = append(p.newCitations, cit.ID)
-		src, _ := p.object(c.SourceID)
-		if p.wasRead(src.ID) && len(graph.Compare(bodyStr(bodyOf(src), "text")).Find(c.Passage)) > 0 {
-			if err := edges.add(store.EdgeComesFrom, cit.ID, src.ID, ""); err != nil {
-				return nil, err
-			}
-		}
-		// Otherwise no comes_from: the pending «fuente que no sostiene»
-		// (B-15), computed by graph.SourcesNotSupporting.
+		p.newCitations = append(p.newCitations, id)
 	}
 
 	// Data (A-3): a number of the new text with no figure link that
@@ -1225,8 +1232,8 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	// The principal's proposed open questions open, with their blocks
 	// edges (backlog-r2 2.4; what B-17 kept as not applied). The
 	// principal declared it, so it is not «no lo declaró el agente».
-	// [EL DISEÑO NO LO DICE]: a depends_on naming a new section rejected
-	// by B-54 is skipped; the question still opens on the rest.
+	// [EL DISEÑO NO LO DICE]: a depends_on naming a new section that went
+	// to a proposal (B-77) is skipped; the question still opens on the rest.
 	var proposed []struct {
 		ID        string           `json:"id"`
 		Question  string           `json:"question"`
@@ -1252,11 +1259,19 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		ids[q.ID], labels[q.ID] = oq.ID, oq.Label
 	}
 
+	// B-73, B-74: what goes to a proposal, in the step's transaction; the
+	// «actualizado» closes of those sections go with it and are not judged
+	// now.
+	handledNow, err := p.createProposals(tx, turnID, out, pl, ids, labels)
+	if err != nil {
+		return nil, err
+	}
+
 	notApplied := map[string]any{}
 	// Rule 7 of the gate (specification §3): each close is checked in
 	// this transaction; one that does not comply stays here, rejected
 	// alone, with its message for the agent.
-	rejectedCloses, err := applyHandledChanges(context.Background(), tx, turnID, out.HandledChanges, written)
+	rejectedCloses, err := applyHandledChanges(context.Background(), tx, turnID, handledNow, written)
 	if err != nil {
 		return nil, err
 	}
@@ -1267,31 +1282,17 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	if rolesNotApplied != nil {
 		notApplied["proposed_roles"] = rolesNotApplied // P-32
 	}
-	if len(pl.rejectedSections) > 0 { // B-54
-		var sections []any
-		for _, r := range pl.rejectedSections {
-			sections = append(sections, map[string]any{"section_id": r.id, "title": r.title, "role": r.role, "message": r.message})
-		}
-		notApplied["new_sections"] = sections
-	}
-	if len(pl.rejected) > 0 { // B-14
-		var texts []any
-		for _, r := range pl.rejected {
-			texts = append(texts, map[string]any{"section_id": r.section, "text": r.text, "message": r.message})
-		}
-		notApplied["new_text"] = texts
-	}
-	// Links skipped with a rejected text (B-14) or into a section that
-	// rejects the agent's steps (P-52).
+	// Links into a section that takes no text of the agent (P-52); those that
+	// went with a proposal are not «not applied» (B-73).
 	{
 		var figures, citations []any
 		for i, f := range out.FigureLinks {
-			if pl.skipFigures[i] {
+			if pl.skipFigures[i] && !pl.heldFigures[i] {
 				figures = append(figures, map[string]any{"figure_anchor": f.FigureAnchor, "decision_id": f.DecisionID})
 			}
 		}
 		for i, c := range out.Citations {
-			if pl.skipCitations[i] {
+			if pl.skipCitations[i] && !pl.heldCitations[i] {
 				citations = append(citations, map[string]any{"claim_anchor": c.ClaimAnchor, "source_id": c.SourceID})
 			}
 		}
@@ -1327,6 +1328,9 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 		"turn_kind": "step", "triage_line": out.TriageLine, "closing_risk": out.ClosingRisk,
 		"note": out.Note, "deferred": deferred, "labels": labels, "not_applied": notApplied,
 		"written_sections": writtenLabels, "used_decisions": usedDecisions,
+	}
+	if len(p.proposals) > 0 {
+		data["proposals"] = p.proposals
 	}
 	// The app's rules 0 to 5, in this transaction, before step_ended,
 	// so the reclassification (rule 0) and «escrito sin decisión» (rule
@@ -1364,6 +1368,41 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	return labels, nil
 }
 
+// linkFigure creates a figure with its covers edge, and the decision's
+// used_in to the section where the figure is.
+func linkFigure(tx *store.Tx, edges *edgeSet, sectionID, anchor, decisionID string, ev store.EventInput) error {
+	// [EL DISEÑO NO LO DICE]: a figure's value is the first number of
+	// its anchor.
+	value := graph.Numbers(anchor)[0].Raw
+	fig, err := tx.CreateObject(store.ObjectFigure, "",
+		map[string]any{"section_id": sectionID, "anchor": anchor, "value": value}, ev)
+	if err != nil {
+		return err
+	}
+	if err := edges.add(store.EdgeCovers, fig.ID, decisionID, anchor); err != nil {
+		return err
+	}
+	return edges.add(store.EdgeUsedIn, decisionID, sectionID, "")
+}
+
+// linkCitation creates a citation, with its comes_from edge when the
+// passage is literal in a source the principal read. Otherwise no
+// comes_from: the pending «fuente que no sostiene» (B-15), computed by
+// graph.SourcesNotSupporting. It returns the citation's id.
+func (p *project) linkCitation(tx *store.Tx, edges *edgeSet, sectionID, anchor, passage string, src store.Object, ev store.EventInput) (string, error) {
+	cit, err := tx.CreateObject(store.ObjectCitation, "",
+		map[string]any{"section_id": sectionID, "anchor": anchor, "passage": passage}, ev)
+	if err != nil {
+		return "", err
+	}
+	if p.wasRead(src.ID) && len(graph.Compare(bodyStr(bodyOf(src), "text")).Find(passage)) > 0 {
+		if err := edges.add(store.EdgeComesFrom, cit.ID, src.ID, ""); err != nil {
+			return "", err
+		}
+	}
+	return cit.ID, nil
+}
+
 func (p *project) linkData(tx *store.Tx, out stepOutput, pl *plan, ids map[string]string,
 	linked map[string]bool, edges *edgeSet, ev store.EventInput) error {
 	used := map[string]bool{}
@@ -1384,13 +1423,13 @@ func (p *project) linkData(tx *store.Tx, out stepOutput, pl *plan, ids map[strin
 		sourceValues[i] = graph.NumberValues(bodyStr(bodyOf(src), "text"))
 	}
 	for _, item := range out.NewText {
+		if pl.isProposed(item.SectionID) { // its data come at accepting (B-73)
+			continue
+		}
 		secID := ids[item.SectionID]
 		if !isNew(item.SectionID) {
 			obj, _ := p.object(item.SectionID)
 			secID = obj.ID
-		}
-		if secID == "" { // a new section not created (B-54): its text was not applied
-			continue
 		}
 		for _, n := range graph.Numbers(item.Text) {
 			if linked[n.Value] {

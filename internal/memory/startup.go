@@ -114,7 +114,7 @@ func (m *Memory) renderCore(st State) string {
 	// [EL DISEÑO NO LO DICE] (P-70): how the principal learns that the
 	// plan was answered; one line in the essentials.
 	if st.Essentials.PlanConfirmed {
-		sb.WriteString("Plan confirmed by the person: propose any new section in reply; do not create it.\n")
+		sb.WriteString("Plan confirmed by the person: a new section you declare reaches the person as a proposal.\n")
 	}
 	for _, d := range st.Essentials.Decisions {
 		if d.Critical {
@@ -457,6 +457,9 @@ func changesSince(objects []store.Object, delivered map[string]int) []Change {
 		if obj.Type == store.ObjectAudienceQuestion {
 			text = audienceQuestionLine(b, obj.State, labels[b.str("section_id")])
 		}
+		if obj.Type == store.ObjectProposal { // backlog-r4 4.1
+			text = proposalLine(obj, labels[b.str("section_id")])
+		}
 		line := firstLine(text)
 		if obj.Type == store.ObjectRound && b.boolean("from_candidate") || obj.Type == store.ObjectOpenQuestion && b.boolean("question_is_data") {
 			line = text // its data block is the line (P-83)
@@ -568,6 +571,15 @@ func audienceQuestionLine(b body, state, section string) string {
 	return fmt.Sprintf("Not answered by the person yet, on %s, %s: «%s»", section, what, b.str("question"))
 }
 
+// proposalLine is the principal's line of a proposal (backlog-r4 4.1).
+func proposalLine(obj store.Object, section string) string {
+	b, err := graph.ParseProposal(obj)
+	if err != nil {
+		return ""
+	}
+	return graph.ProposalLine(obj.Label, obj.State, b, section)
+}
+
 // Read returns the current text of one object by label, with its
 // version, and records the delivery (via = read) for the instance.
 func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) (Item, error) {
@@ -589,6 +601,15 @@ func (m *Memory) Read(ctx context.Context, projectID, instanceID, label string) 
 	}
 	if obj.Type == store.ObjectRound {
 		text = roundLine(b, obj.State)
+	}
+	if obj.Type == store.ObjectProposal { // backlog-r4 4.1: never its raw body
+		section := ""
+		if sec, err := m.db.GetObject(ctx, projectID, b.str("section_id")); err == nil {
+			section = sec.Label
+		}
+		if pb, err := graph.ParseProposal(obj); err == nil {
+			text = graph.ProposalRead(obj.Label, obj.State, pb, section)
+		}
 	}
 	if obj.Type == store.ObjectOpenQuestion && b.str("origin") == "judge" {
 		text = openQuestionLine(b, obj.State)

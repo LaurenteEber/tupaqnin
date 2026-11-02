@@ -74,17 +74,19 @@ func (s *Server) claimEditor(w http.ResponseWriter, r *http.Request) {
 // SectionDetail is P3's editor: the text, the state and pendings from
 // the one status function, and the linked figures and citations.
 type SectionDetail struct {
-	Label     string          `json:"label"`
-	Title     string          `json:"title"`
-	Focus     string          `json:"focus"`
-	Version   int             `json:"version"`
-	Status    string          `json:"status"`
-	Text      string          `json:"text"`
-	Role      string          `json:"role"`
-	RoleState string          `json:"role_state"`
-	Pendings  []graph.Pending `json:"pendings"`
-	Figures   []LinkedAnchor  `json:"figures"`
-	Citations []LinkedAnchor  `json:"citations"`
+	Label     string `json:"label"`
+	Title     string `json:"title"`
+	Focus     string `json:"focus"`
+	Version   int    `json:"version"`
+	Status    string `json:"status"`
+	Text      string `json:"text"`
+	Role      string `json:"role"`
+	RoleState string `json:"role_state"`
+	// UndoAvailable: «Deshacer» is on (B-79); the button is piece 4.2's.
+	UndoAvailable bool            `json:"undo_available"`
+	Pendings      []graph.Pending `json:"pendings"`
+	Figures       []LinkedAnchor  `json:"figures"`
+	Citations     []LinkedAnchor  `json:"citations"`
 	// Provenance is where each paragraph comes from, computed by the app
 	// (R-1, R-2): the page marks the unverified ones.
 	Provenance []graph.Provenance `json:"provenance"`
@@ -122,7 +124,12 @@ func (s *Server) getSection(w http.ResponseWriter, r *http.Request) {
 	}
 	b := bodyMap(sec)
 	role, _ := b["role"].(map[string]any)
-	detail := SectionDetail{Label: sec.Label, Title: str(b, "title"), Focus: str(b, "focus"), Version: sec.CurrentVersion,
+	undo, err := graph.UndoAvailable(ctx, s.db, projectID, sec.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	detail := SectionDetail{UndoAvailable: undo, Label: sec.Label, Title: str(b, "title"), Focus: str(b, "focus"), Version: sec.CurrentVersion,
 		Status: string(status), Text: str(b, "text"), Role: str(role, "value"), RoleState: str(role, "state"),
 		Pendings: pendings, Figures: []LinkedAnchor{}, Citations: []LinkedAnchor{}}
 	for _, kind := range []struct {

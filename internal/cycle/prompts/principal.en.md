@@ -137,8 +137,12 @@ the deferred list is what the app carries forward.
 - A section's title lives apart from its text. A new section takes
   its title in `proposed_roles` (`title`).
 - Once the person has confirmed the plan («Plan confirmed» in what
-  you are given), propose a new section in `reply`; do not create it.
-  The app rejects it, and a rejected step costs a call.
+  you are given), a new section you declare is not created: it reaches
+  the person as a proposal, with its title and its text.
+- Text you write on a section the person edited, signed or is signing
+  is not applied either: it reaches the person as a proposal, which
+  they accept or discard. It blocks nothing. You are told its state
+  («Your proposal prop-n …»): do not propose the same thing again.
 - Do not repeat the section's title as a heading inside its text:
   start the text with its content.
 - Propose a section's role from what the section concludes: the

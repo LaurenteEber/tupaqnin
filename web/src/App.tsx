@@ -29,6 +29,7 @@ import { HistoryPanel } from "./components/HistoryPanel";
 import { NewSectionForm } from "./components/NewSectionForm";
 import { SectionDetails } from "./components/SectionDetails";
 import { SectionEditor } from "./components/SectionEditor";
+import { ProposalPanel } from "./components/ProposalPanel";
 import { SectionWarnings } from "./components/SectionWarnings";
 import { FramePanel, type TodoTarget } from "./components/FramePanel";
 import { SignoffPanel } from "./components/SignoffPanel";
@@ -346,13 +347,27 @@ export function App() {
     reach(warnings.some((w) => w.kind === "flaw" && w.target === target) ? `round-${target}` : `oq-${target}`);
   }
 
+  // Accepting or discarding can change a section, the frame and the sections.
+  // A new step's turn goes to watchTurn, like every turn the page shows (B-75).
+  function proposalActed(turn: string) {
+    bumpFrame();
+    if (projectID) void refreshSections(projectID);
+    if (turn) watchTurn(turn);
+  }
+
   function onTodo(target: TodoTarget) {
     if (target.kind === "card") reach(`card-${target.label}`);
     else if (target.kind === "open_question") reach(`oq-${target.label}`);
     else if (target.kind === "flaws") reach(`round-${target.round}`);
     else if (target.kind === "cases") reach("understanding");
     else if (target.kind === "stop_report") reach("stop-report");
-    else {
+    else if (target.kind === "proposals") {
+      if (target.section) {
+        setSelected(target.section);
+        setHistoryBlock(0);
+        window.setTimeout(() => reach("proposals"), 0);
+      } else reach("proposed-sections");
+    } else {
       setSelected(target.section);
       setHistoryBlock(0);
       window.setTimeout(() => reach("sign-section"), 0);
@@ -788,7 +803,29 @@ export function App() {
                   registerSave={registerSave}
                 />
               )}
+              {current && (
+                <div id="proposals">
+                  <ProposalPanel
+                    lang={lang}
+                    projectID={projectID}
+                    section={current.label}
+                    refreshKey={`${frameTick}-${current.version}`}
+                    readOnly={!editor}
+                    onChanged={proposalActed}
+                  />
+                </div>
+              )}
               <p className="hint">{t("doc.paragraph_hint")}</p>
+
+              <div id="proposed-sections">
+                <ProposalPanel
+                  lang={lang}
+                  projectID={projectID}
+                  refreshKey={String(frameTick)}
+                  readOnly={!editor}
+                  onChanged={proposalActed}
+                />
+              </div>
 
               {current && (historyBlock > 0 || historyDecision) && (
                 <div id="history">

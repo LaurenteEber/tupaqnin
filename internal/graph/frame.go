@@ -148,10 +148,21 @@ type FrameTodo struct {
 	UnconfirmedCases int                 `json:"unconfirmed_cases"`
 	ReadyToSign      []string            `json:"ready_to_sign"`
 	StopReportUnseen bool                `json:"stop_report_unseen"`
+	// Proposals are the open proposals (backlog-r4 4.1): one line «Propuestas
+	// (n)» in the page; they are not pendings and block nothing (B-76).
+	Proposals []FrameProposal `json:"proposals"`
 	// Count is how many lines «Lo que te toca» shows: each card, each
 	// «por aclarar», each section to sign, the unseen report, and the
 	// understanding's unconfirmed cases as one line (backlog-r2 2.7).
 	Count int `json:"count"`
+}
+
+// FrameProposal is an open proposal in «Lo que te toca»: its section, or
+// the title of the section it would create (B-77).
+type FrameProposal struct {
+	Label   string `json:"label"`
+	Section string `json:"section,omitempty"`
+	Title   string `json:"title,omitempty"`
 }
 
 // FrameUnseen is one item of the filter «solo lo que no viste» (§9):
@@ -391,7 +402,19 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 		}
 		f.Todo.FlawsToReview = append(f.Todo.FlawsToReview, FrameFlaws{Round: jr.Label, Section: section, Flaws: len(jr.Flaws)})
 	}
-	f.Todo.Count = len(f.Todo.Cards) + len(f.Todo.OpenQuestions) + len(f.Todo.FlawsToReview) + len(f.Todo.ReadyToSign)
+	open, err := OpenProposals(ctx, db, projectID, "")
+	if err != nil {
+		return Frame{}, err
+	}
+	f.Todo.Proposals = []FrameProposal{}
+	for _, p := range open {
+		line := FrameProposal{Label: p.Label, Section: p.Section}
+		if p.NewSection != nil {
+			line.Title = p.NewSection.Title
+		}
+		f.Todo.Proposals = append(f.Todo.Proposals, line)
+	}
+	f.Todo.Count = len(f.Todo.Cards) + len(f.Todo.OpenQuestions) + len(f.Todo.FlawsToReview) + len(f.Todo.ReadyToSign) + len(f.Todo.Proposals)
 	if f.Todo.UnconfirmedCases > 0 {
 		f.Todo.Count++
 	}

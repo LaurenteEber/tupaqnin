@@ -436,12 +436,15 @@ type WonderVerdict struct {
 // SignoffView is what P7 reads (pantallas P7): computed in Go, labels
 // only.
 type SignoffView struct {
-	Label        string       `json:"label"`
-	Section      string       `json:"section"`
-	SectionTitle string       `json:"section_title"`
-	Phase        SignoffPhase `json:"phase"`
-	Cancelled    string       `json:"cancelled,omitempty"`
-	Brief        bool         `json:"brief"`
+	// OpenProposals are the section's open proposals: «se descartarán si
+	// firmas» (B-76).
+	OpenProposals []ProposalView `json:"open_proposals"`
+	Label         string         `json:"label"`
+	Section       string         `json:"section"`
+	SectionTitle  string         `json:"section_title"`
+	Phase         SignoffPhase   `json:"phase"`
+	Cancelled     string         `json:"cancelled,omitempty"`
+	Brief         bool           `json:"brief"`
 	// Pendings of the section that block the signoff now (estados §1);
 	// signing needs none.
 	Pendings []Pending `json:"pendings"`
@@ -535,6 +538,9 @@ func SignoffDetailAtCap(ctx context.Context, db *store.DB, projectID, signLabel,
 		Verdicts: []WonderVerdict{}, Cases: append([]SignoffCase{}, body.Cases...),
 		FailedCases: body.FailedCases, MaxFailedCases: MaxFailedCases, Rounds: len(body.Rounds),
 		ContrastedBy: body.ContrastedBy, WonderUnavailable: body.WonderUnavailable, Coincides: body.Coincides}
+	if v.OpenProposals, err = OpenProposals(ctx, db, projectID, section.Label); err != nil {
+		return SignoffView{}, err
+	}
 	for _, d := range body.Critical {
 		if l, err := labels.ToLabel(d.ID); err == nil {
 			v.CriticalDecisions = append(v.CriticalDecisions, l)

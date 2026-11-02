@@ -26,6 +26,10 @@ export interface CreateProjectResponse {
 export interface SectionResponse {
   label: string;
   version: number /* int */;
+  /**
+   * Proposal is the proposal your save displaced (B-73 d), if any.
+   */
+  proposal?: string;
 }
 export interface SectionView {
   label: string;
@@ -454,6 +458,32 @@ export interface AnswerOpenQuestionRequest {
 export type OpenQuestionAnswerer = any;
 
 //////////
+// source: proposals.go
+
+/**
+ * ProposalStepper opens the new step a proposal asks for (B-75).
+ * *cycle.Runner satisfies it; without it, the notice waits for the next turn.
+ */
+export type ProposalStepper = any;
+/**
+ * ProposalActRequest names the tab that acts: only one edits (specification §2).
+ */
+export interface ProposalActRequest {
+  tab_id: string;
+}
+/**
+ * ProposalActResponse is what accepting or discarding left: why is set when
+ * discarded, and turn_id when the app opened a turn for the new step (B-75).
+ */
+export interface ProposalActResponse {
+  label: string;
+  state: string;
+  why?: string;
+  section?: string;
+  turn_id?: string;
+}
+
+//////////
 // source: request.go
 
 /**
@@ -776,6 +806,10 @@ export interface SectionDetail {
   text: string;
   role: string;
   role_state: string;
+  /**
+   * UndoAvailable: «Deshacer» is on (B-79); the button is piece 4.2's.
+   */
+  undo_available: boolean;
   pendings: Pending[];
   figures: LinkedAnchor[];
   citations: LinkedAnchor[];

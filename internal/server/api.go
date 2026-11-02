@@ -37,6 +37,8 @@ type CreateProjectResponse struct {
 type SectionResponse struct {
 	Label   string `json:"label"`
 	Version int    `json:"version"`
+	// Proposal is the proposal your save displaced (B-73 d), if any.
+	Proposal string `json:"proposal,omitempty"`
 }
 
 type SectionView struct {
@@ -265,9 +267,9 @@ func (s *Server) listSections(w http.ResponseWriter, r *http.Request) {
 }
 
 // PUT /api/projects/{projectID}/sections/{label} with
-// {base_version, text} → 200 (new version), 204 (no change, B-3) or
-// 409 (stale base version, specification §2: one whose text is no
-// longer the current text, P-84).
+// {base_version, text} → 200 (new version; over a text of the agent's, it
+// goes to a proposal, B-73 d), 204 (no change, B-3) or 409 (a base version
+// with your own edit on top, P-84).
 func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	label := r.PathValue("label")
@@ -295,14 +297,34 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	// confirmed, a title, focus, position or role changed meanwhile) is
 	// accepted against the current version; a changed text keeps the 409.
 	currentText := str(bodyMap(current), "text")
-	if req.BaseVersion != current.CurrentVersion {
-		same, err := s.sameTextAtVersion(r, projectID, current.ID, req.BaseVersion, currentText)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal")
-			return
+	// The text your tab read: versions only grow, so it is read outside the
+	// write's transaction.
+	readText, readOK, err := s.textAtVersion(r, projectID, current.ID, req.BaseVersion)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	// B-73 d: over a text the agent wrote since, your save rules and its text
+	// goes to a proposal; anything of yours on top keeps the 409 (P-84).
+	displaces := func(q store.Querier, text string) (bool, error) {
+		if !readOK || readText == text {
+			return false, nil
 		}
-		if !same {
+		on, err := cycle.AgentOnTop(r.Context(), q, projectID, current.ID, req.BaseVersion)
+		if err != nil {
+			return false, err
+		}
+		if !on {
+			return false, store.ErrVersionConflict
+		}
+		return true, nil
+	}
+	if req.BaseVersion != current.CurrentVersion {
+		if _, err := displaces(s.db, currentText); errors.Is(err, store.ErrVersionConflict) || !readOK {
 			writeError(w, http.StatusConflict, "version_conflict")
+			return
+		} else if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
 			return
 		}
 	}
@@ -314,6 +336,8 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	}
 	beforeSectionWrite()
 	var updated store.Object
+	var displacedProposal string
+	unchanged := false
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		// P-84: re-read in the transaction; a version written since the
 		// read above that kept the text keeps your edit, which keeps its
@@ -322,8 +346,17 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if obj.CurrentVersion != current.CurrentVersion && str(bodyMap(obj), "text") != currentText {
-			return store.ErrVersionConflict
+		agentText := str(bodyMap(obj), "text")
+		displaced, err := displaces(tx, agentText)
+		if err != nil {
+			return err
+		}
+		// [EL DISEÑO NO LO DICE]: a save of the very text your tab read, over
+		// the agent's, is not an edit (the client does not send it; specification
+		// §2): nothing changes and nothing is displaced.
+		if displaced && fingerprint.Section(req.Text) == fingerprint.Section(readText) {
+			unchanged = true
+			return nil
 		}
 		body := bodyMap(obj)
 		body["text"] = req.Text
@@ -339,8 +372,22 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		// The app's rules 1 to 5 run on each save that changes the
-		// fingerprint (B-36), in the same transaction (backlog-r2 2.1).
-		if _, err := cycle.CheckYourEdit(r.Context(), tx, current.ID, currentText); err != nil {
+		// fingerprint (B-36), in the same transaction (backlog-r2 2.1). When
+		// it displaces the agent's text, your edit is over what your tab read.
+		edited := currentText
+		if displaced {
+			edited = readText
+			err := cycle.TrackCriticality(r.Context(), tx, "", func() error {
+				var err error
+				displacedProposal, err = cycle.DisplaceAgentText(r.Context(), tx, updated, agentText,
+					cycle.Displacement{BaseVersion: req.BaseVersion})
+				return err
+			})
+			if err != nil {
+				return err
+			}
+		}
+		if _, err := cycle.CheckYourEdit(r.Context(), tx, current.ID, edited); err != nil {
 			return err
 		}
 		// Your edit of a section in signoff cancels the signoff in
@@ -356,7 +403,7 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, store.ErrVersionConflict):
 		writeError(w, http.StatusConflict, "version_conflict")
-	case errors.Is(err, store.ErrNoChange):
+	case errors.Is(err, store.ErrNoChange), err == nil && unchanged:
 		w.WriteHeader(http.StatusNoContent)
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "internal")
@@ -366,7 +413,7 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		if n, ok := s.starter.(EditNotifier); ok {
 			n.EditSaved(projectID)
 		}
-		writeJSON(w, http.StatusOK, SectionResponse{Label: updated.Label, Version: updated.CurrentVersion})
+		writeJSON(w, http.StatusOK, SectionResponse{Label: updated.Label, Version: updated.CurrentVersion, Proposal: displacedProposal})
 	}
 }
 
@@ -374,13 +421,13 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 // transaction; tests use it to start a signoff in between (P-90).
 var beforeSectionWrite = func() {}
 
-// sameTextAtVersion reports whether the stored version of a section has
-// text as its text (P-84). Versions only grow, so it is read outside
-// the write's transaction.
-func (s *Server) sameTextAtVersion(r *http.Request, projectID, objectID string, version int, text string) (bool, error) {
+// textAtVersion is the text of a stored version of a section (P-84), and
+// whether that version exists. Versions only grow, so it is read outside the
+// write's transaction.
+func (s *Server) textAtVersion(r *http.Request, projectID, objectID string, version int) (string, bool, error) {
 	versions, err := s.db.Versions(r.Context(), projectID, objectID)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 	for _, v := range versions {
 		if v.Version != version {
@@ -388,9 +435,9 @@ func (s *Server) sameTextAtVersion(r *http.Request, projectID, objectID string, 
 		}
 		var b map[string]any
 		_ = json.Unmarshal(v.Body, &b)
-		return str(b, "text") == text, nil
+		return str(b, "text"), true, nil
 	}
-	return false, nil
+	return "", false, nil
 }
 
 // POST /api/projects/{projectID}/messages with {text} → {turn_id}

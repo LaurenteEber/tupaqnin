@@ -5,6 +5,8 @@ import { SearchedName } from "./SearchedName";
 import { candidateName } from "../provenance";
 import { translate, type Lang } from "../i18n";
 
+import { proposalsTarget } from "../proposals";
+
 // What «Te toca» leads to: a card, the understanding's cases or a
 // section to sign.
 export type TodoTarget =
@@ -13,7 +15,8 @@ export type TodoTarget =
   | { kind: "flaws"; round: string }
   | { kind: "cases" }
   | { kind: "stop_report" }
-  | { kind: "sign"; section: string };
+  | { kind: "sign"; section: string }
+  | { kind: "proposals"; section: string };
 
 // The frame (backlog-r1 1.5b, specification §9): what the document is
 // for, how it is judged, its skeleton with the critical decisions and
@@ -102,6 +105,13 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   for (const s of frame.todo.ready_to_sign) {
     todos.push({ key: `sign-${s}`, text: t("frame.todo.sign", { section: titleOf(s) }),
       tag: t("section.status.ready"), target: { kind: "sign", section: s } });
+  }
+  // One line for all of them (pantallas: «Propuestas (n)»); it leads to the
+  // first section with one, or to the proposed sections.
+  const proposals = frame.todo.proposals ?? [];
+  if (proposals.length > 0) {
+    todos.push({ key: "proposals", text: t("frame.todo.proposals", { n: String(proposals.length) }), tag: "",
+      target: { kind: "proposals", section: proposalsTarget(proposals) } });
   }
   if (frame.todo.stop_report_unseen) {
     // «Informe sin ver» until it is opened (backlog-r2 2.5).

@@ -347,11 +347,25 @@ export interface FrameTodo {
   ready_to_sign: string[];
   stop_report_unseen: boolean;
   /**
+   * Proposals are the open proposals (backlog-r4 4.1): one line «Propuestas
+   * (n)» in the page; they are not pendings and block nothing (B-76).
+   */
+  proposals: FrameProposal[];
+  /**
    * Count is how many lines «Lo que te toca» shows: each card, each
    * «por aclarar», each section to sign, the unseen report, and the
    * understanding's unconfirmed cases as one line (backlog-r2 2.7).
    */
   count: number /* int */;
+}
+/**
+ * FrameProposal is an open proposal in «Lo que te toca»: its section, or
+ * the title of the section it would create (B-77).
+ */
+export interface FrameProposal {
+  label: string;
+  section?: string;
+  title?: string;
 }
 /**
  * FrameUnseen is one item of the filter «solo lo que no viste» (§9):
@@ -538,6 +552,166 @@ export interface PlanLine {
   section: string;
   focus: string;
   evidence_from: string;
+}
+
+//////////
+// source: proposal.go
+
+/**
+ * OperationReplaceAll is the proposal your edit displaced (B-73 d): it
+ * replaces the section's text, without an anchor.
+ */
+export const OperationReplaceAll = "replace_all";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalFromYourEdit = "your_edit";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalFromSigned = "signed";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalFromChanged = "changed_since_signoff";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalFromSignoff = "in_signoff";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalFromPlan = "plan_confirmed";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalFromDisplacement = "displaced";
+/**
+ * Why a proposal was discarded (B-75, B-76, B-73 d).
+ */
+export const ProposalDiscarded = "discarded";
+/**
+ * Why a proposal was discarded (B-75, B-76, B-73 d).
+ */
+export const ProposalSignedWithout = "signed_without";
+/**
+ * Why a proposal was discarded (B-75, B-76, B-73 d).
+ */
+export const ProposalAnchorNotUnique = "anchor_not_unique";
+/**
+ * Why a proposal was discarded (B-75, B-76, B-73 d).
+ */
+export const ProposalSectionChanged = "section_changed";
+/**
+ * ProposalEdit is one text of the step on the section: T-4 keeps its
+ * anchor and operation.
+ */
+export interface ProposalEdit {
+  anchor: string;
+  operation: string;
+  text: string;
+  claim_origin?: string;
+}
+/**
+ * ProposalFigure and ProposalCitation are links that come back when the
+ * proposal is accepted (B-73); their ids are internal, like any body's.
+ */
+export interface ProposalFigure {
+  figure_anchor: string;
+  decision_id: string;
+}
+export interface ProposalCitation {
+  claim_anchor: string;
+  source_id: string;
+  passage: string;
+}
+/**
+ * ProposalClose is a handled_changes entry stored with the proposal (A-1).
+ */
+export interface ProposalClose {
+  change_id: string;
+  result: string;
+  reason?: string;
+}
+/**
+ * ProposalNewSection is the section a proposal would create (B-77).
+ */
+export interface ProposalNewSection {
+  title: string;
+  role: string;
+}
+/**
+ * ProposalDecision is a new decision of the step for that section, with
+ * its «en vez de» (B-74).
+ */
+export interface ProposalDecision {
+  label: string;
+  statement: string;
+  instead_of: string;
+}
+/**
+ * ProposalContrast is what the app builds when the proposal is born
+ * (B-74): what leaves and what enters, the decisions, the triage line and
+ * the note. Version and Fingerprint are the current section's then, so the
+ * view can say it moved.
+ */
+export interface ProposalContrast {
+  version: number /* int */;
+  fingerprint: string;
+  removed: string[];
+  added: string[];
+  decisions: ProposalDecision[];
+  triage_line: string;
+  note: string;
+}
+/**
+ * ProposalBody is the body of a proposal (specification §1.1, one per
+ * section and step).
+ * [EL DISEÑO NO LO DICE]: a step with several texts on one section is one
+ * proposal with one anchor in §1.1: the first goes in anchor, operation and
+ * text, the others in more_edits. used_decisions and used_sources are the
+ * step's, linked at accepting as a step links what it writes. origin and why
+ * say how it was born and how it closed; turn_id is the step's, for the
+ * history by block.
+ */
+export interface ProposalBody {
+  section_id: string;
+  base_version: number /* int */;
+  anchor: string;
+  operation: string;
+  text: string;
+  claim_origin?: string;
+  more_edits?: ProposalEdit[];
+  contrast: ProposalContrast;
+  figures: ProposalFigure[];
+  citations: ProposalCitation[];
+  handled_changes: ProposalClose[];
+  new_section?: ProposalNewSection;
+  used_decisions?: string[];
+  used_sources?: string[];
+  origin: string;
+  why?: string;
+  turn_id?: string;
+}
+/**
+ * ProposalView is a proposal for the page: labels, what it says and, when
+ * the current text moved since its contrast, that it did (backlog-r4 4.1).
+ */
+export interface ProposalView {
+  label: string;
+  state: string;
+  section: string;
+  base_version: number /* int */;
+  anchor: string;
+  operation: string;
+  text: string;
+  contrast: ProposalContrast;
+  figures: string[];
+  citations: string[];
+  new_section?: ProposalNewSection;
+  origin: string;
+  why?: string;
+  version_changed: boolean;
 }
 
 //////////
@@ -886,6 +1060,11 @@ export interface WonderVerdict {
  * only.
  */
 export interface SignoffView {
+  /**
+   * OpenProposals are the section's open proposals: «se descartarán si
+   * firmas» (B-76).
+   */
+  open_proposals: ProposalView[];
   label: string;
   section: string;
   section_title: string;
@@ -922,7 +1101,7 @@ export interface SignoffView {
   wonder_unavailable: boolean;
   coincides: boolean;
   /**
-   * CanSign: in progress, no pendings, and everything coincides (or,
+   * CanSign: in progress, nothing in Pendings, and everything coincides (or,
    * in a brief signoff, your explanation is there).
    */
   can_sign: boolean;

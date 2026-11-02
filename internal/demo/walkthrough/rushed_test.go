@@ -607,29 +607,3 @@ func (r *rushed) checkerQuestionsBlocking(step, title string) []server.OpenQuest
 	}
 	return out
 }
-
-// staleRejection reports whether a step was rejected because a section
-// changed since the version the agent read (B-11): an output_retry whose
-// errors name a base_version.
-func (r *rushed) staleRejection(step string) bool {
-	r.t.Helper()
-	events, err := r.db.EventsSince(context.Background(), r.project, 0)
-	if err != nil {
-		r.fail(step, "events: %v", err)
-	}
-	for _, ev := range events {
-		if ev.Type != store.EventOutputRetry {
-			continue
-		}
-		var d struct {
-			Errors []string `json:"errors"`
-		}
-		_ = json.Unmarshal(ev.Data, &d)
-		for _, e := range d.Errors {
-			if strings.Contains(e, "/base_version") {
-				return true
-			}
-		}
-	}
-	return false
-}

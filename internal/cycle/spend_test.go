@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -635,6 +636,46 @@ func TestB3_20_AgentPendingsDoNotBlockTheSignoffAtTheCap(t *testing.T) {
 		if !strings.Contains(string(briefs[0].Data), part) {
 			t.Fatalf("event %s lacks %s", briefs[0].Data, part)
 		}
+	}
+}
+
+// B-76 with B3-20: an open proposal at the cap is discarded in the signing's
+// transaction, and the event keeps what you signed with open and which cap.
+func TestB76_DiscardingAtSigningLeavesOpenAtCapAndStoppedByIntact(t *testing.T) {
+	db := openTemp(t)
+	sectionID, _ := seedSignable(t, db, false)
+	withFigurePending(t, db, sectionID)
+	sec, _ := db.GetObject(context.Background(), "p1", "sec-1")
+	g := atTheCap(db, "project_cap")
+	ctx := context.Background()
+	open, err := g.RequestSignoff(ctx, "p1", "sec-1")
+	if err != nil || !open.Opened {
+		t.Fatalf("RequestSignoff: %+v, %v", open, err)
+	}
+	step := `{"stretch": "build", "triage_line": "T.", "closing_risk": "none", "note": "N.",
+	  "new_text": [{"section_id": "sec-1", "base_version": ` + strconv.Itoa(sec.CurrentVersion) + `, "anchor": "", "claim_origin": "material", "operation": "insert_after", "text": "Antes."}]}`
+	applied := applyRecorded(t, db, json.RawMessage(step))
+	if len(applied.Proposals) != 1 {
+		t.Fatalf("applied: %+v", applied)
+	}
+	if err := g.RecordExplanation(ctx, "p1", open.Label, "Cuenta cómo se compararon."); err != nil {
+		t.Fatalf("RecordExplanation: %v", err)
+	}
+	if err := g.Sign(ctx, "p1", open.Label); err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	briefs := eventsOfType(t, db, store.EventBriefSignoff)
+	if len(briefs) != 1 {
+		t.Fatalf("brief_signoff: %d", len(briefs))
+	}
+	for _, part := range []string{`"open_at_cap"`, `"stopped_by":"project_cap"`} {
+		if !strings.Contains(string(briefs[0].Data), part) {
+			t.Fatalf("event %s lacks %s", briefs[0].Data, part)
+		}
+	}
+	prop, _ := db.GetObject(ctx, "p1", applied.Proposals[0])
+	if prop.State != "discarded" {
+		t.Fatalf("proposal: %+v", prop)
 	}
 }
 

@@ -585,7 +585,7 @@ func stepFixture(name, text string) provider.Fixture {
 // B-14 in the runner: the step's text on the section in signoff is not
 // applied, and the next chained step tells the agent so (the chain of
 // B-17 is unchanged otherwise).
-func TestB14_TheNextChainedStepCarriesTheRejectionForTheAgent(t *testing.T) {
+func TestK16_AChainedStepOnASectionInSignoffLeavesAProposalAndTheChainGoesOn(t *testing.T) {
 	// The step also writes a new section with a pending of the agent, so
 	// the chain goes on (backlog-r2 2.5: with only the signing left, it
 	// would stop).
@@ -602,9 +602,8 @@ func TestB14_TheNextChainedStepCarriesTheRejectionForTheAgent(t *testing.T) {
 	if len(cap.sent) != 2 {
 		t.Fatalf("provider calls: %d, want 2", len(cap.sent))
 	}
-	got := lastUserText(t, cap.sent[1])
-	if !strings.HasPrefix(got, "sec-1 is being signed by the person") || !strings.HasSuffix(got, cycle.ContinueMessage) {
-		t.Fatalf("second step message: %q", got)
+	if props, _ := db.ListObjects(context.Background(), "p1", store.ObjectProposal); len(props) != 1 || props[0].State != "open" {
+		t.Fatalf("proposals: %+v", props)
 	}
 	if obj, _ := db.GetObject(context.Background(), "p1", "sec-1"); obj.CurrentVersion != 1 {
 		t.Fatalf("sec-1 was written: version %d", obj.CurrentVersion)
