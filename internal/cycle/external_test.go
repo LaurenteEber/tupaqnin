@@ -873,3 +873,21 @@ func TestB59_AnOldRoundBodyWithoutTheStretchKeepsThePassageItHas(t *testing.T) {
 		t.Fatalf("view: %+v", view.Unused)
 	}
 }
+
+// P-109 (backlog-r3 v0.10, 3.5): the principal's instructions say when to
+// name a candidate and when to ask for a round, not only the schema, and
+// they no longer offer what the «Entendí» card stopped offering (R-4).
+func TestP109_PrincipalInstructionsExplainCandidatesAndRounds(t *testing.T) {
+	got := cycle.PrincipalInstructions()
+	for _, want := range []string{"`named_references`", "never a source", "`research_request`", "`discover`",
+		"`too_much_to_read`", "`independent_parts`", "search for evidence"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("instructions miss %q", want)
+		}
+	}
+	for _, gone := range []string{"once search is available", "chose to write from"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("instructions still say %q", gone)
+		}
+	}
+}
