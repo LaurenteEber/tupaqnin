@@ -15,6 +15,9 @@ type SpendState struct {
 	ProjectUSD float64
 	// DearestUSD is the dearest call of the asked role in the project.
 	DearestUSD float64
+	// ContrasterUSD is what the project's contraster calls cost: the part of
+	// its signoff balance already used (B-89).
+	ContrasterUSD float64
 	LinkState
 }
 
@@ -58,9 +61,10 @@ func (db *DB) ProjectSpendState(ctx context.Context, projectID, role string, now
 	err := db.Reader.QueryRowContext(ctx,
 		`SELECT p.invitation_id,
 		        (SELECT COALESCE(SUM(cost), 0) FROM model_call WHERE project_id = p.id),
-		        (SELECT COALESCE(MAX(cost), 0) FROM model_call WHERE project_id = p.id AND role = ?)
+		        (SELECT COALESCE(MAX(cost), 0) FROM model_call WHERE project_id = p.id AND role = ?),
+		        (SELECT COALESCE(SUM(cost), 0) FROM model_call WHERE project_id = p.id AND role = 'contraster')
 		 FROM project p WHERE p.id = ?`, role, projectID).
-		Scan(&invitation, &s.ProjectUSD, &s.DearestUSD)
+		Scan(&invitation, &s.ProjectUSD, &s.DearestUSD, &s.ContrasterUSD)
 	if errors.Is(err, sql.ErrNoRows) {
 		return SpendState{}, ErrNotFound
 	}

@@ -33,11 +33,14 @@ type spendGate struct {
 	link    map[string]float64 // reserved by link
 	day     float64            // reserved by the links that are not the jury's
 	total   float64            // reserved by every link
+	// contraster is reserved by the contraster, by project: what is in flight
+	// against the project's signoff balance.
+	contraster map[string]float64
 }
 
 func newSpendGate(r *Runner, db *store.DB, inner provider.Provider) *spendGate {
 	return &spendGate{db: db, inner: inner, projectCap: r.projectCap, dayCap: r.dayCap, totalCap: r.totalCap, now: r.now,
-		project: map[string]float64{}, link: map[string]float64{}}
+		project: map[string]float64{}, link: map[string]float64{}, contraster: map[string]float64{}}
 }
 
 func (r *Runner) dayCap() float64 {
@@ -72,8 +75,11 @@ func usesBalance(ctx context.Context, role provider.AgentRole) bool {
 }
 
 // over is the cap that spent, what is reserved and amount would pass, in
-// B-89's order, or nil; g.mu is held.
-func (g *spendGate) over(st store.SpendState, projectID string, amount float64, balance bool) *provider.CapError {
+// B-89's order, or nil; g.mu is held. The contraster's calls may pass the link's
+// and the day's caps while they fit in the project's signoff balance, never the
+// total's (B-89, Eber, 2-nov). The test is on the role: the checker batch that
+// uses the balance of the project's cap stays inside these two.
+func (g *spendGate) over(st store.SpendState, projectID string, role provider.AgentRole, amount float64, balance bool) *provider.CapError {
 	const eps = 1e-9
 	limit := g.projectCap()
 	if !balance {
@@ -85,11 +91,15 @@ func (g *spendGate) over(st store.SpendState, projectID string, amount float64, 
 	if st.InvitationID == "" {
 		return nil // an older local database: the project's cap only
 	}
-	if st.SpentUSD+g.link[st.InvitationID]+amount > st.BudgetUSD+eps {
-		return &provider.CapError{Reason: provider.CapDemoStop, Cap: provider.CapLink}
-	}
-	if st.Label != store.LabelJury && st.DayUSD+g.day+amount > g.dayCap()+eps {
-		return &provider.CapError{Reason: provider.CapDemoStop, Cap: provider.CapDay}
+	inBalance := role == provider.RoleContraster &&
+		st.ContrasterUSD+g.contraster[projectID]+amount <= provider.SignoffReserveUSD+eps
+	if !inBalance {
+		if st.SpentUSD+g.link[st.InvitationID]+amount > st.BudgetUSD+eps {
+			return &provider.CapError{Reason: provider.CapDemoStop, Cap: provider.CapLink}
+		}
+		if st.Label != store.LabelJury && st.DayUSD+g.day+amount > g.dayCap()+eps {
+			return &provider.CapError{Reason: provider.CapDemoStop, Cap: provider.CapDay}
+		}
 	}
 	if st.TotalUSD+g.total+amount > g.totalCap()+eps {
 		return &provider.CapError{Reason: provider.CapDemoStop, Cap: provider.CapTotal}
@@ -116,10 +126,13 @@ func (g *spendGate) reserve(ctx context.Context, req provider.Request) (func(), 
 		return nil, err // no figures, no call
 	}
 	amount := max(provider.ReserveUSD(req.Role, req.TurnKind), st.DearestUSD)
-	if capErr := g.over(st, req.ProjectID, amount, usesBalance(ctx, req.Role)); capErr != nil {
+	if capErr := g.over(st, req.ProjectID, req.Role, amount, usesBalance(ctx, req.Role)); capErr != nil {
 		return nil, capErr
 	}
 	g.project[req.ProjectID] += amount
+	if req.Role == provider.RoleContraster {
+		g.contraster[req.ProjectID] += amount
+	}
 	if st.InvitationID != "" {
 		g.link[st.InvitationID] += amount
 		g.total += amount
@@ -131,6 +144,9 @@ func (g *spendGate) reserve(ctx context.Context, req provider.Request) (func(), 
 		g.mu.Lock()
 		defer g.mu.Unlock()
 		drop(g.project, req.ProjectID, amount)
+		if req.Role == provider.RoleContraster {
+			drop(g.contraster, req.ProjectID, amount)
+		}
 		if st.InvitationID != "" {
 			drop(g.link, st.InvitationID, amount)
 			g.total -= amount
@@ -159,7 +175,7 @@ func (g *spendGate) fits(ctx context.Context, projectID string, role provider.Ag
 	if err != nil {
 		return nil, err
 	}
-	return g.over(st, projectID, amount, usesBalance(ctx, role)), nil
+	return g.over(st, projectID, role, amount, usesBalance(ctx, role)), nil
 }
 
 // overCap is the cap one more call of this role and turn kind would pass,
@@ -283,7 +299,7 @@ func (r *Runner) StoppedBy(ctx context.Context, projectID string) (string, error
 	}
 	idle := &spendGate{projectCap: r.projectCap, dayCap: r.dayCap, totalCap: r.totalCap}
 	amount := max(provider.ReserveUSD(provider.RolePrincipal, provider.TurnStep), st.DearestUSD)
-	capErr := idle.over(st, projectID, amount, false)
+	capErr := idle.over(st, projectID, provider.RolePrincipal, amount, false)
 	switch {
 	case capErr == nil:
 		return "", nil

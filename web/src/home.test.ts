@@ -10,6 +10,7 @@ import {
   createErrorKey,
   homeNoticeKeys,
   homeView,
+  loginNoticeKey,
   projectProgress,
 } from "./home.ts";
 
@@ -179,4 +180,12 @@ test("Every home key is in both catalogs, and the two catalogs have the same", (
   for (const [, key] of page.matchAll(/t\("(home\.[a-z_.]+)"/g)) {
     assert.ok(en.includes(key), key);
   }
+});
+
+test("B-91: the login form warns only while you hold a project without an account", () => {
+  assert.equal(loginNoticeKey([]), null);
+  assert.equal(loginNoticeKey([{ no_account: false }]), null);
+  assert.equal(loginNoticeKey([{ no_account: false }, { no_account: true }]), "home.login_moves_project");
+  assert.match(catalog("es")["home.login_moves_project"] ?? "", /3/);
+  assert.match(catalog("en")["home.login_moves_project"] ?? "", /3/);
 });

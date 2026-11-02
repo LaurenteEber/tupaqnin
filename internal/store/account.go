@@ -172,9 +172,7 @@ func (db *DB) RegisterAccount(ctx context.Context, s Session, username, password
 		id, s.InvitationID, username, passwordHash, timeText(now)); err != nil {
 		return fmt.Errorf("register: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE project SET account_id = ?, anon_session_hash = NULL, expires_at = NULL
-		 WHERE account_id IS NULL AND anon_session_hash = ?`, id, s.IDHash); err != nil {
+	if err := moveSessionProject(ctx, tx, s.IDHash, id); err != nil {
 		return fmt.Errorf("register: %w", err)
 	}
 	if err := insertAccountSession(ctx, tx, newSessionHash, id, s.InvitationID, now); err != nil {
@@ -182,6 +180,18 @@ func (db *DB) RegisterAccount(ctx context.Context, s Session, username, password
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("register: %w", err)
+	}
+	return nil
+}
+
+// moveSessionProject passes the project of an anonymous session to an account:
+// it stops expiring, belongs to no session, and keeps its link. Registering and
+// entering both do it (B3-18, B-91).
+func moveSessionProject(ctx context.Context, tx *sql.Tx, sessionHash, accountID string) error {
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE project SET account_id = ?, anon_session_hash = NULL, expires_at = NULL
+		 WHERE account_id IS NULL AND anon_session_hash = ?`, accountID, sessionHash); err != nil {
+		return fmt.Errorf("move session project: %w", err)
 	}
 	return nil
 }
@@ -212,14 +222,36 @@ func (db *DB) AccountByUsername(ctx context.Context, username string) (Account, 
 
 // EnterAccount opens a new session on the account's own link, and ends the one
 // the browser came with, if any (B3-22 row 4). previousHash may name nothing.
-// [EL DISEÑO NO LO DICE]: a project of that session, if it had no account, is
-// not moved: only registering moves it (B3-18), and the cleanup takes it.
+// The project of that session, if it was live and had no account, passes to the
+// account as when registering (B-91). With the account already at
+// AccountProjectLimit nothing moves, the screen warned, and the cleanup takes it.
 func (db *DB) EnterAccount(ctx context.Context, a Account, previousHash, newSessionHash string, now time.Time) error {
 	tx, err := db.Writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("enter account: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	res, err := tx.ExecContext(ctx,
+		`DELETE FROM session WHERE id_hash = ? AND account_id IS NULL AND expires_at > ?`, previousHash, timeText(now))
+	if err != nil {
+		return fmt.Errorf("enter account: %w", err)
+	}
+	liveAnonymous, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("enter account: %w", err)
+	}
+	if liveAnonymous == 1 {
+		var mine int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM project WHERE account_id = ?`, a.ID).Scan(&mine); err != nil {
+			return fmt.Errorf("enter account: %w", err)
+		}
+		if mine < AccountProjectLimit {
+			if err := moveSessionProject(ctx, tx, previousHash, a.ID); err != nil {
+				return fmt.Errorf("enter account: %w", err)
+			}
+		}
+	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM session WHERE id_hash = ?`, previousHash); err != nil {
 		return fmt.Errorf("enter account: %w", err)
 	}

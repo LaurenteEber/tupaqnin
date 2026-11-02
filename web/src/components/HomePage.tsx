@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { AccountError, login, logout, register } from "../api/client";
 import type { ProjectLine, SessionView } from "../api/types";
-import { accountErrorText, activityAgo, createErrorKey, homeNoticeKeys, homeView, projectProgress } from "../home";
+import { accountErrorText, activityAgo, createErrorKey, homeNoticeKeys, homeView, loginNoticeKey, projectProgress } from "../home";
 import { translate, type Lang } from "../i18n";
 
 type Form = "" | "register" | "login";
@@ -37,6 +37,7 @@ export function HomePage({
 
   const view = homeView(session);
   const refused = createErrorKey(createError, session);
+  const loginNotice = loginNoticeKey(projects);
   const now = Date.now();
 
   function openForm(next: Form) {
@@ -171,6 +172,7 @@ export function HomePage({
             />
           </label>
           {form === "register" && <p className="hint">{t("home.register_hint")}</p>}
+          {form === "login" && loginNotice && <p className="home-warn">{t(loginNotice)}</p>}
           <button type="submit" className="primary" disabled={sending}>
             {form === "register" ? t("home.register") : t("home.login")}
           </button>

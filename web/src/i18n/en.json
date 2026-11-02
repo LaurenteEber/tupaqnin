@@ -597,6 +597,7 @@
   "home.username": "User",
   "home.password": "Password",
   "home.register_hint": "User of 3 to 32 characters (letters, numbers, _ . -) and password of 10 to 64. No email: the password cannot be recovered.",
+  "home.login_moves_project": "Signing in moves your open project to your account. If your account already has 3 projects, this one will be lost.",
   "home.account.error.username_taken": "That user already exists.",
   "home.account.error.link_accounts_full": "This link takes no more accounts.",
   "home.account.error.invalid_credentials": "Wrong user or password.",

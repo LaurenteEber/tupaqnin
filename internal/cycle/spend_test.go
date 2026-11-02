@@ -163,6 +163,29 @@ func TestB3_20_SignoffReserve(t *testing.T) {
 	}
 }
 
+// B-89 (Eber, 2-nov), B3-20: the link's cap does not keep a signoff from
+// finishing: Wonder's round runs over an exhausted link.
+func TestB89_TheSignoffFinishesAtTheLinkCap(t *testing.T) {
+	db := openTemp(t)
+	seedSignable(t, db, true)
+	fake := provider.NewFake(signoffFixture(t, "round1-all-match"))
+	fake.Recorder = db
+	r := cycle.NewRunner(db, &captureProvider{inner: fake}, runnerCount, &fakePublisher{})
+	t.Cleanup(r.Close)
+	g := cycle.NewGate(db)
+	sign := openSignoff(t, g)
+	if err := g.RecordExplanation(context.Background(), "p1", sign, "Comparo solo estudios con el mismo tamaño."); err != nil {
+		t.Fatal(err)
+	}
+	newLinkFor(t, db, "p1", "guests", 0.01)
+	if err := r.RunSignoffRound(context.Background(), "p1", "turn-w", sign); err != nil {
+		t.Fatalf("RunSignoffRound: %v", err)
+	}
+	if v := view(t, db, sign); v.Rounds != 1 {
+		t.Fatalf("Wonder's rounds: %d, want 1", v.Rounds)
+	}
+}
+
 // B3-20: past the whole cap the signoff waits too: no call, no provider
 // error, the stream says project_cap.
 func TestB3_20_ContrasterStopsAtTheWholeCap(t *testing.T) {

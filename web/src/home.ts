@@ -48,6 +48,13 @@ export function homeNoticeKeys(session: HomeSession | null): string[] {
   return keys;
 }
 
+// The login form's notice while you hold a project without an account (B-91).
+// It reads only what Go already sent about your session, never anything about
+// the name typed, so it does not tell who exists or how many projects they hold.
+export function loginNoticeKey(projects: { no_account: boolean }[]): string | null {
+  return projects.some((p) => p.no_account) ? "home.login_moves_project" : null;
+}
+
 // A create refused after the screen was drawn: the notice's text, unless the
 // fresh session already shows it. Null when there is nothing to add.
 export function createErrorKey(code: string, session: HomeSession | null): string | null {

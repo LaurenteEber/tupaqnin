@@ -322,7 +322,10 @@ func TestB3_22_4_LoginEndsTheAnonymousSessionAndLeavesItsProjectToTheCleanup(t *
 	t.Parallel()
 	a := newAccess(t)
 	_, token := newLink(t, a.db, "guests", 5)
-	a.registered(t, token, "owner")
+	owner := a.registered(t, token, "owner")
+	for range store.AccountProjectLimit {
+		a.project(t, owner)
+	}
 	anon := a.visitor(t, token)
 	projectID := a.project(t, anon)
 
@@ -330,12 +333,18 @@ func TestB3_22_4_LoginEndsTheAnonymousSessionAndLeavesItsProjectToTheCleanup(t *
 	if rec.Code != http.StatusOK {
 		t.Fatalf("login: %d (%s)", rec.Code, rec.Body.String())
 	}
+	if got := decode[map[string]string](t, rec)["account"]; got != "owner" {
+		t.Fatalf("account in the answer: %q", got)
+	}
 	cookie := newCookie(t, rec)
-	if list := decode[[]server.ProjectView](t, a.do(http.MethodGet, "/api/projects", cookie, nil)); len(list) != 0 {
-		t.Fatalf("the anonymous project moved to the account: %+v", list)
+	if list := decode[[]server.ProjectView](t, a.do(http.MethodGet, "/api/projects", cookie, nil)); len(list) != store.AccountProjectLimit {
+		t.Fatalf("projects of the full account: %+v", list)
 	}
 	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ? AND account_id IS NULL AND expires_at IS NOT NULL`, projectID); got != 1 {
 		t.Fatal("the anonymous project changed")
+	}
+	if got := a.do(http.MethodGet, "/api/session", anon, nil); got.Code != http.StatusUnauthorized {
+		t.Fatalf("the anonymous session after login: %d", got.Code)
 	}
 	a.now = a.now.Add(store.AnonProjectTTL + time.Hour)
 	if _, _, err := a.db.PurgeExpired(context.Background(), a.now); err != nil {
@@ -343,6 +352,91 @@ func TestB3_22_4_LoginEndsTheAnonymousSessionAndLeavesItsProjectToTheCleanup(t *
 	}
 	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ?`, projectID); got != 0 {
 		t.Fatal("the cleanup did not take it")
+	}
+}
+
+// B-91 (Eber, 2-nov): logging in holding a project without an account moves it
+// to the account, as registering does, and the project keeps its link. A wrong
+// password moves nothing and ends nothing.
+func TestB91_LoginMovesTheAnonymousProjectToTheAccount(t *testing.T) {
+	t.Parallel()
+	a := newAccess(t)
+	linkID, token := newLink(t, a.db, "guests", 5)
+	a.registered(t, token, "owner")
+	anon := a.visitor(t, token)
+	projectID := a.project(t, anon)
+
+	wantCode(t, "wrong password", a.post("/api/account/login", anon, nil, "owner", wrongPassword), http.StatusUnauthorized, "invalid_credentials")
+	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ? AND account_id IS NULL AND anon_session_hash IS NOT NULL AND expires_at IS NOT NULL`, projectID); got != 1 {
+		t.Fatal("a wrong password changed the project")
+	}
+	if got := a.do(http.MethodGet, "/api/session", anon, nil); got.Code != http.StatusOK {
+		t.Fatalf("the anonymous session after a wrong password: %d", got.Code)
+	}
+
+	rec := a.post("/api/account/login", anon, nil, "owner", goodPassword)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login: %d (%s)", rec.Code, rec.Body.String())
+	}
+	wantAccountCookie(t, rec)
+	cookie := newCookie(t, rec)
+	accountID := a.text(t, `SELECT id FROM account WHERE username = 'owner'`)
+	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ? AND account_id = ? AND anon_session_hash IS NULL AND expires_at IS NULL AND invitation_id = ?`, projectID, accountID, linkID); got != 1 {
+		t.Fatal("the project did not move to the account in full")
+	}
+	if list := decode[[]server.ProjectView](t, a.do(http.MethodGet, "/api/projects", cookie, nil)); len(list) != 1 || list[0].ProjectID != projectID {
+		t.Fatalf("the account's projects: %+v", list)
+	}
+	if got := a.do(http.MethodGet, "/api/session", anon, nil); got.Code != http.StatusUnauthorized {
+		t.Fatalf("the anonymous session after login: %d", got.Code)
+	}
+	a.now = a.now.Add(store.AnonProjectTTL + time.Hour)
+	if _, _, err := a.db.PurgeExpired(context.Background(), a.now); err != nil {
+		t.Fatalf("PurgeExpired: %v", err)
+	}
+	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ?`, projectID); got != 1 {
+		t.Fatal("the cleanup took a project of the account")
+	}
+}
+
+// B-91: the move asks for a live session, as registering does: a project whose
+// session already ended stays for the cleanup.
+func TestB91_LoginWithAnExpiredSessionMovesNothing(t *testing.T) {
+	t.Parallel()
+	a := newAccess(t)
+	_, token := newLink(t, a.db, "guests", 5)
+	a.registered(t, token, "owner")
+	anon := a.visitor(t, token)
+	projectID := a.project(t, anon)
+	if _, err := a.db.Writer.ExecContext(context.Background(),
+		`UPDATE session SET expires_at = ? WHERE id_hash = ?`, stamp(a.now.Add(-time.Second)), store.HashSecret(anon.Value)); err != nil {
+		t.Fatal(err)
+	}
+
+	if rec := a.post("/api/account/login", anon, nil, "owner", goodPassword); rec.Code != http.StatusOK {
+		t.Fatalf("login: %d (%s)", rec.Code, rec.Body.String())
+	}
+	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ? AND account_id IS NULL AND expires_at IS NOT NULL`, projectID); got != 1 {
+		t.Fatal("the project of an expired session moved")
+	}
+}
+
+// B-91: coming from another account's session moves nothing: its projects stay
+// with their account, as before.
+func TestB91_LoginFromAnotherAccountKeepsItsProjects(t *testing.T) {
+	t.Parallel()
+	a := newAccess(t)
+	_, token := newLink(t, a.db, "guests", 5)
+	a.registered(t, token, "owner")
+	first := a.registered(t, token, "first")
+	projectID := a.project(t, first)
+
+	if rec := a.post("/api/account/login", first, nil, "owner", goodPassword); rec.Code != http.StatusOK {
+		t.Fatalf("login: %d (%s)", rec.Code, rec.Body.String())
+	}
+	firstID := a.text(t, `SELECT id FROM account WHERE username = 'first'`)
+	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ? AND account_id = ?`, projectID, firstID); got != 1 {
+		t.Fatal("the other account's project moved")
 	}
 }
 
@@ -535,35 +629,84 @@ func TestB3_22_1_NoLockout(t *testing.T) {
 	_, token := newLink(t, a.db, "guests", 5)
 	a.registered(t, token, "victim")
 
-	for _, username := range []string{"victim", "nobody-here"} {
+	for i, username := range []string{"victim", "nobody-here"} {
+		// One IP per name: the wait is the account's and the IP's.
+		ip := fmt.Sprintf("203.0.113.%d", i+1)
 		waits := []int{0, 0, 1, 2, 4, 8, 16, 30, 30}
-		for i, wait := range waits {
-			// Each failure from its own IP: the wait is the account's.
-			ip := fmt.Sprintf("203.0.113.%d", i+1)
-			wantCode(t, fmt.Sprintf("%s failure %d", username, i+1), a.login(ip, username, wrongPassword), http.StatusUnauthorized, "invalid_credentials")
+		for j, wait := range waits {
+			wantCode(t, fmt.Sprintf("%s failure %d", username, j+1), a.login(ip, username, wrongPassword), http.StatusUnauthorized, "invalid_credentials")
 			if wait == 0 {
 				continue
 			}
-			// Even the right password waits, from anywhere, and asking does not
-			// make the wait longer.
-			wantRetryAfter(t, fmt.Sprintf("%s during wait %d", username, i+1), a.login("198.51.100.77", username, goodPassword), wait)
+			// Even the right password waits, and asking does not make the wait longer.
+			wantRetryAfter(t, fmt.Sprintf("%s during wait %d", username, j+1), a.login(ip, username, goodPassword), wait)
 			a.now = a.now.Add(time.Duration(wait) * time.Second)
 		}
 	}
 
-	rec := a.login("198.51.100.78", "victim", goodPassword)
+	rec := a.login("203.0.113.1", "victim", goodPassword)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("past the wait, your password: %d (%s)", rec.Code, rec.Body.String())
 	}
 	if got := a.count(t, `SELECT COUNT(*) FROM account WHERE username = 'victim'`); got != 1 {
 		t.Fatal("the account went away")
 	}
-	// Entering ends the streak: two more failures carry no wait.
-	for i := range 2 {
-		wantCode(t, fmt.Sprintf("new failure %d", i+1), a.login("198.51.100.79", "victim", wrongPassword), http.StatusUnauthorized, "invalid_credentials")
+	// Entering ends the streak: from an IP that had to wait, two more failures
+	// carry no wait.
+	const again = "198.51.100.79"
+	for i := range 3 {
+		wantCode(t, fmt.Sprintf("first streak, failure %d", i+1), a.login(again, "victim", wrongPassword), http.StatusUnauthorized, "invalid_credentials")
 	}
-	if rec := a.login("198.51.100.79", "victim", goodPassword); rec.Code != http.StatusOK {
+	wantRetryAfter(t, "first streak waits", a.login(again, "victim", goodPassword), 1)
+	a.now = a.now.Add(time.Second)
+	if rec := a.login(again, "victim", goodPassword); rec.Code != http.StatusOK {
+		t.Fatalf("past the first streak: %d (%s)", rec.Code, rec.Body.String())
+	}
+	for i := range 2 {
+		wantCode(t, fmt.Sprintf("new failure %d", i+1), a.login(again, "victim", wrongPassword), http.StatusUnauthorized, "invalid_credentials")
+	}
+	if rec := a.login(again, "victim", goodPassword); rec.Code != http.StatusOK {
 		t.Fatalf("a streak of 2 waits: %d (%s)", rec.Code, rec.Body.String())
+	}
+}
+
+// B-91 (Eber, 2-nov): the wait counts per account and IP, so other IPs cannot
+// lock the owner out. Each attacking IP waits for itself, and its wait says
+// nothing to the owner's IP or to another account from the same IP.
+func TestB91_TheWaitCountsPerAccountAndIP(t *testing.T) {
+	t.Parallel()
+	a := newAccess(t)
+	_, token := newLink(t, a.db, "guests", 5)
+	a.registered(t, token, "owner")
+	a.registered(t, token, "other")
+
+	for ip := range 4 {
+		attacker := fmt.Sprintf("203.0.113.%d", ip+1)
+		for failure := range 3 {
+			rec := a.login(attacker, "owner", wrongPassword)
+			wantCode(t, fmt.Sprintf("%s failure %d", attacker, failure+1), rec, http.StatusUnauthorized, "invalid_credentials")
+		}
+		wantRetryAfter(t, attacker+" waits", a.login(attacker, "owner", goodPassword), 1)
+	}
+
+	if rec := a.login("198.51.100.1", "owner", goodPassword); rec.Code != http.StatusOK {
+		t.Fatalf("the owner from another IP: %d (%s)", rec.Code, rec.Body.String())
+	}
+	// The owner's success ends the owner's streak only: the attacker still waits.
+	wantRetryAfter(t, "the attacker after the owner entered", a.login("203.0.113.1", "owner", goodPassword), 1)
+	if rec := a.login("203.0.113.1", "other", goodPassword); rec.Code != http.StatusOK {
+		t.Fatalf("another account from the waiting IP: %d (%s)", rec.Code, rec.Body.String())
+	}
+}
+
+// B-91: a name that is not the shape of any account has no wait, only the IP's
+// limit.
+func TestB91_AMalformedNameHasNoWait(t *testing.T) {
+	t.Parallel()
+	a := newAccess(t)
+	for failure := range 4 {
+		rec := a.login("203.0.113.9", "x", wrongPassword)
+		wantCode(t, fmt.Sprintf("failure %d", failure+1), rec, http.StatusUnauthorized, "invalid_credentials")
 	}
 }
 

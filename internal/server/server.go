@@ -146,7 +146,7 @@ type Server struct {
 	// inject the clock instead of sleeping.
 	now         func() time.Time
 	returnAfter time.Duration
-	// attempts is the limit per IP and the wait per account (B3-22 row 1).
+	// attempts is the limit per IP and the wait per account and IP (B3-22 row 1, B-91).
 	attempts *store.LoginAttempts
 }
 

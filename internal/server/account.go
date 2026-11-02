@@ -49,6 +49,16 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
+// waitKey is what the growing wait of login counts: the account and the IP
+// together, so other IPs cannot lock the owner out (B-91, Eber, 2-nov). A name
+// that is not the shape of any account stays empty, which has no wait.
+func waitKey(ip, username string) string {
+	if username == "" {
+		return ""
+	}
+	return ip + "|" + username
+}
+
 // register is POST /api/account/register (B3-18, B3-22 rows 2, 4 and 5).
 // Only a session from a link and without an account registers. The hash, which
 // is slow, runs outside the transaction; the rules are checked before it, so a
@@ -129,7 +139,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	username, shaped := store.NormalizeUsername(form.Username)
 	ip := clientIP(r)
-	if wait := s.attempts.Reserve(ip, username, s.now()); wait > 0 {
+	streak := waitKey(ip, username)
+	if wait := s.attempts.Reserve(ip, streak, s.now()); wait > 0 {
 		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(wait)))
 		// [EL DISEÑO NO LO DICE]: the code of this 429.
 		writeError(w, http.StatusTooManyRequests, "too_many_attempts")
@@ -169,7 +180,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	s.attempts.Clear(ip, username)
+	s.attempts.Clear(ip, streak)
 	setSessionCookie(w, cookie, true)
 	writeJSON(w, http.StatusOK, accountAnswer{Account: username})
 }

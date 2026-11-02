@@ -125,6 +125,7 @@ func TestB89_EveryCallOfTheRunnerGoesThroughTheGate(t *testing.T) {
 	})
 	db, r := spendRunner(t, inner)
 	linkedProjects(t, db, 0.01, "p1")
+	r.SpendCapTotalUSD = 0.01 // the signoff passes the link's cap, never the total's
 	if r.checker.Provider != provider.Provider(r.spend) || r.prov != provider.Provider(r.spend) {
 		t.Fatal("the runner's providers are not the gate")
 	}
@@ -149,6 +150,141 @@ func TestB89_EveryCallOfTheRunnerGoesThroughTheGate(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatalf("calls that reached the provider: %d", calls)
+	}
+}
+
+var contrast = provider.Request{Role: provider.RoleContraster, TurnKind: provider.TurnSignoff}
+
+func contrastOf(projectID string) provider.Request {
+	req := contrast
+	req.ProjectID = projectID
+	return req
+}
+
+func okProvider() provider.Provider {
+	return providerFunc(func(context.Context, provider.Request, func(provider.Delta)) (provider.Response, error) {
+		return provider.Response{}, nil
+	})
+}
+
+func recordCost(t *testing.T, db *store.DB, projectID string, role provider.AgentRole, usd float64) {
+	t.Helper()
+	if err := db.RecordModelCall(context.Background(), store.ModelCall{ProjectID: projectID, Role: string(role), CostUSD: usd}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func wantCap(t *testing.T, what string, err error, reason, capName string) {
+	t.Helper()
+	var capErr *provider.CapError
+	if !errors.As(err, &capErr) || capErr.Reason != reason || capErr.Cap != capName {
+		t.Fatalf("%s: %v, want %s %s", what, err, reason, capName)
+	}
+}
+
+// B-89 (Eber, 2-nov): a signoff call may pass the link's cap up to the
+// project's signoff balance. The balance is each project's: one that spent it
+// stops, and another of the same link still signs. Only the contraster's cost
+// counts against it.
+func TestB89_AContrasterPassesTheLinkCapUpToTheProjectBalance(t *testing.T) {
+	db, r := spendRunner(t, okProvider())
+	linkedProjects(t, db, 0.01, "p1", "p2")
+	ctx := context.Background()
+	recordCost(t, db, "p1", provider.RolePrincipal, 1) // past the link: the principal's cost is not the balance
+
+	for i := range 2 {
+		if _, err := r.prov.Respond(ctx, contrastOf("p1"), nil); err != nil {
+			t.Fatalf("contrast %d: %v", i+1, err)
+		}
+		recordCost(t, db, "p1", provider.RoleContraster, 0.20)
+	}
+	_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
+	wantCap(t, "the balance spent", err, provider.CapDemoStop, provider.CapLink)
+
+	if _, err := r.prov.Respond(ctx, contrastOf("p2"), nil); err != nil {
+		t.Fatalf("another project of the link: %v", err)
+	}
+}
+
+// B-89: the same for the day's cap.
+func TestB89_AContrasterPassesTheDayCapUpToTheProjectBalance(t *testing.T) {
+	db, r := spendRunner(t, okProvider())
+	linkedProjects(t, db, 10, "p1")
+	r.SpendCapDayUSD = 0.01
+	ctx := context.Background()
+	if _, err := r.prov.Respond(ctx, contrastOf("p1"), nil); err != nil {
+		t.Fatalf("the contrast: %v", err)
+	}
+	recordCost(t, db, "p1", provider.RoleContraster, 0.40)
+	_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
+	wantCap(t, "the balance spent", err, provider.CapDemoStop, provider.CapDay)
+}
+
+// B-89: what is in flight counts against the balance: three contrasts at once
+// cannot pass it together.
+func TestB89_ContrastsInFlightCountAgainstTheBalance(t *testing.T) {
+	inner := &blockingProvider{release: make(chan struct{})}
+	db, r := spendRunner(t, inner)
+	linkedProjects(t, db, 0.01, "p1")
+	ctx := context.Background()
+	done := make(chan error, 2)
+	for range 2 {
+		go func() {
+			_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
+			done <- err
+		}()
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for inner.count() < 2 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
+	wantCap(t, "the third at once", err, provider.CapDemoStop, provider.CapLink)
+	close(inner.release)
+	for range 2 {
+		if err := <-done; err != nil {
+			t.Fatalf("in flight: %v", err)
+		}
+	}
+	r.spend.mu.Lock()
+	defer r.spend.mu.Unlock()
+	if len(r.spend.contraster) != 0 {
+		t.Fatalf("held after the calls: %v", r.spend.contraster)
+	}
+}
+
+// B-89: «nunca el total», and the project's cap still reads first.
+func TestB89_AContrasterNeverPassesTheTotalNorTheProjectCap(t *testing.T) {
+	db, r := spendRunner(t, okProvider())
+	linkedProjects(t, db, 0.01, "p1", "p2")
+	ctx := context.Background()
+	r.SpendCapTotalUSD = 0.01
+	_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
+	wantCap(t, "the total", err, provider.CapDemoStop, provider.CapTotal)
+
+	r.SpendCapTotalUSD = 0
+	recordCost(t, db, "p2", provider.RolePrincipal, 2.99)
+	_, err = r.prov.Respond(ctx, contrastOf("p2"), nil)
+	wantCap(t, "the project", err, provider.CapProjectStop, "")
+}
+
+// B-89: only the contraster passes. The checker that asking to sign sends, with
+// the project's balance, stays inside the link's cap, and so does any other
+// call. Below the caps nothing changes.
+func TestB89_OtherCallsStayInsideTheLinkCap(t *testing.T) {
+	db, r := spendRunner(t, okProvider())
+	linkedProjects(t, db, 0.01, "p1")
+	ctx := context.Background()
+	marked := withSignoffBalance(ctx)
+	_, err := r.prov.Respond(marked, provider.Request{ProjectID: "p1", Role: provider.RoleChecker, TurnKind: provider.TurnChecker}, nil)
+	wantCap(t, "the signoff's checker", err, provider.CapDemoStop, provider.CapLink)
+	_, err = r.prov.Respond(ctx, provider.Request{ProjectID: "p1", Role: provider.RolePrincipal, TurnKind: provider.TurnStep}, nil)
+	wantCap(t, "the principal", err, provider.CapDemoStop, provider.CapLink)
+
+	linkedProjects(t, db, 10, "p2")
+	recordCost(t, db, "p2", provider.RoleContraster, 0.40)
+	if _, err := r.prov.Respond(ctx, contrastOf("p2"), nil); err != nil {
+		t.Fatalf("a contrast inside the caps needs no balance: %v", err)
 	}
 }
 

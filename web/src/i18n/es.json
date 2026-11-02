@@ -597,6 +597,7 @@
   "home.username": "Usuario",
   "home.password": "Clave",
   "home.register_hint": "Usuario de 3 a 32 caracteres (letras, números, _ . -) y clave de 10 a 64. Sin correo: la clave no se puede recuperar.",
+  "home.login_moves_project": "Al entrar, tu proyecto abierto pasa a tu cuenta. Si tu cuenta ya tiene 3 proyectos, perderás este.",
   "home.account.error.username_taken": "Ese usuario ya existe.",
   "home.account.error.link_accounts_full": "Este link ya no admite más cuentas.",
   "home.account.error.invalid_credentials": "Usuario o clave incorrectos.",
