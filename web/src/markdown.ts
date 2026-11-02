@@ -1,5 +1,5 @@
 // The Markdown tab's minimal renderer (B-97): headings # to ###, paragraphs, lists
-// with - and 1., **bold**, *italics* and `code`. It builds React elements, never an
+// with - and 1., «> » quotes (P-118), **bold**, *italics* and `code`. It builds React elements, never an
 // HTML string: React writes the text, so nothing in the document can become markup
 // (B3-22 row 8).
 import { createElement, type ReactNode } from "react";
@@ -7,7 +7,7 @@ import { createElement, type ReactNode } from "react";
 export type Inline = { kind: "text" | "strong" | "em" | "code"; text: string };
 
 export type Block =
-  | { kind: "h1" | "h2" | "h3" | "p"; inlines: Inline[] }
+  | { kind: "h1" | "h2" | "h3" | "p" | "blockquote"; inlines: Inline[] }
   | { kind: "ul" | "ol"; items: Inline[][] };
 
 // Code first, so its marks stay text. An opening or closing mark does not touch a
@@ -31,13 +31,17 @@ export function parseInline(text: string): Inline[] {
 const HEADING = /^(#{1,3}) +(.*)$/;
 const BULLET = /^- +(.*)$/;
 const NUMBERED = /^\d+\. +(.*)$/;
+const QUOTE = /^> (.*)$/;
 
 export function parseMarkdown(src: string): Block[] {
   const blocks: Block[] = [];
   let paragraph: string[] = [];
+  let quote: string[] = [];
   const closeParagraph = () => {
     if (paragraph.length > 0) blocks.push({ kind: "p", inlines: parseInline(paragraph.join("\n")) });
     paragraph = [];
+    if (quote.length > 0) blocks.push({ kind: "blockquote", inlines: parseInline(quote.join("\n")) });
+    quote = [];
   };
   // An item continues the list right above it; after a blank line, a new list.
   const addItem = (kind: "ul" | "ol", text: string, continues: boolean) => {
@@ -51,9 +55,14 @@ export function parseMarkdown(src: string): Block[] {
     const heading = line.match(HEADING);
     const bullet = line.match(BULLET);
     const numbered = line.match(NUMBERED);
+    const quoted = line.match(QUOTE);
     if (line.trim() === "") {
       closeParagraph();
       inList = false;
+    } else if (quoted) {
+      if (paragraph.length > 0) closeParagraph();
+      inList = false;
+      quote.push(quoted[1]);
     } else if (heading) {
       closeParagraph();
       inList = false;
@@ -63,6 +72,7 @@ export function parseMarkdown(src: string): Block[] {
       inList = true;
     } else {
       inList = false;
+      if (quote.length > 0) closeParagraph();
       paragraph.push(line);
     }
   }

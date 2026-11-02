@@ -41,22 +41,20 @@ export function originVar(origin: string): string {
   return `--origin-${origin.replace(/_/g, "-")}`;
 }
 
-// The editor's marks (B-10): after each paragraph n, block n, its origin's
-// label. Labels and block numbers only.
+const MARKED_ORIGINS = ["material", "external", "model_knowledge", "unverified"];
+
+// The classes of paragraph n's mark (B-10), block n: styles.css draws the label
+// from its custom property. Only an origin the catalog knows gets a class, and no
+// rule is written at run time (the CSP forbids an inline style element, P-118).
 // [EL DISEÑO NO LO DICE]: how the mark looks; a small note at the end of the
 // paragraph, green when verified, in the colour of what is pending when not.
-export function originMarkRules(section: string, origins: ParagraphOrigin[]): string {
-  const rules: string[] = [];
-  for (const origin of ["material", "external", "model_knowledge", "unverified"]) {
-    const blocks = origins.filter((o) => o.origin === origin).map((o) => o.block);
-    if (blocks.length === 0) continue;
-    const verified = origin === "material" || origin === "external";
-    const selector = blocks
-      .map((n) => `.section-editor[data-section="${section}"] .section-editor-content > p:nth-child(${n})::after`)
-      .join(",\n");
-    rules.push(`${selector} { content: var(${originVar(origin)}); margin-left: 0.5em; font-size: 0.75em; ` +
-      `color: var(${verified ? "--ok" : "--todo"}); background: var(${verified ? "--ok-soft" : "--todo-soft"}); ` +
-      "border-radius: 4px; padding: 0 4px; }");
-  }
-  return rules.join("\n");
+export function originMarkClass(origins: ParagraphOrigin[], block: number): string {
+  const origin = origins.find((o) => o.block === block)?.origin;
+  if (!origin || !MARKED_ORIGINS.includes(origin)) return "";
+  return `origin-mark origin-mark-${origin.replace(/_/g, "-")}`;
+}
+
+// A paragraph with no text is no block of Go's: it has no history to ask for (P-118).
+export function paragraphHasHistory(text: string): boolean {
+  return text.trim() !== "";
 }

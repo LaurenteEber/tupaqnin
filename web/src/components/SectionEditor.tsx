@@ -9,7 +9,7 @@ import Document from "@tiptap/extension-document";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import { saveSection } from "../api/client";
-import { originMarkRules, originVar, type ParagraphOrigin } from "../provenance";
+import { originMarkClass, paragraphHasHistory, originVar, type ParagraphOrigin } from "../provenance";
 import { translate, type Lang } from "../i18n";
 import { shouldReloadEditor } from "../live";
 
@@ -94,8 +94,9 @@ export function SectionEditor({
   const separators = initial.current.map((p) => p.separator);
 
   const editor = useEditor({
+    injectCSS: false, // the CSP forbids its inline style element; it never applied (P-118)
     editable: !readOnly,
-    extensions: [Document, BlockParagraph, Text, WarningUnderlines],
+    extensions: [Document, BlockParagraph, Text, WarningUnderlines, OriginMarks],
     content: paragraphsHTML(initial.current),
     editorProps: {
       attributes: { class: "section-editor-content" },
@@ -165,6 +166,12 @@ export function SectionEditor({
     editor.view.dispatch(editor.state.tr.setMeta(underlinePlugin, marks));
   }, [editor, underlinesSig, lang]);
 
+  const originsSig = JSON.stringify(origins);
+  useEffect(() => {
+    if (!editor) return;
+    editor.view.dispatch(editor.state.tr.setMeta(originPlugin, origins));
+  }, [editor, originsSig]);
+
   async function saveNow(hiding = false) {
     if (!editor || readOnly) return;
     const value = currentText();
@@ -215,8 +222,8 @@ export function SectionEditor({
 
   // The mark goes after each paragraph of the editor, which is block n
   // (B-10), with its origin as Go computed it (backlog-r3 3.5) and the
-  // label from the i18n catalog through a custom property.
-  const markRule = originMarkRules(label, origins);
+  // label from the i18n catalog through a custom property. The classes come
+  // from the OriginMarks decorations and the rules from styles.css (P-118).
   const markLabel = Object.fromEntries(
     ["material", "external", "model_knowledge", "unverified"].map((o) => [
       originVar(o),
@@ -226,7 +233,6 @@ export function SectionEditor({
 
   return (
     <div className="section-editor" data-section={label} style={markLabel} onBlur={() => void saveRef.current()}>
-      {markRule && <style>{markRule}</style>}
       <div className="section-editor-head">
         <div className="section-editor-title">{heading}</div>
         <SaveStatus lang={lang} register={(fn) => (status.current = fn)} />
@@ -250,7 +256,7 @@ export function SectionEditor({
           // them: one per list item (P-78).
           const p = (ev.target as HTMLElement).closest("p");
           const root = p?.parentElement;
-          if (p && root) onBlock(Array.prototype.indexOf.call(root.children, p) + 1);
+          if (p && root && paragraphHasHistory(p.textContent ?? "")) onBlock(Array.prototype.indexOf.call(root.children, p) + 1);
         }}
       />
     </div>
@@ -365,6 +371,43 @@ const WarningUnderlines = Extension.create({
         props: {
           decorations(state) {
             return underlinePlugin.getState(state);
+          },
+        },
+      }),
+    ];
+  },
+});
+
+const originPlugin = new PluginKey<{ origins: ParagraphOrigin[]; set: DecorationSet }>("origin-marks");
+
+// Paragraph n of the editor is block n, by position, also while you type.
+function buildOriginMarks(doc: PMNode, origins: ParagraphOrigin[]): DecorationSet {
+  const decorations: Decoration[] = [];
+  doc.forEach((node, offset, index) => {
+    const marks = originMarkClass(origins, index + 1);
+    if (marks) decorations.push(Decoration.node(offset, offset + node.nodeSize, { class: marks }));
+  });
+  return DecorationSet.create(doc, decorations);
+}
+
+// Classes on the rendered paragraphs, never in the text the app compares (T-1).
+const OriginMarks = Extension.create({
+  name: "originMarks",
+  addProseMirrorPlugins() {
+    return [
+      new Plugin<{ origins: ParagraphOrigin[]; set: DecorationSet }>({
+        key: originPlugin,
+        state: {
+          init: () => ({ origins: [], set: DecorationSet.empty }),
+          apply(tr, value) {
+            const origins = (tr.getMeta(originPlugin) as ParagraphOrigin[] | undefined) ?? value.origins;
+            if (!tr.docChanged && origins === value.origins) return value;
+            return { origins, set: buildOriginMarks(tr.doc, origins) };
+          },
+        },
+        props: {
+          decorations(state) {
+            return originPlugin.getState(state)?.set;
           },
         },
       }),

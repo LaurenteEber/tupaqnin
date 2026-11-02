@@ -5,6 +5,7 @@
   color-scheme: light;
   --bg: #f6f7f5;
   --side: #efede7;
+  --center-w: 760px; /* P-118, initial value */
   --wash: #ece9e1;
   --panel: #ffffff;
   --sunk: #eef0ec;
@@ -124,7 +125,6 @@ button.small { padding: 3px 9px; font-size: 12px; }
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 68ch;
 }
 .chat-card.todo { border-color: var(--todo); }
 .chat-card h2, .chat-card h3 { margin: 0; font-size: 14px; font-weight: 600; }
@@ -163,7 +163,6 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .section-editor-content {
   font-size: 16.5px;
   line-height: 1.75;
-  max-width: 64ch;
   min-height: 180px;
   padding: 8px 6px;
   outline: none;
@@ -249,7 +248,7 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .model-line { text-align: right; }
 
 /* U-5, R-5: the conversation from the history; the agent's reply stands out. */
-.agent-step { display: flex; flex-direction: column; gap: 6px; max-width: 68ch; }
+.agent-step { display: flex; flex-direction: column; gap: 6px; }
 .agent-step p { margin: 0; }
 .reply { margin: 0; white-space: pre-wrap; font-size: 14.5px; }
 .answered { margin: 0; }
@@ -353,17 +352,17 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .center-body { flex: 1; min-height: 0; position: relative; }
 /* Both views stay mounted, each with its own scroll: what you were typing in a
    card and your place in the document are still there when you come back. */
-.center-view { position: absolute; inset: 0; overflow: auto; padding: 20px; }
+.center-view { position: absolute; inset: 0; overflow: auto; padding: 20px; scrollbar-gutter: stable both-edges; }
 .center-view.off, .right-pane.off { visibility: hidden; }
-.view-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.view-inner { max-width: var(--center-w); margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
 .center-home { flex: 1; min-height: 0; display: flex; padding: 20px; }
 .chat-card, .turn-panel, .home-notice { background: var(--panel); }
 .doc-toolbar { position: sticky; top: 0; z-index: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .section-editor { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; }
 .center-view .proposal, .center-view .trace { background: var(--panel); }
 .center-view .trace { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
-.composer { border-top: 0; padding: 10px 20px 14px; }
-.composer-box { width: 100%; max-width: 760px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04); display: flex; flex-direction: column; gap: 6px; }
+.composer { border-top: 0; padding: 10px 20px 14px; overflow: hidden; scrollbar-gutter: stable both-edges; } /* the same box as the views, so its edges line up (P-118) */
+.composer-box { width: 100%; max-width: var(--center-w); margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04); display: flex; flex-direction: column; gap: 6px; }
 
 .divider { flex: none; cursor: col-resize; position: relative; background: var(--panel); }
 .divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: var(--line); }
@@ -389,6 +388,7 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .md-preview h3 { font-size: 14.5px; margin: 14px 0 4px; }
 .md-preview p { margin: 0 0 10px; white-space: pre-wrap; }
 .md-preview ul, .md-preview ol { margin: 0 0 10px; padding-left: 20px; }
+.md-preview blockquote { margin: 0 0 10px; padding: 2px 10px; border-left: 3px solid var(--line); color: var(--muted); white-space: pre-wrap; }
 .md-preview code, .md-raw { font-family: var(--mono); font-size: 12px; }
 .md-preview code { background: var(--sunk); border-radius: 4px; padding: 0 4px; }
 .md-raw { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
@@ -403,3 +403,11 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
   .divider { display: none; }
   .right { position: fixed; right: 0; top: 0; bottom: 0; z-index: 5; max-width: 100vw; box-shadow: -8px 0 20px rgba(0, 0, 0, 0.1); }
 }
+
+/* The origin of each paragraph (backlog-r3 3.5, P-118): the classes come from the
+   editor's decorations, the labels from the custom properties on .section-editor. */
+.origin-mark::after { margin-left: 0.5em; font-size: 0.75em; border-radius: 4px; padding: 0 4px; }
+.origin-mark-material::after { content: var(--origin-material); color: var(--ok); background: var(--ok-soft); }
+.origin-mark-external::after { content: var(--origin-external); color: var(--ok); background: var(--ok-soft); }
+.origin-mark-model-knowledge::after { content: var(--origin-model-knowledge); color: var(--todo); background: var(--todo-soft); }
+.origin-mark-unverified::after { content: var(--origin-unverified); color: var(--todo); background: var(--todo-soft); }

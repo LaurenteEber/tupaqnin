@@ -80,3 +80,25 @@ test("B-97: an empty text does not break", () => {
 test("B-97: what the document says stays literally the same (rule 8)", () => {
   assert.equal(html("Conteos: 4 partículas por litro · «cita» ñ"), "<p>Conteos: 4 partículas por litro · «cita» ñ</p>");
 });
+
+test("P-118: a «> » line is a quote, and the export's unsigned mark shows no «>»", () => {
+  assert.equal(html("> Not signed"), "<blockquote>Not signed</blockquote>");
+  assert.equal(html("## Findings\n\n> Not signed\n\nText"), "<h2>Findings</h2><blockquote>Not signed</blockquote><p>Text</p>");
+});
+
+test("P-118: consecutive «> » lines are one quote, with emphasis inside", () => {
+  assert.equal(html("> one\n> **two**"), "<blockquote>one\n<strong>two</strong></blockquote>");
+  assert.equal(html("> one\n\n> two"), "<blockquote>one</blockquote><blockquote>two</blockquote>");
+  assert.equal(html("text\n> quote\nmore"), "<p>text</p><blockquote>quote</blockquote><p>more</p>");
+});
+
+test("P-118: a «>» that is not a quote mark stays text", () => {
+  assert.equal(html(">no space"), "<p>&gt;no space</p>");
+  assert.equal(html("5 > 3"), "<p>5 &gt; 3</p>");
+});
+
+test("P-118 (B3-22 row 8): markup inside a quote comes out escaped", () => {
+  const out = html('> <script>alert(1)</script> <img src=x onerror="a()">');
+  assert.doesNotMatch(out, /<script|<img/);
+  assert.match(out, /^<blockquote>&lt;script&gt;/);
+});

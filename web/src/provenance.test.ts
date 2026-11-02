@@ -2,8 +2,10 @@
 // `pnpm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { originKey, originMarkRules, originVar, safeLink, searchedName } from "./provenance.ts";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { originKey, originMarkClass, originVar, paragraphHasHistory, safeLink, searchedName } from "./provenance.ts";
 
 const catalog = (lang: string): Record<string, string> =>
   JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"));
@@ -41,14 +43,64 @@ test("R-1: a searched source is named by title and year, and only http links are
 });
 
 test("R-1: each paragraph gets its origin's mark, block by block", () => {
-  const rules = originMarkRules("sec-1", [
+  const origins = [
     { block: 1, origin: "external" },
     { block: 2, origin: "unverified" },
-    { block: 3, origin: "external" },
-  ]);
-  assert.match(rules, /section="sec-1"\] \.section-editor-content > p:nth-child\(1\)::after/);
-  assert.match(rules, /p:nth-child\(3\)::after \{ content: var\(--origin-external\)/);
-  assert.match(rules, /p:nth-child\(2\)::after \{ content: var\(--origin-unverified\)/);
+    { block: 3, origin: "model_knowledge" },
+    { block: 4, origin: "material" },
+  ];
+  assert.equal(originMarkClass(origins, 1), "origin-mark origin-mark-external");
+  assert.equal(originMarkClass(origins, 2), "origin-mark origin-mark-unverified");
+  assert.equal(originMarkClass(origins, 3), "origin-mark origin-mark-model-knowledge");
+  assert.equal(originMarkClass(origins, 4), "origin-mark origin-mark-material");
+  assert.equal(originMarkClass(origins, 5), "");
+  assert.equal(originMarkClass([], 1), "");
   assert.equal(originVar("model_knowledge"), "--origin-model-knowledge");
-  assert.equal(originMarkRules("sec-1", []), "");
+});
+
+test("R-1: an origin the catalog does not know gets no mark", () => {
+  assert.equal(originMarkClass([{ block: 1, origin: "x\" onclick=\"y" }], 1), "");
+});
+
+test("R-1: styles.css draws each origin's mark from its custom property", () => {
+  const css = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
+  for (const origin of ["material", "external", "model_knowledge", "unverified"]) {
+    const name = origin.replace(/_/g, "-");
+    assert.match(css, new RegExp(`\\.origin-mark-${name}::after \\{[^}]*content: var\\(${originVar(origin)}\\)`), origin);
+  }
+});
+
+test("P-118: an empty paragraph has no history to ask for", () => {
+  assert.equal(paragraphHasHistory(""), false);
+  assert.equal(paragraphHasHistory(" \n\t"), false);
+  assert.equal(paragraphHasHistory("Texto"), true);
+  const editor = readFileSync(new URL("./components/SectionEditor.tsx", import.meta.url), "utf8");
+  assert.match(editor, /paragraphHasHistory\(p\.textContent/);
+});
+
+function sources(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return sources(path);
+    return /\.tsx?$/.test(entry.name) && !entry.name.includes(".test.") ? [path] : [];
+  });
+}
+
+test("P-118 (CSP): the page has no inline <style> element", () => {
+  const src = fileURLToPath(new URL(".", import.meta.url));
+  const files = sources(src);
+  assert.ok(files.some((f) => f.endsWith("SectionEditor.tsx")));
+  const page = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(page, /<style/i);
+  let editors = 0;
+  for (const file of files) {
+    const code = readFileSync(file, "utf8");
+    assert.doesNotMatch(code, /<style[\s>]|createElement\(\s*["']style["']/, file);
+    // TipTap adds its own <style> unless told not to.
+    for (const call of code.matchAll(/useEditor\(\{/g)) {
+      editors++;
+      assert.match(code.slice(call.index), /^useEditor\(\{\s*injectCSS: false,/, file);
+    }
+  }
+  assert.ok(editors > 0, "no editor found");
 });
