@@ -9,7 +9,7 @@
 
 ## Método
 
-Botellas de 8 marcas compradas en supermercados, analizadas dentro de la semana. Las muestras se filtraron y las partículas se contaron con microscopía e identificación espectroscópica. El tamaño mínimo de partícula detectado fue de 1 micras.
+Botellas de 8 marcas compradas en supermercados, analizadas dentro de la semana. Las muestras se filtraron y las partículas se contaron con microscopía e identificación espectroscópica. El tamaño mínimo de partícula detectado fue de 1 micra.
 
 ## Resultado
 
