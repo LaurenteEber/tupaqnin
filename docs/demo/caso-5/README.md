@@ -6,7 +6,7 @@ relacion: la carga el botón «Probar con el caso de demo» (B3-19). La usan la 
 
 # Caso 5 · plantilla de la demo
 
-**Respuesta:** la carpeta `plantilla/` se copia tal cual a `internal/demo/case5/` en el repo de código. Trae el pedido de Paula (`request.json`) y 15 fuentes: 14 artículos ficticios y su cálculo de la comparación. Con ella, la rebanada 1 llega a la decisión crítica «comparar solo con el mismo tamaño mínimo» (1,5 veces, no 60) y a su firma.
+**Respuesta:** la carpeta `plantilla/` se copia tal cual a `internal/demo/case5/` en el repo de código. Trae el pedido de Paula (`request.json`) y 16 fuentes: 14 artículos ficticios, su cálculo de la comparación y la nota de Paula (B-70). Con ella, la rebanada 1 llega a la decisión crítica «comparar solo con el mismo tamaño mínimo» (1,5 veces, no 60) y a su firma.
 
 ```mermaid
 flowchart LR
