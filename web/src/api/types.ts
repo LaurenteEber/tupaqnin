@@ -298,6 +298,11 @@ export interface ConversationEntry {
    */
   kind: string;
   text?: string;
+  /**
+   * WaitsSignoff: on a message, the agent answers it when the signoff in
+   * progress ends (P-114).
+   */
+  waits_signoff?: boolean;
   triage_line?: string;
   reply?: string;
   note?: string;

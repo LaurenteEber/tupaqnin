@@ -73,6 +73,12 @@ func (s *Server) actOnProposal(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	out, err := act(r.Context(), projectID, r.PathValue("label"))
+	// P-114: an accepted text goes to the checker in the next batch, as your edit.
+	if err == nil && out.State == "accepted" {
+		if n, ok := s.starter.(EditNotifier); ok {
+			n.EditSaved(projectID)
+		}
+	}
 	switch {
 	case errors.Is(err, cycle.ErrProposalNotFound):
 		writeError(w, http.StatusNotFound, "proposal_not_found")

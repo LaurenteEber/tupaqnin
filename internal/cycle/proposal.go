@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/fingerprint"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -151,8 +152,16 @@ func (p *project) createProposals(tx *store.Tx, turnID string, out stepOutput, p
 // closeProposal moves an open proposal to accepted or discarded (estados
 // §5), with why in its body and in the event.
 func closeProposal(tx *store.Tx, obj store.Object, b graph.ProposalBody, state, why, section, signoff string) error {
+	return closeProposalWith(tx, obj, b, state, why, section, signoff, nil)
+}
+
+// closeProposalWith is closeProposal with what the acceptance's rules found.
+func closeProposalWith(tx *store.Tx, obj store.Object, b graph.ProposalBody, state, why, section, signoff string, extra map[string]any) error {
 	b.Why = why
 	data := map[string]any{"label": obj.Label, "section": section, "from": "open", "to": state}
+	for k, v := range extra {
+		data[k] = v
+	}
 	if why != "" {
 		data["why"] = why
 	}
@@ -394,8 +403,41 @@ func (p *project) acceptTextProposal(ctx context.Context, tx *store.Tx, obj stor
 			return err
 		}
 	}
+	found, err := rulesOnAccepted(ctx, tx, b, sec)
+	if err != nil {
+		return err
+	}
 	out.State = "accepted"
-	return closeProposal(tx, obj, b, "accepted", "", sec.Label, "")
+	return closeProposalWith(tx, obj, b, "accepted", "", sec.Label, "", found)
+}
+
+// rulesOnAccepted runs the app's rules 1 to 5 on an accepted proposal's text, as
+// on any agent text (P-114), in the acceptance's transaction. Rules 1, 3 and 5 are
+// read from the current state; what rule 2 finds goes on the proposal's close, the
+// way a step's goes on its step_ended. Rule 0 does not apply: an accepted text is
+// no direct step.
+func rulesOnAccepted(ctx context.Context, tx *store.Tx, b graph.ProposalBody, sec store.Object) (map[string]any, error) {
+	decided := len(b.UsedDecisions) > 0 || len(b.Contrast.Decisions) > 0
+	texts := []string{}
+	for _, e := range b.Edits() {
+		texts = append(texts, e.Text)
+	}
+	findings, err := checks.RunRules(ctx, tx, tx.ProjectID(), checks.Change{Kind: checks.AgentStep, Stretch: checks.StretchBuild,
+		Sections: []string{sec.ID}, Texts: texts, Figures: len(b.Figures) > 0, Citations: len(b.Citations) > 0,
+		Decided: map[string]bool{sec.ID: decided}, Actor: "agent", TurnID: b.TurnID})
+	if err != nil {
+		return nil, err
+	}
+	withoutDecision, closed := []string{}, []string{}
+	for _, f := range findings {
+		if f.Kind == graph.PendingTextWithoutDecision {
+			withoutDecision = append(withoutDecision, f.Section)
+		}
+	}
+	if decided {
+		closed = append(closed, sec.Label)
+	}
+	return map[string]any{"accepted_by": "human", "text_without_decision": withoutDecision, "decided_sections": closed}, nil
 }
 
 // acceptSectionProposal creates the section as a step creates one before the
@@ -418,8 +460,12 @@ func (p *project) acceptSectionProposal(ctx context.Context, tx *store.Tx, obj s
 	if err := p.linkAccepted(ctx, tx, obj, b, sec, result); err != nil {
 		return err
 	}
+	found, err := rulesOnAccepted(ctx, tx, b, sec)
+	if err != nil {
+		return err
+	}
 	out.State, out.Section = "accepted", sec.Label
-	return closeProposal(tx, obj, b, "accepted", "", sec.Label, "")
+	return closeProposalWith(tx, obj, b, "accepted", "", sec.Label, "", found)
 }
 
 // linkAccepted applies what was kept with the proposal: the step's edges to
@@ -427,8 +473,7 @@ func (p *project) acceptSectionProposal(ctx context.Context, tx *store.Tx, obj s
 // data, and the closes it declared (A-1).
 // [EL DISEÑO NO LO DICE]: a figure or citation whose anchor is no longer in
 // the text at accepting, and a close no longer in the list, are not applied
-// and stay in the proposal's event; rule 2 («escrito sin decisión», read from
-// step_ended) does not run, since no step ran and you accepted that text.
+// and stay in the proposal's event.
 func (p *project) linkAccepted(ctx context.Context, tx *store.Tx, obj store.Object, b graph.ProposalBody, sec store.Object, result string) error {
 	ev := acceptedEvent(store.EventStateChanged, obj, b)
 	ev.Data = map[string]any{"accepted_by": "human", "proposal": obj.Label}

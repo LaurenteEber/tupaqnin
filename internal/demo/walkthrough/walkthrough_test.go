@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/LaurenteEber/tupaqnin/internal/memory"
@@ -52,4 +53,19 @@ func TestH1_Case5WalkthroughPassesEndToEnd(t *testing.T) {
 	w.wonderFirstRound(sign)
 	w.signAfterRounds(section, sign)
 	w.orderedEvents(stepEvents(section, historyDecision))
+}
+
+// P-114: a walkthrough with the fake leaves nothing behind, passing or failing; only
+// a Meta run keeps its database, which goes under its own name, outside the test's.
+func TestP114_OnlyAMetaWalkthroughKeepsItsDatabase(t *testing.T) {
+	base := filepath.Dir(t.TempDir())
+	t.Setenv("TQ_PROVIDER", "")
+	if dir := walkDir(t); !strings.HasPrefix(dir, base) {
+		t.Fatalf("with the fake, %s is outside the test's temp dir %s", dir, base)
+	}
+	t.Setenv("TQ_PROVIDER", "meta")
+	dir := walkDir(t)
+	if strings.HasPrefix(dir, base) || !strings.Contains(filepath.Base(dir), "tupaqnin-walk-") {
+		t.Fatalf("with Meta, %s must survive the test's temp dir", dir)
+	}
 }

@@ -97,6 +97,10 @@ func main() {
 	runner.ProjectCapUSD = cfg.SpendCapProjectUSD
 	runner.SpendCapDayUSD = cfg.SpendCapDayUSD
 	runner.SpendCapTotalUSD = cfg.SpendCapTotalUSD
+	// P-114: a mode a restart left on ends here, before anything is served.
+	if err := runner.EndModesLeftRunning(context.Background()); err != nil {
+		logger.Error("ending the modes left running failed", "error", err.Error())
+	}
 	// The readers' evidence (B-60): one shared client; with the fake
 	// provider, the embedded recordings, never the network (3.2).
 	if cfg.Provider == config.ProviderFake {

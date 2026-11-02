@@ -24,8 +24,14 @@ const (
 	StopModeCap StopReason = "mode_cap"
 	// StopProviderError: Meta failed during the mode (B-83).
 	StopProviderError StopReason = "provider_error"
+	// StopRestart: the app restarted with the mode on and nothing running (P-114).
+	StopRestart StopReason = "restart"
 	// ModeMaxSteps is the mode's cap (B-83: 60 steps [inicial]).
 	ModeMaxSteps = 60
+	// ModeMaxIdleSteps ends the mode after that many steps in a row with no new
+	// text, no decisions and no proposals (P-114: 3 [inicial]), so a step that only
+	// asks questions cannot burn the 60.
+	ModeMaxIdleSteps = 3
 )
 
 var (
@@ -197,12 +203,7 @@ func (r *Runner) queueMessage(projectID, text string) (bool, error) {
 		turnID = q.turn
 	}
 	r.mu.Unlock()
-	err = r.db.Write(r.ctx, projectID, func(tx *store.Tx) error {
-		_, err := tx.AppendEvent(store.EventInput{Type: store.EventHumanMessage, Actor: "human", TurnID: turnID,
-			Data: map[string]any{"text": text, "queued": true}})
-		return err
-	})
-	if err != nil {
+	if err := r.writeQueuedMessage(projectID, turnID, text); err != nil {
 		return false, err
 	}
 	r.mu.Lock()
@@ -217,6 +218,24 @@ func (r *Runner) queueMessage(projectID, text string) (bool, error) {
 		go r.runHandoff(projectID)
 	}
 	return true, nil
+}
+
+// writeQueuedMessage is your queued message in the history, in literal. Over the
+// threshold with a signoff in progress it says so, for the conversation's line
+// that the agent answers when the signoff ends (P-114).
+func (r *Runner) writeQueuedMessage(projectID, turnID, text string) error {
+	data := map[string]any{"text": text, "queued": true}
+	waits, err := r.cleanupWaitsForSignoff(r.ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if waits {
+		data["waits_signoff"] = true
+	}
+	return r.db.Write(r.ctx, projectID, func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventHumanMessage, Actor: "human", TurnID: turnID, Data: data})
+		return err
+	})
 }
 
 // undeliveredMessages are the queued messages that never entered a call of the
@@ -428,16 +447,29 @@ func (r *Runner) runHandoff(projectID string) {
 
 // SignoffClosed is B-86's «al cerrarse la firma, la app limpia y, si el modo
 // sigue, reabre la cadena», told by every place a signoff closes. The cleanup
-// needs nothing here: the next ensureInstance does it. It opens the chain only
-// when the mode goes on and the chain ended waiting for this: over the threshold,
-// with no other signoff in progress.
+// needs nothing here: the next ensureInstance does it. It opens the chain when
+// the mode goes on and the chain ended waiting for this (over the threshold), or
+// when a message of yours waits for an answer (P-114), and no other signoff is in
+// progress.
 func (r *Runner) SignoffClosed(ctx context.Context, projectID string) {
 	mode, err := r.mode(ctx, projectID)
-	if err != nil || !mode.On() || !r.NeedsReset(ctx, projectID) {
+	if err != nil {
+		return
+	}
+	messages, err := r.undeliveredMessages(ctx, projectID)
+	if err != nil {
+		return
+	}
+	if len(messages) == 0 && (!mode.On() || !r.NeedsReset(ctx, projectID)) {
 		return
 	}
 	if waits, err := r.signoffInProgress(ctx, projectID); err != nil || waits {
 		return
+	}
+	if len(messages) > 0 {
+		r.mu.Lock()
+		r.queueOf(projectID).wake = true
+		r.mu.Unlock()
 	}
 	if _, err := r.openChain(projectID); err != nil && !errors.Is(err, ErrRunnerClosed) {
 		r.logTurnFailure(err)
@@ -513,6 +545,43 @@ func (r *Runner) endModeAfterFailure(ctx context.Context, projectID, turnID stri
 		r.logTurnFailure(err)
 	}
 	r.clearWake(projectID)
+}
+
+// EndModesLeftRunning ends each mode a restart left on, with nothing running
+// (P-114): mode_finished with cause restart, the app's part of the report with no
+// call, and the mode back to normal, so the bar never says it runs and your next
+// visit has its return line (B-85). The app calls it once, before it serves.
+// [EL DISEÑO NO LO DICE]: what you queued stays in the history for your next
+// message, as any queued message of a mode that ended; nothing reopens a chain.
+func (r *Runner) EndModesLeftRunning(ctx context.Context) error {
+	projects, err := r.db.ProjectsWithMode(ctx)
+	if err != nil {
+		return err
+	}
+	for _, projectID := range projects {
+		mode, err := r.mode(ctx, projectID)
+		if err != nil {
+			return err
+		}
+		if !mode.On() || !r.tryAcquireTurn(projectID) {
+			continue
+		}
+		err = r.endModeLeftRunning(ctx, projectID)
+		r.releaseTurn(projectID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Runner) endModeLeftRunning(ctx context.Context, projectID string) error {
+	turnID, err := newTurnID()
+	if err != nil {
+		return err
+	}
+	_, err = r.stopReport(ctx, projectID, turnID, StopRestart, nil, &modeEnd{cause: StopRestart, noCall: true})
+	return err
 }
 
 // modeLine is the mode as layer 3 says it (block 2 §2), for a live conversation,

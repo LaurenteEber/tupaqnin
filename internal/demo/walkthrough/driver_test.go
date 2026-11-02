@@ -248,26 +248,36 @@ type walk struct {
 	lastOutput func() string
 }
 
-// newWalk opens a fresh database and builds the provider over it (the
-// Meta provider records its calls in that database).
-func newWalk(t *testing.T, build func(*store.DB) (provider.Provider, memory.TokenCounter), lastOutput func() string) *walk {
+// walkDir is where a walkthrough's database lives. With Meta it stays when the
+// walkthrough fails, so its run can be inspected (P-50), and a passing run removes
+// it; with the fake nothing is worth keeping, so the test's temp dir takes it (P-114).
+func walkDir(t *testing.T) string {
 	t.Helper()
-	// The database stays when the walkthrough fails, so its run can be
-	// inspected (P-50); a passing run removes it.
+	if os.Getenv("TQ_PROVIDER") != "meta" {
+		return t.TempDir()
+	}
 	dir, err := os.MkdirTemp("", "tupaqnin-walk-")
 	if err != nil {
 		t.Fatalf("temp dir: %v", err)
 	}
-	db, err := store.Open(context.Background(), dir)
-	if err != nil {
-		t.Fatalf("store.Open: %v", err)
-	}
 	t.Cleanup(func() {
-		_ = db.Close()
 		if !t.Failed() {
 			_ = os.RemoveAll(dir)
 		}
 	})
+	return dir
+}
+
+// newWalk opens a fresh database and builds the provider over it (the
+// Meta provider records its calls in that database).
+func newWalk(t *testing.T, build func(*store.DB) (provider.Provider, memory.TokenCounter), lastOutput func() string) *walk {
+	t.Helper()
+	dir := walkDir(t)
+	db, err := store.Open(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
 	prov, count := build(db)
 	starter := &syncStarter{runner: cycle.NewRunner(db, prov, count, nil), gate: cycle.NewGate(db), db: db}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

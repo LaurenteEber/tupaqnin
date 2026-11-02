@@ -90,6 +90,36 @@ func uncheckedOpen(events []store.Event, sectionLabel string) bool {
 	return open
 }
 
+// IsAcceptedText says an event wrote the text of a proposal you accepted (B-75):
+// the agent's text, which no step's checker saw (P-114). The links of the same
+// acceptance carry accepted_by too, without texts.
+func IsAcceptedText(ev store.Event) bool {
+	if ev.Type != store.EventEdit && ev.Type != store.EventStateChanged {
+		return false
+	}
+	data := eventData(ev)
+	_, texts := data["texts"]
+	return texts && data["accepted_by"] == "human"
+}
+
+// acceptedUnchecked is «sin comprobar» for an accepted proposal's text, until the
+// checker's next pass over the section (P-114): no agent text reaches a signoff
+// unchecked. A pass that fails stays «sin comprobar» through uncheckedOpen.
+func acceptedUnchecked(events []store.Event, section store.Object) bool {
+	open := false
+	for _, ev := range events {
+		data := eventData(ev)
+		switch {
+		case IsAcceptedText(ev) && ev.ObjectID == section.ID:
+			open = true
+		case ev.Type == store.EventProbe && contains(data["sections"], section.Label),
+			ev.Type == store.EventOutputRetry && data["turn_kind"] == "checker" && data["result"] == "unchecked" && contains(data["sections"], section.Label):
+			open = false
+		}
+	}
+	return open
+}
+
 // QueuedProbe is a probe of what is protected (by label) against the
 // current text of some sections (by label) that the app queued and the
 // checker has not run yet (P-72): the probe of a new premise (B-46,

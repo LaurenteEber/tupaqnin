@@ -532,6 +532,23 @@ func (r *Runner) StartTurn(projectID, text string) (string, error) {
 		r.releaseTurn(projectID)
 		return "", ErrRunnerClosed
 	}
+	// P-114: over the threshold with a signoff in progress no step can run (B-86):
+	// your message is queued, with its line, and the signoff's close answers it.
+	waits, err := r.cleanupWaitsForSignoff(r.ctx, projectID)
+	if err == nil && waits {
+		err = r.writeQueuedMessage(projectID, "", text)
+		r.turns.Done()
+		r.releaseTurn(projectID)
+		if err == nil {
+			r.SignoffClosed(r.ctx, projectID) // it may have closed meanwhile
+		}
+		return "", err
+	}
+	if err != nil {
+		r.turns.Done()
+		r.releaseTurn(projectID)
+		return "", err
+	}
 	turnID, err := newTurnID()
 	if err != nil {
 		r.turns.Done()
@@ -1168,6 +1185,8 @@ type chainState struct {
 	// The sections whose judge could not verify in this chain (B-67).
 	judgeFailed map[string]bool
 	roundsRun   int
+	// idleSteps: the mode's steps in a row with no text, decisions or proposals.
+	idleSteps int
 }
 
 // chainTurn is one turn of a chain; it returns the next turn's id when the app
@@ -1400,6 +1419,14 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		if waiting {
 			continue
 		}
+		// P-114: a step that answers your message does not count, as B-83 says of
+		// the mode's end, and it does not reset the count either.
+		switch {
+		case applied.Work || applied.Round != "":
+			state.idleSteps = 0
+		case mode.On() && !yours:
+			state.idleSteps++
+		}
 		// P-99: a step whose work is its round goes on after the digest.
 		// [EL DISEÑO NO LO DICE]: only after the chain's first round, so a
 		// principal that keeps asking cannot chain rounds up to the cap.
@@ -1419,7 +1446,7 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 			// with the rest.
 			// [EL DISEÑO NO LO DICE]: a step that only proposes one counts as no
 			// work (B-24); in the mode it does not stop the chain.
-			if now.On() && (!mode.On() || yours || applied.Asked || r.hasMessages(ctx, projectID)) {
+			if now.On() && state.idleSteps < ModeMaxIdleSteps && (!mode.On() || yours || applied.Asked || r.hasMessages(ctx, projectID)) {
 				continue
 			}
 			reason = StopNoWork

@@ -908,8 +908,9 @@ func YourEditsToCheck(ctx context.Context, q store.Querier, projectID string) (C
 		var data map[string]any
 		_ = json.Unmarshal(ev.Data, &data)
 		switch {
-		case ev.Type == store.EventEdit && ev.Actor == "human", ev.Type == store.EventEditUndone:
-			// A restored version goes through the same checks (flujos §1).
+		case ev.Type == store.EventEdit && ev.Actor == "human", ev.Type == store.EventEditUndone, graph.IsAcceptedText(ev):
+			// A restored version goes through the same checks (flujos §1), and so
+			// does the text of a proposal you accepted (P-114).
 			edited[ev.ObjectID] = ev.Seq
 		case ev.Type == store.EventProbe,
 			ev.Type == store.EventOutputRetry && data["turn_kind"] == "checker" && data["result"] == "unchecked":

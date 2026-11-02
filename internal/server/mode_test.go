@@ -251,6 +251,18 @@ func TestB86_EveryHandlerThatClosesASignoffSaysSo(t *testing.T) {
 	if spy.closed != 3 {
 		t.Fatalf("after accepting a proposal on it: %d", spy.closed)
 	}
+	// P-114: the accepted text waits for the checker's pass and its decision.
+	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+		if _, err := tx.AppendEvent(store.EventInput{Type: store.EventProbe, Actor: "app",
+			Data: map[string]any{"sections": []string{"sec-1"}}}); err != nil {
+			return err
+		}
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventStepEnded, Actor: "agent", AgentRole: "principal",
+			Data: map[string]any{"turn_kind": "step", "decided_sections": []string{"sec-1"}}})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	sign = open()
 	if err := cycle.NewGate(db).RecordExplanation(context.Background(), projectID, sign, "Porque así la comparación es justa."); err != nil {
 		t.Fatal(err)
@@ -286,4 +298,90 @@ func versionOf(t *testing.T, db *store.DB, projectID, label string) int {
 		t.Fatal(err)
 	}
 	return sec.CurrentVersion
+}
+
+// editSpy counts the saves the runner's checker batch hears of (B-36).
+type editSpy struct {
+	*stubStarter
+	saved int
+}
+
+func (e *editSpy) EditSaved(string) { e.saved++ }
+
+// P-114: an accepted text goes to the checker's next batch, like your edit; a
+// discarded proposal does not.
+func TestB50_AcceptingAProposalArmsTheCheckersBatchAndDiscardingDoesNot(t *testing.T) {
+	db, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	spy := &editSpy{stubStarter: &stubStarter{}}
+	h := withVisitor(t, db, server.NewWithAPI(nil, server.NewHub(), db, spy))
+	projectID := newProject(t, h, nil)
+	base := "/api/projects/" + projectID
+	seedSignSection(t, db, projectID, "Comparamos solo estudios.", false)
+	rec := do(t, h, http.MethodPost, base+"/sections/sec-1/signoff", nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("signoff: %d %s", rec.Code, rec.Body.String())
+	}
+	for _, label := range []string{"prop-1", "prop-2"} {
+		step := replaceStep(versionOf(t, db, projectID, "sec-1"), "Comparamos solo estudios.", "Comparamos estudios.")
+		if applied := stepOn(t, db, projectID, step); !applied.Applied || len(applied.Proposals) != 1 || applied.Proposals[0] != label {
+			t.Fatalf("step: %+v", applied)
+		}
+	}
+	act(t, h, base, "prop-1", "discard")
+	if spy.saved != 0 {
+		t.Fatalf("discarding armed the batch: %d", spy.saved)
+	}
+	act(t, h, base, "prop-2", "accept")
+	if spy.saved != 1 {
+		t.Fatalf("accepting armed it %d times", spy.saved)
+	}
+}
+
+// P-114: the conversation's line under your message lasts while its signoff does.
+func TestB86_TheConversationSaysTheAgentAnswersWhenTheSignoffEnds(t *testing.T) {
+	db, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	h := withVisitor(t, db, server.NewWithAPI(nil, server.NewHub(), db, &stubStarter{}))
+	projectID := newProject(t, h, nil)
+	base := "/api/projects/" + projectID
+	seedSignSection(t, db, projectID, "Comparamos solo estudios.", false)
+	rec := do(t, h, http.MethodPost, base+"/sections/sec-1/signoff", nil)
+	var v graph.SignoffView
+	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil || rec.Code != http.StatusCreated {
+		t.Fatalf("signoff: %d %s", rec.Code, rec.Body.String())
+	}
+	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventHumanMessage, Actor: "human",
+			Data: map[string]any{"text": "¿Y esto?", "queued": true, "waits_signoff": true}})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	waits := func() bool {
+		t.Helper()
+		got := decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, base+"/conversation", nil))
+		for _, e := range got {
+			if e.Kind == "message" && e.Text == "¿Y esto?" {
+				return e.WaitsSignoff
+			}
+		}
+		t.Fatalf("no message: %+v", got)
+		return false
+	}
+	if !waits() {
+		t.Fatal("the line is missing during the signoff")
+	}
+	if rec := do(t, h, http.MethodPost, base+"/signoffs/"+v.Label+"/leave", nil); rec.Code != http.StatusOK {
+		t.Fatalf("leave: %d", rec.Code)
+	}
+	if waits() {
+		t.Fatal("the line outlived the signoff")
+	}
 }

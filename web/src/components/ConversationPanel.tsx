@@ -116,7 +116,12 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct 
   const t = (key: string) => translate(lang, key);
   switch (entry.kind) {
     case "message":
-      return <div className="msg me">{entry.text}</div>;
+      return (
+        <>
+          <div className="msg me">{entry.text}</div>
+          {entry.waits_signoff && <p className="meta" role="status">{t("message.waits_signoff")}</p>}
+        </>
+      );
     case "round":
       // Backlog-r3 3.2 (B-64): the round card, read from Go.
       return entry.label ? <RoundCard lang={lang} projectID={projectID} label={entry.label} onAct={onRoundAct} /> : null;

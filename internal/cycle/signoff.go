@@ -368,31 +368,42 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 			return ErrSignoffOutdated
 		}
 	}
-	pendings, openAtCap, stoppedBy, err := g.pendingsNow(ctx, projectID, section.Label)
-	if err != nil {
-		return err
-	}
-	if len(pendings) > 0 {
-		return &PendingsError{Pendings: pendings}
-	}
-	critical, err := graph.SectionCriticalDecisions(ctx, g.db, projectID, section.ID)
-	if err != nil {
-		return err
-	}
-	if len(critical) != len(body.Critical) {
-		return ErrSignoffOutdated
-	}
-	for i, d := range critical {
-		if body.Critical[i].ID != d.ID {
-			return ErrSignoffOutdated
-		}
-	}
 	opened, err := g.signoffOpenedAt(ctx, projectID, sign.ID)
 	if err != nil {
 		return err
 	}
+	// Which cap stopped the project is read outside: it asks the spend gate, and
+	// nothing it says is what an objection or a card can change under the signature.
+	stoppedBy := ""
+	if g.StoppedBy != nil {
+		if stoppedBy, err = g.StoppedBy(ctx, projectID); err != nil {
+			return err
+		}
+	}
 
 	return g.db.Write(ctx, projectID, func(tx *store.Tx) error {
+		// P-114: the pendings and the critical decisions are read in this
+		// transaction, so nothing opened after reading them gets signed over.
+		_, all, err := graph.SectionStatus(ctx, tx, projectID, section.Label)
+		if err != nil {
+			return err
+		}
+		pendings, openAtCap := graph.PendingsAtCap(all, stoppedBy)
+		if len(pendings) > 0 {
+			return &PendingsError{Pendings: pendings}
+		}
+		critical, err := graph.SectionCriticalDecisions(ctx, tx, projectID, section.ID)
+		if err != nil {
+			return err
+		}
+		if len(critical) != len(body.Critical) {
+			return ErrSignoffOutdated
+		}
+		for i, d := range critical {
+			if body.Critical[i].ID != d.ID {
+				return ErrSignoffOutdated
+			}
+		}
 		return TrackCriticality(ctx, tx, "", func() error {
 			body.SectionFingerprint = fingerprint.Section(bodyStr(bodyOf(section), "text"))
 			body.AnsweredCards = []string{}

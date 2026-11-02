@@ -264,20 +264,12 @@ type rushed struct {
 
 func newRushed(t *testing.T, name string) *rushed {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "tupaqnin-rushed-")
-	if err != nil {
-		t.Fatalf("temp dir: %v", err)
-	}
+	dir := t.TempDir()
 	db, err := store.Open(context.Background(), dir)
 	if err != nil {
 		t.Fatalf("store.Open: %v", err)
 	}
-	t.Cleanup(func() {
-		_ = db.Close()
-		if !t.Failed() {
-			_ = os.RemoveAll(dir)
-		}
-	})
+	t.Cleanup(func() { _ = db.Close() })
 	script := loadScript(t, name)
 	script.db = db
 	count := func(ctx context.Context, input []json.RawMessage) (int, error) {

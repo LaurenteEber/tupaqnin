@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -20,11 +21,14 @@ type ConversationEntry struct {
 	// Kind is message · step · understanding · card_answered ·
 	// stop_report · audience_question · round (backlog-r3 3.2: Label is
 	// the round; GET /rounds/{label} has its card).
-	Kind       string `json:"kind"`
-	Text       string `json:"text,omitempty"`
-	TriageLine string `json:"triage_line,omitempty"`
-	Reply      string `json:"reply,omitempty"`
-	Note       string `json:"note,omitempty"`
+	Kind string `json:"kind"`
+	Text string `json:"text,omitempty"`
+	// WaitsSignoff: on a message, the agent answers it when the signoff in
+	// progress ends (P-114).
+	WaitsSignoff bool   `json:"waits_signoff,omitempty"`
+	TriageLine   string `json:"triage_line,omitempty"`
+	Reply        string `json:"reply,omitempty"`
+	Note         string `json:"note,omitempty"`
 	// Status is accepted or agent_pending for a step or understanding.
 	Status     string `json:"status,omitempty"`
 	StopReason string `json:"stop_reason,omitempty"`
@@ -74,6 +78,12 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			reported[ev.TurnID] = true
 		}
 	}
+	signing, err := graph.SectionsInSignoff(r.Context(), s.db, projectID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	inSignoff := len(signing) > 0
 	out := []ConversationEntry{}
 	for _, ev := range events {
 		var data map[string]any
@@ -82,6 +92,10 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case ev.Type == store.EventHumanMessage:
 			entry.Kind, entry.Text = "message", str(data, "text")
+			// P-114: the line under your message, while its signoff lasts.
+			if waits, _ := data["waits_signoff"].(bool); waits && inSignoff {
+				entry.WaitsSignoff = true
+			}
 		case ev.Type == store.EventStepEnded && str(data, "turn_kind") == "understanding":
 			entry.Kind, entry.Status, entry.Text = "understanding", "accepted", str(data, "understood")
 		case ev.Type == store.EventStepEnded && str(data, "turn_kind") == "step":

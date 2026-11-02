@@ -62,3 +62,22 @@ func (db *DB) ProjectName(ctx context.Context, projectID string) (string, error)
 	}
 	return name, nil
 }
+
+// ProjectsWithMode are the projects with a mode_set in their history, for the
+// sweep of the modes a restart left on (P-114).
+func (db *DB) ProjectsWithMode(ctx context.Context) ([]string, error) {
+	rows, err := db.Reader.QueryContext(ctx, `SELECT DISTINCT project_id FROM event WHERE type = ?`, string(EventModeSet))
+	if err != nil {
+		return nil, fmt.Errorf("store: projects with mode: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("store: projects with mode: %w", err)
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}

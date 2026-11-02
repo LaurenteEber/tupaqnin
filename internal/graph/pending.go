@@ -213,10 +213,11 @@ func TextWithoutDecision(ctx context.Context, q store.Querier, projectID, sectio
 func textWithoutDecision(events []store.Event, sectionLabel string) bool {
 	open := false
 	for _, ev := range events {
-		if ev.Type != store.EventStepEnded {
+		data := eventData(ev)
+		// An accepted proposal's close carries them too (P-114).
+		if ev.Type != store.EventStepEnded && data["accepted_by"] != "human" {
 			continue
 		}
-		data := eventData(ev)
 		switch {
 		case contains(data["text_without_decision"], sectionLabel):
 			open = true
