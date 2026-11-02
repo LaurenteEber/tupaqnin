@@ -374,17 +374,22 @@ func (w *walk) toSignoff() (string, string, bool) {
 		// P-110: with Meta the model sets the order: go on until the goal.
 		// The rule's own card waits for step 5.
 		w.reachGoal("4 agent works", func() bool {
-			_, _, rule, _ := w.findRule()
-			return rule.Label != ""
-		}, func(c server.CardView) bool { return hasRuleWord(c.Statement) || hasRuleWord(c.InsteadOf) })
+			_, block, rule, _, _ := w.findRuleByRole()
+			return block != 0 && rule.Label != ""
+		}, func(c server.CardView) bool { return isComparisonRule(c.Statement, c.InsteadOf) })
 	}
-	ruleSection, block, rule, critical := w.findRule()
+	figureSection, block, rule, critical := w.findRule()
+	signSection := figureSection.Label
+	if w.byGoal {
+		// P-111: the rule is found by its role, in any section.
+		figureSection, block, rule, signSection, critical = w.findRuleByRole()
+	}
 	if block == 0 {
 		w.fail("4 agent works", "the agent wrote %q in no section (the comparison of case 5 is missing from the text)", caseFigure)
 	}
 	if rule.Label == "" {
-		w.fail("4 agent works", "%s has %q but none of its critical decisions with a card is the comparison rule "+
-			"(no %q in its statement or instead_of); critical decisions there: %q", ruleSection.Label, caseFigure, ruleWord, critical)
+		w.fail("4 agent works", "%s has %q but none of the critical decisions with a card is the comparison rule; "+
+			"critical decisions there: %q", figureSection.Label, caseFigure, critical)
 	}
 
 	// 5. The card: an option and a «porque»; then the history of the
@@ -393,10 +398,10 @@ func (w *walk) toSignoff() (string, string, bool) {
 	w.do("5 card", http.MethodPost, w.api("/cards/"+rule.Card+"/answer"),
 		map[string]any{"option": "keep", "reason": cardReason}, http.StatusOK, nil)
 	var history server.BlockHistoryView
-	w.do("5 history", http.MethodGet, w.api(fmt.Sprintf("/sections/%s/history?block=%d", ruleSection.Label, block)),
+	w.do("5 history", http.MethodGet, w.api(fmt.Sprintf("/sections/%s/history?block=%d", figureSection.Label, block)),
 		nil, http.StatusOK, &history)
 	if len(history.Entries) == 0 {
-		w.fail("5 history", "the history of block %d of %s is empty", block, ruleSection.Label)
+		w.fail("5 history", "the history of block %d of %s is empty", block, figureSection.Label)
 	}
 	// decision_seen with history is recorded only for each decision the
 	// block's history shows (M-1); a copied datum has none (A-3, P-58).
@@ -417,7 +422,7 @@ func (w *walk) toSignoff() (string, string, bool) {
 		// and only the agent closes them.
 		w.reachGoal("6 agent pendings", func() bool {
 			var d server.SectionDetail
-			w.do("6 agent pendings", http.MethodGet, w.api("/sections/"+ruleSection.Label), nil, http.StatusOK, &d)
+			w.do("6 agent pendings", http.MethodGet, w.api("/sections/"+signSection), nil, http.StatusOK, &d)
 			for _, p := range d.Pendings {
 				if !yoursToAnswer(p.Kind) {
 					return false
@@ -427,7 +432,7 @@ func (w *walk) toSignoff() (string, string, bool) {
 		}, nil)
 	}
 	var detail server.SectionDetail
-	w.do("6 open cards", http.MethodGet, w.api("/sections/"+ruleSection.Label), nil, http.StatusOK, &detail)
+	w.do("6 open cards", http.MethodGet, w.api("/sections/"+signSection), nil, http.StatusOK, &detail)
 	for _, p := range detail.Pendings {
 		switch p.Kind {
 		case graph.PendingOpenCard:
@@ -444,14 +449,14 @@ func (w *walk) toSignoff() (string, string, bool) {
 			// citing, so R-1 leaves its paragraphs «sin verificar». The
 			// jury accepts them with a «porque» (R-1); piece 2.10 records
 			// the slice-2 stretch of case 5 again.
-			w.do("6 unsourced claims", http.MethodPost, w.api("/sections/"+ruleSection.Label+"/claims/accept"),
+			w.do("6 unsourced claims", http.MethodPost, w.api("/sections/"+signSection+"/claims/accept"),
 				map[string]any{"passage": p.About, "reason": acceptReason}, http.StatusNoContent, nil)
 		}
 	}
 	var view graph.SignoffView
-	w.do("6 signoff", http.MethodPost, w.api("/sections/"+ruleSection.Label+"/signoff"), nil, http.StatusCreated, &view)
+	w.do("6 signoff", http.MethodPost, w.api("/sections/"+signSection+"/signoff"), nil, http.StatusCreated, &view)
 	w.do("6 signoff", http.MethodPost, w.api("/signoffs/"+view.Label+"/explanation"), map[string]any{"text": explanation}, http.StatusAccepted, nil)
-	return ruleSection.Label, view.Label, historyDecision
+	return signSection, view.Label, historyDecision
 }
 
 // wonderFirstRound checks Wonder's first round (P-57): at least one
@@ -520,6 +525,54 @@ func (w *walk) findRule() (server.SectionView, int, graph.FrameDecision, []strin
 		}
 	}
 	return ruleSection, block, rule, critical
+}
+
+// isComparisonRule says a critical decision is case 5's comparison rule by
+// what it says, in the words a model may use (P-111): it compares, and it names
+// the particle size. Accents and case do not count.
+func isComparisonRule(statement, insteadOf string) bool {
+	text := statement + " " + insteadOf
+	if !namesWord(text, "compar") {
+		return false
+	}
+	for _, size := range []string{"micra", "mínimo", "µm", "μm"} {
+		if namesWord(text, size) {
+			return true
+		}
+	}
+	return false
+}
+
+// ruleByRole is the comparison rule among the decisions with a card of any
+// section, the section that uses it, and the statements it looked at.
+func ruleByRole(frame graph.Frame) (graph.FrameDecision, string, []string) {
+	var rule graph.FrameDecision
+	section := ""
+	critical := []string{}
+	for _, s := range frame.Sections {
+		for _, d := range s.Decisions {
+			if d.Card == "" {
+				continue
+			}
+			critical = append(critical, s.Label+" "+d.Label+": "+d.Statement+" / instead of: "+d.InsteadOf)
+			if rule.Label == "" && isComparisonRule(d.Statement, d.InsteadOf) {
+				rule, section = d, s.Label
+			}
+		}
+	}
+	return rule, section, critical
+}
+
+// findRuleByRole is step 4's goal on the Meta walkthrough (P-111): the block
+// with 1,5, a copied datum that needs no decision there (A-3), and the rule
+// wherever the model used it, with the section to sign.
+func (w *walk) findRuleByRole() (server.SectionView, int, graph.FrameDecision, string, []string) {
+	w.t.Helper()
+	figureSection, block, _, _ := w.findRule()
+	var frame graph.Frame
+	w.do("4 agent works", http.MethodGet, w.api("/frame"), nil, http.StatusOK, &frame)
+	rule, section, critical := ruleByRole(frame)
+	return figureSection, block, rule, section, critical
 }
 
 // maxGoalRounds and goOnMessage are the Meta walkthrough's way forward

@@ -81,6 +81,40 @@ func TestP110_TheCaseRequestNamesTheNotesAndTheSourcesSayOneMicra(t *testing.T) 
 	}
 }
 
+// P-111: the Meta walkthrough finds the rule by its role, in any section,
+// whichever word the model uses for the size.
+func TestP111_TheRuleIsFoundByRoleInAnySection(t *testing.T) {
+	for _, tc := range []struct {
+		statement string
+		want      bool
+	}{
+		{"Comparar solo a igual tamaño mínimo de partícula.", true},
+		{"La COMPARACIÓN usa estudios desde 20 MICRAS.", true},
+		{"Comparo desde 20 µm.", true},
+		{"Comparo desde 20 μm.", true},
+		{"Comparar por marcas de botella.", false},
+		{"Se usa un tamaño mínimo de 20 micras.", false},
+	} {
+		if got := isComparisonRule(tc.statement, ""); got != tc.want {
+			t.Errorf("%q: %v, want %v", tc.statement, got, tc.want)
+		}
+	}
+	if !isComparisonRule("Usar solo estudios a igual umbral.", "Comparar sin mirar el mínimo.") {
+		t.Error("its contrast counts too")
+	}
+	frame := graph.Frame{Sections: []graph.FrameSection{
+		{Label: "sec-2", Decisions: []graph.FrameDecision{
+			{Label: "dec-1", Card: "", Statement: "Comparar a igual mínimo, sin tarjeta."},
+			{Label: "dec-2", Card: "card-1", Statement: "Incluir solo estudios de campo."}}},
+		{Label: "sec-3", Decisions: []graph.FrameDecision{
+			{Label: "dec-3", Card: "card-2", Statement: "Comparar a igual tamaño mínimo."}}},
+	}}
+	rule, section, critical := ruleByRole(frame)
+	if rule.Label != "dec-3" || section != "sec-3" || len(critical) != 2 {
+		t.Fatalf("rule %q in %q; looked at %q", rule.Label, section, critical)
+	}
+}
+
 // paulaNudge is what the jury would say if the agent passes over the citation
 // in the notes (P-110).
 const paulaNudge = "¿Puedes revisar la cita de Valdivia y Ortiz (2022) que está en mis notas?"
