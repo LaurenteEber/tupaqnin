@@ -364,6 +364,7 @@
   "stop_report.open": "Por aclarar y tarjetas ({n})",
   "stop_report.open.card": "Tarjeta",
   "stop_report.open.open_question": "Por aclarar",
+  "stop_report.agent_pendings": "Pendientes del agente ({n})",
   "stop_report.unseen_decisions": "Decisiones que no viste ({n})",
   "stop_report.next": "Siguiente",
   "stop_report.continue": "Sigue",

@@ -1068,11 +1068,22 @@ export interface UnseenDecision {
 /**
  * ReportCitation is one citation of the stop report, by its section and
  * the literal claim it backs: verified when its passage is literal in
- * its source (comes_from), not verified when not (B-41).
+ * its source (comes_from) and no open pending says otherwise, not verified
+ * when not (B-41, P-111).
  */
 export interface ReportCitation {
   section: string;
   claim: string;
+}
+/**
+ * ReportPending is one of the agent's open pendings in the stop report.
+ */
+export interface ReportPending {
+  section: string;
+  kind: string;
+  about?: string;
+  cause?: string;
+  passage?: string;
 }
 /**
  * ReportOpenItem is one open card or «por aclarar» of the stop report

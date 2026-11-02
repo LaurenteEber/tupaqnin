@@ -38,6 +38,15 @@ type StopReportOpenItem struct {
 	Text  string `json:"text"`
 }
 
+// StopReportPending is one of the agent's open pendings in the report
+// (P-111); the page names it by its kind, its cause and its passage.
+type StopReportPending struct {
+	Section SectionRef `json:"section"`
+	Kind    string     `json:"kind"`
+	Cause   string     `json:"cause,omitempty"`
+	Passage string     `json:"passage,omitempty"`
+}
+
 // StopReportView is P6 [2]: the last stop report and whether you opened
 // it (backlog-r2 2.5). First the answer; Section is the section it
 // evaluates, nil when none, and ProposeSignoff whether the app proposes
@@ -55,6 +64,7 @@ type StopReportView struct {
 	Verified        []StopReportCitation `json:"verified"`
 	NotVerified     []StopReportCitation `json:"not_verified"`
 	Open            []StopReportOpenItem `json:"open"`
+	AgentPendings   []StopReportPending  `json:"agent_pendings"`
 	PrincipalFailed bool                 `json:"principal_failed"`
 	// AudienceQuestions are the open audience questions of the report's
 	// section (backlog-r2 2.6, P6 «preparación de la defensa»), each
@@ -116,7 +126,7 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 	view := StopReportView{Seen: report.Seen, CreatedAt: report.CreatedAt, StopReason: string(report.StopReason),
 		ProposeSignoff: report.ProposeSignoff, Answer: report.Answer, Done: report.Done, Next: report.Next,
 		Decisions: []StopReportDecision{}, Verified: []StopReportCitation{}, NotVerified: []StopReportCitation{},
-		Open: []StopReportOpenItem{}, PrincipalFailed: report.PrincipalFailed,
+		Open: []StopReportOpenItem{}, AgentPendings: []StopReportPending{}, PrincipalFailed: report.PrincipalFailed,
 		AudienceQuestions: []graph.AudienceQuestion{}}
 	if view.Done == nil {
 		view.Done = []string{}
@@ -170,6 +180,10 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, o := range report.Open {
 		view.Open = append(view.Open, StopReportOpenItem{Kind: o.Kind, Label: o.Label, Text: o.Text})
+	}
+	for _, p := range report.AgentPendings {
+		view.AgentPendings = append(view.AgentPendings, StopReportPending{Section: s.sectionRef(ctx, projectID, p.Section),
+			Kind: p.Kind, Cause: p.Cause, Passage: p.Passage})
 	}
 	// The short return (B-48 b): what was detected since this report,
 	// and whether the conversation opens with it (unseen, no return line).

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -247,5 +248,53 @@ func TestB41_EmbeddedStopReportSchemaEqualsTheDesign(t *testing.T) {
 	}
 	if string(embedded) != string(design) {
 		t.Fatal("embedded schema differs from docs/diseno/bloque-3/salida-informe.schema.json")
+	}
+}
+
+// P-111, B-41: the report does not call verified a citation with an open
+// source_not_supporting, whatever its cause, and it lists the agent's open
+// pendings with their passage.
+func TestB41_TheReportReadsTheCheckerAndListsTheAgentsPendings(t *testing.T) {
+	db := seedCheckerProject(t)
+	runCheckedTurn(t, db, nil, textFixture(t, string(stepFile(t, "citations"))), checkerFixture(t, "source-not-supporting"))
+	reports := stopReports(t, db)
+	if len(reports) != 1 {
+		t.Fatalf("stop reports: %d", len(reports))
+	}
+	report := reports[0]
+	for _, c := range report.Verified {
+		if c.Claim == "Los estudios usan filtros." {
+			t.Fatalf("verified lists a citation the checker marked: %+v", report.Verified)
+		}
+	}
+	marked := false
+	for _, c := range report.NotVerified {
+		marked = marked || c.Claim == "Los estudios usan filtros."
+	}
+	if !marked {
+		t.Fatalf("not verified: %+v", report.NotVerified)
+	}
+	kinds := map[string]string{}
+	for _, p := range report.AgentPendings {
+		if p.Section != "sec-1" {
+			t.Fatalf("agent pending of another section: %+v", p)
+		}
+		kinds[p.Kind+":"+p.About] = p.Passage
+	}
+	if kinds[graph.PendingSourceNotSupporting+":cit-1"] != "Los estudios usan filtros." ||
+		len(report.AgentPendings) != 2 {
+		t.Fatalf("agent pendings: %+v", report.AgentPendings)
+	}
+}
+
+// P-111: yours are not listed as the agent's: an open card stays in «open».
+func TestB41_AReportWithoutAgentPendingsListsNone(t *testing.T) {
+	db, runner, _, _ := newCaptureRunner(t, textFixture(t, riskStep("none")))
+	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe."); err != nil {
+		t.Fatalf("RunTurn: %v", err)
+	}
+	reports := stopReports(t, db)
+	if len(reports) != 1 || len(reports[0].AgentPendings) != 0 {
+		t.Fatalf("reports: %+v", reports)
 	}
 }

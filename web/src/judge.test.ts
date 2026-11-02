@@ -105,3 +105,11 @@ test("3.7: a discard reads «fuente inexistente» and «pasaje ausente»", () =>
   assert.equal(en["digest.reason.source_not_found"], "source does not exist");
   assert.equal(en["digest.reason.passage_not_found"], "passage not found");
 });
+
+// P-111: the report's list of the agent's pendings has its title in both catalogs.
+test("P-111: the report names the agent's pendings", () => {
+  for (const lang of ["en", "es"]) {
+    const catalog = JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"));
+    assert.ok(catalog["stop_report.agent_pendings"], lang);
+  }
+});

@@ -246,7 +246,8 @@ func SectionClear(ctx context.Context, q store.Querier, projectID, label string)
 
 // ReportCitation is one citation of the stop report, by its section and
 // the literal claim it backs: verified when its passage is literal in
-// its source (comes_from), not verified when not (B-41).
+// its source (comes_from) and no open pending says otherwise, not verified
+// when not (B-41, P-111).
 type ReportCitation struct {
 	Section string `json:"section"`
 	Claim   string `json:"claim"`
@@ -269,6 +270,18 @@ func ReportCitations(ctx context.Context, q store.Querier, projectID string, sec
 			return nil, nil, err
 		}
 		text := Compare(bodyString(section, "text"))
+		// P-111: an open source_not_supporting, whatever its cause, is not
+		// verified: the checker's has its comes_from all the same.
+		_, pendings, err := SectionStatus(ctx, q, projectID, section.Label)
+		if err != nil {
+			return nil, nil, err
+		}
+		marked := map[string]bool{}
+		for _, p := range pendings {
+			if p.Kind == PendingSourceNotSupporting {
+				marked[p.About] = true
+			}
+		}
 		for _, c := range citations {
 			anchor := bodyString(c, "anchor")
 			if bodyString(c, "section_id") != section.ID || len(text.Find(anchor)) == 0 {
@@ -279,7 +292,7 @@ func ReportCitations(ctx context.Context, q store.Querier, projectID string, sec
 				return nil, nil, err
 			}
 			rc := ReportCitation{Section: section.Label, Claim: anchor}
-			if ok {
+			if ok && !marked[c.Label] {
 				verified = append(verified, rc)
 			} else {
 				notVerified = append(notVerified, rc)
@@ -287,6 +300,46 @@ func ReportCitations(ctx context.Context, q store.Querier, projectID string, sec
 		}
 	}
 	return verified, notVerified, nil
+}
+
+// ReportPending is one of the agent's open pendings in the stop report.
+type ReportPending struct {
+	Section string `json:"section"`
+	Kind    string `json:"kind"`
+	About   string `json:"about,omitempty"`
+	Cause   string `json:"cause,omitempty"`
+	Passage string `json:"passage,omitempty"`
+}
+
+// ReportAgentPendings are the project's open pendings that are the agent's,
+// all but your cards and «por aclarar», by section; the report's list (P-111).
+// A malformed output is the project's, not a section's: it is listed once.
+func ReportAgentPendings(ctx context.Context, q store.Querier, projectID string) ([]ReportPending, error) {
+	sections, err := q.ListObjects(ctx, projectID, store.ObjectSection)
+	if err != nil {
+		return nil, err
+	}
+	var out []ReportPending
+	malformed := false
+	for _, section := range sections {
+		_, pendings, err := SectionStatus(ctx, q, projectID, section.Label)
+		if err != nil {
+			return nil, err
+		}
+		text := bodyString(section, "text")
+		for _, p := range pendings {
+			if p.Kind == PendingOpenCard || p.Kind == PendingOpenQuestion || (p.Kind == PendingMalformedOutput && malformed) {
+				continue
+			}
+			malformed = malformed || p.Kind == PendingMalformedOutput
+			passage, err := pendingPassage(ctx, q, projectID, text, p)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, ReportPending{Section: section.Label, Kind: p.Kind, About: p.About, Cause: p.Cause, Passage: passage})
+		}
+	}
+	return out, nil
 }
 
 // ReportOpenItem is one open card or «por aclarar» of the stop report

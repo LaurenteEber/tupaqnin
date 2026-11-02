@@ -179,6 +179,8 @@ type StopReport struct {
 	Verified    []graph.ReportCitation `json:"verified"`
 	NotVerified []graph.ReportCitation `json:"not_verified"`
 	Open        []graph.ReportOpenItem `json:"open"`
+	// AgentPendings are the agent's open pendings (P-111).
+	AgentPendings []graph.ReportPending `json:"agent_pendings,omitempty"`
 	// The principal's part (salida-informe.schema.json). PrincipalFailed
 	// is set when its output failed twice: the report keeps the app's
 	// part only.
@@ -540,6 +542,9 @@ func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, 
 			return err
 		}
 		if report.Open, err = graph.ReportOpenItems(ctx, tx, projectID); err != nil {
+			return err
+		}
+		if report.AgentPendings, err = graph.ReportAgentPendings(ctx, tx, projectID); err != nil {
 			return err
 		}
 		if report.JudgeNotVerified, err = JudgeNotVerified(ctx, tx, projectID); err != nil {

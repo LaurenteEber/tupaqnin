@@ -364,6 +364,7 @@
   "stop_report.open": "To clarify and cards ({n})",
   "stop_report.open.card": "Card",
   "stop_report.open.open_question": "To clarify",
+  "stop_report.agent_pendings": "Pending for the agent ({n})",
   "stop_report.unseen_decisions": "Decisions you have not seen ({n})",
   "stop_report.next": "Next",
   "stop_report.continue": "Continue",

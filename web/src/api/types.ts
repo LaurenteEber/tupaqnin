@@ -909,6 +909,16 @@ export interface StopReportOpenItem {
   text: string;
 }
 /**
+ * StopReportPending is one of the agent's open pendings in the report
+ * (P-111); the page names it by its kind, its cause and its passage.
+ */
+export interface StopReportPending {
+  section: SectionRef;
+  kind: string;
+  cause?: string;
+  passage?: string;
+}
+/**
  * StopReportView is P6 [2]: the last stop report and whether you opened
  * it (backlog-r2 2.5). First the answer; Section is the section it
  * evaluates, nil when none, and ProposeSignoff whether the app proposes
@@ -927,6 +937,7 @@ export interface StopReportView {
   verified: StopReportCitation[];
   not_verified: StopReportCitation[];
   open: StopReportOpenItem[];
+  agent_pendings: StopReportPending[];
   principal_failed: boolean;
   /**
    * AudienceQuestions are the open audience questions of the report's

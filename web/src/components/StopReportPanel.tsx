@@ -123,6 +123,20 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
             ))}
           </ul>
         </details>
+        {report.agent_pendings.length > 0 && (
+          <details className="note">
+            <summary>{t("stop_report.agent_pendings", { n: String(report.agent_pendings.length) })}</summary>
+            <ul>
+              {report.agent_pendings.map((p, i) => (
+                <li key={i}>
+                  {t(`pending.${p.kind}`)}
+                  {p.cause && <> · {t(`pending.cause.${p.cause}`)}</>}
+                  {p.passage && <>: «{p.passage}»</>} · {p.section.title || t("section.untitled")}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         {report.decisions.length > 0 && (
           <details className="note">
             <summary>{t("stop_report.unseen_decisions", { n: String(report.decisions.length) })}</summary>
