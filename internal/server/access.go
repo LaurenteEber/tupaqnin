@@ -136,6 +136,19 @@ func setSessionCookie(w http.ResponseWriter, value string, withAccount bool) {
 	http.SetCookie(w, cookie)
 }
 
+// clearSessionCookie ends the cookie in the browser (B3-22 row 4), with the
+// attributes a __Host- cookie needs to be accepted at all.
+func clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookie,
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
 // redeemInvite is GET /i/{token} (B3-22 row 3): a valid link gives a
 // session without an account, or keeps the valid one you have, and
 // redirects to an address without the token. Anything else is a 404
@@ -175,7 +188,7 @@ func (s *Server) redeemInvite(w http.ResponseWriter, r *http.Request) {
 
 // createOwnedProject creates a project for the request's session, and
 // answers with the code that refused it, if any (403 link_budget, day_cap,
-// disk_full, account_required, link_full; B-89, B3-18, B3-22 row 2).
+// disk_full, account_required, account_limit, link_full; B-89, B3-18, B3-22 row 2).
 func (s *Server) createOwnedProject(r *http.Request, name string) (id string, status int, code string) {
 	sess, _ := r.Context().Value(sessionKey{}).(store.Session)
 	blocked, err := s.createBlocked(r.Context(), sess)
@@ -189,6 +202,8 @@ func (s *Server) createOwnedProject(r *http.Request, name string) (id string, st
 	switch {
 	case errors.Is(err, store.ErrAccountRequired):
 		return "", http.StatusForbidden, "account_required"
+	case errors.Is(err, store.ErrAccountLimit):
+		return "", http.StatusForbidden, "account_limit"
 	case errors.Is(err, store.ErrLinkFull):
 		return "", http.StatusForbidden, "link_full"
 	case err != nil:

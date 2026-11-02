@@ -245,9 +245,10 @@ func (db *DB) TouchSession(ctx context.Context, s Session, now time.Time) (bool,
 }
 
 // CreateOwnedProject creates a project for the session: with an account
-// it is the account's; without one, the rules of B3-18 and B3-22 row 2
-// are checked and the project created in one transaction over the single
-// writer, so two requests at once cannot both pass.
+// it is the account's, up to AccountProjectLimit; without one, the rules of
+// B3-18 and B3-22 row 2. Either way they are checked and the project created
+// in one transaction over the single writer, so two requests at once cannot
+// both pass.
 func (db *DB) CreateOwnedProject(ctx context.Context, s Session, name string, now time.Time) (string, error) {
 	id, err := newID()
 	if err != nil {
@@ -260,6 +261,22 @@ func (db *DB) CreateOwnedProject(ctx context.Context, s Session, name string, no
 	defer func() { _ = tx.Rollback() }()
 
 	if s.AccountID != "" {
+		var mine int
+		var revoked sql.NullString
+		if err := tx.QueryRowContext(ctx,
+			`SELECT (SELECT COUNT(*) FROM project WHERE account_id = ?), i.revoked_at
+			 FROM invitation i WHERE i.id = ?`, s.AccountID, s.InvitationID).Scan(&mine, &revoked); err != nil {
+			return "", fmt.Errorf("create project: %w", err)
+		}
+		// [EL DISEÑO NO LO DICE]: an account of a link revoked later is treated
+		// as a session without one below: what exists stays and no new project
+		// opens, with the same code.
+		if revoked.Valid {
+			return "", ErrLinkFull
+		}
+		if mine >= AccountProjectLimit {
+			return "", ErrAccountLimit
+		}
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO project (id, name, invitation_id, account_id, created_at) VALUES (?, ?, ?, ?, ?)`,
 			id, name, s.InvitationID, s.AccountID, timeText(now)); err != nil {

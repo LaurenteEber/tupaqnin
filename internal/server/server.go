@@ -145,6 +145,8 @@ type Server struct {
 	// inject the clock instead of sleeping.
 	now         func() time.Time
 	returnAfter time.Duration
+	// attempts is the limit per IP and the wait per account (B3-22 row 1).
+	attempts *store.LoginAttempts
 }
 
 // Option configures the API server.
@@ -200,7 +202,7 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		hub = NewHub()
 	}
 	s := &Server{hub: hub, logger: logger, db: db, starter: starter, editors: newEditors(), projectCap: 3,
-		now: time.Now, returnAfter: graph.ReturnAfter()}
+		now: time.Now, returnAfter: graph.ReturnAfter(), attempts: store.NewLoginAttempts()}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -258,6 +260,9 @@ func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) apiRoutes() []route {
 	return []route{
+		{"POST", "/api/account/register", s.register},
+		{"POST", "/api/account/login", s.login},
+		{"POST", "/api/account/logout", s.logout},
 		{"POST", "/api/projects", s.createProjectV2},
 		{"GET", "/api/projects", s.listProjects},
 		{"GET", "/api/projects/{projectID}/request", s.getRequest},

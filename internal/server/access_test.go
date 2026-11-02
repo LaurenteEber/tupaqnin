@@ -122,8 +122,8 @@ func wantCode(t *testing.T, what string, rec *httptest.ResponseRecorder, status 
 	}
 }
 
-// accountCookie is another account's session: its row is written here
-// because registering arrives with E.5.
+// accountCookie is an account's session with its rows written directly, for
+// the tests that do not need a password nor the time of its hash.
 func accountCookie(t *testing.T, a *access, invitationID string) *http.Cookie {
 	t.Helper()
 	cookie, hash, err := store.NewSecret()
@@ -147,10 +147,10 @@ func accountCookie(t *testing.T, a *access, invitationID string) *http.Cookie {
 // nothing; without a cookie, 401.
 func TestB3_22_6_EveryProjectRouteChecksOwner(t *testing.T) {
 	a := newAccess(t)
-	linkID, token := newLink(t, a.db, "jury", 10)
+	_, token := newLink(t, a.db, "jury", 10)
 	owner := a.visitor(t, token)
 	other := a.visitor(t, token)
-	otherAccount := accountCookie(t, a, linkID)
+	otherAccount := a.registered(t, token, "other-account")
 	projectID := a.project(t, owner)
 	if rec := a.do(http.MethodPost, "/api/projects/"+projectID+"/sections", owner, map[string]any{"title": "Alcance"}); rec.Code != http.StatusCreated {
 		t.Fatalf("seed section: %d (%s)", rec.Code, rec.Body.String())
