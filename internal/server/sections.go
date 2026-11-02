@@ -203,6 +203,8 @@ type SummaryView struct {
 	StoppedBy string `json:"stopped_by"`
 	// Mode is the mode now (B-83: normal · run_to_completion), for the bar.
 	Mode string `json:"mode"`
+	// ModeWaitsSignoff: the mode is on and waits for your signoff (P-115).
+	ModeWaitsSignoff bool `json:"mode_waits_signoff,omitempty"`
 	// RunningTurn is the turn of the mode's chain running now, if any: the page
 	// follows it when it did not start it.
 	RunningTurn string `json:"running_turn,omitempty"`
@@ -249,6 +251,12 @@ func (s *Server) getSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view.Mode = mode.Mode
+	if waiter, ok := s.starter.(SignoffWaiter); ok {
+		if view.ModeWaitsSignoff, err = waiter.ModeWaitsForSignoff(r.Context(), projectID); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+	}
 	if f, ok := s.starter.(ChainFollower); ok && mode.On() {
 		view.RunningTurn = f.RunningTurn(projectID)
 	}

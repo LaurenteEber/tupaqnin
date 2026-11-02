@@ -56,10 +56,14 @@ func SectionUndo(ctx context.Context, q store.Querier, projectID, sectionID stri
 		case store.EventEdit:
 			data := eventData(ev)
 			if ev.Actor != "human" {
-				run, reason = nil, UndoReasonAgentWrote
-				if data["accepted_by"] == "human" {
-					reason = UndoReasonProposalAccepted
+				// It takes away an edit of yours only if there is one under it (P-115).
+				if len(run) > 0 || reason != UndoReasonNoEdit {
+					reason = UndoReasonAgentWrote
+					if data["accepted_by"] == "human" {
+						reason = UndoReasonProposalAccepted
+					}
 				}
+				run = nil
 				continue
 			}
 			entry := undoEntry{version: ev.NewVersion, restores: ev.BaseVersion}

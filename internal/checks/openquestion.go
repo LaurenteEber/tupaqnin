@@ -231,11 +231,13 @@ func OpenObjection(ctx context.Context, tx *store.Tx, dec store.Object, reason s
 		return map[string]any{"option": text, mark: true, "contrast": bodyText(dec, "would_choose_if"),
 			"consequence": strings.Join(titles, ", "), "risk": "", "risk_reasons": critical[dec.ID]}
 	}
-	return Open(ctx, tx, OpenQuestion{Question: reason,
+	// P-115: the question is the decision, literal; your reason goes apart, and the
+	// page says «¿Mantener…?» around it.
+	return Open(ctx, tx, OpenQuestion{Question: bodyText(dec, "statement"),
 		Options:   []map[string]any{option(bodyText(dec, "statement"), "keep"), option(bodyText(dec, "instead_of"), "other")},
 		DependsOn: dependsOn,
 		Extra: map[string]any{"origin": OriginObjection, "keeps": map[string]any{"kind": KeepDecision, "id": dec.ID},
-			"previous_state": dec.State, "objected_decision": dec.Label, "undeclared_by_agent": false},
+			"previous_state": dec.State, "objected_decision": dec.Label, "objection_reason": reason, "undeclared_by_agent": false},
 		Event: store.EventInput{Type: store.EventStateChanged, Actor: "human", Reason: reason,
 			Data: map[string]any{"via": OriginObjection, "decision": dec.Label, "previous_state": dec.State}}})
 }

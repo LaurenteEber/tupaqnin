@@ -1,3 +1,4 @@
+import { editingKind } from "../saveStatus";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
@@ -94,6 +95,10 @@ export function SectionEditor({
     editorProps: {
       attributes: { class: "section-editor-content" },
     },
+    // P-115: what you type is not saved yet; no «Saved» until its PUT returns.
+    onUpdate: ({ editor: e }) => {
+      status.current?.(editingKind(joinParagraphs(e.state.doc, separators), base.current.savedText));
+    },
   });
 
   const currentText = () => (editor ? joinParagraphs(editor.state.doc, separators) : text);
@@ -161,12 +166,12 @@ export function SectionEditor({
     if (result.kind === "saved") {
       base.current = { version: result.version, savedText: value };
       shown.current = value;
-      status.current?.("saved");
+      status.current?.(editingKind(currentText(), value));
       onSaved(label, result.version, value);
     } else if (result.kind === "unchanged") {
       base.current = { version: base.current.version, savedText: value };
       shown.current = value;
-      status.current?.("saved");
+      status.current?.(editingKind(currentText(), value));
     } else if (result.kind === "conflict") {
       status.current?.("conflict");
     } else {

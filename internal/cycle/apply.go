@@ -106,6 +106,9 @@ type ApplyResult struct {
 	// Proposals are the labels of the proposals the step left (B-73, B-77):
 	// its texts that were not applied, and go to the person.
 	Proposals []string
+	// OnlyRepeats: all the step left are proposals identical to one already open
+	// or discarded: it is no work for the mode's idle count (P-115).
+	OnlyRepeats bool
 	// Stretch is the stretch the app settled after rule 0 (B-43);
 	// Reclassified says why a direct step became build, nil otherwise.
 	Stretch      string
@@ -218,7 +221,8 @@ func (g *Gate) applyChainStep(ctx context.Context, projectID, turnID string, out
 		rejected = append(rejected, c["message"].(string))
 	}
 	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Proposals: p.proposals, Work: work, Asked: len(asked) > 0,
-		Stretch: p.stretch, Reclassified: p.reclassified, Change: p.change, Round: p.round}, nil
+		OnlyRepeats: p.repeatedProposals == len(p.proposals) && len(p.proposals) > 0 && len(plan.sections) == 0 && len(out.NewDecisions) == 0 && p.round == "",
+		Stretch:     p.stretch, Reclassified: p.reclassified, Change: p.change, Round: p.round}, nil
 }
 
 // sortedDecidedElsewhere are the sections with a decision of this step that
@@ -301,6 +305,8 @@ type project struct {
 	yourEdits map[string]int
 	// proposals are the labels of the proposals this step left.
 	proposals []string
+	// repeatedProposals: how many of them repeat one open or discarded (P-115).
+	repeatedProposals int
 	// newCitations and change are what the checker judges after the step
 	// (backlog-r2 2.3): the citations the step created and its change.
 	newCitations []string

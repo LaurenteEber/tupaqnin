@@ -138,6 +138,13 @@ func (p *project) createProposals(tx *store.Tx, turnID string, out stepOutput, p
 		for _, c := range sp.citations {
 			b.Citations = append(b.Citations, graph.ProposalCitation{Anchor: c.ClaimAnchor, SourceID: resolve(c.SourceID), Passage: c.Passage})
 		}
+		repeated, err := repeatsProposal(ctx, tx, b)
+		if err != nil {
+			return nil, err
+		}
+		if repeated {
+			p.repeatedProposals++
+		}
 		obj, err := tx.CreateObject(store.ObjectProposal, "open", b, store.EventInput{
 			Type: store.EventStateChanged, Actor: "agent", AgentRole: "principal", TurnID: turnID,
 			Data: map[string]any{"section": sp.ref, "to": "open", "why": sp.why}})
@@ -171,6 +178,32 @@ func closeProposalWith(tx *store.Tx, obj store.Object, b graph.ProposalBody, sta
 	_, err := tx.UpdateObject(obj.ID, obj.CurrentVersion, state, b,
 		store.EventInput{Type: store.EventStateChanged, Actor: "human", Data: data})
 	return err
+}
+
+// repeatsProposal says an identical proposal is already open or was discarded:
+// same section, same texts, same new section (P-115).
+func repeatsProposal(ctx context.Context, tx *store.Tx, b graph.ProposalBody) (bool, error) {
+	all, err := tx.ListObjects(ctx, tx.ProjectID(), store.ObjectProposal)
+	if err != nil {
+		return false, err
+	}
+	key := func(p graph.ProposalBody) string {
+		raw, _ := json.Marshal([]any{p.SectionID, p.Edits(), p.NewSection})
+		return string(raw)
+	}
+	for _, obj := range all {
+		if obj.State != "open" && obj.State != "discarded" {
+			continue
+		}
+		other, err := graph.ParseProposal(obj)
+		if err != nil {
+			return false, err
+		}
+		if key(other) == key(b) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // discardAtSigning is B-76: the section's open proposals go to discarded

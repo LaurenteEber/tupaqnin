@@ -725,7 +725,7 @@ export function App() {
             <span className="lbl">{t("chat.title")}</span>
             {projectID && summary && <ModelLine lang={lang} summary={summary} />}
             {projectID && summary && (
-              <ModeBar lang={lang} mode={summary.mode} disabled={!editor} onSet={setMode} />
+              <ModeBar lang={lang} mode={summary.mode} waitsSignoff={summary.mode_waits_signoff} disabled={!editor} onSet={setMode} />
             )}
           </div>
           <div className="scroll">

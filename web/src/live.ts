@@ -128,6 +128,11 @@ export function roundKeepsPolling(card: {
   return card.running || card.parts.some((p) => p.status === "running") || (card.kind === "judge" && card.state === "open");
 }
 
+// The bar's word for the mode on (P-115): Go says when it waits for your signoff.
+export function modeBarKey(waitsSignoff?: boolean): string {
+  return waitsSignoff ? "mode.waits_signoff" : "mode.run_to_completion";
+}
+
 // The key of why a chain stopped: the mode's last stop says it by its cause
 // (B-83), computed in Go; only the wording is the page's.
 export function stopKey(reason: string, cause?: string): string {

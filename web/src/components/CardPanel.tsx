@@ -92,7 +92,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
           <p>{t("card.sections")}: {card.sections.map((s) => s.title || t("section.untitled")).join(", ")}</p>
           {onDecisionActed && (
             <DecisionActions lang={lang} projectID={projectID} decision={card.decision} canObject={card.can_object}
-              canRevoke={card.can_revoke} onActed={onDecisionActed} />
+              canRevoke={card.can_revoke} presetReason={reasons[card.label]} onActed={onDecisionActed} />
           )}
           {card.own_edit ? (
             <>
@@ -153,7 +153,14 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
               what: [...q.sections.map((s) => s.title || t("section.untitled")), ...q.decisions].join(", "),
             })}
           </h3>
-          <p>{q.question}</p>
+          {q.objection_reason ? (
+            <>
+              <p>{t("oq.objection.question", { statement: q.question })}</p>
+              <p className="meta">{t("oq.objection.reason")}: {q.objection_reason}</p>
+            </>
+          ) : (
+            <p>{q.question}</p>
+          )}
           {q.options.map((o, i) => (
             <label key={i} className="oq-option">
               <input

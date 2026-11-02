@@ -368,11 +368,10 @@ func TestB83_AStepThatLeavesAProposalDoesNotCountAsIdle(t *testing.T) {
 	if _, err := cycle.ConfirmPlan(ctx, db, "p1"); err != nil {
 		t.Fatal(err)
 	}
-	proposes := `{"stretch":"build","triage_line":"C.","closing_risk":"none","note":"n",` + proposedQuestion +
-		`,"proposed_roles":[{"section_id":"new-9","role":"other","title":"Otra"}]}`
 	var fixtures []provider.Fixture
-	for range 4 {
-		fixtures = append(fixtures, textFixture(t, proposes))
+	for _, title := range []string{"Una", "Dos", "Tres", "Cuatro"} {
+		fixtures = append(fixtures, textFixture(t, `{"stretch":"build","triage_line":"C.","closing_risk":"none","note":"n",`+proposedQuestion+
+			`,"proposed_roles":[{"section_id":"new-9","role":"other","title":"`+title+`"}]}`))
 	}
 	// The fake replays its list in a loop, so the idle steps are listed too.
 	for range cycle.ModeMaxIdleSteps {

@@ -257,11 +257,12 @@ func TestB79_AfterUndoTheDisplacedProposalStaysOpenAndCanBeAccepted(t *testing.T
 	if last["_actor"] != "agent" || last["accepted_by"] != "human" {
 		t.Fatalf("edit: %v", last)
 	}
-	if detail["undo_available"] != false || detail["undo_reason"] != "proposal_accepted" {
+	// P-115: your edit was undone, so none is left to name.
+	if detail["undo_available"] != false || detail["undo_reason"] != "no_edit" {
 		t.Fatalf("undo is off with its reason: %v", detail)
 	}
 	if rec := do(t, h, http.MethodPost, base+"/sections/sec-1/undo", nil); rec.Code != http.StatusConflict ||
-		decode[map[string]any](t, rec)["reason"] != "proposal_accepted" {
+		decode[map[string]any](t, rec)["reason"] != "no_edit" {
 		t.Fatalf("undo after accepting: %d", rec.Code)
 	}
 }

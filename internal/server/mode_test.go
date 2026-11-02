@@ -399,3 +399,79 @@ func TestB86_TheConversationSaysTheAgentAnswersWhenTheSignoffEnds(t *testing.T) 
 		t.Fatal("the line came back on an answered message")
 	}
 }
+
+// P-115 item 3: a refused «ok» is no answer: one answer, one line.
+func TestH1_OneAnswerToACardIsOneLineAfterARefusedOk(t *testing.T) {
+	db, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	h := withVisitor(t, db, server.NewWithAPI(nil, server.NewHub(), db, &stubStarter{}))
+	projectID := newProject(t, h, nil)
+	base := "/api/projects/" + projectID
+	seedSignSection(t, db, projectID, "Comparamos solo estudios.", true)
+	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+		dec, err := tx.GetObject(context.Background(), projectID, "dec-1")
+		if err != nil {
+			return err
+		}
+		_, err = tx.CreateObject(store.ObjectCard, "open", map[string]any{"decision_id": dec.ID, "chosen_option": "", "reason": ""},
+			store.EventInput{Type: store.EventStateChanged, Actor: "agent"})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	card := func(reason string) int {
+		return do(t, h, http.MethodPost, base+"/cards/card-1/answer", map[string]any{"option": "keep", "reason": reason}).Code
+	}
+	lines := func() int {
+		n := 0
+		for _, e := range decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, base+"/conversation", nil)) {
+			if e.Kind == "card_answered" {
+				n++
+			}
+		}
+		return n
+	}
+	if code := card("ok"); code != http.StatusUnprocessableEntity {
+		t.Fatalf("«ok»: %d", code)
+	}
+	if n := lines(); n != 0 {
+		t.Fatalf("a refused «ok» shows %d lines", n)
+	}
+	if code := card("Porque así la comparación es justa."); code != http.StatusOK {
+		t.Fatalf("answer: %d", code)
+	}
+	if n := lines(); n != 1 {
+		t.Fatalf("one answer shows %d lines", n)
+	}
+}
+
+// P-115 item 5: the view gives your reason apart from the question.
+func TestE1_TheOpenQuestionViewGivesYourReasonApart(t *testing.T) {
+	db, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	h := withVisitor(t, db, server.NewWithAPI(nil, server.NewHub(), db, &stubStarter{}))
+	projectID := newProject(t, h, nil)
+	base := "/api/projects/" + projectID
+	seedSignSection(t, db, projectID, "Comparamos solo estudios.", true)
+	const reason = "Porque el promedio esconde los extremos."
+	rec := do(t, h, http.MethodPost, base+"/decisions/dec-1/object", map[string]any{"reason": reason})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("object: %d %s", rec.Code, rec.Body.String())
+	}
+	body := do(t, h, http.MethodGet, base+"/todo", nil).Body.String()
+	var todo struct {
+		OpenQuestions []server.OpenQuestionView `json:"open_questions"`
+	}
+	if err := json.Unmarshal([]byte(body), &todo); err != nil || len(todo.OpenQuestions) != 1 {
+		t.Fatalf("todo: %s, %v", body, err)
+	}
+	if q := todo.OpenQuestions[0]; q.ObjectionReason != reason || q.Question == reason {
+		t.Fatalf("question %q, reason %q", q.Question, q.ObjectionReason)
+	}
+}

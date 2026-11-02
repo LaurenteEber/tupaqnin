@@ -95,6 +95,10 @@ a schema. Use labels exactly as the brief gives them (for example
 
 ## Rules
 
+- When the brief lists open questions already asked, do not return a
+  candidate that asks the same thing in other words: the person already
+  has it to answer. Return the probe's verdict as usual.
+
 - Copy passages literally; never paraphrase or translate them.
 - Judge what the text says, not whether it is well written.
 - Do not propose new text and do not choose an option.

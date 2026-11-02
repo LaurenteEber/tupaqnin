@@ -1,3 +1,4 @@
+import { atCapPendingKey } from "../decisionActs";
 import { useCallback, useEffect, useState } from "react";
 import {
   askFromSignoff,
@@ -191,7 +192,7 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
               <ul>
                 {view.pendings_at_cap.map((p, i) => (
                   <li key={i}>
-                    {t(`pending.${p.kind}`)}
+                    {t(atCapPendingKey(p.kind))}
                     {p.about && <> · «{p.about}»</>}
                     {p.cause && <> · {t(`pending.cause.${p.cause}`)}</>}
                   </li>

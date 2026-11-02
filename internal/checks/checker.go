@@ -419,6 +419,25 @@ func Brief(ctx context.Context, q store.Querier, projectID string, change Change
 		}
 	}
 	line("")
+	// P-115: what is already asked, so a candidate does not repeat it.
+	asked, err := q.ListObjects(ctx, projectID, store.ObjectOpenQuestion)
+	if err != nil {
+		return "", err
+	}
+	header := false
+	for _, oq := range asked {
+		if oq.State != "open" {
+			continue
+		}
+		if !header {
+			line("## Open questions already asked (open no candidate that repeats one)")
+			header = true
+		}
+		line("%s", graph.Delimit(graph.DataPassage, bodyText(oq, "question")))
+	}
+	if header {
+		line("")
+	}
 	bySection := map[string][]string{}
 	var order []string
 	for _, p := range change.Passages {

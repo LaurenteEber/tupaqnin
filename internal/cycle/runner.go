@@ -1422,6 +1422,10 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		// P-114: a step that answers your message does not count, as B-83 says of
 		// the mode's end, and it does not reset the count either.
 		switch {
+		case applied.OnlyRepeats:
+			if mode.On() && !yours {
+				state.idleSteps++
+			}
 		case applied.Work || applied.Round != "" || len(applied.Proposals) > 0:
 			state.idleSteps = 0
 		case mode.On() && !yours:
@@ -1449,6 +1453,10 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 			if now.On() && state.idleSteps < ModeMaxIdleSteps && (!mode.On() || yours || applied.Asked || r.hasMessages(ctx, projectID)) {
 				continue
 			}
+			reason = StopNoWork
+			break
+		}
+		if now.On() && state.idleSteps >= ModeMaxIdleSteps && !r.hasMessages(ctx, projectID) {
 			reason = StopNoWork
 			break
 		}

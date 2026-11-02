@@ -89,6 +89,22 @@ func (r *Runner) RunningTurn(projectID string) string {
 	return r.queues[projectID].turn
 }
 
+// ModeWaitsForSignoff says the mode is on with nothing running because a signoff
+// is in progress over the threshold (B-86): the bar says so (P-115).
+func (r *Runner) ModeWaitsForSignoff(ctx context.Context, projectID string) (bool, error) {
+	mode, err := r.mode(ctx, projectID)
+	if err != nil || !mode.On() {
+		return false, err
+	}
+	r.mu.Lock()
+	busy := r.running[projectID]
+	r.mu.Unlock()
+	if busy {
+		return false, nil
+	}
+	return r.cleanupWaitsForSignoff(ctx, projectID)
+}
+
 func (r *Runner) setChainTurn(projectID, turnID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

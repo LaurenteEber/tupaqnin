@@ -80,7 +80,7 @@ func TestE1_TheObjectRouteOpensTheQuestionTheTodoShows(t *testing.T) {
 		t.Fatalf("todo: %+v", todo)
 	}
 	q := todo.OpenQuestions[0]
-	if q.Question != objectionReason || len(q.Options) != 2 || !q.Options[0].Keep || q.Options[0].Option != "Cobrar por asiento." ||
+	if q.Question != "Cobrar por asiento." || q.ObjectionReason != objectionReason || len(q.Options) != 2 || !q.Options[0].Keep || q.Options[0].Option != "Cobrar por asiento." ||
 		!q.Options[1].Other || q.Options[1].Option != "Otra vía." || q.Options[0].Contrast != "Hubiera uso medido." ||
 		len(q.Sections) != 1 || len(q.Decisions) != 1 {
 		t.Fatalf("question: %+v", q)

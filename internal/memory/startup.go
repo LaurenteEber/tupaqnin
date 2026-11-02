@@ -505,6 +505,9 @@ func openQuestionLine(b body, state string) string {
 	}
 	line := b.str("question")
 	if d := b.str("objected_decision"); d != "" {
+		if why := b.str("objection_reason"); why != "" {
+			line = why
+		}
 		line = "The person objected to " + d + ": " + line
 	}
 	if b.boolean("question_is_data") {

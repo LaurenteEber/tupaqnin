@@ -18,9 +18,10 @@ test("every reason «Deshacer» can be off has its words, in both languages", ()
   assert.ok(en["undo.error"] && es["undo.error"]);
 });
 
-test("the button's line says why only when there was something to undo", () => {
+test("P-115: the button's line says why it is off, also with no edit of yours", () => {
   assert.equal(undoLineKey(true, ""), "");
-  assert.equal(undoLineKey(false, "no_edit"), "");
+  assert.equal(undoLineKey(false, "no_edit"), "undo.reason.no_edit");
+  assert.equal(en["undo.reason.no_edit"], "No edit of yours to undo.");
   assert.equal(undoLineKey(false, "agent_wrote"), "undo.reason.agent_wrote");
 });
 

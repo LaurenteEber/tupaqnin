@@ -23,6 +23,11 @@ type ChainFollower interface {
 	RunningTurn(projectID string) string
 }
 
+// SignoffWaiter says the mode waits for a signoff (P-115).
+type SignoffWaiter interface {
+	ModeWaitsForSignoff(ctx context.Context, projectID string) (bool, error)
+}
+
 // SignoffCloser is told every time a signoff closes (B-86): if the mode goes on
 // and the chain waited for it, the chain reopens.
 type SignoffCloser interface {

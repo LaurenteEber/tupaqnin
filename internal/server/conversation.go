@@ -90,9 +90,20 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 	}
 	inSignoff := len(signing) > 0
 	out := []ConversationEntry{}
+	// The act of an answer the app refused (a card's «ok») is timed too, but you
+	// did not answer: it follows its answer_without_reason (P-115).
+	refused := map[string]bool{}
 	for _, ev := range events {
 		var data map[string]any
 		_ = json.Unmarshal(ev.Data, &data)
+		if ev.Type == store.EventAnswerWithoutReason {
+			refused[ev.ObjectID] = true
+			continue
+		}
+		if ev.Type == store.EventActTimed && refused[ev.ObjectID] {
+			delete(refused, ev.ObjectID)
+			continue
+		}
 		entry := ConversationEntry{CreatedAt: ev.CreatedAt}
 		switch {
 		case ev.Type == store.EventHumanMessage:

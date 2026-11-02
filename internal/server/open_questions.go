@@ -42,6 +42,9 @@ type OpenQuestionView struct {
 	UndeclaredByAgent bool                 `json:"undeclared_by_agent"`
 	NewPassage        string               `json:"new_passage,omitempty"`
 	ClashingPassage   string               `json:"clashing_passage,omitempty"`
+	// ObjectionReason: born from an objection, Question is the decision and this
+	// is your reason (P-115).
+	ObjectionReason string `json:"objection_reason,omitempty"`
 }
 
 type AnswerOpenQuestionResponse struct {
@@ -73,7 +76,8 @@ func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Obj
 	undeclared, _ := b["undeclared_by_agent"].(bool)
 	view := OpenQuestionView{Label: q.Label, State: q.State, Question: str(b, "question"),
 		Options: []OpenQuestionOption{}, Sections: []SectionRef{}, Decisions: []string{}, Variants: []string{},
-		UndeclaredByAgent: undeclared, NewPassage: str(b, "new_passage"), ClashingPassage: str(b, "clashing_passage")}
+		UndeclaredByAgent: undeclared, NewPassage: str(b, "new_passage"), ClashingPassage: str(b, "clashing_passage"),
+		ObjectionReason: str(b, "objection_reason")}
 	options, _ := b["options"].([]any)
 	for _, o := range options {
 		m, _ := o.(map[string]any)

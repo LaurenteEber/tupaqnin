@@ -1,12 +1,14 @@
+import { modeBarKey } from "../live";
 import { useState } from "react";
 import { translate, type Lang } from "../i18n";
 
 // H-3 (backlog-r4 4.4, B-83): the mode in the conversation's header, with its
 // one-line warning and the field of your message when you activate it. Go keeps
 // the mode; this only asks for it.
-export function ModeBar({ lang, mode, disabled, onSet }: {
+export function ModeBar({ lang, mode, waitsSignoff, disabled, onSet }: {
   lang: Lang;
   mode: string;
+  waitsSignoff?: boolean;
   disabled: boolean;
   onSet: (mode: string, message: string) => Promise<void>;
 }) {
@@ -17,7 +19,7 @@ export function ModeBar({ lang, mode, disabled, onSet }: {
   if (mode === "run_to_completion") {
     return (
       <span className="mode-bar">
-        <b>{t("mode.run_to_completion")}</b>{" "}
+        <b>{t(modeBarKey(waitsSignoff))}</b>{" "}
         <button type="button" className="small" disabled={disabled} onClick={() => void onSet("normal", "")}>
           {t("mode.turn_off")}
         </button>

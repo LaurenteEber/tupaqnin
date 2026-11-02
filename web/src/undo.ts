@@ -14,7 +14,7 @@ export function undoReasonKey(code: string): string {
 // The line under the section's button: only when something could be undone
 // and is not, since with no edit of yours there is nothing to explain.
 export function undoLineKey(available: boolean, reason: string): string {
-  return available || !reason || reason === "no_edit" ? "" : undoReasonKey(reason);
+  return available || !reason ? "" : undoReasonKey(reason);
 }
 
 // The key of one motive of an alert.

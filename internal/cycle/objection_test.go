@@ -96,7 +96,7 @@ func TestE1_ObjectingAnAgentDecisionOpensTheTwoOptionsAndTheOtherMakesItYours(t 
 		t.Fatalf("dec-2: %s", dec.State)
 	}
 	oq, body := object(t, db, "oq-1")
-	if oq.State != "open" || body["question"] != objectReason || body["origin"] != "objection" || body["previous_state"] != "agent" {
+	if oq.State != "open" || body["objection_reason"] != objectReason || body["origin"] != "objection" || body["previous_state"] != "agent" {
 		t.Fatalf("oq-1: %s %v", oq.State, body)
 	}
 	opts := optionsOf(body)

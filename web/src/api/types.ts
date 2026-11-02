@@ -520,6 +520,11 @@ export interface OpenQuestionView {
   undeclared_by_agent: boolean;
   new_passage?: string;
   clashing_passage?: string;
+  /**
+   * ObjectionReason: born from an objection, Question is the decision and this
+   * is your reason (P-115).
+   */
+  objection_reason?: string;
 }
 export interface AnswerOpenQuestionResponse {
   open_question: string;
@@ -970,6 +975,10 @@ export interface SummaryView {
    * Mode is the mode now (B-83: normal · run_to_completion), for the bar.
    */
   mode: string;
+  /**
+   * ModeWaitsSignoff: the mode is on and waits for your signoff (P-115).
+   */
+  mode_waits_signoff?: boolean;
   /**
    * RunningTurn is the turn of the mode's chain running now, if any: the page
    * follows it when it did not start it.
