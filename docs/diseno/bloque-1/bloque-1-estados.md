@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 1 · Estados de los objetos
-estado: 30-oct · los casos se conservan al cambiar un criterio (B-46); quién decide si pide evidencia (B-51) · 30-oct · título, «qué debe abordar» y orden de una sección no la mueven (K-17) · 30-oct · pendientes: afirmación sin fuente (R-1, rebanada 2) y sección sin texto en borrador (B-21) · v1.11 · 28-oct · rol vacío en «+ Sección»: lo propone el principal (K-17) · v1.10 · 28-oct · rol de una sección que creas tú (K-17) · v1.9 · 28-oct · la app valida «reemplaza» (§1, B2-7 del bloque 2) · v1.8 · 28-oct · la historia registra el modo, tus mensajes y el informe de parada (los usa el bloque 2) · v1.7 · 27-oct · K-13 y N-1; K-12 retirada (los objetos con estados son nodos del grafo del proyecto, fichas §9, salvo la historia, que son sus eventos; el rol es un atributo de la sección) · corregido tras su validación (V1–V8), la auditoría de perfiles y el barrido de coherencia; E-1, E-2, E-4, G-1, A-1, A-4, K-1, K-2, K-5, K-6, K-10, K-11 y M-1 adoptadas
+estado: 1-nov · deshacer con B-49 y B-79: tu edición no reemplaza decisiones, así que deshacerla no las toca (quitadas «tu edición» como causa de «reemplazada» y las 3 transiciones de deshacer) · 30-oct · los casos se conservan al cambiar un criterio (B-46); quién decide si pide evidencia (B-51) · 30-oct · título, «qué debe abordar» y orden de una sección no la mueven (K-17) · 30-oct · pendientes: afirmación sin fuente (R-1, rebanada 2) y sección sin texto en borrador (B-21) · v1.11 · 28-oct · rol vacío en «+ Sección»: lo propone el principal (K-17) · v1.10 · 28-oct · rol de una sección que creas tú (K-17) · v1.9 · 28-oct · la app valida «reemplaza» (§1, B2-7 del bloque 2) · v1.8 · 28-oct · la historia registra el modo, tus mensajes y el informe de parada (los usa el bloque 2) · v1.7 · 27-oct · K-13 y N-1; K-12 retirada (los objetos con estados son nodos del grafo del proyecto, fichas §9, salvo la historia, que son sus eventos; el rol es un atributo de la sección) · corregido tras su validación (V1–V8), la auditoría de perfiles y el barrido de coherencia; E-1, E-2, E-4, G-1, A-1, A-4, K-1, K-2, K-5, K-6, K-10, K-11 y M-1 adoptadas
 relacion: amplía §4 de bloque-1-fichas.md; sigue el ciclo de bloque-1.md (v4.9). Es lo que el bloque 3 guarda y lo que el bloque 2 entrega en literal
 ---
 
@@ -50,16 +50,13 @@ stateDiagram-v2
   [*] --> DelAgente: la registra el agente
   [*] --> Tuya: la escribes tú · respondes una tarjeta
   DelAgente --> Confirmada: crítica · respondes su tarjeta eligiéndola, con «porque»
-  DelAgente --> Reemplazada: tu edición · eliges la alternativa · el agente la cambia (fuera de lo firmado)
-  Tuya --> Reemplazada: tu edición · eliges otra opción (nace una tuya) · deshaces la edición que la creó (G-1)
-  Confirmada --> Reemplazada: tu edición · eliges otra opción (nace una tuya)
+  DelAgente --> Reemplazada: eliges la alternativa · el agente la cambia (fuera de lo firmado)
+  Tuya --> Reemplazada: eliges otra opción (nace una tuya)
+  Confirmada --> Reemplazada: eliges otra opción (nace una tuya)
   PorAclarar --> Reemplazada: eliges otra opción (nace una tuya)
   DelAgente --> PorAclarar: la objetas
   Tuya --> PorAclarar: la objetas
   Confirmada --> PorAclarar: la objetas
-  Reemplazada --> DelAgente: deshaces tu edición (G-1), si era del agente
-  Reemplazada --> Tuya: deshaces tu edición (G-1), si era tuya
-  Reemplazada --> Confirmada: deshaces tu edición (G-1), si estaba confirmada
   PorAclarar --> Tuya: la eliges a ella, con «porque»
   Tuya --> Revocada: la revocas
   Confirmada --> Revocada: la revocas
@@ -71,7 +68,7 @@ stateDiagram-v2
 - **Una decisión del agente rige al nacer** (nadie bloquea). Si es crítica, abre una tarjeta; si no, queda en la historia.
 - **El agente solo reemplaza sus propias decisiones,** y solo fuera de lo firmado. No reemplaza una decisión tuya, una confirmada ni una de una sección firmada: si su trabajo la contradice, salta la comprobación de contradicción y te pregunta. La app lo valida: rechaza una salida cuyo «reemplaza» apunte a una de esas decisiones (fichas §3).
 - **«Reemplazada» guarda el vínculo** con la decisión que la sustituye. «Revocada» no tiene sucesora: revocar es solo tuyo.
-- **Deshacer (G-1):** si deshaces la edición que reemplazó una decisión, esa decisión vuelve a su estado anterior y la que nació de tu edición pasa a «reemplazada». Una tarjeta abierta por esa edición pasa a «obsoleta» (§3).
+- **Deshacer (G-1, B-79):** tu edición no cambia el estado de ninguna decisión (B-49: si toca una crítica, su tarjeta solo pide el «porque»), así que deshacerla tampoco. La tarjeta abierta por esa edición pasa a «obsoleta» (§3). «Deshacer» revierte tu última edición de la sección mientras siga vigente, y las anteriores si son tuyas y seguidas.
 - **Objetar (E-1):** lleva la decisión a «por aclarar». Eliges tú, con «porque».
 - **Al reemplazar o revocar,** las secciones que la usan reciben su aviso: «cambió» si están firmadas, «escrita con lo anterior» si no.
 
@@ -81,7 +78,7 @@ stateDiagram-v2
 |---|---|---|
 | **Abierta** | Respondida | Eliges una opción y escribes un «porque». En la tarjeta de tu propia edición crítica (R4) no hay opción que elegir: basta el «porque» |
 | Abierta | Abierta | «ok», «sí» o el campo vacío |
-| Abierta | Obsoleta | En la tarjeta de tu edición crítica eliges «fue un error · deshacer»: tu edición se deshace y la decisión vuelve a como estaba (G-1) |
+| Abierta | Obsoleta | En la tarjeta de tu edición crítica eliges «fue un error · deshacer»: tu edición se deshace; la decisión no había cambiado (G-1, B-49, B-79) |
 | Abierta | Obsoleta | La decisión cambió antes de que respondieras; la app la cierra y abre la que corresponda |
 | **Respondida** | — | Queda en la historia con tu «porque» |
 
@@ -127,7 +124,7 @@ Solo se agrega; nunca se edita. Con ella se reconstruye el estado de todo lo de 
 
 La historia por párrafo se arma con estos eventos.
 
-**Presupuesto:** sección 5 estados · decisión 6 · los demás 2 a 4. Las transiciones nuevas de la v1.3 (3 hacia «reemplazada») no agregan estados. A-1 tampoco: cambia cómo se sale de «escrita con lo anterior». La v1.5 agrega 2 objetos de 2 y 3 estados (rol de la sección, K-2; pregunta del destinatario, K-1) y 3 transiciones de deshacer (G-1). La v1.6 agrega 0 estados: una transición del rol (K-13) y 3 tipos de arista en el grafo (N-1).
+**Presupuesto:** sección 5 estados · decisión 6 · los demás 2 a 4. Las transiciones nuevas de la v1.3 (3 hacia «reemplazada») no agregan estados. A-1 tampoco: cambia cómo se sale de «escrita con lo anterior». La v1.5 agrega 2 objetos de 2 y 3 estados (rol de la sección, K-2; pregunta del destinatario, K-1) y 3 transiciones de deshacer (G-1; quitadas el 1-nov: con B-49 tu edición no reemplaza decisiones). La v1.6 agrega 0 estados: una transición del rol (K-13) y 3 tipos de arista en el grafo (N-1).
 
 **Para el bloque 2:** el índice de la capa 2 debe usar los 5 estados de la sección más el número de pendientes. «Por aclarar» no es un estado de la sección.
 

@@ -112,7 +112,7 @@ erDiagram
 | fuente · `source` | — (cada reemplazo es una versión nueva) | `kind`: `file` · `web` · `calculation` · `url` · `filename` · `media_type` · `text` (en un PDF, el extraído) · `fingerprint` (§4, B-9) · `replaces` (id) | A-1 · F-1 · F-2 |
 | «por aclarar» · `open_question` | `open` · `resolved` | `question` · `options` {`contrast`, `consequence`, `risk`} · `depends_on` · `variants` rotuladas | Estados §4 · P5 · D21 |
 | tarjeta · `card` | `open` · `answered` · `obsolete` | `decision_id` · `chosen_option` · `reason` | Estados §3 · P2 · R4 |
-| propuesta · `proposal` | `open` · `accepted` · `discarded` | `section_id` · `base_version` · `anchor` · `operation`: `replace` · `insert_after` · `text` · `contrast` (T-4) | Estados §5 · D11 · C3 |
+| propuesta · `proposal` | `open` · `accepted` · `discarded` | `section_id` · `base_version` · `anchor` · `operation`: `replace` · `insert_after` · `replace_all` (la propuesta desplazada por tu edición, sin ancla; B-73 d) · `text` · `contrast` (T-4) · y lo que se aplica al aceptarla: `figures` · `citations` · `handled_changes` · `new_section` (título y «aquí se concluye», B-77). Una por sección y por paso (backlog-r4) | Estados §5 · D11 · C3 |
 | firma · `signoff` | — | ver §4 («lo que guarda la firma») | Estados §1 · fichas §2 |
 | pregunta del destinatario · `audience_question` | `open` · `addressed` · `declined` | `question` · `section_id` | Estados §9 · K-1 |
 | ronda · `round` | `open` · `closed` | `kind`: `research` · `judge` · `reduced_doubt`: `yes` · `partly` · `no` · `coverage_inventory` (lo asignado y lo leído) | Estados §7 · A-5 |
@@ -203,7 +203,7 @@ erDiagram
 | Tu edición | Lo que sea del agente o la app | Se aplica la tuya; lo del agente que quedó debajo pasa a propuesta |
 | Tu edición desde otra pestaña | — | No ocurre: la segunda pestaña es de solo lectura |
 
-- **Deshacer (G-1):** cada edición tuya se revierte con un clic. Deshacer es un evento nuevo que restaura la versión anterior; si había una propuesta desplazada, vuelve a abrirse.
+- **Deshacer (G-1):** cada edición tuya se revierte con un clic. Deshacer es un evento nuevo que restaura la versión anterior; si había una propuesta desplazada, sigue abierta (estados §5, B-79).
 - **Edición sospechosa (G-1):** la app la detecta por regla (borra más de la mitad de la sección o borra texto con decisiones vinculadas `[inicial]`) y muestra un aviso con «Deshacer». No bloquea.
 - **Guardado:** al salir del campo, cada ~30 s, al ocultar la pestaña y siempre antes de enviar un mensaje o firmar (se toma). El cliente no envía si el documento no cambió.
 
