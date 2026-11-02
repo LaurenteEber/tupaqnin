@@ -224,6 +224,13 @@ func malformedOutputOpen(events []store.Event) bool {
 			}
 		case store.EventStepEnded:
 			open = false
+		case store.EventStopReport:
+			// [EL DISEÑO NO LO DICE]: a stop at the project's cap closes it: no
+			// step can, and a failed step says nothing about the built text
+			// (B3-20: the cap never keeps you from signing it).
+			if eventData(ev)["stop_reason"] == "project_cap" {
+				open = false
+			}
 		}
 	}
 	return open

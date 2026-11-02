@@ -212,7 +212,9 @@ func recordCall(ctx context.Context, rec CallRecorder, req Request, resp Respons
 	if req.Effort != "" {
 		modelAndEffort += " " + req.Effort
 	}
-	return rec.RecordModelCall(ctx, store.ModelCall{
+	// The call is over and its cost known: an aborted request still pays it
+	// (B3-22 row 2).
+	return rec.RecordModelCall(context.WithoutCancel(ctx), store.ModelCall{
 		ProjectID: req.ProjectID, InstanceID: req.InstanceID, TurnID: req.TurnID,
 		Role: string(req.Role), ModelAndEffort: modelAndEffort,
 		InputTokens: resp.Usage.InputTokens, OutputTokens: resp.Usage.OutputTokens,

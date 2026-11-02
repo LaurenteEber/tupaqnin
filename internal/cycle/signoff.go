@@ -806,6 +806,10 @@ func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLab
 	input := []json.RawMessage{userItem(brief)}
 	filter := newFieldFilter(nil) // Wonder's JSON is read on the signoff screen, not streamed
 	resp, model, effort, unavailable, err := r.callContraster(ctx, projectID, turnID, input, filter)
+	if capErr, ok := asCap(err); ok {
+		r.publishCapStop(projectID, turnID, capErr)
+		return nil
+	}
 	if err != nil {
 		r.fail(projectID, turnID, "provider_error")
 		return nil
@@ -819,6 +823,10 @@ func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLab
 	if result.Status == StatusRetry {
 		retry := append(append(append([]json.RawMessage{}, input...), resp.RawItems...), userItem(RetryMessage(result.Errors)))
 		resp, err = r.contrast(ctx, projectID, turnID, model, effort, retry, filter)
+		if capErr, ok := asCap(err); ok {
+			r.publishCapStop(projectID, turnID, capErr)
+			return nil
+		}
 		if err != nil {
 			r.fail(projectID, turnID, "provider_error")
 			return nil
@@ -978,6 +986,10 @@ func (r *Runner) runSignoffAsk(ctx context.Context, projectID, turnID, signLabel
 	if err != nil {
 		if werr := r.recordAsk(ctx, projectID, turnID, signLabel, text, ""); werr != nil {
 			return werr
+		}
+		if capErr, ok := asCap(err); ok {
+			r.publishCapStop(projectID, turnID, capErr)
+			return nil
 		}
 		r.fail(projectID, turnID, "provider_error")
 		return nil

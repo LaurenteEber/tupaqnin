@@ -88,6 +88,8 @@ func main() {
 	runner := cycle.NewRunner(db, prov, countTokens, hub)
 	runner.Logger = logger
 	runner.ProjectCapUSD = cfg.SpendCapProjectUSD
+	runner.SpendCapDayUSD = cfg.SpendCapDayUSD
+	runner.SpendCapTotalUSD = cfg.SpendCapTotalUSD
 	// The readers' evidence (B-60): one shared client; with the fake
 	// provider, the embedded recordings, never the network (3.2).
 	if cfg.Provider == config.ProviderFake {
@@ -101,7 +103,7 @@ func main() {
 	srv := &http.Server{
 		Addr: ":" + cfg.Port,
 		Handler: server.NewWithAPI(logger, hub, db, runner, server.WithProjectCap(cfg.SpendCapProjectUSD),
-			server.WithProvider(cfg.Provider)),
+			server.WithProvider(cfg.Provider), server.WithDiskFull(server.DiskFull(cfg.DataDir))),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 20,

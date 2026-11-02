@@ -60,6 +60,7 @@ const (
 	// block the signoff (B-15), as DefenseFailed.
 	JudgeFailed     = "judge_failed"
 	JudgeProjectCap = "project_cap"
+	JudgeDemoCap    = "demo_cap"
 
 	// Why the round entered (fichas §8.3: a listed risk, or your audit).
 	// [EL DISEÑO NO LO DICE]: the two values' names.
@@ -242,20 +243,15 @@ func (r *Runner) callJudge(ctx context.Context, projectID, turnID, brief string,
 		return judgeOutput{}, "", err
 	}
 	input := []json.RawMessage{userItem(brief)}
-	dearest := 0.0
 	for attempt := 1; attempt <= 2; attempt++ {
-		over, err := r.digestOverCap(ctx, projectID, dearest)
-		if err != nil {
-			return judgeOutput{}, "", err
-		}
-		if over {
-			return judgeOutput{}, JudgeProjectCap, nil
-		}
 		resp, err := r.prov.Respond(ctx, provider.Request{ProjectID: projectID, TurnID: turnID,
 			Role: provider.RoleJudge, TurnKind: provider.TurnJudgeVerify,
 			Model: provider.JudgeVerifyModel, Effort: provider.JudgeVerifyEffort,
 			Instructions: judgeVerifyInstructions, Input: input, Schema: schema, SchemaStrict: true,
 			JudgeRecheck: recheck}, nil)
+		if capErr, ok := asCap(err); ok {
+			return judgeOutput{}, capErr.Reason, nil
+		}
 		var errs []string
 		var out judgeOutput
 		if err != nil {
@@ -265,7 +261,6 @@ func (r *Runner) callJudge(ctx context.Context, projectID, turnID, brief string,
 			// The provider's error body is never kept (T-10).
 			errs = []string{"provider_error"}
 		} else {
-			dearest = max(dearest, resp.Usage.CostUSD)
 			if errs, out, err = validate(resp.Text); err != nil {
 				return judgeOutput{}, "", err
 			}
@@ -544,10 +539,11 @@ func (r *Runner) verifyTouched(ctx context.Context, projectID, publishTurn strin
 			touched = append(touched, label)
 		}
 	}
-	over, err := r.digestOverCap(ctx, projectID, 0)
+	capErr, err := r.overCap(ctx, projectID, provider.RoleJudge, provider.TurnJudgeVerify)
 	if err != nil {
 		return false, err
 	}
+	over := capErr != nil
 	waiting := false
 	for _, label := range touched {
 		if failed[label] || (over && slices.Contains(notVerified, label)) {
@@ -1072,7 +1068,7 @@ func JudgeNotVerified(ctx context.Context, q store.Querier, projectID string) ([
 	}
 	var out []string
 	for _, id := range order {
-		if last[id] == JudgeFailed || last[id] == JudgeProjectCap {
+		if last[id] == JudgeFailed || last[id] == JudgeProjectCap || last[id] == JudgeDemoCap {
 			sec, err := q.GetObject(ctx, projectID, id)
 			if err != nil {
 				return nil, err

@@ -305,6 +305,14 @@ export interface RenameProjectRequest {
 }
 
 //////////
+// source: disk.go
+
+/**
+ * SpendChecker is what the runner knows of the caps (B-89).
+ */
+export type SpendChecker = any;
+
+//////////
 // source: h3.go
 
 /**
@@ -817,6 +825,15 @@ export interface SummaryView {
    * ended; this field of the summary, which it already reads.
    */
   defense_preparing: boolean;
+  /**
+   * Warn: what the project spent is at 80 % of its cap or more (B3-20).
+   */
+  warn: boolean;
+  /**
+   * StoppedBy is the cap that keeps the agent from its next call (B-89):
+   * project_cap, link, day or total; empty when none does.
+   */
+  stopped_by: string;
 }
 /**
  * DefensePreparer reports a defense in preparation (P-92); the runner
@@ -828,9 +845,8 @@ export type DefensePreparer = any;
 // source: server.go
 /*
 Package server implements HTTP, streaming and access for tupaqnin
-(specification §6). In this base skeleton it only serves /healthz
-and the embedded minimal page; streaming and invitation access
-arrive in slice 0 and the delivery slice.
+(specification §6): the API, the turn streams, the embedded web page
+and the access by invitation link.
 */
 
 /**
@@ -928,6 +944,10 @@ export interface StopReportView {
   seen: boolean;
   created_at: string;
   stop_reason: string;
+  /**
+   * Cap says which of the demo's caps stopped the chain (B-89).
+   */
+  cap?: string;
   section?: SectionRef;
   propose_signoff: boolean;
   answer: string;

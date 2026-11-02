@@ -168,6 +168,9 @@ type ReportUnseen struct {
 // computes from the graph (B-39, B-41) and what the principal wrote.
 type StopReport struct {
 	StopReason StopReason `json:"stop_reason"`
+	// Cap says which of the demo's caps stopped the chain (B-89: link, day
+	// or total), with stop_reason demo_cap.
+	Cap string `json:"cap,omitempty"`
 	// Section is the evaluated section's label, "" when the chain wrote
 	// none; ProposeSignoff is true only when it could be signed now
 	// (graph.SectionClear), whatever the principal wrote.
@@ -426,86 +429,40 @@ func reportRequest(reason StopReason, section, title string, clear bool, decisio
 // (same instance, kept in model_call), with its tools and no streaming;
 // after two failures the report keeps the app's part (PrincipalFailed)
 // and leaves no agent pending (P-75 (c)).
-func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, reason StopReason) error {
+//
+// When the call does not fit in a cap (B-89) the report keeps the app's part
+// with that stop, and the refusal is returned.
+func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, reason StopReason) (*provider.CapError, error) {
+	return r.stopReport(ctx, projectID, turnID, reason, nil)
+}
+
+// writeCapReport is the report of a turn a cap already stopped: no call.
+func (r *Runner) writeCapReport(ctx context.Context, projectID, turnID string, capErr *provider.CapError) error {
+	_, err := r.stopReport(ctx, projectID, turnID, StopReason(capErr.Reason), capErr)
+	return err
+}
+
+func (r *Runner) stopReport(ctx context.Context, projectID, turnID string, reason StopReason, capErr *provider.CapError) (*provider.CapError, error) {
 	touched, err := graph.TouchedSinceStop(ctx, r.db, projectID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	section, err := r.gate.evaluatedSection(ctx, projectID, touched)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	decisions, err := graph.UnseenDecisions(ctx, r.db, projectID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	title, clear := "", false
-	if section != "" {
-		if sec, err := r.db.GetObject(ctx, projectID, section); err == nil {
-			var b struct {
-				Title string `json:"title"`
-			}
-			_ = json.Unmarshal(sec.Body, &b)
-			title = b.Title
-		}
-		if clear, err = graph.SectionClear(ctx, r.db, projectID, section); err != nil {
-			return err
-		}
-	}
-	_, schema, err := stopReportSchemas()
-	if err != nil {
-		return err
-	}
-	instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
-	if err != nil {
-		return err
-	}
-	input := startupInput
-	if !started {
-		if input, err = r.conversation(ctx, projectID, instanceID); err != nil {
-			return err
-		}
-	}
-	input = append(input, userItem(reportRequest(reason, section, title, clear, decisions)))
-	refs := make([]provider.ReportDecision, 0, len(decisions))
-	for _, d := range decisions {
-		refs = append(refs, provider.ReportDecision{Label: d.Label, Sections: d.Sections})
-	}
-
 	var out reportOutput
 	ok := false
-	for attempt := 1; attempt <= 2 && !ok; attempt++ {
-		resp, sent, err := r.respond(ctx, provider.Request{
-			ProjectID: projectID, TurnID: turnID, InstanceID: instanceID,
-			Role: provider.RolePrincipal, TurnKind: provider.TurnStopReport, Model: provider.PrincipalModel,
-			Effort: provider.PrincipalEffort, Instructions: stopReportInstructions,
-			Input: input, Schema: schema, SchemaStrict: true, ReportDecisions: refs,
-		}, nil)
-		var errs []string
-		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			// The provider's error body is never kept (T-10).
-			errs = []string{"provider_error"}
-		} else if errs, out, err = validateReport(ctx, r.db, projectID, resp.Text, decisions); err != nil {
-			return err
+	if capErr == nil {
+		if out, ok, capErr, err = r.askReport(ctx, projectID, turnID, reason, section, decisions); err != nil {
+			return nil, err
 		}
-		if len(errs) == 0 {
-			ok = true
-			break
-		}
-		// P-75 (c): the report's retry leaves no agent pending (estados
-		// §1 ties those to a section; the report writes in none): after
-		// two failures the stop_report keeps the app's part and says it
-		// is incomplete (PrincipalFailed).
-		data := map[string]any{"turn_kind": "stop_report", "attempt": attempt, "errors": errs}
-		if err := r.gate.append(ctx, projectID, store.EventInput{Type: store.EventOutputRetry,
-			Actor: "agent", AgentRole: "principal", TurnID: turnID, Data: data}); err != nil {
-			return err
-		}
-		if sent != nil {
-			input = append(append(append([]json.RawMessage{}, sent...), resp.RawItems...), userItem(RetryMessage(errs)))
+		if capErr != nil {
+			reason = StopReason(capErr.Reason)
 		}
 	}
 
@@ -514,6 +471,9 @@ func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, 
 		var err error
 		report = StopReport{StopReason: reason, Section: section, Decisions: decisions,
 			Done: []string{}, Unseen: []ReportUnseen{}}
+		if capErr != nil {
+			report.Cap = capErr.Cap
+		}
 		if ok {
 			report.Answer, report.Next = out.Answer, out.Next
 			if out.Done != nil {
@@ -555,12 +515,93 @@ func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, 
 		return err
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// The defense, at the stop that proposes signing (backlog-r2 2.6),
-	// after the report and outside its transaction.
-	if report.ProposeSignoff && report.Section != "" {
-		return r.prepareDefense(ctx, projectID, turnID, report.Section)
+	// after the report and outside its transaction. At a cap it waits.
+	if capErr == nil && report.ProposeSignoff && report.Section != "" {
+		return nil, r.prepareDefense(ctx, projectID, turnID, report.Section)
 	}
-	return nil
+	return capErr, nil
+}
+
+// askReport asks the principal for its part of the report, with one retry.
+// ok is false after two failures; a call the gate refused is no failure: it
+// ends the asking with no output_retry and returns the refusal.
+func (r *Runner) askReport(ctx context.Context, projectID, turnID string, reason StopReason, section string,
+	decisions []graph.UnseenDecision) (out reportOutput, ok bool, capErr *provider.CapError, err error) {
+	title, clear := "", false
+	if section != "" {
+		if sec, err := r.db.GetObject(ctx, projectID, section); err == nil {
+			var b struct {
+				Title string `json:"title"`
+			}
+			_ = json.Unmarshal(sec.Body, &b)
+			title = b.Title
+		}
+		if clear, err = graph.SectionClear(ctx, r.db, projectID, section); err != nil {
+			return out, false, nil, err
+		}
+	}
+	_, schema, err := stopReportSchemas()
+	if err != nil {
+		return out, false, nil, err
+	}
+	if capErr, err = r.overCap(ctx, projectID, provider.RolePrincipal, provider.TurnStopReport); err != nil || capErr != nil {
+		return out, false, capErr, err
+	}
+	instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
+	if err != nil {
+		return out, false, nil, err
+	}
+	input := startupInput
+	if !started {
+		if input, err = r.conversation(ctx, projectID, instanceID); err != nil {
+			return out, false, nil, err
+		}
+	}
+	input = append(input, userItem(reportRequest(reason, section, title, clear, decisions)))
+	refs := make([]provider.ReportDecision, 0, len(decisions))
+	for _, d := range decisions {
+		refs = append(refs, provider.ReportDecision{Label: d.Label, Sections: d.Sections})
+	}
+
+	for attempt := 1; attempt <= 2 && !ok; attempt++ {
+		resp, sent, err := r.respond(ctx, provider.Request{
+			ProjectID: projectID, TurnID: turnID, InstanceID: instanceID,
+			Role: provider.RolePrincipal, TurnKind: provider.TurnStopReport, Model: provider.PrincipalModel,
+			Effort: provider.PrincipalEffort, Instructions: stopReportInstructions,
+			Input: input, Schema: schema, SchemaStrict: true, ReportDecisions: refs,
+		}, nil)
+		if refused, isCap := asCap(err); isCap {
+			return out, false, refused, nil
+		}
+		var errs []string
+		if err != nil {
+			if ctx.Err() != nil {
+				return out, false, nil, ctx.Err()
+			}
+			// The provider's error body is never kept (T-10).
+			errs = []string{"provider_error"}
+		} else if errs, out, err = validateReport(ctx, r.db, projectID, resp.Text, decisions); err != nil {
+			return out, false, nil, err
+		}
+		if len(errs) == 0 {
+			ok = true
+			break
+		}
+		// P-75 (c): the report's retry leaves no agent pending (estados
+		// §1 ties those to a section; the report writes in none): after
+		// two failures the stop_report keeps the app's part and says it
+		// is incomplete (PrincipalFailed).
+		data := map[string]any{"turn_kind": "stop_report", "attempt": attempt, "errors": errs}
+		if err := r.gate.append(ctx, projectID, store.EventInput{Type: store.EventOutputRetry,
+			Actor: "agent", AgentRole: "principal", TurnID: turnID, Data: data}); err != nil {
+			return out, false, nil, err
+		}
+		if sent != nil {
+			input = append(append(append([]json.RawMessage{}, sent...), resp.RawItems...), userItem(RetryMessage(errs)))
+		}
+	}
+	return out, ok, nil, nil
 }

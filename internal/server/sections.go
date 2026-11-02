@@ -181,7 +181,15 @@ type SummaryView struct {
 	// [EL DISEÑO NO LO DICE]: where the page reads that the preparation
 	// ended; this field of the summary, which it already reads.
 	DefensePreparing bool `json:"defense_preparing"`
+	// Warn: what the project spent is at 80 % of its cap or more (B3-20).
+	Warn bool `json:"warn"`
+	// StoppedBy is the cap that keeps the agent from its next call (B-89):
+	// project_cap, link, day or total; empty when none does.
+	StoppedBy string `json:"stopped_by"`
 }
+
+// warnShare is where the bar's notice starts (B3-20: 80 % of the cap).
+const warnShare = 0.80
 
 // DefensePreparer reports a defense in preparation (P-92); the runner
 // does.
@@ -205,7 +213,13 @@ func (s *Server) getSummary(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	view := SummaryView{SpentUSD: spent, CapUSD: s.projectCap}
+	view := SummaryView{SpentUSD: spent, CapUSD: s.projectCap, Warn: spent+1e-9 >= warnShare*s.projectCap}
+	if c, ok := s.starter.(SpendChecker); ok {
+		if view.StoppedBy, err = c.StoppedBy(r.Context(), projectID); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+	}
 	if p, ok := s.starter.(DefensePreparer); ok {
 		view.DefensePreparing = p.DefensePreparing(projectID)
 	}

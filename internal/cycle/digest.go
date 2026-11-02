@@ -41,6 +41,7 @@ const (
 	DigestInvalidOutput = "invalid_output" // the fixed shape failed twice
 	DigestProviderError = "provider_error" // the model call failed
 	DigestProjectCap    = "project_cap"    // the project reached its cap
+	DigestDemoCap       = "demo_cap"       // a cap of the link, day or total (B-89)
 )
 
 // Kinds of the «por aclarar» this piece opens (estados §4).
@@ -422,21 +423,16 @@ func (r *Runner) callDigest(ctx context.Context, projectID, turnID, instanceID s
 	if err != nil {
 		return DigestOutput{}, "", false, err
 	}
-	dearest := 0.0
 	req := provider.Request{ProjectID: projectID, TurnID: turnID, InstanceID: instanceID,
 		Role: provider.RolePrincipal, TurnKind: provider.TurnDigest, Model: provider.PrincipalModel,
 		Effort: provider.PrincipalEffort, Instructions: digestInstructions, Input: input,
 		Schema: schema, SchemaStrict: true, DigestExpectation: expectation}
 	for attempt := 1; attempt <= 2; attempt++ {
-		// B-65: the call reserves before it starts, the retry too.
-		over, err := r.digestOverCap(ctx, projectID, dearest)
-		if err != nil {
-			return DigestOutput{}, "", sent, err
-		}
-		if over {
-			return DigestOutput{}, DigestProjectCap, sent, nil
-		}
+		// B-65, B-89: the call reserves before it starts, the retry too.
 		resp, err := r.prov.Respond(ctx, req, nil)
+		if capErr, ok := asCap(err); ok {
+			return DigestOutput{}, capErr.Reason, sent, nil
+		}
 		if err != nil {
 			if ctx.Err() != nil {
 				return DigestOutput{}, "", sent, ctx.Err()
@@ -445,7 +441,6 @@ func (r *Runner) callDigest(ctx context.Context, projectID, turnID, instanceID s
 			return DigestOutput{}, DigestProviderError, sent, nil
 		}
 		sent = true
-		dearest = max(dearest, resp.Usage.CostUSD)
 		errs, out := validateDigest(resp.Text, n, expectation)
 		if len(errs) == 0 {
 			return out, DigestDone, true, nil
@@ -464,20 +459,6 @@ func (r *Runner) callDigest(ctx context.Context, projectID, turnID, instanceID s
 			userItem(RetryMessage(errs)))
 	}
 	return DigestOutput{}, DigestInvalidOutput, sent, nil
-}
-
-// digestOverCap is B-65 for the digest: what the project spent plus the
-// reservation of one call (the maximum of one call: readerCallReserveUSD,
-// or the dearest digest call of this round if it cost more) passes the
-// project's cap.
-// [EL DISEÑO NO LO DICE]: a digest call's maximum; the readers' reserve.
-func (r *Runner) digestOverCap(ctx context.Context, projectID string, dearest float64) (bool, error) {
-	spent, err := r.db.ProjectSpend(ctx, projectID)
-	if err != nil {
-		return false, err
-	}
-	const eps = 1e-9
-	return spent+max(readerCallReserveUSD, dearest) > r.projectCap()+eps, nil
 }
 
 // digestInput is the principal's input for the digest: its live
@@ -557,12 +538,12 @@ func (r *Runner) Digest(ctx context.Context, projectID, roundLabel string) error
 	// [EL DISEÑO NO LO DICE]: the project cap reserves before each digest
 	// call (B-65, as the readers'); the round cap cuts the readers, never
 	// the digest, so a round gets its digest while the project has budget.
-	over, err := r.digestOverCap(ctx, projectID, 0)
+	over, err := r.overCap(ctx, projectID, provider.RolePrincipal, provider.TurnDigest)
 	if err != nil {
 		return err
 	}
-	if over {
-		status = DigestProjectCap
+	if over != nil {
+		status = over.Reason
 	} else {
 		var input []json.RawMessage
 		instanceID, input, err = r.digestInput(ctx, projectID, digestMessage(round.Label, body, findings, labeler, titles))

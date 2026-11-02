@@ -104,6 +104,69 @@ const (
 	JudgeVerifyEffort = EffortHigh
 )
 
+// What one model call reserves at least, by role, before it starts (B-89,
+// [inicial]): each is the maximum of one call unless the dearest call of
+// that role in the project cost more.
+const (
+	PrincipalReserveUSD  = 0.15
+	JudgeReserveUSD      = 0.05
+	DigestReserveUSD     = 0.05
+	CheckerReserveUSD    = 0.05
+	ContrasterReserveUSD = 0.05
+	// ReaderReserveUSD is one reader call (3.0: a whole reader cost 0.025
+	// to 0.042 USD, over 4 to 6 calls).
+	ReaderReserveUSD = 0.05
+	// SignoffReserveUSD is set aside of the project's cap for the signoff
+	// (B3-20, B-89: ≈ 2 contrasts [inicial]).
+	SignoffReserveUSD = 0.40
+)
+
+// ReserveUSD is what one call of this role and turn kind reserves at
+// least (B-89). The digest is a call of the principal with a reserve of
+// its own.
+// [EL DISEÑO NO LO DICE]: «the dearest call of that role» for the digest:
+// model_call keeps no turn kind, so it is the principal's dearest.
+func ReserveUSD(role AgentRole, kind TurnKind) float64 {
+	switch {
+	case kind == TurnDigest:
+		return DigestReserveUSD
+	case role == RoleReader:
+		return ReaderReserveUSD
+	case role == RoleJudge:
+		return JudgeReserveUSD
+	case role == RoleChecker:
+		return CheckerReserveUSD
+	case role == RoleContraster:
+		return ContrasterReserveUSD
+	}
+	return PrincipalReserveUSD
+}
+
+// The stop reasons of the caps (B-89), and which of the demo's caps
+// refused the call (data.cap).
+const (
+	CapProjectStop = "project_cap"
+	CapDemoStop    = "demo_cap"
+	CapLink        = "link"
+	CapDay         = "day"
+	CapTotal       = "total"
+)
+
+// CapError is a model call the spend gate refused before it started
+// (B-89): Reason is project_cap or demo_cap, and Cap says which of the
+// demo's caps (link, day, total; empty for project_cap).
+type CapError struct {
+	Reason string
+	Cap    string
+}
+
+func (e *CapError) Error() string {
+	if e.Cap == "" {
+		return "provider: spend cap reached: " + e.Reason
+	}
+	return "provider: spend cap reached: " + e.Reason + " " + e.Cap
+}
+
 // Known reports whether the model is in this file (B-20 (c): a model
 // that is not here is not available).
 func Known(model string) bool {

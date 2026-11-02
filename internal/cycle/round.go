@@ -180,6 +180,7 @@ const (
 	EmptyInvalidOutput = "invalid_output" // the fixed shape failed twice
 	EmptyRoundCap      = "round_cap"      // the round reached RoundCapUSD
 	EmptyProjectCap    = "project_cap"    // the project reached its cap
+	EmptyDemoCap       = "demo_cap"       // a cap of the link, day or total (B-89)
 	EmptyProviderError = "provider_error" // the model call failed
 )
 
@@ -336,3 +337,9 @@ func premiseText(tx *store.Tx) (string, error) {
 	}
 	return "", nil
 }
+
+// The demo's caps when the runner is given none (espec. §6).
+const (
+	DefaultDayCapUSD   = 10.0
+	DefaultTotalCapUSD = 60.0
+)

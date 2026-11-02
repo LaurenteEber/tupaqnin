@@ -372,3 +372,6 @@ func tablesWithProjectID(ctx context.Context, tx *sql.Tx) ([]string, error) {
 	}
 	return out, nil
 }
+
+// LabelJury is the label of the jury's link (§1.7, B-89).
+const LabelJury = "jury"

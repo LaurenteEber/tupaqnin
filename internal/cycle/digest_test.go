@@ -695,10 +695,10 @@ func TestB65_TheDigestReservesBeforeEachCallAgainstTheProjectCap(t *testing.T) {
 	reader := readerOutput(t, projectFinding("fact", passageOne, "src-1"))
 	t.Run("before the first call", func(t *testing.T) {
 		step := discoverStep("too_much_to_read", "["+projectPart("src-1")+"]")
-		fixtures := append(principalSteps(t, step), readerText(0, reader, 0.06), plainDigest(t, "yes"))
+		fixtures := append(principalSteps(t, step), readerText(0, reader, 0.12), plainDigest(t, "yes"))
 		db, runner, g := newRoundRunner(t, false, fixtures...)
 		runner.Evidence = &handEvidence{}
-		runner.ProjectCapUSD = 0.08
+		runner.ProjectCapUSD = 0.15 + provider.SignoffReserveUSD // the principal's reserve fits; the digest's, after the reader, does not
 		runDiscover(t, runner, step)
 		round, body := onlyRound(t, db)
 		if n := len(g.callsOf(provider.TurnDigest)); n != 0 || body.DigestStatus != cycle.DigestProjectCap || round.State != "closed" {
@@ -714,7 +714,7 @@ func TestB65_TheDigestReservesBeforeEachCallAgainstTheProjectCap(t *testing.T) {
 		fixtures := append(principalSteps(t, step), readerText(0, reader, 0.06), bad)
 		db, runner, g := newRoundRunner(t, false, fixtures...)
 		runner.Evidence = &handEvidence{}
-		runner.ProjectCapUSD = 0.15
+		runner.ProjectCapUSD = 0.15 + provider.SignoffReserveUSD
 		runDiscover(t, runner, step)
 		_, body := onlyRound(t, db)
 		spent, _ := db.ProjectSpend(context.Background(), "p1")

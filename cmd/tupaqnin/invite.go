@@ -13,7 +13,7 @@ import (
 )
 
 // labelJury names the jury's link (§1.7; B-89 reads this label too).
-const labelJury = "jury"
+const labelJury = store.LabelJury
 
 // runInvite is `tupaqnin invite create|list|revoke` (B-92, B3-22 row 2):
 // the links are made here, on the server; there is no admin screen.

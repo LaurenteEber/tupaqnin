@@ -906,8 +906,15 @@ func TestB67_AJudgeThatKeepsFailingGetsOneAttemptPerChain(t *testing.T) {
 // After project_cap: the section is reverified when the budget allows; a
 // chain over the cap creates no other round and makes no call.
 func TestB67_AfterTheProjectCapTheSectionIsReverifiedWhenItFits(t *testing.T) {
-	db, runner, cap, _ := newCaptureRunner(t, textFixture(t, riskStep("figures_and_calculations")))
-	runner.ProjectCapUSD = 0.01
+	dear := textFixture(t, riskStep("figures_and_calculations"))
+	dear.Usage.CostUSD = 0.08
+	db, runner, cap, _ := newCaptureRunner(t, dear)
+	// A dear judge call before: the principal's and the checker's reserves
+	// fit; the judge's, its dearest call (B-89), does not.
+	if err := db.RecordModelCall(context.Background(), store.ModelCall{ProjectID: "p1", Role: "judge", CostUSD: 0.10}); err != nil {
+		t.Fatal(err)
+	}
+	runner.ProjectCapUSD = 0.25 + provider.SignoffReserveUSD
 	ctx := context.Background()
 	if err := runner.RunTurn(ctx, "p1", "t1", "Escribe."); err != nil {
 		t.Fatalf("RunTurn: %v", err)

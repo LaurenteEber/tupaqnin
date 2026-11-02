@@ -41,7 +41,7 @@ export function JudgeCard({ lang, projectID, card, reload }: {
       <p className="meta">
         {t(triageKey(card), { risks, section })} · {t(card.running ? "judge.running" : `round.state.${card.state}`)}
       </p>
-      {(card.judge_status === "judge_failed" || card.judge_status === "project_cap") && (
+      {(card.judge_status === "judge_failed" || card.judge_status === "project_cap" || card.judge_status === "demo_cap") && (
         <p className="meta">{t("judge.not_verified")}</p>
       )}
       {card.judge_status === "done" && flaws.length === 0 && <p className="meta">{t("judge.no_flaws")}</p>}

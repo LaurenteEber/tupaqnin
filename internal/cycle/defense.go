@@ -157,6 +157,11 @@ func CallJudgeDefense(ctx context.Context, prov provider.Provider, db *store.DB,
 			Instructions: judgeDefenseInstructions, Input: input, Schema: schema, SchemaStrict: true,
 			DefenseSection: section,
 		}, nil)
+		// B-89: a call the gate refused is no failed output: no defense now,
+		// no retry event, and the next stop prepares it again.
+		if _, refused := asCap(err); refused {
+			return DefenseOutput{}, false, nil
+		}
 		var errs []string
 		var out DefenseOutput
 		if err != nil {

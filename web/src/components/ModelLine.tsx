@@ -1,5 +1,6 @@
 import type { SummaryView } from "../api/types";
 import { modelName, numberLocale, translate, type Lang } from "../i18n";
+import { spendNoticeKey } from "../spend";
 
 // U-2: the model data in the conversation header, as Go sends it:
 // provider · model · effort · context used · spent of the cap. Only the
@@ -27,5 +28,11 @@ export function ModelLine({ lang, summary }: { lang: Lang; summary: SummaryView 
   }
   parts.push(t("summary.spent_of", { spent: money(summary.spent_usd, 2), cap: money(summary.cap_usd, 0) }));
 
-  return <span className="meta model-line">{parts.join(" · ")}</span>;
+  const notice = spendNoticeKey(summary);
+  return (
+    <span className="meta model-line">
+      {parts.join(" · ")}
+      {notice && <> · <b>{t(notice)}</b></>}
+    </span>
+  );
 }

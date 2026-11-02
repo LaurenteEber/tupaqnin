@@ -52,9 +52,11 @@ type StopReportPending struct {
 // evaluates, nil when none, and ProposeSignoff whether the app proposes
 // signing it.
 type StopReportView struct {
-	Seen            bool                 `json:"seen"`
-	CreatedAt       string               `json:"created_at"`
-	StopReason      string               `json:"stop_reason"`
+	Seen       bool   `json:"seen"`
+	CreatedAt  string `json:"created_at"`
+	StopReason string `json:"stop_reason"`
+	// Cap says which of the demo's caps stopped the chain (B-89).
+	Cap             string               `json:"cap,omitempty"`
 	Section         *SectionRef          `json:"section"`
 	ProposeSignoff  bool                 `json:"propose_signoff"`
 	Answer          string               `json:"answer"`
@@ -123,7 +125,7 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no_stop_report")
 		return
 	}
-	view := StopReportView{Seen: report.Seen, CreatedAt: report.CreatedAt, StopReason: string(report.StopReason),
+	view := StopReportView{Seen: report.Seen, CreatedAt: report.CreatedAt, StopReason: string(report.StopReason), Cap: report.Cap,
 		ProposeSignoff: report.ProposeSignoff, Answer: report.Answer, Done: report.Done, Next: report.Next,
 		Decisions: []StopReportDecision{}, Verified: []StopReportCitation{}, NotVerified: []StopReportCitation{},
 		Open: []StopReportOpenItem{}, AgentPendings: []StopReportPending{}, PrincipalFailed: report.PrincipalFailed,

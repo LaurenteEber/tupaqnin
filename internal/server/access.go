@@ -146,11 +146,18 @@ func (s *Server) redeemInvite(w http.ResponseWriter, r *http.Request) {
 }
 
 // createOwnedProject creates a project for the request's session, and
-// answers with the code that refused it, if any (403 account_required,
-// 403 link_full; B3-18, B3-22 row 2).
+// answers with the code that refused it, if any (403 link_budget, day_cap,
+// disk_full, account_required, link_full; B-89, B3-18, B3-22 row 2).
 func (s *Server) createOwnedProject(r *http.Request, name string) (id string, status int, code string) {
 	sess, _ := r.Context().Value(sessionKey{}).(store.Session)
-	id, err := s.db.CreateOwnedProject(r.Context(), sess, name, s.now())
+	blocked, err := s.createBlocked(r.Context(), sess)
+	if err != nil {
+		return "", http.StatusInternalServerError, "internal"
+	}
+	if blocked != "" {
+		return "", http.StatusForbidden, blocked
+	}
+	id, err = s.db.CreateOwnedProject(r.Context(), sess, name, s.now())
 	switch {
 	case errors.Is(err, store.ErrAccountRequired):
 		return "", http.StatusForbidden, "account_required"

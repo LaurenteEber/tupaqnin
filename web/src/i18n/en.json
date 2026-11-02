@@ -297,7 +297,7 @@
   "pending.text_without_decision": "Text written without a decision",
   "pending.internal_codes": "Internal codes in the text",
   "pending.process_narrative": "Text that tells how the work was done",
-  "pending.unchecked": "Not checked: the checker failed twice",
+  "pending.unchecked": "Not checked: the checker did not get to review this text",
   "pending.unsourced_claim": "A claim without a source",
   "provenance.origin.material": "From your material",
   "provenance.origin.external": "From a searched source",
@@ -550,5 +550,15 @@
   "stop_report.judge_not_verified": "Could not verify with the judge: {sections}. This does not block signing.",
   "warnings.flaw": "Flaw the judge found:",
   "warnings.go_flaw": "Go to the flaws",
-  "warnings.underline.flaw": "A flaw the judge found: click to go to it"
+  "warnings.underline.flaw": "A flaw the judge found: click to go to it",
+  "summary.spend.warn": "You have used 80 % of this project's budget.",
+  "summary.spend.project_cap": "This project reached its budget: the agent stopped with its report. Your work is intact, and you can still edit, answer and sign.",
+  "summary.spend.link": "Your link's balance ran out: the agent stopped with its report. Your work is intact.",
+  "summary.spend.day": "The demo reached its cap for today: the agent stopped with its report. Your work is intact.",
+  "summary.spend.total": "The demo reached its total cap: the agent stopped with its report. Your work is intact.",
+  "turn.stop.project_cap": "The agent stopped: the project reached its cost cap.",
+  "turn.stop.demo_cap": "The agent stopped: the demo reached a spending cap.",
+  "round.reason.demo_cap": "the demo reached a spending cap",
+  "round.stopped.demo_cap": "The round did not start: the demo reached a spending cap.",
+  "digest.status.demo_cap": "No digest: the demo reached a spending cap; the app's part stays."
 }

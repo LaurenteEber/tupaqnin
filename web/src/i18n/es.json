@@ -297,7 +297,7 @@
   "pending.text_without_decision": "Texto escrito sin decisión",
   "pending.internal_codes": "Códigos internos en el texto",
   "pending.process_narrative": "Texto que cuenta cómo se trabajó",
-  "pending.unchecked": "Sin comprobar: el comprobador falló dos veces",
+  "pending.unchecked": "Sin comprobar: el comprobador no llegó a revisar este texto",
   "pending.unsourced_claim": "Una afirmación sin fuente",
   "provenance.origin.material": "De tu material",
   "provenance.origin.external": "De una fuente buscada",
@@ -550,5 +550,15 @@
   "stop_report.judge_not_verified": "No se pudo verificar con el juez: {sections}. No bloquea la firma.",
   "warnings.flaw": "Falla que halló el juez:",
   "warnings.go_flaw": "Ir a las fallas",
-  "warnings.underline.flaw": "Una falla que halló el juez: clic para ir"
+  "warnings.underline.flaw": "Una falla que halló el juez: clic para ir",
+  "summary.spend.warn": "Llevas el 80 % del tope de este proyecto.",
+  "summary.spend.project_cap": "Este proyecto llegó a su tope: el agente se detuvo con su informe. Tu trabajo está intacto, y puedes seguir editando, respondiendo y firmando.",
+  "summary.spend.link": "Se agotó el saldo de tu link: el agente se detuvo con su informe. Tu trabajo está intacto.",
+  "summary.spend.day": "La demo llegó a su tope de hoy: el agente se detuvo con su informe. Tu trabajo está intacto.",
+  "summary.spend.total": "La demo llegó a su tope total: el agente se detuvo con su informe. Tu trabajo está intacto.",
+  "turn.stop.project_cap": "El agente se detuvo: el proyecto llegó a su tope de costo.",
+  "turn.stop.demo_cap": "El agente se detuvo: la demo llegó a un tope de gasto.",
+  "round.reason.demo_cap": "la demo llegó a un tope de gasto",
+  "round.stopped.demo_cap": "La ronda no arrancó: la demo llegó a un tope de gasto.",
+  "digest.status.demo_cap": "Sin digesto: la demo llegó a un tope de gasto; queda la parte de la app."
 }

@@ -137,6 +137,8 @@ type Server struct {
 	signoffs   SignoffStarter
 	editors    *editors
 	projectCap float64
+	// diskFull says the disk is at 80 % (espec. §6); nil: not checked.
+	diskFull func() (bool, error)
 	// providerName is shown in the summary (U-2): meta or fake.
 	providerName string
 	// now and returnAfter decide the return line (M-2, B-48 a); tests
@@ -151,6 +153,10 @@ type Option func(*Server)
 // WithProjectCap sets the project's spending cap shown in the summary
 // (B3-20; TQ_CAP_PROJECT_USD).
 func WithProjectCap(usd float64) Option { return func(s *Server) { s.projectCap = usd } }
+
+// WithDiskFull sets how the server learns that the disk is at 80 %
+// (espec. §6). main passes DiskFull(TQ_DATA_DIR); a test, what it simulates.
+func WithDiskFull(full func() (bool, error)) Option { return func(s *Server) { s.diskFull = full } }
 
 // WithProvider names the model provider shown in the summary (U-2;
 // TQ_PROVIDER).

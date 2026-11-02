@@ -37,7 +37,7 @@ func (p *blockingProvider) count() int {
 // each call reserves before it starts, so the calls in flight never
 // take the round past its cap.
 func TestB65_ParallelReadersReserveBeforeEachCall(t *testing.T) {
-	inner := &blockingProvider{release: make(chan struct{}), cost: readerCallReserveUSD}
+	inner := &blockingProvider{release: make(chan struct{}), cost: provider.ReaderReserveUSD}
 	budget := &roundBudget{capUSD: 0.60, projectCap: 3, spent: 0.50}
 	p := budgetProvider{inner: inner, budget: budget}
 	var wg sync.WaitGroup

@@ -63,7 +63,7 @@ var (
 // what was spent, never take the round or the project past its cap; a
 // reader already in a call ends it.
 // [EL DISEÑO NO LO DICE]: the maximum of one call, which no call fixes
-// (there is no output cap): readerCallReserveUSD, above every reader
+// (there is no output cap): provider.ReaderReserveUSD, above every reader
 // call the 3.0 measured, or the dearest call this round has seen if it
 // cost more.
 type roundBudget struct {
@@ -76,10 +76,6 @@ type roundBudget struct {
 	dearest      float64 // the dearest call of the round so far
 }
 
-// readerCallReserveUSD is what one reader call reserves at least (3.0:
-// a whole reader cost 0.025 to 0.042 USD, over 4 to 6 calls).
-const readerCallReserveUSD = 0.05
-
 // check is the budget before a tool call, which costs nothing itself
 // but is only of use if one more model call can read its result: it
 // passes while that call's reservation still fits.
@@ -89,7 +85,7 @@ func (b *roundBudget) check() error {
 	return b.overLocked(b.perCallLocked())
 }
 
-func (b *roundBudget) perCallLocked() float64 { return max(readerCallReserveUSD, b.dearest) }
+func (b *roundBudget) perCallLocked() float64 { return max(provider.ReaderReserveUSD, b.dearest) }
 
 // overLocked reports the cap that spent, reserved and more would pass;
 // b.mu is held.
@@ -312,14 +308,18 @@ func (r *Runner) runRound(ctx context.Context, projectID, roundID, publishTurn s
 	if err != nil {
 		return err
 	}
-	if spent+body.EstimatedCostUSD > r.projectCap() {
-		// [EL DISEÑO NO LO DICE]: a round the project cap stops before it
-		// launches closes, with no readers, as B-64 closed a round never
-		// launched (reduced_doubt stays null).
-		body.Stopped = EmptyProjectCap
+	capErr, err := r.spend.fits(ctx, projectID, provider.RoleReader, body.EstimatedCostUSD)
+	if err != nil {
+		return err
+	}
+	if capErr != nil {
+		// [EL DISEÑO NO LO DICE]: a round a cap stops before it launches
+		// closes, with no readers, as B-64 closed a round never launched
+		// (reduced_doubt stays null).
+		body.Stopped = capErr.Reason
 		body.Readers = make([]ReaderResult, len(body.Parts))
 		for i := range body.Readers {
-			body.Readers[i] = ReaderResult{Part: i + 1, Status: ReaderEmpty, Reason: EmptyProjectCap}
+			body.Readers[i] = ReaderResult{Part: i + 1, Status: ReaderEmpty, Reason: capErr.Reason}
 		}
 		body.Hits = []HitRecord{}
 		return r.writeRoundEnd(ctx, projectID, round, body, "closed")
@@ -345,7 +345,7 @@ func (r *Runner) runRound(ctx context.Context, projectID, roundID, publishTurn s
 	body.Hits = append([]HitRecord{}, rr.hits...)
 	rr.mu.Unlock()
 
-	budget := &roundBudget{capUSD: r.roundCap(), projectCap: r.projectCap(), projectSpent: spent}
+	budget := &roundBudget{capUSD: r.roundCap(), projectCap: r.projectCap() - provider.SignoffReserveUSD, projectSpent: spent}
 	briefs := make([]string, len(body.Parts))
 	for i := range body.Parts {
 		if briefs[i], err = r.readerBrief(ctx, projectID, round.Label, body, i+1); err != nil {
@@ -416,6 +416,7 @@ func (r *Runner) runReader(ctx context.Context, projectID string, body RoundBody
 		Instructions: readerInstructions, Input: []json.RawMessage{userItem(brief)},
 		Schema: schema, SchemaStrict: true, Part: part}
 	prov := budgetProvider{inner: r.prov, budget: budget}
+	var capErr *provider.CapError
 	for attempt := 1; attempt <= 2; attempt++ {
 		resp, sent, err := respondWith(ctx, prov, req, nil, ts)
 		switch {
@@ -423,6 +424,8 @@ func (r *Runner) runReader(ctx context.Context, projectID string, body RoundBody
 			return end(ReaderEmpty, EmptyRoundCap, nil)
 		case errors.Is(err, errProjectCap):
 			return end(ReaderEmpty, EmptyProjectCap, nil)
+		case errors.As(err, &capErr):
+			return end(ReaderEmpty, capErr.Reason, nil)
 		case err != nil:
 			return end(ReaderEmpty, EmptyProviderError, nil)
 		}

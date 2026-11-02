@@ -63,8 +63,11 @@ type Runner struct {
 	// Now overrides the clock (tests). Nil means time.Now.
 	Now func() time.Time
 
-	db       *store.DB
+	db *store.DB
+	// prov is the spend gate over the provider (B-89): every model call of
+	// the runner goes through it; spend is the same gate, by its type.
 	prov     provider.Provider
+	spend    *spendGate
 	count    memory.TokenCounter
 	pub      TurnPublisher
 	gate     *Gate
@@ -81,6 +84,10 @@ type Runner struct {
 	// RoundCapUSD a round's (B-65; 0: RoundCapUSD).
 	ProjectCapUSD float64
 	RoundCapUSD   float64
+	// SpendCapDayUSD and SpendCapTotalUSD are the demo's caps (B-89; 0:
+	// DefaultDayCapUSD and DefaultTotalCapUSD).
+	SpendCapDayUSD   float64
+	SpendCapTotalUSD float64
 	// rounds are the rounds whose readers run now, by round id, guarded
 	// by mu: their progress, for the page.
 	rounds map[string]*roundRun
@@ -133,9 +140,12 @@ const EditBatchDelay = 60 * time.Second
 // to the principal's model (B-5).
 func NewRunner(db *store.DB, prov provider.Provider, count memory.TokenCounter, pub TurnPublisher) *Runner {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Runner{db: db, prov: prov, count: count, pub: pub,
+	r := &Runner{db: db, count: count, pub: pub,
 		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{}, preparing: map[string]int{},
-		checker: NewChecker(prov), waits: map[string]*editWait{}, ctx: ctx, cancel: cancel}
+		waits: map[string]*editWait{}, ctx: ctx, cancel: cancel}
+	r.spend = newSpendGate(r, db, prov)
+	r.prov, r.checker = r.spend, NewChecker(r.spend)
+	return r
 }
 
 // NewChecker returns the checker over prov with its embedded
@@ -211,6 +221,9 @@ func (r *Runner) runEditBatch(ctx context.Context, projectID string) {
 	if err == nil {
 		err = r.checkPending(ctx, projectID, turnID)
 	}
+	if _, refused := asCap(err); refused {
+		return // B-89: what needs a model waits for the next trigger
+	}
 	if err != nil && ctx.Err() == nil && r.Logger != nil {
 		r.Logger.Error("edit batch failed", "error", err.Error())
 	}
@@ -223,6 +236,9 @@ func (r *Runner) runEditBatch(ctx context.Context, projectID string) {
 func (r *Runner) checkYourEdits(ctx context.Context, projectID, turnID string) error {
 	edits, err := checks.YourEditsToCheck(ctx, r.db, projectID)
 	if err != nil || !edits.HasWork() {
+		return err
+	}
+	if err := r.checkerFits(ctx, projectID); err != nil {
 		return err
 	}
 	return r.checker.Check(ctx, r.db, projectID, turnID, edits)
@@ -242,9 +258,28 @@ func (r *Runner) runQueuedProbes(ctx context.Context, projectID, turnID string) 
 		if !change.HasWork() {
 			continue
 		}
+		if err := r.checkerFits(ctx, projectID); err != nil {
+			return err
+		}
 		if err := r.checker.Check(ctx, r.db, projectID, turnID, change); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// checkerFits refuses, before the checker is called, a batch or a queued
+// probe that does not fit (B-89). Only your edits and the queued probes:
+// they stay pending for the next trigger, because «sin comprobar» would
+// close them with nothing checked; what the gate refuses inside Check
+// leaves that «sin comprobar», as a failed call.
+func (r *Runner) checkerFits(ctx context.Context, projectID string) error {
+	capErr, err := r.overCap(ctx, projectID, provider.RoleChecker, provider.TurnChecker)
+	if err != nil {
+		return err
+	}
+	if capErr != nil {
+		return capErr
 	}
 	return nil
 }
@@ -287,7 +322,8 @@ func (r *Runner) hasPendingChecks(ctx context.Context, projectID string) (bool, 
 // probe runs before the slot is released, in a call of its own.
 func (r *Runner) endTurn(ctx context.Context, projectID, turnID string) {
 	defer r.releaseTurn(projectID)
-	if err := r.runQueuedProbes(ctx, projectID, turnID); err != nil && ctx.Err() == nil && r.Logger != nil {
+	err := r.runQueuedProbes(ctx, projectID, turnID)
+	if _, refused := asCap(err); !refused && err != nil && ctx.Err() == nil && r.Logger != nil {
 		r.Logger.Error("queued probe failed", "error", err.Error())
 	}
 	// P-86: the defenses your answers left waiting during the turn.
@@ -304,17 +340,25 @@ func (r *Runner) endTurn(ctx context.Context, projectID, turnID string) {
 // no text the checker has not seen reaches the signoff. The batch is the
 // whole project's, not only the section's (B-36 says «el lote»).
 func (r *Runner) RequestSignoff(ctx context.Context, projectID, sectionLabel string) (SignoffOpen, error) {
+	ctx = withSignoffBalance(ctx)
 	pending, err := r.hasPendingChecks(ctx, projectID)
 	if err != nil {
 		return SignoffOpen{}, err
 	}
-	if pending {
+	refused, err := r.refusedCheckOpen(ctx, projectID, sectionLabel)
+	if err != nil {
+		return SignoffOpen{}, err
+	}
+	if pending || refused {
 		if !r.tryAcquireTurn(projectID) {
 			return SignoffOpen{}, ErrTurnRunning
 		}
 		turnID, err := newTurnID()
 		if err == nil {
 			err = r.checkPending(ctx, projectID, turnID)
+		}
+		if err == nil && refused {
+			err = r.checkRefusedSection(ctx, projectID, turnID, sectionLabel)
 		}
 		r.releaseTurn(projectID)
 		if err != nil {
@@ -599,6 +643,8 @@ type stepPayload struct {
 	// why rule 0 moved a direct step to build, for the triage line.
 	Stretch      string   `json:"stretch,omitempty"`
 	Reclassified []string `json:"reclassified,omitempty"`
+	// Cap says which of the demo's caps stopped the turn (B-89: data.cap).
+	Cap string `json:"cap,omitempty"`
 }
 
 func (r *Runner) publishStep(projectID, turnID string, result StepResult, outputText string) {
@@ -754,6 +800,9 @@ func (r *Runner) runUnderstandingTurn(ctx context.Context, projectID, turnID str
 
 	filter := newFieldFilter(understandingStreamKeys)
 	resp, input, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, input, filter)
+	if capErr, ok := asCap(err); ok {
+		return r.stopAtCap(ctx, projectID, turnID, capErr)
+	}
 	if err != nil {
 		r.fail(projectID, turnID, "provider_error")
 		return nil
@@ -767,6 +816,9 @@ func (r *Runner) runUnderstandingTurn(ctx context.Context, projectID, turnID str
 		retryInput := append(append([]json.RawMessage{}, input...), resp.RawItems...)
 		retryInput = append(retryInput, userItem(RetryMessage(result.Errors)))
 		resp2, _, err := r.callUnderstanding(ctx, projectID, turnID, instanceID, retryInput, filter)
+		if capErr, ok := asCap(err); ok {
+			return r.stopAtCap(ctx, projectID, turnID, capErr)
+		}
 		if err != nil {
 			r.fail(projectID, turnID, "provider_error")
 			return nil
@@ -835,6 +887,9 @@ func (r *Runner) runTurn(ctx context.Context, projectID, turnID, text string) er
 	// batch when you send a message, before the agent's step, and so do
 	// the queued probes (P-72).
 	if err := r.checkPending(ctx, projectID, turnID); err != nil {
+		if capErr, ok := asCap(err); ok {
+			return r.stopAtCap(ctx, projectID, turnID, capErr)
+		}
 		r.fail(projectID, turnID, "turn_failed")
 		return err
 	}
@@ -956,6 +1011,9 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			input = append(input, userItem(message))
 		}
 		result, applied, outText, err := r.runStep(ctx, projectID, turnID, instanceID, input, filter, n == MaxChainSteps)
+		if capErr, ok := asCap(err); ok {
+			return r.stopAtCap(ctx, projectID, turnID, capErr)
+		}
 		if errors.Is(err, errProvider) {
 			r.fail(projectID, turnID, "provider_error")
 			return nil
@@ -968,7 +1026,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		// The checker judges the applied step outside its transaction, in
 		// one call (backlog-r2 2.3); what it finds enters the next triage.
 		if result.Status == StatusAccepted && applied.Applied && applied.Change.HasWork() {
-			if err := r.checker.Check(ctx, r.db, projectID, turnID, applied.Change); err != nil {
+			if err := r.checkAgentStep(ctx, projectID, turnID, applied.Change); err != nil {
 				r.fail(projectID, turnID, "turn_failed")
 				return err
 			}
@@ -993,6 +1051,16 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		}
 		if result.Status != StatusAccepted {
 			reason = StopAgentPending
+			// B-89: no next step can close this pending while the principal
+			// does not fit: the stop at the cap says so now.
+			capErr, err := r.overCap(ctx, projectID, provider.RolePrincipal, provider.TurnStep)
+			if err != nil {
+				r.fail(projectID, turnID, "turn_failed")
+				return err
+			}
+			if capErr != nil {
+				return r.stopAtCap(ctx, projectID, turnID, capErr)
+			}
 			break
 		}
 		// B-67 (a), before ShouldStop: a section that closed with a risk, or
@@ -1044,13 +1112,48 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		return err
 	}
 	if work {
-		if err := r.writeStopReport(ctx, projectID, turnID, reason); err != nil {
+		capErr, err := r.writeStopReport(ctx, projectID, turnID, reason)
+		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
 			return err
+		}
+		if capErr != nil {
+			// The report's own call did not fit: the turn ends at the cap.
+			r.publishCapStop(projectID, turnID, capErr)
+			return nil
 		}
 	}
 	r.publishChainStep(projectID, turnID, last, lastApplied, lastText, reason)
 	return nil
+}
+
+// stopAtCap ends a turn the spend gate refused (B-89): the stop report with
+// the app's part, without calling the model (as PrincipalFailed), and the
+// stream's step with stop_reason and cap. Always a report, whatever work the
+// chain did: B3-20 says the agent stops «con su informe».
+// [EL DISEÑO NO LO DICE]: no step ran, so no step_ended event is written:
+// it would count as a step for graph (it closes agent pendings and delivers
+// rejections). The history keeps the reason and data.cap in stop_report, as
+// the other reasons known after step_ended (runChain); the stream's
+// step_ended carries them.
+func (r *Runner) stopAtCap(ctx context.Context, projectID, turnID string, capErr *provider.CapError) error {
+	if err := r.writeCapReport(ctx, projectID, turnID, capErr); err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
+	}
+	r.publishCapStop(projectID, turnID, capErr)
+	return nil
+}
+
+// publishCapStop is the stream's end of a turn stopped by a cap.
+// [EL DISEÑO NO LO DICE]: a signoff round or «Preguntar al agente» a cap
+// refuses ends here, with no stop report: neither is a chain of the agent.
+func (r *Runner) publishCapStop(projectID, turnID string, capErr *provider.CapError) {
+	raw, err := json.Marshal(stepPayload{Status: StatusAccepted, StopReason: StopReason(capErr.Reason), Cap: capErr.Cap})
+	if err != nil || r.pub == nil {
+		return
+	}
+	r.pub.PublishStep(projectID, turnID, raw)
 }
 
 var errProvider = errors.New("cycle: provider call failed")
@@ -1066,6 +1169,9 @@ func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID stri
 	for attempt := 1; attempt <= 2; attempt++ {
 		resp, sent, err := r.call(ctx, projectID, turnID, instanceID, input, f)
 		input = sent
+		if _, refused := asCap(err); refused {
+			return StepResult{}, ApplyResult{}, "", err
+		}
 		if err != nil {
 			return StepResult{}, ApplyResult{}, "", errProvider
 		}

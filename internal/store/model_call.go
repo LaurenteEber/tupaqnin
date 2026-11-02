@@ -61,10 +61,18 @@ func (db *DB) ModelCalls(ctx context.Context, projectID, instanceID string) ([]M
 	return out, nil
 }
 
-// RecordModelCall appends one model_call row. Content is stored here
-// and never logged (T-10).
+// RecordModelCall appends one model_call row and adds its cost to the
+// project's link, in one transaction (B3-22 row 2): spent_usd only grows,
+// so deleting an expired project does not give its balance back. A project
+// without a link adds to none. Content is stored here and never logged
+// (T-10).
 func (db *DB) RecordModelCall(ctx context.Context, c ModelCall) error {
-	if _, err := db.Writer.ExecContext(ctx,
+	tx, err := db.Writer.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("record model call: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO model_call (project_id, instance_id, turn_id, role,
 			model_and_effort, input_tokens, output_tokens, context_window,
 			input_items, raw_items, cost, created_at)
@@ -72,6 +80,14 @@ func (db *DB) RecordModelCall(ctx context.Context, c ModelCall) error {
 		c.ProjectID, nullStr(c.InstanceID), nullStr(c.TurnID), nullStr(c.Role),
 		nullStr(c.ModelAndEffort), c.InputTokens, c.OutputTokens, c.ContextWindow,
 		nullRaw(c.InputItems), nullRaw(c.RawItems), c.CostUSD, nowText()); err != nil {
+		return fmt.Errorf("record model call: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE invitation SET spent_usd = spent_usd + ?
+		 WHERE id = (SELECT invitation_id FROM project WHERE id = ?)`, c.CostUSD, c.ProjectID); err != nil {
+		return fmt.Errorf("record model call: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("record model call: %w", err)
 	}
 	return nil

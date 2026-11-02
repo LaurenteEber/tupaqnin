@@ -551,7 +551,9 @@ export interface StepPayload {
   understood?: string;
   next_turn_id?: string;
   // Why the agent's chain stopped (P-43), computed in Go.
-  stop_reason?: "no_work" | "agent_pending" | "step_limit";
+  stop_reason?: string;
+  // Which of the demo's caps stopped the turn (B-89).
+  cap?: string;
   // The stretch Go settled and why rule 0 moved a direct step to build
   // (B-43).
   stretch?: string;

@@ -9,6 +9,7 @@ import (
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
+	"github.com/LaurenteEber/tupaqnin/internal/provider"
 )
 
 // SignoffStarter starts the signoff's turns (B-13, B-14): Wonder's
@@ -56,9 +57,15 @@ func decodeSignoff(r *http.Request, v any) error {
 // signoffError maps the signoff's errors to their status and code.
 func signoffError(w http.ResponseWriter, err error) {
 	var pend *cycle.PendingsError
+	var capErr *provider.CapError
 	switch {
 	case errors.As(err, &pend):
 		writeJSON(w, http.StatusConflict, SignoffBlocked{Error: "pendings", Pendings: pend.Pendings})
+	case errors.As(err, &capErr):
+		// [EL DISEÑO NO LO DICE]: asking to sign with edits the checker has
+		// not seen, when a cap refuses it: what needs a model waits (B3-20),
+		// 409 with the stop's own code.
+		writeError(w, http.StatusConflict, capErr.Reason)
 	case errors.Is(err, cycle.ErrSectionNotFound):
 		writeError(w, http.StatusNotFound, "section_not_found")
 	case errors.Is(err, cycle.ErrSignoffNotFound):
