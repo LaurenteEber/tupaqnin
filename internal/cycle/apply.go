@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -212,6 +213,19 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	}
 	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Work: work,
 		Stretch: p.stretch, Reclassified: p.reclassified, Change: p.change, Round: p.round}, nil
+}
+
+// sortedDecidedElsewhere are the sections with a decision of this step that
+// the step did not write, in a stable order.
+func sortedDecidedElsewhere(decided map[string]bool, written []string) []string {
+	var out []string
+	for id, ok := range decided {
+		if ok && !slices.Contains(written, id) {
+			out = append(out, id)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // roundStepStop is the stop_reason of a step whose only work is its round
@@ -1576,6 +1590,13 @@ func (p *project) runRules(tx *store.Tx, turnID string, out stepOutput, pl *plan
 			if sec, err := tx.GetObject(context.Background(), tx.ProjectID(), id); err == nil {
 				decided = append(decided, sec.Label)
 			}
+		}
+	}
+	// P-111, B-42: a decision declared later, used in a section this step
+	// does not write, closes that section's «escrito sin decisión» too.
+	for _, id := range sortedDecidedElsewhere(change.Decided, sectionIDs) {
+		if sec, err := tx.GetObject(context.Background(), tx.ProjectID(), id); err == nil {
+			decided = append(decided, sec.Label)
 		}
 	}
 	data["text_without_decision"], data["decided_sections"] = withoutDecision, decided

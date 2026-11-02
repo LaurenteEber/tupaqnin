@@ -569,13 +569,16 @@ func (m *Memory) agentPendings(ctx context.Context, projectID string, sections [
 			if p.Cause != "" { // passage_not_found or does_not_support (backlog-r2 2.3)
 				line += " (" + p.Cause + ")"
 			}
-			if passage := pendingPassage(b.str("text"), p); passage != "" {
+			passage, err := m.markedPassage(ctx, projectID, b.str("text"), p)
+			if err != nil {
+				return nil, err
+			}
+			if passage != "" {
 				line += " · passage: «" + passage + "»"
 			}
-			// P-110: it closes when that passage leaves the text, so the
-			// agent has to know which one and that a citation will not do.
-			if p.Passage != "" {
-				line += " · passage: «" + p.Passage + "» · rewrite this passage so each claim rests on its citation; a new citation does not close it"
+			// P-110, P-111: the agent has to know what closes it.
+			if closes := graph.PendingCloses(p); closes != "" {
+				line += " · " + closes
 			}
 			out = append(out, line)
 		}
@@ -583,19 +586,35 @@ func (m *Memory) agentPendings(ctx context.Context, projectID string, sections [
 	return out, nil
 }
 
-// pendingPassage is the block of the section's text where a figure
-// without decision appears, so the agent can quote it as an anchor.
-// The other kinds already name their passage or their label.
-func pendingPassage(text string, p graph.Pending) string {
-	if p.Kind != graph.PendingFigureWithoutDecision {
-		return ""
-	}
-	for _, block := range graph.Blocks(text) {
-		for _, n := range graph.Numbers(block) {
-			if n.Raw == p.About || n.Value == p.About {
-				return strings.TrimSpace(block)
+// markedPassage is what the agent quotes to act on a pending whose line does
+// not carry it yet: the block with the figure or the code, what the checker
+// marked on a citation, or the claim of a citation not found in its source.
+// The other kinds already name their passage in About.
+func (m *Memory) markedPassage(ctx context.Context, projectID, text string, p graph.Pending) (string, error) {
+	switch p.Kind {
+	case graph.PendingFigureWithoutDecision:
+		for _, block := range graph.Blocks(text) {
+			for _, n := range graph.Numbers(block) {
+				if n.Raw == p.About || n.Value == p.About {
+					return strings.TrimSpace(block), nil
+				}
 			}
 		}
+	case graph.PendingInternalCodes:
+		written, err := graph.PendingPassage(ctx, m.db, projectID, text, p)
+		if err != nil || written == "" {
+			return "", err
+		}
+		for _, block := range graph.Blocks(text) {
+			if strings.Contains(block, written) {
+				return strings.TrimSpace(block), nil
+			}
+		}
+	case graph.PendingSourceNotSupporting:
+		if p.Passage != "" {
+			return p.Passage, nil
+		}
+		return graph.PendingPassage(ctx, m.db, projectID, text, p)
 	}
-	return ""
+	return "", nil
 }

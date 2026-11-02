@@ -135,6 +135,39 @@ func SectionWarnings(ctx context.Context, q store.Querier, projectID, label stri
 	return out, nil
 }
 
+// PendingCloses says in one line what closes an agent pending, for the agent:
+// the closing rule of the function that computes that kind (P-111). A pending
+// that is yours or the app's has none.
+func PendingCloses(p Pending) string {
+	switch p.Kind {
+	case PendingFigureWithoutDecision:
+		return "link it to a decision with figure_links or take it out of the text"
+	case PendingSourceNotSupporting:
+		return "rewrite this passage so each claim rests on its citation; a new citation does not close it"
+	case PendingInternalCodes:
+		return "rewrite this passage without the code"
+	case PendingProcessNarrative:
+		return "rewrite this passage without telling how the work was done"
+	case PendingTextWithoutDecision:
+		if p.About != "" { // the checker's: it closes when its passage leaves the text
+			return "rewrite this passage so it rests on a decision, or take it out of the text"
+		}
+		return "declare in new_decisions the decision this section rests on, with this section in used_in_sections"
+	case PendingUnchecked:
+		return "the next step that changes this section runs the checker again"
+	case PendingUnsourcedClaim:
+		return "cite the literal passage of a source you read or take this paragraph out"
+	case PendingMissingInText:
+		return "write what is missing into the section; it closes when the text changes"
+	}
+	return ""
+}
+
+// PendingPassage is pendingPassage for what renders a pending elsewhere.
+func PendingPassage(ctx context.Context, q store.Querier, projectID, text string, p Pending) (string, error) {
+	return pendingPassage(ctx, q, projectID, text, p)
+}
+
 // pendingPassage is the literal passage of the text an agent pending is
 // about, or "" when it has none: the number of «cifra sin decisión», the
 // code as written of «códigos internos», the citation's claim of «fuente
