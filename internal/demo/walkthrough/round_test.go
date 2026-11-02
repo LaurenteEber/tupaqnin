@@ -49,6 +49,38 @@ func (w *walk) candidateNaming(step, word string) graph.Candidate {
 	return graph.Candidate{}
 }
 
+// P-110: Paula's request names her notes and the colleague's citation, and no
+// source says «1 micras» (a model that cites it may correct it, and then the
+// passage is no longer literal).
+func TestP110_TheCaseRequestNamesTheNotesAndTheSourcesSayOneMicra(t *testing.T) {
+	raw, err := os.ReadFile("../case5/template/request.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var req struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(raw, &req); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(req.Text, "mis notas, donde está una cita que me pasó un colega") {
+		t.Fatalf("request: %q", req.Text)
+	}
+	files, err := os.ReadDir("../case5/template/sources")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		text, err := os.ReadFile("../case5/template/sources/" + f.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(text), "1 micras") {
+			t.Errorf("%s still says «1 micras»", f.Name())
+		}
+	}
+}
+
 // paulaNudge is what the jury would say if the agent passes over the citation
 // in the notes (P-110).
 const paulaNudge = "¿Puedes revisar la cita de Valdivia y Ortiz (2022) que está en mis notas?"

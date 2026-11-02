@@ -9,7 +9,7 @@
 
 ## Método
 
-Botellas llenadas en el laboratorio con agua ultrapura y agitadas durante 48 horas para simular el transporte. Las muestras se filtraron y las partículas se contaron con microscopía e identificación espectroscópica. El tamaño mínimo de partícula detectado fue de 1 micras.
+Botellas llenadas en el laboratorio con agua ultrapura y agitadas durante 48 horas para simular el transporte. Las muestras se filtraron y las partículas se contaron con microscopía e identificación espectroscópica. El tamaño mínimo de partícula detectado fue de 1 micra.
 
 ## Resultado
 

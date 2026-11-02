@@ -9,7 +9,7 @@
 
 ## Método
 
-Muestras de 40 botellas de 5 marcas compradas en mercados y farmacias. Las muestras se filtraron y las partículas se contaron con microscopía e identificación espectroscópica. El tamaño mínimo de partícula detectado fue de 1 micras.
+Muestras de 40 botellas de 5 marcas compradas en mercados y farmacias. Las muestras se filtraron y las partículas se contaron con microscopía e identificación espectroscópica. El tamaño mínimo de partícula detectado fue de 1 micra.
 
 ## Resultado
 
