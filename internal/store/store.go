@@ -34,6 +34,8 @@ const busyTimeoutMS = 5000
 type DB struct {
 	Writer *sql.DB
 	Reader *sql.DB
+	// path is the database file, for what needs a connection of its own (B-93).
+	path string
 }
 
 // Open creates the data directory if needed, opens the writer and
@@ -47,7 +49,8 @@ func Open(ctx context.Context, dataDir string) (*DB, error) {
 	pragmas := "_pragma=busy_timeout(" + strconv.Itoa(busyTimeoutMS) + ")" +
 		"&_pragma=foreign_keys(1)" +
 		"&_pragma=journal_mode(WAL)"
-	dsn := "file:" + filepath.Join(dataDir, dbFileName) + "?" + pragmas
+	path := filepath.Join(dataDir, dbFileName)
+	dsn := "file:" + path + "?" + pragmas
 	// The reader pool can never write (query_only is per connection).
 	readerDSN := dsn + "&_pragma=query_only(1)"
 
@@ -76,7 +79,7 @@ func Open(ctx context.Context, dataDir string) (*DB, error) {
 		return nil, fmt.Errorf("ping reader: %w", err)
 	}
 
-	return &DB{Writer: writer, Reader: reader}, nil
+	return &DB{Writer: writer, Reader: reader, path: path}, nil
 }
 
 // Close closes both pools.

@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/LaurenteEber/tupaqnin/internal/backup"
 	"github.com/LaurenteEber/tupaqnin/internal/config"
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/evidence"
@@ -34,6 +35,12 @@ func main() {
 	// Links by command on the same binary (B-92): no admin screen.
 	if len(os.Args) > 1 && os.Args[1] == "invite" {
 		os.Exit(runInvite(os.Args[2:], config.DataDir(), os.Stdout, os.Stderr))
+	}
+
+	// The check of a copy (B-93): it reads the named file only, so it needs
+	// neither the configuration nor the data directory.
+	if len(os.Args) > 1 && os.Args[1] == "backup-check" {
+		os.Exit(runBackupCheck(os.Args[2:], os.Stdout, os.Stderr))
 	}
 
 	logger := config.NewLogger()
@@ -114,6 +121,8 @@ func main() {
 
 	// The hourly cleanup of expired anonymous projects and sessions (B-88).
 	go server.RunCleanup(ctx, db, logger, server.CleanupEvery, time.Now)
+	// The daily copy of the database (B-93, specification §6).
+	go backup.Run(ctx, db, backup.Dir(cfg.DataDir), logger, backup.Every, time.Now)
 
 	go func() {
 		<-ctx.Done()

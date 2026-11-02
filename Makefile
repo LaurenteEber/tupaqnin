@@ -1,4 +1,4 @@
-.PHONY: microtest-tools run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence microtest-digest microtest-judge-verify microtest-checker-exceeds
+.PHONY: microtest-tools backup-check run test vet build microtest microtest-signoff web web-types demo-check microtest-checker microtest-judge-defense microtest-evidence microtest-digest microtest-judge-verify microtest-checker-exceeds
 
 run:
 	go run ./cmd/tupaqnin
@@ -12,6 +12,11 @@ vet:
 build:
 	mkdir -p bin
 	CGO_ENABLED=0 go build -o bin/tupaqnin ./cmd/tupaqnin
+
+# Checks a copy of the database (B-93): make backup-check FILE=tq-20261102.db
+# Counts only, never content; the exit code is non-zero for a damaged file.
+backup-check:
+	go run ./cmd/tupaqnin backup-check "$(FILE)"
 
 # The web app (backlog 0.10): installs dependencies and builds the
 # React+Vite+TipTap frontend into internal/server/static, which the

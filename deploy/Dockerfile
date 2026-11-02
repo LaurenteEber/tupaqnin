@@ -5,7 +5,10 @@ WORKDIR /src
 COPY go.mod go.sum ./
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
-RUN CGO_ENABLED=0 go build -o /out/tupaqnin ./cmd/tupaqnin
+# Empty for the public image: no development routes (B-4). The test deploy
+# (H-5) builds with --build-arg TAGS=devroutes.
+ARG TAGS=""
+RUN CGO_ENABLED=0 go build -tags "$TAGS" -o /out/tupaqnin ./cmd/tupaqnin
 
 # Runtime stage
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
