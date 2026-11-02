@@ -13,6 +13,7 @@ import {
   listSections,
   reorderSections,
   postMessage,
+  putMode,
   requestSignoff,
   startRound,
   subscribeTurn,
@@ -35,12 +36,22 @@ import { FramePanel, type TodoTarget } from "./components/FramePanel";
 import { SignoffPanel } from "./components/SignoffPanel";
 import { ConversationPanel } from "./components/ConversationPanel";
 import { StopReportPanel } from "./components/StopReportPanel";
+import { ModeBar } from "./components/ModeBar";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { HomePage } from "./components/HomePage";
 import { createErrorKey } from "./home";
 import { initialLang, translate, type Lang } from "./i18n";
-import { auditErrorCode, pollDefense, roundErrorCode, roundStarted, sendErrorCode, startsStep } from "./live";
+import {
+  auditErrorCode,
+  keepsAskingToSign,
+  pollDefense,
+  roundErrorCode,
+  roundStarted,
+  sendErrorCode,
+  startsStep,
+  turnToFollow,
+} from "./live";
 
 export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
@@ -73,6 +84,10 @@ export function App() {
   // lease, renewed every 15 s, or stays read-only.
   const [editor, setEditor] = useState(true);
   const [summary, setSummary] = useState<SummaryView | null>(null);
+  const watchedTurn = useRef("");
+  const activeProject = useRef("");
+  const [messageQueued, setMessageQueued] = useState(false);
+  const [signQueued, setSignQueued] = useState(false);
   const [historyBlockValue, setHistoryBlockValue] = useState(0);
   // A decision that covers no figure: its own history (P-41), opened
   // from the frame (backlog-r2 2.7). Showing a block clears it.
@@ -116,10 +131,26 @@ export function App() {
     return () => window.clearInterval(timer);
   }, [projectID]);
 
+  activeProject.current = projectID;
+
+  // B-83: with the mode on and nothing followed, the app may open a chain when a
+  // holder that is no chain ends: ask until it does or the mode ends.
+  // [EL DISEÑO NO LO DICE]: how the page learns it: the summary, every 3 s.
+  const modeOn = summary?.mode === "run_to_completion";
+  useEffect(() => {
+    if (!projectID || !modeOn || working) return;
+    const timer = window.setInterval(() => {
+      void getSummary(projectID).then((s) => {
+        if (activeProject.current === projectID) applySummary(s);
+      });
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [projectID, modeOn, working]);
+
   useEffect(() => {
     if (!projectID) return;
     void getSummary(projectID).then((s) => {
-      setSummary(s);
+      applySummary(s);
       if (s.defense_preparing) setDefensePreparing(true); // e.g. after a reload (P-92)
     });
   }, [projectID, understandingKey]);
@@ -137,7 +168,7 @@ export function App() {
       now: () => Date.now(),
       cancelled: () => !live,
       // P-95: the header shows the summary again, with the judge's cost.
-      onEnd: () => void getSummary(projectID).then((s) => live && setSummary(s)),
+      onEnd: () => void getSummary(projectID).then((s) => live && applySummary(s)),
     }).then(() => live && setDefensePreparing(false));
     return () => {
       live = false;
@@ -200,7 +231,19 @@ export function App() {
     setRawStream("");
   }
 
+  // Every summary read after an action: the bar, and a chain the app opened
+  // (B-83), which the page attaches to here.
+  function applySummary(s: SummaryView) {
+    setSummary(s);
+    const turn = turnToFollow(s, watchedTurn.current);
+    if (turn) watchTurn(turn);
+  }
+
   function watchTurn(turn_id: string) {
+    // A turn already followed is not followed twice: its stream replays from
+    // the start, and the text would show twice (B-1).
+    if (watchedTurn.current === turn_id) return;
+    watchedTurn.current = turn_id;
     setWorking(true);
     subscribeTurn(projectID, turn_id, {
       onDelta: (delta) => {
@@ -226,6 +269,7 @@ export function App() {
       },
       onStep: (payload) => {
         setWorking(false);
+        setMessageQueued(false);
         // The ended turn is now in the history: read it back and drop
         // the stream, so it does not show twice (U-5). The
         // understanding may have titled the project (U-1).
@@ -291,11 +335,40 @@ export function App() {
     setSignBlocked(null);
     setSignError("");
     try {
-      const result = await requestSignoff(projectID, section);
+      const asked = projectID;
+      let result = await requestSignoff(asked, section);
+      // B-83: during the mode it queues and opens when the running step ends;
+      // asking again reads what happened.
+      // [EL DISEÑO NO LO DICE]: how the page learns it: it asks every 3 s.
+      while (keepsAskingToSign(result, asked, activeProject.current)) {
+        setSignQueued(true);
+        await new Promise((resolve) => window.setTimeout(resolve, 3000));
+        if (activeProject.current !== asked) break;
+        result = await requestSignoff(asked, section);
+      }
+      setSignQueued(false);
+      if (result.kind === "queued" || activeProject.current !== asked) return;
       if (result.kind === "blocked") setSignBlocked(result.blocked);
       else setSigning(result.signoff.label);
     } catch (e) {
+      setSignQueued(false);
       setSignError(e instanceof Error ? e.message : "internal");
+    }
+  }
+
+  // H-3: the mode in the conversation's header (B-83).
+  async function setMode(mode: string, message: string) {
+    if (!projectID) return;
+    setErrorCode("");
+    try {
+      const { turn_id } = await putMode(projectID, mode, message);
+      if (turn_id) {
+        clearStream();
+        watchTurn(turn_id);
+      }
+      applySummary(await getSummary(projectID));
+    } catch (e) {
+      setErrorCode(e instanceof Error ? e.message : "internal");
     }
   }
 
@@ -304,7 +377,7 @@ export function App() {
     if (projectID) {
       void refreshSections(projectID);
       // Wonder's calls count in what was spent (P-61).
-      void getSummary(projectID).then(setSummary);
+      void getSummary(projectID).then(applySummary);
     }
   }
 
@@ -405,11 +478,14 @@ export function App() {
   async function send(text: string, fromReport = false): Promise<boolean> {
     if (!projectID) return false;
     await saveRef.current(); // always save before sending (§2)
-    clearStream();
+    // During the mode the running step's stream stays on screen (B-83).
+    const running = working && summary?.mode === "run_to_completion";
+    if (!running) clearStream();
     setErrorCode("");
     let turn_id: string;
+    let queued: boolean | undefined;
     try {
-      ({ turn_id } = await (fromReport ? continueFromStopReport : postMessage)(projectID, text));
+      ({ turn_id, queued } = await (fromReport ? continueFromStopReport : postMessage)(projectID, text));
     } catch (e) {
       // [EL DISEÑO NO LO DICE] 409 turn_running: a turn of this
       // project is already running; the message was not sent. With the
@@ -418,7 +494,8 @@ export function App() {
       return false;
     }
     void refreshConversation(projectID); // your message, from the history
-    watchTurn(turn_id);
+    setMessageQueued(Boolean(queued));
+    if (!queued) watchTurn(turn_id);
     return true;
   }
 
@@ -600,6 +677,9 @@ export function App() {
           <div className="hd">
             <span className="lbl">{t("chat.title")}</span>
             {projectID && summary && <ModelLine lang={lang} summary={summary} />}
+            {projectID && summary && (
+              <ModeBar lang={lang} mode={summary.mode} disabled={!editor} onSet={setMode} />
+            )}
           </div>
           <div className="scroll">
             {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}
@@ -690,6 +770,7 @@ export function App() {
           </div>
           <div className="composer">
             <MessageInput lang={lang} disabled={!projectID || !editor} onSend={send} />
+            {messageQueued && <span className="hint" role="status">{t("message.queued")}</span>}
             <span className="hint">{t("chat.decisions_hint")}</span>
           </div>
         </section>
@@ -730,6 +811,7 @@ export function App() {
               </button>
             </div>
             <div className="scroll">
+              {signQueued && <p className="meta" role="status">{t("signoff.request.queued")}</p>}
               {signBlocked && (
                 <div className="sign-blocked" role="status">
                   <b>{t("signoff.blocked")}</b>

@@ -127,8 +127,12 @@ type Runner struct {
 	// answers counts the defenses after your answer running in the
 	// background (P-90), so Close waits for them too.
 	answers sync.WaitGroup
-	ctx     context.Context
-	cancel  context.CancelFunc
+	// turns counts the turns running in the background, so Close waits.
+	turns sync.WaitGroup
+	// queues is what waits for each project's slot during the mode (4.4).
+	queues map[string]*modeQueue
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // editWait is one project's pending wait before its batch.
@@ -147,7 +151,7 @@ func NewRunner(db *store.DB, prov provider.Provider, count memory.TokenCounter, 
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &Runner{db: db, count: count, pub: pub,
 		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{}, preparing: map[string]int{},
-		waits: map[string]*editWait{}, ctx: ctx, cancel: cancel}
+		waits: map[string]*editWait{}, queues: map[string]*modeQueue{}, ctx: ctx, cancel: cancel}
 	r.gate.StoppedBy = r.StoppedBy
 	r.spend = newSpendGate(r, db, prov)
 	r.prov, r.checker = r.spend, NewChecker(r.spend)
@@ -210,6 +214,7 @@ func (r *Runner) Close() {
 	r.batches.Wait()
 	r.answers.Wait()
 	r.roundTurns.Wait()
+	r.turns.Wait()
 }
 
 // runEditBatch runs the batch of your edits, and the queued probes
@@ -345,8 +350,14 @@ func (r *Runner) endTurn(ctx context.Context, projectID, turnID string) {
 // unchecked; the smallest choice is to refuse it (409 turn_running), so
 // no text the checker has not seen reaches the signoff. The batch is the
 // whole project's, not only the section's (B-36 says «el lote»).
+//
+// During the mode, with the slot taken, the request queues and opens when the
+// running step ends (B-83); see queueSignoff.
 func (r *Runner) RequestSignoff(ctx context.Context, projectID, sectionLabel string) (SignoffOpen, error) {
 	ctx = withSignoffBalance(ctx)
+	if open, done, err := r.queueSignoff(ctx, projectID, sectionLabel); done || err != nil {
+		return open, err
+	}
 	pending, err := r.hasPendingChecks(ctx, projectID)
 	if err != nil {
 		return SignoffOpen{}, err
@@ -363,22 +374,53 @@ func (r *Runner) RequestSignoff(ctx context.Context, projectID, sectionLabel str
 		}
 		turnID, err = newTurnID()
 		if err == nil {
-			err = r.checkPending(ctx, projectID, turnID)
-		}
-		if err == nil && refused {
-			err = r.checkRefusedSection(ctx, projectID, turnID, sectionLabel)
+			capped, err = r.checkBeforeSignoff(ctx, projectID, turnID, sectionLabel, refused)
 		}
 		r.releaseTurn(projectID)
-		// At the cap what the checker did not see is one more agent's pending
-		// and does not keep the signoff from opening (B3-20, Eber 2-nov).
-		// [EL DISEÑO NO LO DICE]: this replaces the 409 with the cap's code.
-		if capErr, ok := asCap(err); ok {
-			capped, err = capErr, nil
-		}
 		if err != nil {
 			return SignoffOpen{}, err
 		}
 	}
+	return r.openAfterChecks(ctx, projectID, turnID, sectionLabel, capped, refused)
+}
+
+// openSignoffHolding is RequestSignoff for a caller that holds the project's
+// slot (a queued request, B-83): the same checks and the same gate.
+func (r *Runner) openSignoffHolding(ctx context.Context, projectID, sectionLabel, turnID string) (SignoffOpen, error) {
+	pending, err := r.hasPendingChecks(ctx, projectID)
+	if err != nil {
+		return SignoffOpen{}, err
+	}
+	refused, err := r.refusedCheckOpen(ctx, projectID, sectionLabel)
+	if err != nil {
+		return SignoffOpen{}, err
+	}
+	var capped *provider.CapError
+	if pending || refused {
+		if capped, err = r.checkBeforeSignoff(ctx, projectID, turnID, sectionLabel, refused); err != nil {
+			return SignoffOpen{}, err
+		}
+	}
+	return r.openAfterChecks(ctx, projectID, turnID, sectionLabel, capped, refused)
+}
+
+// checkBeforeSignoff sends what the checker has not seen. The caller holds the
+// slot. At the cap what the checker did not see is one more agent's pending and
+// does not keep the signoff from opening (B3-20, Eber 2-nov): it returns the cap.
+// [EL DISEÑO NO LO DICE]: this replaces the 409 with the cap's code.
+func (r *Runner) checkBeforeSignoff(ctx context.Context, projectID, turnID, sectionLabel string, refused bool) (*provider.CapError, error) {
+	err := r.checkPending(ctx, projectID, turnID)
+	if err == nil && refused {
+		err = r.checkRefusedSection(ctx, projectID, turnID, sectionLabel)
+	}
+	if capErr, ok := asCap(err); ok {
+		return capErr, nil
+	}
+	return nil, err
+}
+
+// openAfterChecks is the gate's answer on what the checker left.
+func (r *Runner) openAfterChecks(ctx context.Context, projectID, turnID, sectionLabel string, capped *provider.CapError, refused bool) (SignoffOpen, error) {
 	open, err := r.gate.RequestSignoff(ctx, projectID, sectionLabel)
 	if err != nil || !open.Opened || capped == nil || refused {
 		return open, err
@@ -424,9 +466,24 @@ func (r *Runner) tryAcquireTurn(projectID string) bool {
 // answers queued while the slot was held (even while endTurn prepared
 // others) are launched in the background then, as in P-90, so none
 // waits for a turn that may never come.
+//
+// What the mode queued while the slot was held takes it on at once, in the same
+// lock, so a message or a signoff racing the release is never left without a
+// reader (4.4).
 func (r *Runner) releaseTurn(projectID string) {
 	r.mu.Lock()
 	delete(r.running, projectID)
+	q := r.queues[projectID]
+	if q != nil {
+		q.turn = ""
+	}
+	if q != nil && !r.closed && (q.wake || len(q.signoffs) > 0 || q.wantsChain) {
+		r.running[projectID] = true
+		r.turns.Add(1)
+		r.mu.Unlock()
+		go r.runHandoff(projectID)
+		return
+	}
 	pending := len(r.defenses[projectID]) > 0 && !r.closed
 	if pending {
 		r.answers.Add(1)
@@ -455,23 +512,38 @@ func newTurnID() (string, error) {
 // StartTurn registers a turn and runs it in the background,
 // returning its id at once (B-1). It is the server's TurnStarter.
 // A second turn for the same project is refused with
-// ErrTurnRunning while one is in flight.
+// ErrTurnRunning while one is in flight; during the mode it queues instead
+// (B-83) and the answer has no turn id: the running chain takes it.
+//
+// The turn runs on the runner's context and Close waits for it: the mode can
+// keep a chain running, in a turn you started, for as long as its cap.
 func (r *Runner) StartTurn(projectID, text string) (string, error) {
 	if !r.tryAcquireTurn(projectID) {
+		queued, err := r.queueMessage(projectID, text)
+		if err != nil {
+			return "", err
+		}
+		if queued {
+			return "", nil
+		}
 		return "", ErrTurnRunning
+	}
+	if !r.trackTurn() {
+		r.releaseTurn(projectID)
+		return "", ErrRunnerClosed
 	}
 	turnID, err := newTurnID()
 	if err != nil {
+		r.turns.Done()
 		r.releaseTurn(projectID)
 		return "", err
 	}
-	if r.pub != nil {
-		r.pub.BeginTurn(projectID, turnID)
-	}
+	r.beginChainTurn(projectID, turnID)
 	go func() {
-		defer r.endTurn(context.Background(), projectID, turnID)
-		if err := r.runTurn(context.Background(), projectID, turnID, text); err != nil && r.Logger != nil {
-			r.Logger.Error("turn failed", "error", err.Error())
+		defer r.turns.Done()
+		defer r.endTurn(r.ctx, projectID, turnID)
+		if err := r.runTurn(r.ctx, projectID, turnID, text); err != nil {
+			r.logTurnFailure(err)
 		}
 	}()
 	return turnID, nil
@@ -601,14 +673,6 @@ func (r *Runner) cleanupWaitsForSignoff(ctx context.Context, projectID string) (
 	}
 	return r.signoffInProgress(ctx, projectID)
 }
-
-// SignoffClosed is B-86's «al cerrarse la firma, la app limpia y, si el modo
-// sigue, reabre la cadena». The cleanup needs nothing here: the next
-// ensureInstance does it. WAITS FOR 4.4: the mode, and this call from every
-// place a signoff closes (internal/server's sign, leave and edit, and
-// CancelSignoff in internal/cycle); there it opens the chain when the mode goes
-// on and NeedsReset says so.
-func (r *Runner) SignoffClosed(context.Context, string) {}
 
 // principalWindow is the window the startup's cap is measured against.
 func (r *Runner) principalWindow() int {
@@ -773,6 +837,19 @@ type stepPayload struct {
 	Reclassified []string `json:"reclassified,omitempty"`
 	// Cap says which of the demo's caps stopped the turn (B-89: data.cap).
 	Cap string `json:"cap,omitempty"`
+	// Cause says why the mode finished, with stop_reason mode_finished (B-83).
+	Cause StopReason `json:"cause,omitempty"`
+	// NextTurnID is the turn the app opened after this one (B-83): the page
+	// follows it, as after the understanding.
+	NextTurnID string `json:"next_turn_id,omitempty"`
+}
+
+// chainEnd is how a turn of a chain ended, for the stream.
+type chainEnd struct {
+	reason StopReason
+	cause  StopReason
+	cap    string
+	next   string
 }
 
 func (r *Runner) publishStep(projectID, turnID string, result StepResult, outputText string) {
@@ -780,8 +857,13 @@ func (r *Runner) publishStep(projectID, turnID string, result StepResult, output
 }
 
 func (r *Runner) publishChainStep(projectID, turnID string, result StepResult, applied ApplyResult, outputText string, reason StopReason) {
-	payload := stepPayload{Status: result.Status, Errors: result.Errors, StopReason: reason,
-		Stretch: applied.Stretch, Reclassified: applied.Reclassified}
+	r.publishChainEnd(projectID, turnID, result, applied, outputText, chainEnd{reason: reason})
+}
+
+func (r *Runner) publishChainEnd(projectID, turnID string, result StepResult, applied ApplyResult, outputText string, end chainEnd) {
+	payload := stepPayload{Status: result.Status, Errors: result.Errors, StopReason: end.reason,
+		Stretch: applied.Stretch, Reclassified: applied.Reclassified,
+		Cause: end.cause, Cap: end.cap, NextTurnID: end.next}
 	if result.Status == StatusAccepted {
 		var out struct {
 			TriageLine  string          `json:"triage_line"`
@@ -811,8 +893,13 @@ func (r *Runner) StartUnderstandingTurn(projectID string) (string, error) {
 	if !r.tryAcquireTurn(projectID) {
 		return "", ErrTurnRunning
 	}
+	if !r.trackTurn() {
+		r.releaseTurn(projectID)
+		return "", ErrRunnerClosed
+	}
 	turnID, err := newTurnID()
 	if err != nil {
+		r.turns.Done()
 		r.releaseTurn(projectID)
 		return "", err
 	}
@@ -820,8 +907,9 @@ func (r *Runner) StartUnderstandingTurn(projectID string) (string, error) {
 		r.pub.BeginTurn(projectID, turnID)
 	}
 	go func() {
-		defer r.endTurn(context.Background(), projectID, turnID)
-		if err := r.runUnderstandingTurn(context.Background(), projectID, turnID); err != nil && r.Logger != nil {
+		defer r.turns.Done()
+		defer r.endTurn(r.ctx, projectID, turnID)
+		if err := r.runUnderstandingTurn(r.ctx, projectID, turnID); err != nil && r.ctx.Err() == nil && r.Logger != nil {
 			r.Logger.Error("understanding turn failed", "error", err.Error())
 		}
 	}()
@@ -1055,16 +1143,58 @@ const (
 // when the app decides to stop after a step and its checks (ShouldStop);
 // every stop ends with the stop report (B-37, backlog-r2 2.5), unless
 // the agent did no work since the last stop (P-75 (b)).
+//
+// During the mode (B-83) the chain does not stop to report: ShouldStop ignores
+// section_ready and unseen_decisions, each 12 steps it opens the next turn on its
+// own with no report and no step_limit, and any stop is the mode's last.
 func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, human bool) error {
+	state := &chainState{judgeFailed: map[string]bool{}}
+	for {
+		r.setChainTurn(projectID, turnID)
+		next, err := r.chainTurn(ctx, projectID, turnID, text, human, state)
+		if err != nil {
+			r.endModeAfterFailure(ctx, projectID, turnID)
+			return err
+		}
+		if next == "" {
+			return nil
+		}
+		turnID, text, human = next, "", false
+	}
+}
+
+// chainState is what a chain keeps across the turns the mode opens.
+type chainState struct {
+	// The sections whose judge could not verify in this chain (B-67).
+	judgeFailed map[string]bool
+	roundsRun   int
+}
+
+// chainTurn is one turn of a chain; it returns the next turn's id when the app
+// opened one.
+func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, human bool, state *chainState) (string, error) {
 	filter := newFieldFilter(stepStreamKeys)
 	var last StepResult
 	var lastApplied ApplyResult
 	var lastText string
 	reason := StopStepLimit
-	// The sections whose judge could not verify in this chain (B-67).
-	judgeFailed := map[string]bool{}
-	roundsRun := 0
+	judgeFailed := state.judgeFailed
 	for n := 1; n <= MaxChainSteps; n++ {
+		mode, err := r.mode(ctx, projectID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return "", err
+		}
+		// Close ends a chain the mode keeps open; the mode stays on in the history.
+		if mode.On() && r.ctx.Err() != nil {
+			return "", nil
+		}
+		if mode.On() && mode.Steps >= ModeMaxSteps {
+			reason = StopModeCap
+			break
+		}
+		// What you asked to sign during the last step opens now (B-83).
+		r.openQueuedSignoffs(ctx, projectID, turnID)
 		// B-86: over the threshold with a signoff in progress, no new step:
 		// the turn ends and releases the slot. It is not a stop: no report (the
 		// next chain's covers this work) and no reason on the page (block 2 §6:
@@ -1075,34 +1205,66 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		waits, err := r.cleanupWaitsForSignoff(ctx, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		if waits {
 			if n == 1 {
 				last.Status = StatusAccepted
 			}
+			r.clearWake(projectID) // they reach the new principal in its startup
 			r.publishChainStep(projectID, turnID, last, lastApplied, lastText, "")
-			return nil
+			return "", nil
+		}
+		// What you sent during the last step enters this one, once (B-83), with
+		// B-36's trigger of a message. During the mode that trigger is every step:
+		// no chain releases the slot for the wait of your edits to find it free,
+		// and the mode skips no check.
+		r.clearWake(projectID)
+		queued, err := r.undeliveredMessages(ctx, projectID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return "", err
+		}
+		first := n == 1 && human
+		yours := first || len(queued) > 0
+		if len(queued) > 0 || (mode.On() && !first) {
+			if err := r.checkPending(ctx, projectID, turnID); err != nil {
+				if capErr, ok := asCap(err); ok {
+					return "", r.stopAtCap(ctx, projectID, turnID, capErr)
+				}
+				r.fail(projectID, turnID, "turn_failed")
+				return "", err
+			}
 		}
 		// B-67: the correction batch is this step, if a judge round waits.
 		batch, err := r.startJudgeBatch(ctx, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		message := ContinueMessage
 		if batch != "" {
 			message = JudgeBatchMessage
 		}
-		if n == 1 && human {
+		// Each queued message is an item of its own, in literal: that is how the
+		// next step knows it entered.
+		var extra []json.RawMessage
+		for _, msg := range queued {
+			extra = append(extra, userItem(msg))
+		}
+		switch {
+		case first:
 			message = text
-		} else {
+		case len(queued) > 0:
+			message = queued[len(queued)-1]
+			extra = extra[:len(extra)-1]
+		default:
 			// What the checks find enters the next triage (flujos §1,
 			// P-54): the computed pendings go before the fixed message.
 			pendings, err := r.memory.AgentPendings(ctx, projectID)
 			if err != nil {
 				r.fail(projectID, turnID, "turn_failed")
-				return err
+				return "", err
 			}
 			if len(pendings) > 0 {
 				message = "Pendings the app computed (resolve them before new text):\n- " +
@@ -1115,62 +1277,76 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		rejections, err := graph.PendingRejections(ctx, r.db, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		notice := strings.Join(rejections, "\n")
 		if batch != "" {
 			notice = strings.TrimSpace(notice + "\n" + batch)
 		}
-		if notice != "" {
+		switch {
+		case notice != "" && !first && len(queued) > 0:
+			extra = append([]json.RawMessage{userItem(notice)}, extra...)
+		case notice != "":
 			message = notice + "\n\n" + message
 		}
 		// What was delivered before this step, for the retry's startup (B-86).
 		delivered, err := r.db.LatestDeliveries(ctx, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		var input []json.RawMessage
 		switch {
 		case started:
-			input = stepAfterStartup(startupInput, n == 1 && human, notice, message)
+			input = stepAfterStartup(startupInput, yours, notice, message)
 		default:
 			conversation, err := r.conversation(ctx, projectID, instanceID)
 			if err != nil {
 				r.fail(projectID, turnID, "turn_failed")
-				return err
+				return "", err
 			}
 			changes, err := r.changeItems(ctx, projectID, instanceID)
 			if err != nil {
 				r.fail(projectID, turnID, "turn_failed")
-				return err
+				return "", err
 			}
 			input = append(conversation, changes...)
-			input = append(input, userItem(message))
+			// The mode set since the last step: a startup carries it in layer 3;
+			// a live conversation hears it here, once.
+			if mode.Unread {
+				input = append(input, userItem(modeLine(mode)))
+			}
+			input = append(append(input, extra...), userItem(message))
 		}
-		result, applied, outText, err := r.runStep(ctx, projectID, turnID, instanceID, input, filter, n == MaxChainSteps)
+		// During the mode no cut of B-17 is a stop until the app says so (B-83).
+		opts := stepOptions{last: n == MaxChainSteps && !mode.On(), quiet: mode.On()}
+		result, applied, outText, err := r.runStep(ctx, projectID, turnID, instanceID, input, filter, opts)
 		if errors.Is(err, provider.ErrContextFull) {
 			retry := func(startup []json.RawMessage, instance string) (StepResult, ApplyResult, string, error) {
 				return r.runStep(ctx, projectID, turnID, instance,
-					stepAfterStartup(startup, n == 1 && human, notice, message), filter, n == MaxChainSteps)
+					stepAfterStartup(startup, yours, notice, message), filter, opts)
 			}
 			result, applied, outText, err = r.retryFullStep(ctx, projectID, turnID, delivered, retry)
 		}
 		if capErr, ok := asCap(err); ok {
-			return r.stopAtCap(ctx, projectID, turnID, capErr)
+			return "", r.stopAtCap(ctx, projectID, turnID, capErr)
 		}
 		if errors.Is(err, errProvider) {
+			if on, modeErr := r.modeOnNow(ctx, projectID); ctx.Err() == nil && modeErr == nil && on {
+				reason = StopProviderError
+				break
+			}
 			r.fail(projectID, turnID, "provider_error")
-			return nil
+			return "", nil
 		}
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		last, lastApplied, lastText = result, applied, outText
 		// The checker judges the applied step outside its transaction, in
@@ -1178,7 +1354,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		if result.Status == StatusAccepted && applied.Applied && applied.Change.HasWork() {
 			if err := r.checkAgentStep(ctx, projectID, turnID, applied.Change); err != nil {
 				r.fail(projectID, turnID, "turn_failed")
-				return err
+				return "", err
 			}
 		}
 		// B-64: a round the step asked for is launched on its own, in this
@@ -1188,15 +1364,15 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		if result.Status == StatusAccepted && applied.Round != "" {
 			if err := r.runRound(ctx, projectID, applied.Round, turnID); err != nil {
 				r.fail(projectID, turnID, "turn_failed")
-				return err
+				return "", err
 			}
-			roundsRun++
+			state.roundsRun++
 		}
 		// B-67: the batch applied: its one recheck.
 		if result.Status == StatusAccepted && batch != "" {
 			if err := r.recheckJudgeRounds(ctx, projectID); err != nil {
 				r.fail(projectID, turnID, "turn_failed")
-				return err
+				return "", err
 			}
 		}
 		if result.Status != StatusAccepted {
@@ -1206,10 +1382,10 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			capErr, err := r.overCap(ctx, projectID, provider.RolePrincipal, provider.TurnStep)
 			if err != nil {
 				r.fail(projectID, turnID, "turn_failed")
-				return err
+				return "", err
 			}
 			if capErr != nil {
-				return r.stopAtCap(ctx, projectID, turnID, capErr)
+				return "", r.stopAtCap(ctx, projectID, turnID, capErr)
 			}
 			break
 		}
@@ -1219,7 +1395,7 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		waiting, err := r.verifyTouched(ctx, projectID, turnID, judgeFailed)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		if waiting {
 			continue
@@ -1227,27 +1403,56 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		// P-99: a step whose work is its round goes on after the digest.
 		// [EL DISEÑO NO LO DICE]: only after the chain's first round, so a
 		// principal that keeps asking cannot chain rounds up to the cap.
-		if !applied.Work && (applied.Round == "" || roundsRun > 1) {
+		// The mode now, not as this step began: it may have been activated or
+		// turned off meanwhile.
+		now, err := r.mode(ctx, projectID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return "", err
+		}
+		if !applied.Work && (applied.Round == "" || state.roundsRun > 1) {
+			// A step that began before you activated the mode was not the mode's:
+			// its lack of work does not end it.
+			// B-83: your message does not end the mode, even when its step only
+			// answers it (R-5), and a queued one still has to enter a step.
+			// B-84: nor does leaving what is yours «por aclarar»: the mode goes on
+			// with the rest.
+			// [EL DISEÑO NO LO DICE]: a step that only proposes one counts as no
+			// work (B-24); in the mode it does not stop the chain.
+			if now.On() && (!mode.On() || yours || applied.Asked || r.hasMessages(ctx, projectID)) {
+				continue
+			}
 			reason = StopNoWork
 			break
 		}
-		if n == MaxChainSteps {
+		if n == MaxChainSteps && !now.On() {
 			break
 		}
 		touched, err := graph.TouchedSinceStop(ctx, r.db, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		why, stop, err := r.gate.ShouldStop(ctx, projectID, touched)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		if stop {
+			if now.On() && r.hasMessages(ctx, projectID) {
+				continue
+			}
 			reason = why
 			break
 		}
+	}
+	on, err := r.modeOnNow(ctx, projectID)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return "", err
+	}
+	if on {
+		return r.modeBoundary(ctx, projectID, turnID, reason, last, lastApplied, lastText)
 	}
 	// B-37: every stop, the cuts of B-17 included, ends in the report.
 	// [EL DISEÑO NO LO DICE]: the reasons ShouldStop finds after the
@@ -1259,22 +1464,88 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 	work, err := graph.WorkSinceStop(ctx, r.db, projectID)
 	if err != nil {
 		r.fail(projectID, turnID, "turn_failed")
-		return err
+		return "", err
 	}
 	if work {
 		capErr, err := r.writeStopReport(ctx, projectID, turnID, reason)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
-			return err
+			return "", err
 		}
 		if capErr != nil {
 			// The report's own call did not fit: the turn ends at the cap.
 			r.publishCapStop(projectID, turnID, capErr)
-			return nil
+			return "", nil
 		}
 	}
-	r.publishChainStep(projectID, turnID, last, lastApplied, lastText, reason)
-	return nil
+	// Messages queued in the mode you turned off: the next turn answers them.
+	next, err := r.nextTurnForMessages(projectID)
+	if err != nil {
+		return "", err
+	}
+	r.publishChainEnd(projectID, turnID, last, lastApplied, lastText, chainEnd{reason: reason, next: next})
+	return next, nil
+}
+
+func (r *Runner) modeOnNow(ctx context.Context, projectID string) (bool, error) {
+	mode, err := r.mode(ctx, projectID)
+	return mode.On(), err
+}
+
+// nextTurnForMessages opens the turn that answers the queued messages, if any.
+func (r *Runner) nextTurnForMessages(projectID string) (string, error) {
+	if !r.hasMessages(r.ctx, projectID) {
+		return "", nil
+	}
+	next, err := newTurnID()
+	if err != nil {
+		return "", err
+	}
+	if r.pub != nil {
+		r.pub.BeginTurn(projectID, next)
+	}
+	return next, nil
+}
+
+// modeBoundary is the end of a turn with the mode on: at the 12 steps with room
+// left, the next turn opens on its own (no report, no step_limit); anything else
+// is the mode's final stop (B-83).
+func (r *Runner) modeBoundary(ctx context.Context, projectID, turnID string, reason StopReason,
+	last StepResult, applied ApplyResult, text string) (string, error) {
+	if last.Status == "" {
+		last.Status = StatusAccepted
+	}
+	mode, err := r.mode(ctx, projectID)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return "", err
+	}
+	if reason == StopStepLimit {
+		if mode.Steps < ModeMaxSteps {
+			next, err := newTurnID()
+			if err != nil {
+				return "", err
+			}
+			if r.pub != nil {
+				r.pub.BeginTurn(projectID, next)
+			}
+			r.publishChainEnd(projectID, turnID, last, applied, text, chainEnd{next: next})
+			return next, nil
+		}
+		reason = StopModeCap
+	}
+	cause, capName, err := r.finishMode(ctx, projectID, turnID, reason)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return "", err
+	}
+	next, err := r.nextTurnForMessages(projectID)
+	if err != nil {
+		return "", err
+	}
+	r.publishChainEnd(projectID, turnID, last, applied, text,
+		chainEnd{reason: StopModeFinished, cause: cause, cap: capName, next: next})
+	return next, nil
 }
 
 // stepAfterStartup is a step's input on a new instance. The startup already
@@ -1337,10 +1608,27 @@ func (r *Runner) retryFullStep(ctx context.Context, projectID, turnID string, de
 // rejections). The history keeps the reason and data.cap in stop_report, as
 // the other reasons known after step_ended (runChain); the stream's
 // step_ended carries them.
+//
+// With the mode on the cap ends it (B-83, adopted 1-nov), with the same report.
 func (r *Runner) stopAtCap(ctx context.Context, projectID, turnID string, capErr *provider.CapError) error {
-	if err := r.writeCapReport(ctx, projectID, turnID, capErr); err != nil {
+	on, err := r.modeOnNow(ctx, projectID)
+	if err != nil {
 		r.fail(projectID, turnID, "turn_failed")
 		return err
+	}
+	var end *modeEnd
+	if on {
+		end = &modeEnd{cause: StopReason(capErr.Reason), noCall: true}
+		r.clearWake(projectID)
+	}
+	if _, err := r.stopReport(ctx, projectID, turnID, StopReason(capErr.Reason), capErr, end); err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
+	}
+	if on {
+		r.publishChainEnd(projectID, turnID, StepResult{Status: StatusAccepted}, ApplyResult{}, "",
+			chainEnd{reason: StopModeFinished, cause: StopReason(capErr.Reason), cap: capErr.Cap})
+		return nil
 	}
 	r.publishCapStop(projectID, turnID, capErr)
 	return nil
@@ -1359,12 +1647,17 @@ func (r *Runner) publishCapStop(projectID, turnID string, capErr *provider.CapEr
 
 var errProvider = errors.New("cycle: provider call failed")
 
+// stepOptions says how a chain's step is applied. last: the chain's last allowed
+// step. quiet: during the mode a step's step_ended carries no stop_reason (B-83):
+// the chain does not stop for it.
+type stepOptions struct{ last, quiet bool }
+
 // runStep runs one step: the call, EndStep (the fixed shape) and
 // ApplyStep (rules 2 to 6). A rejection by either counts as the retry
 // (specification §3); the retry carries what changed since it was
 // delivered, so a section that changed reaches the agent with its
 // current text (B-11).
-func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter, last bool) (StepResult, ApplyResult, string, error) {
+func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID string, input []json.RawMessage, f *fieldFilter, opts stepOptions) (StepResult, ApplyResult, string, error) {
 	var result StepResult
 	var applied ApplyResult
 	for attempt := 1; attempt <= 2; attempt++ {
@@ -1382,7 +1675,7 @@ func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID stri
 		}
 		message := RetryMessage(result.Errors)
 		if result.Status == StatusAccepted {
-			applied, err = r.gate.ApplyChainStep(ctx, projectID, turnID, json.RawMessage(resp.Text), last)
+			applied, err = r.gate.applyChainStep(ctx, projectID, turnID, json.RawMessage(resp.Text), opts)
 			if err != nil {
 				return StepResult{}, ApplyResult{}, "", err
 			}

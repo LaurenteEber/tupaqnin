@@ -365,7 +365,7 @@ function ReturnLineBox({ lang, line, titleOf, onSection }: {
   const what = line.act_about ? t("return.act_about", { act, about: line.act_about }) : act;
   return (
     <div className="fsec return-line">
-      <h4>{t("return.title", { n: String(line.days) })}</h4>
+      <h4>{line.mode_finished && line.days < 1 ? t("return.title_mode") : t("return.title", { n: String(line.days) })}</h4>
       <p>{line.section ? t("return.left_in", { section: titleOf(line.section), act: what }) : t("return.left", { act: what })}</p>
       <p>
         {t("return.changed", { n: String(line.changes) })}

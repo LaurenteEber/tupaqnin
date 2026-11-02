@@ -97,6 +97,8 @@ type ApplyResult struct {
 	Errors  []string
 	Labels  map[string]string
 	Work    bool
+	// Asked: the step proposed a «por aclarar» (B-84); it stays no work.
+	Asked bool
 	// Rejected are what the step did not apply and the agent must hear:
 	// closes rule 7 rejected, each with its message; the rest of the step
 	// applied.
@@ -138,6 +140,11 @@ func (g *Gate) ApplyStep(ctx context.Context, projectID, turnID string, output j
 // a step without new text or decisions (a reply alone is not work,
 // R-5), step_limit when last is set and the step had work.
 func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, output json.RawMessage, last bool) (ApplyResult, error) {
+	return g.applyChainStep(ctx, projectID, turnID, output, stepOptions{last: last})
+}
+
+func (g *Gate) applyChainStep(ctx context.Context, projectID, turnID string, output json.RawMessage, opts stepOptions) (ApplyResult, error) {
+	last := opts.last
 	errs, _, err := validateOutput(output)
 	if err != nil {
 		return ApplyResult{}, err
@@ -168,12 +175,17 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	var rejected []string
 
 	work := len(out.NewText) > 0 || len(out.NewDecisions) > 0
+	var asked []json.RawMessage
+	_ = json.Unmarshal(out.ProposedOpenQuestions, &asked)
 	var stop StopReason
 	switch {
 	case !work:
 		stop = StopNoWork
 	case last:
 		stop = StopStepLimit
+	}
+	if opts.quiet {
+		stop = ""
 	}
 
 	beforeApplyWrite()
@@ -205,7 +217,7 @@ func (g *Gate) ApplyChainStep(ctx context.Context, projectID, turnID string, out
 	for _, c := range p.rejectedCloses { // rule 7: only that close is rejected
 		rejected = append(rejected, c["message"].(string))
 	}
-	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Proposals: p.proposals, Work: work,
+	return ApplyResult{Applied: true, Labels: labels, Rejected: rejected, Proposals: p.proposals, Work: work, Asked: len(asked) > 0,
 		Stretch: p.stretch, Reclassified: p.reclassified, Change: p.change, Round: p.round}, nil
 }
 

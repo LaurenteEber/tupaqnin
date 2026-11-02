@@ -52,20 +52,29 @@ const UnseenDecisionsToStop = 5
 // [EL DISEÑO NO LO DICE]: the backlog's signature has no error; reading
 // the graph can fail, so it returns one. The order of the reasons when
 // several hold: unseen decisions, section ready, only yours.
+//
+// With «continúa hasta terminar» on, only what is yours stops it (B-83, fichas
+// §2): the cap of the mode and no_work are the runner's.
 func (g *Gate) ShouldStop(ctx context.Context, projectID string, touched []string) (StopReason, bool, error) {
-	unseen, err := graph.UnseenDecisions(ctx, g.db, projectID)
+	mode, err := graph.CurrentMode(ctx, g.db, projectID)
 	if err != nil {
 		return "", false, err
 	}
-	if len(unseen) >= UnseenDecisionsToStop {
-		return StopUnseenDecisions, true, nil
-	}
-	clear, err := g.clearSection(ctx, projectID, touched)
-	if err != nil {
-		return "", false, err
-	}
-	if clear != "" {
-		return StopSectionReady, true, nil
+	if !mode.On() {
+		unseen, err := graph.UnseenDecisions(ctx, g.db, projectID)
+		if err != nil {
+			return "", false, err
+		}
+		if len(unseen) >= UnseenDecisionsToStop {
+			return StopUnseenDecisions, true, nil
+		}
+		clear, err := g.clearSection(ctx, projectID, touched)
+		if err != nil {
+			return "", false, err
+		}
+		if clear != "" {
+			return StopSectionReady, true, nil
+		}
 	}
 	only, err := g.humanOnly(ctx, projectID)
 	if err != nil {
@@ -171,6 +180,8 @@ type StopReport struct {
 	// Cap says which of the demo's caps stopped the chain (B-89: link, day
 	// or total), with stop_reason demo_cap.
 	Cap string `json:"cap,omitempty"`
+	// Cause says why the mode finished, with stop_reason mode_finished (B-83).
+	Cause string `json:"cause,omitempty"`
 	// Section is the evaluated section's label, "" when the chain wrote
 	// none; ProposeSignoff is true only when it could be signed now
 	// (graph.SectionClear), whatever the principal wrote.
@@ -390,6 +401,8 @@ func stopReasonLine(reason StopReason, unseen int) string {
 		return fmt.Sprintf("the person has not seen %d decisions you made", unseen)
 	case StopHumanOnly:
 		return "only what the person decides is left"
+	case StopModeCap:
+		return fmt.Sprintf("the run-to-completion mode reached its limit of %d steps", ModeMaxSteps)
 	}
 	return string(reason)
 }
@@ -433,16 +446,19 @@ func reportRequest(reason StopReason, section, title string, clear bool, decisio
 // When the call does not fit in a cap (B-89) the report keeps the app's part
 // with that stop, and the refusal is returned.
 func (r *Runner) writeStopReport(ctx context.Context, projectID, turnID string, reason StopReason) (*provider.CapError, error) {
-	return r.stopReport(ctx, projectID, turnID, reason, nil)
+	return r.stopReport(ctx, projectID, turnID, reason, nil, nil)
 }
 
-// writeCapReport is the report of a turn a cap already stopped: no call.
-func (r *Runner) writeCapReport(ctx context.Context, projectID, turnID string, capErr *provider.CapError) error {
-	_, err := r.stopReport(ctx, projectID, turnID, StopReason(capErr.Reason), capErr)
-	return err
-}
-
-func (r *Runner) stopReport(ctx context.Context, projectID, turnID string, reason StopReason, capErr *provider.CapError) (*provider.CapError, error) {
+// stopReport writes the report. A cap already stopping the turn, or end.noCall,
+// keep the app's part with no call. With end, the report is the mode's last: its
+// reason says mode_finished and the cause why, and the mode goes back to normal
+// in the same transaction (B-83, rule 6).
+// [EL DISEÑO NO LO DICE]: the backlog says «stop_reason: mode_finished en
+// step_ended», but the cause is known after the step's step_ended was written
+// (no_work, human_only, the checker), so it lives where B-37's 31-oct note puts
+// the reasons known after it: stop_report, and the stream's step_ended. In the
+// mode, the history's step_ended carries no stop_reason.
+func (r *Runner) stopReport(ctx context.Context, projectID, turnID string, reason StopReason, capErr *provider.CapError, end *modeEnd) (*provider.CapError, error) {
 	touched, err := graph.TouchedSinceStop(ctx, r.db, projectID)
 	if err != nil {
 		return nil, err
@@ -457,7 +473,7 @@ func (r *Runner) stopReport(ctx context.Context, projectID, turnID string, reaso
 	}
 	var out reportOutput
 	ok := false
-	if capErr == nil {
+	if capErr == nil && (end == nil || !end.noCall) {
 		if out, ok, capErr, err = r.askReport(ctx, projectID, turnID, reason, section, decisions); err != nil {
 			return nil, err
 		}
@@ -473,6 +489,9 @@ func (r *Runner) stopReport(ctx context.Context, projectID, turnID string, reaso
 			Done: []string{}, Unseen: []ReportUnseen{}}
 		if capErr != nil {
 			report.Cap = capErr.Cap
+		}
+		if end != nil {
+			report.StopReason, report.Cause = StopModeFinished, string(reason)
 		}
 		if ok {
 			report.Answer, report.Next = out.Answer, out.Next
@@ -510,19 +529,40 @@ func (r *Runner) stopReport(ctx context.Context, projectID, turnID string, reaso
 		if report.JudgeNotVerified, err = JudgeNotVerified(ctx, tx, projectID); err != nil {
 			return err
 		}
-		_, err = tx.AppendEvent(store.EventInput{Type: store.EventStopReport, Actor: "agent",
-			AgentRole: "principal", TurnID: turnID, Data: report})
-		return err
+		if _, err = tx.AppendEvent(store.EventInput{Type: store.EventStopReport, Actor: "agent",
+			AgentRole: "principal", TurnID: turnID, Data: report}); err != nil {
+			return err
+		}
+		if end == nil {
+			return nil
+		}
+		return appendModeEnd(ctx, tx, projectID, turnID, report)
 	})
 	if err != nil {
 		return nil, err
 	}
 	// The defense, at the stop that proposes signing (backlog-r2 2.6),
-	// after the report and outside its transaction. At a cap it waits.
-	if capErr == nil && report.ProposeSignoff && report.Section != "" {
+	// after the report and outside its transaction. At a cap it waits. The
+	// mode's last stop prepares every section's (finishMode).
+	if end == nil && capErr == nil && report.ProposeSignoff && report.Section != "" {
 		return nil, r.prepareDefense(ctx, projectID, turnID, report.Section)
 	}
 	return capErr, nil
+}
+
+// appendModeEnd is mode_set back to normal, by the app, with why (B-83). If you
+// turned the mode off meanwhile, your mode_set stands.
+func appendModeEnd(ctx context.Context, tx *store.Tx, projectID, turnID string, report StopReport) error {
+	mode, err := graph.CurrentMode(ctx, tx, projectID)
+	if err != nil || !mode.On() {
+		return err
+	}
+	data := map[string]any{"mode": graph.ModeNormal, "cause": report.Cause}
+	if report.Cap != "" {
+		data["cap"] = report.Cap
+	}
+	_, err = tx.AppendEvent(store.EventInput{Type: store.EventModeSet, Actor: "app", TurnID: turnID, Data: data})
+	return err
 }
 
 // askReport asks the principal for its part of the report, with one retry.

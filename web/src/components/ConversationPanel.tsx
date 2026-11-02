@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { StreamDelta } from "../api/client";
 import type { ConversationEntry } from "../api/types";
 import { translate, type Lang } from "../i18n";
-import { invitesRetry } from "../live";
+import { invitesRetry, stopKey } from "../live";
 import { RoundCard } from "./RoundCard";
 
 // U-5: the conversation as the history keeps it (Go reads it from the
@@ -158,7 +158,7 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct 
       // An earlier stop report: its first line and why the chain stopped.
       return (
         <div className="agent-step">
-          <p className="meta">{t(`turn.stop.${entry.stop_reason}`)}</p>
+          <p className="meta">{t(stopKey(entry.stop_reason ?? "", entry.cause))}</p>
           {entry.incomplete && <p className="meta">{t("stop_report.incomplete")}</p>}
           {entry.text && <p className="reply">{entry.text}</p>}
         </div>

@@ -84,6 +84,10 @@ func (s *Server) actOnProposal(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
+	// Accepting on a section in signoff cancels it (K-16).
+	if out.State == "accepted" {
+		s.signoffClosed(r.Context(), projectID)
+	}
 	res := ProposalActResponse{Label: out.Label, State: out.State, Why: out.Why, Section: out.Section}
 	if stepper, ok := s.starter.(ProposalStepper); ok && out.NewStep {
 		turn, err := stepper.StartStepAfterProposal(projectID)

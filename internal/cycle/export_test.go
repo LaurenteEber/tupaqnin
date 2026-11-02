@@ -15,6 +15,10 @@ func HoldTurnForTest(r *Runner, projectID string) (end func()) {
 // running in the background (P-90).
 func WaitAfterAnswersForTest(r *Runner) { r.answers.Wait() }
 
+// WaitTurnsForTest waits for the turns running in the background (4.4): a
+// turn a test or the mode opened, until the project has none.
+func WaitTurnsForTest(r *Runner) { r.turns.Wait() }
+
 // ValidateReaderOutput checks a hand-made reader output against
 // salida-lector, as the app does.
 func ValidateReaderOutput(text string) []string { return validateReaderOutput(text) }

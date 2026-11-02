@@ -136,6 +136,10 @@ func (s *Server) requestSignoff(w http.ResponseWriter, r *http.Request) {
 		request = sr.RequestSignoff
 	}
 	open, err := request(r.Context(), projectID, r.PathValue("label"))
+	if errors.Is(err, cycle.ErrSignoffQueued) {
+		writeJSON(w, http.StatusAccepted, SignoffQueuedResponse{Queued: true, Section: r.PathValue("label")})
+		return
+	}
 	if err != nil {
 		signoffError(w, err)
 		return
@@ -167,6 +171,7 @@ func (s *Server) signSignoff(w http.ResponseWriter, r *http.Request) {
 		signoffError(w, err)
 		return
 	}
+	s.signoffClosed(r.Context(), projectID)
 	s.writeSignoff(w, r, projectID, label, http.StatusOK)
 }
 
@@ -181,6 +186,7 @@ func (s *Server) leaveSignoff(w http.ResponseWriter, r *http.Request) {
 		signoffError(w, err)
 		return
 	}
+	s.signoffClosed(r.Context(), projectID)
 	s.writeSignoff(w, r, projectID, label, http.StatusOK)
 }
 

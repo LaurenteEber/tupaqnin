@@ -803,6 +803,8 @@ func (r *Runner) startSignoffRound(projectID, signLabel string, record func(cont
 		if err := r.runSignoffRound(context.Background(), projectID, turnID, signLabel); err != nil && r.Logger != nil {
 			r.Logger.Error("signoff turn failed", "error", err.Error())
 		}
+		// The round may have paused or cancelled it (missing_in_text).
+		r.SignoffClosed(context.Background(), projectID)
 	}()
 	return turnID, nil
 }
@@ -814,7 +816,9 @@ func (r *Runner) RunSignoffRound(ctx context.Context, projectID, turnID, signLab
 		return ErrTurnRunning
 	}
 	defer r.releaseTurn(slot)
-	return r.runSignoffRound(ctx, projectID, turnID, signLabel)
+	err := r.runSignoffRound(ctx, projectID, turnID, signLabel)
+	r.SignoffClosed(ctx, projectID)
+	return err
 }
 
 // runSignoffRound is one call of B-13 with its brief (graph.WonderBrief,

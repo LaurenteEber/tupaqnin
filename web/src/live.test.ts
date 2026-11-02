@@ -9,7 +9,10 @@ import {
   roundKeepsPolling,
   roundStarted,
   sendErrorCode,
+  keepsAskingToSign,
   shouldReloadEditor,
+  stopKey,
+  turnToFollow,
   startsStep,
   textAfterSend,
 } from "./live.ts";
@@ -128,4 +131,22 @@ test("3.2 (B-64): the round card asks again while its readers run, and stops whe
   assert.equal(roundKeepsPolling({ running: true, parts: [{ status: "returned" }] }), true);
   assert.equal(roundKeepsPolling({ running: false, parts: [{ status: "running" }] }), true);
   assert.equal(roundKeepsPolling({ running: false, parts: [{ status: "returned" }, { status: "empty" }] }), false);
+});
+
+test("B-83: the mode's last stop says it by its cause, any other by its reason", () => {
+  assert.equal(stopKey("mode_finished", "human_only"), "turn.stop.mode_finished.human_only");
+  assert.equal(stopKey("mode_finished"), "turn.stop.mode_finished");
+  assert.equal(stopKey("section_ready"), "turn.stop.section_ready");
+});
+
+test("B-83: the page attaches to a running chain it does not follow, once", () => {
+  assert.equal(turnToFollow({ running_turn: "t2" }, "t1"), "t2");
+  assert.equal(turnToFollow({ running_turn: "t2" }, "t2"), "");
+  assert.equal(turnToFollow({}, "t1"), "");
+});
+
+test("B-83: asking again for a queued signoff stops when the project changes", () => {
+  assert.equal(keepsAskingToSign({ kind: "queued" }, "p1", "p1"), true);
+  assert.equal(keepsAskingToSign({ kind: "queued" }, "p1", "p2"), false);
+  assert.equal(keepsAskingToSign({ kind: "opened" }, "p1", "p1"), false);
 });

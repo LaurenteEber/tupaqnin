@@ -528,6 +528,36 @@ export interface Labeler {
 }
 
 //////////
+// source: mode.go
+
+/**
+ * The modes of mode_set (glossary: normal · «continúa hasta terminar»).
+ */
+export const ModeNormal = "normal";
+/**
+ * The modes of mode_set (glossary: normal · «continúa hasta terminar»).
+ */
+export const ModeRunToCompletion = "run_to_completion";
+/**
+ * Mode is what the history says of the mode (espec. §1.3): the last mode_set,
+ * with your message in literal. A project without one is normal.
+ */
+export interface Mode {
+  Mode: string;
+  Message: string;
+  /**
+   * Steps counts the principal's steps since the mode was activated
+   * (B-83: its cap), from the history, so a new turn keeps counting.
+   */
+  Steps: number /* int */;
+  /**
+   * Unread: the principal took no step since this mode was set, so a live
+   * conversation has not heard of it yet (a startup carries it in layer 3).
+   */
+  Unread: boolean;
+}
+
+//////////
 // source: numbers.go
 
 /**
@@ -849,6 +879,11 @@ export interface ReturnLine {
    * Todo is the number of your pendings: FrameTodo.Count.
    */
   todo: number /* int */;
+  /**
+   * ModeFinished: the line shows because the mode ended (B-85), so the page
+   * does not say that days passed.
+   */
+  mode_finished?: boolean;
 }
 /**
  * Detected is one thing the app detected since the last stop report,

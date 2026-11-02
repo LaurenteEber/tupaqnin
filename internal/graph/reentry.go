@@ -36,6 +36,9 @@ type ReturnLine struct {
 	ChangedSections []string `json:"changed_sections"`
 	// Todo is the number of your pendings: FrameTodo.Count.
 	Todo int `json:"todo"`
+	// ModeFinished: the line shows because the mode ended (B-85), so the page
+	// does not say that days passed.
+	ModeFinished bool `json:"mode_finished,omitempty"`
 }
 
 // Detected is one thing the app detected since the last stop report,
@@ -77,13 +80,15 @@ func eventTime(ev store.Event) (time.Time, bool) {
 // ReturnDue reports whether the return line is due at now: after or
 // more passed since your last event (B-48 a, spec §9). The frame shows
 // the line and the stop report route uses it to tell the short return.
+// Also when the mode finished since your last event, whatever time passed
+// (B-85, M-2): then the report waits a click away.
 func ReturnDue(events []store.Event, now time.Time, after time.Duration) bool {
 	last, ok := lastHumanEvent(events)
 	if !ok {
 		return false
 	}
 	at, ok := eventTime(last)
-	return ok && now.Sub(at) >= after
+	return ok && (now.Sub(at) >= after || modeFinishedSinceYou(events))
 }
 
 // actOf names your act in one of your events, "" for an event that only
@@ -109,6 +114,8 @@ func actOf(ev store.Event, obj store.Object) string {
 		return "edit_undone"
 	case store.EventHumanMessage:
 		return "message"
+	case store.EventModeSet:
+		return "mode"
 	case store.EventStopReportSeen:
 		return "stop_report_seen"
 	case store.EventClaimAccepted:
@@ -242,7 +249,8 @@ func returnLine(ctx context.Context, q store.Querier, projectID string, events [
 	for i, s := range sections {
 		order[s.ID] = i
 	}
-	line := &ReturnLine{Days: int(now.Sub(at) / (24 * time.Hour)), ChangedSections: []string{}}
+	line := &ReturnLine{Days: int(now.Sub(at) / (24 * time.Hour)), ChangedSections: []string{},
+		ModeFinished: modeFinishedSinceYou(events)}
 
 	// Where you left off: your last act and the last section your acts
 	// named, walking back from your last event.

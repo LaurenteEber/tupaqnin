@@ -193,6 +193,11 @@ type SummaryView struct {
 	// StoppedBy is the cap that keeps the agent from its next call (B-89):
 	// project_cap, link, day or total; empty when none does.
 	StoppedBy string `json:"stopped_by"`
+	// Mode is the mode now (B-83: normal · run_to_completion), for the bar.
+	Mode string `json:"mode"`
+	// RunningTurn is the turn of the mode's chain running now, if any: the page
+	// follows it when it did not start it.
+	RunningTurn string `json:"running_turn,omitempty"`
 }
 
 // warnShare is where the bar's notice starts (B3-20: 80 % of the cap).
@@ -229,6 +234,15 @@ func (s *Server) getSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	if p, ok := s.starter.(DefensePreparer); ok {
 		view.DefensePreparing = p.DefensePreparing(projectID)
+	}
+	mode, err := graph.CurrentMode(r.Context(), s.db, projectID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	view.Mode = mode.Mode
+	if f, ok := s.starter.(ChainFollower); ok && mode.On() {
+		view.RunningTurn = f.RunningTurn(projectID)
 	}
 	if err := s.modelInfo(r, projectID, &view); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")

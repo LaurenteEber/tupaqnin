@@ -77,6 +77,11 @@ export interface PostMessageRequest {
 }
 export interface PostMessageResponse {
   turn_id: string;
+  /**
+   * Queued: the mode's running chain takes the message at its next step
+   * (B-83), and TurnID is empty.
+   */
+  queued?: boolean;
 }
 /**
  * CreateSectionRequest is «+ Sección» (K-17): a title (required), the
@@ -275,6 +280,10 @@ export interface ConversationEntry {
   status?: string;
   stop_reason?: string;
   /**
+   * Cause says why the mode finished, with stop_reason mode_finished (B-83).
+   */
+  cause?: string;
+  /**
    * StoppedWithoutReport marks the step that ended a chain with no
    * stop report (P-75 (b)): it shows «El agente se detuvo: …» with
    * its stop reason (P-85, B-24).
@@ -394,6 +403,48 @@ export interface Hub {
    * heartbeat (specification §6: every 15 s).
    */
   HeartbeatInterval: any /* time.Duration */;
+}
+
+//////////
+// source: mode.go
+
+/**
+ * ModeSetter sets the mode (backlog-r4 4.4, B-83). *cycle.Runner satisfies it;
+ * the route exists only when the starter does.
+ */
+export type ModeSetter = any;
+/**
+ * ChainFollower says which turn of the mode's chain runs now, for a page that did
+ * not start it: after a reload, or a chain the app opened.
+ */
+export type ChainFollower = any;
+/**
+ * SignoffCloser is told every time a signoff closes (B-86): if the mode goes on
+ * and the chain waited for it, the chain reopens.
+ */
+export type SignoffCloser = any;
+/**
+ * ModeRequest is PUT /mode: the mode and, when activating, your message.
+ */
+export interface ModeRequest {
+  mode: string;
+  message: string;
+}
+/**
+ * ModeResponse is the mode now and the turn the activation started, if it did.
+ */
+export interface ModeResponse {
+  mode: string;
+  turn_id?: string;
+}
+/**
+ * SignoffQueuedResponse answers asking to sign during the mode (B-83, 202): it
+ * opens when the running step ends; asking again reads what happened.
+ * [EL DISEÑO NO LO DICE]: how you learn of it: the page asks again.
+ */
+export interface SignoffQueuedResponse {
+  queued: boolean;
+  section: string;
 }
 
 //////////
@@ -868,6 +919,15 @@ export interface SummaryView {
    * project_cap, link, day or total; empty when none does.
    */
   stopped_by: string;
+  /**
+   * Mode is the mode now (B-83: normal · run_to_completion), for the bar.
+   */
+  mode: string;
+  /**
+   * RunningTurn is the turn of the mode's chain running now, if any: the page
+   * follows it when it did not start it.
+   */
+  running_turn?: string;
 }
 /**
  * DefensePreparer reports a defense in preparation (P-92); the runner
@@ -1016,6 +1076,10 @@ export interface StopReportView {
    * Cap says which of the demo's caps stopped the chain (B-89).
    */
   cap?: string;
+  /**
+   * Cause says why the mode finished, with stop_reason mode_finished (B-83).
+   */
+  cause?: string;
   section?: SectionRef;
   propose_signoff: boolean;
   answer: string;

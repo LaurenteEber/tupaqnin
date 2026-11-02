@@ -28,6 +28,8 @@ type ConversationEntry struct {
 	// Status is accepted or agent_pending for a step or understanding.
 	Status     string `json:"status,omitempty"`
 	StopReason string `json:"stop_reason,omitempty"`
+	// Cause says why the mode finished, with stop_reason mode_finished (B-83).
+	Cause string `json:"cause,omitempty"`
 	// StoppedWithoutReport marks the step that ended a chain with no
 	// stop report (P-75 (b)): it shows «El agente se detuvo: …» with
 	// its stop reason (P-85, B-24).
@@ -122,6 +124,7 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			entry.Kind, entry.Label = "round", obj.Label
 		case ev.Type == store.EventStopReport:
 			entry.Kind, entry.Text, entry.StopReason = "stop_report", str(data, "answer"), str(data, "stop_reason")
+			entry.Cause = str(data, "cause")
 			entry.Incomplete, _ = data["principal_failed"].(bool)
 		case ev.Type == store.EventStateChanged && ev.AgentRole == string(provider.RoleJudge) &&
 			str(data, "to") == "open" && !reported[ev.TurnID]:

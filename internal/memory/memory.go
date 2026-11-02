@@ -409,9 +409,9 @@ func (m *Memory) snapshot(ctx context.Context, projectID string) (State, []store
 			if v, _ := data["mode"].(string); v != "" {
 				st.InFlight.Mode = v
 			}
-			if v, _ := data["message"].(string); v != "" {
-				st.InFlight.ModeMessage = v
-			}
+			// Each mode_set says its own: the message of a mode that ended
+			// does not stay in layer 3.
+			st.InFlight.ModeMessage, _ = data["message"].(string)
 		case store.EventSignoffPaused:
 			st.Essentials.SignoffPaused = true
 		case store.EventStopReport:

@@ -642,9 +642,9 @@ func (r *Runner) StartStepAfterProposal(projectID string) (string, error) {
 	r.answers.Add(1)
 	go func() {
 		defer r.answers.Done()
-		defer r.endTurn(context.Background(), projectID, turnID)
-		if err := r.runChain(context.Background(), projectID, turnID, "", false); err != nil && r.Logger != nil {
-			r.Logger.Error("turn failed", "error", err.Error())
+		defer r.endTurn(r.ctx, projectID, turnID)
+		if err := r.runChain(r.ctx, projectID, turnID, "", false); err != nil {
+			r.logTurnFailure(err)
 		}
 	}()
 	return turnID, nil

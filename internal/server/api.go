@@ -81,6 +81,9 @@ type PostMessageRequest struct {
 
 type PostMessageResponse struct {
 	TurnID string `json:"turn_id"`
+	// Queued: the mode's running chain takes the message at its next step
+	// (B-83), and TurnID is empty.
+	Queued bool `json:"queued,omitempty"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -337,7 +340,7 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	beforeSectionWrite()
 	var updated store.Object
 	var displacedProposal string
-	unchanged := false
+	unchanged, signoffCancelled := false, false
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		// P-84: re-read in the transaction; a version written since the
 		// read above that kept the text keeps your edit, which keeps its
@@ -398,6 +401,7 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		if err != nil || !inSignoff {
 			return err
 		}
+		signoffCancelled = true
 		return cycle.CancelSignoff(tx, signing, graph.CancelEdited, "human", map[string]any{"section": current.Label})
 	})
 	switch {
@@ -412,6 +416,9 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		// changed the fingerprint, as the rules (B-36).
 		if n, ok := s.starter.(EditNotifier); ok {
 			n.EditSaved(projectID)
+		}
+		if signoffCancelled {
+			s.signoffClosed(r.Context(), projectID)
 		}
 		writeJSON(w, http.StatusOK, SectionResponse{Label: updated.Label, Version: updated.CurrentVersion, Proposal: displacedProposal})
 	}
@@ -467,5 +474,5 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	writeJSON(w, http.StatusAccepted, PostMessageResponse{TurnID: turnID})
+	writeTurnStarted(w, turnID)
 }

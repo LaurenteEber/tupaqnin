@@ -127,3 +127,20 @@ export function roundKeepsPolling(card: {
   // A judge round's batch and recheck run in the turn (backlog-r3 3.6).
   return card.running || card.parts.some((p) => p.status === "running") || (card.kind === "judge" && card.state === "open");
 }
+
+// The key of why a chain stopped: the mode's last stop says it by its cause
+// (B-83), computed in Go; only the wording is the page's.
+export function stopKey(reason: string, cause?: string): string {
+  return reason === "mode_finished" && cause ? `turn.stop.mode_finished.${cause}` : `turn.stop.${reason}`;
+}
+
+// B-83: the turn the page must attach to after reading the summary: the chain
+// running now when it does not follow it yet (one the app opened, or a reload).
+export function turnToFollow(summary: { running_turn?: string }, watched: string): string {
+  return summary.running_turn && summary.running_turn !== watched ? summary.running_turn : "";
+}
+
+// B-83: a queued signoff is asked for again while the page is on its project.
+export function keepsAskingToSign(result: { kind: string }, askedProject: string, currentProject: string): boolean {
+  return result.kind === "queued" && askedProject === currentProject;
+}

@@ -250,7 +250,8 @@ func malformedOutputOpen(events []store.Event) bool {
 			// [EL DISEÑO NO LO DICE]: a stop at the project's cap closes it: no
 			// step can, and a failed step says nothing about the built text
 			// (B3-20: the cap never keeps you from signing it).
-			if eventData(ev)["stop_reason"] == "project_cap" {
+			// The mode's last stop says it in its cause (B-83).
+			if data := eventData(ev); data["stop_reason"] == "project_cap" || data["cause"] == "project_cap" {
 				open = false
 			}
 		}

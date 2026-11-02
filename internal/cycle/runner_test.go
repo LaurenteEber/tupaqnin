@@ -21,9 +21,14 @@ type fakePublisher struct {
 	segments []cycle.Segment
 	steps    []json.RawMessage
 	errs     []string
+	begun    int
 }
 
-func (p *fakePublisher) BeginTurn(string, string) {}
+func (p *fakePublisher) BeginTurn(string, string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.begun++
+}
 func (p *fakePublisher) PublishFieldDelta(_, _ string, s cycle.Segment) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

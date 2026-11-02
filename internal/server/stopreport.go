@@ -56,7 +56,9 @@ type StopReportView struct {
 	CreatedAt  string `json:"created_at"`
 	StopReason string `json:"stop_reason"`
 	// Cap says which of the demo's caps stopped the chain (B-89).
-	Cap             string               `json:"cap,omitempty"`
+	Cap string `json:"cap,omitempty"`
+	// Cause says why the mode finished, with stop_reason mode_finished (B-83).
+	Cause           string               `json:"cause,omitempty"`
 	Section         *SectionRef          `json:"section"`
 	ProposeSignoff  bool                 `json:"propose_signoff"`
 	Answer          string               `json:"answer"`
@@ -125,7 +127,7 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no_stop_report")
 		return
 	}
-	view := StopReportView{Seen: report.Seen, CreatedAt: report.CreatedAt, StopReason: string(report.StopReason), Cap: report.Cap,
+	view := StopReportView{Seen: report.Seen, CreatedAt: report.CreatedAt, StopReason: string(report.StopReason), Cause: report.Cause, Cap: report.Cap,
 		ProposeSignoff: report.ProposeSignoff, Answer: report.Answer, Done: report.Done, Next: report.Next,
 		Decisions: []StopReportDecision{}, Verified: []StopReportCitation{}, NotVerified: []StopReportCitation{},
 		Open: []StopReportOpenItem{}, AgentPendings: []StopReportPending{}, PrincipalFailed: report.PrincipalFailed,
@@ -266,5 +268,5 @@ func (s *Server) postStopReportContinue(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	writeJSON(w, http.StatusAccepted, PostMessageResponse{TurnID: turnID})
+	writeTurnStarted(w, turnID)
 }

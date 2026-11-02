@@ -135,6 +135,7 @@ type Server struct {
 	db         *store.DB
 	starter    TurnStarter
 	signoffs   SignoffStarter
+	modes      ModeSetter
 	editors    *editors
 	projectCap float64
 	// diskFull says the disk is at 80 % (espec. §6); nil: not checked.
@@ -248,6 +249,10 @@ func (s *Server) routes(withAPI bool, starter TurnStarter) []route {
 	if signoffs, ok := starter.(SignoffStarter); ok {
 		s.signoffs = signoffs
 		table = append(table, s.signoffTurnRoutes()...)
+	}
+	if modes, ok := starter.(ModeSetter); ok {
+		s.modes = modes
+		table = append(table, route{"PUT", "/api/projects/{projectID}/mode", s.putMode})
 	}
 	return table
 }

@@ -10,6 +10,7 @@ import type {
   ConversationEntry,
   EditorResponse,
   CreateProjectResponse,
+  ModeResponse,
   PostMessageResponse,
   ProjectLine,
   SessionView,
@@ -487,11 +488,13 @@ function post(path: string, body?: unknown): Promise<Response> {
 
 export type RequestSignoffResult =
   | { kind: "opened"; signoff: SignoffView }
-  | { kind: "blocked"; blocked: SignoffBlocked };
+  | { kind: "blocked"; blocked: SignoffBlocked }
+  | { kind: "queued" };
 
 // 7a: asking to sign opens the signoff, or lists what keeps it closed.
 export async function requestSignoff(projectID: string, section: string): Promise<RequestSignoffResult> {
   const res = await post(`/api/projects/${projectID}/sections/${section}/signoff`);
+  if (res.status === 202) return { kind: "queued" }; // B-83: the mode's running step
   if (res.status === 409) {
     const blocked = (await res.json()) as SignoffBlocked;
     if (blocked.error === "pendings") return { kind: "blocked", blocked };
@@ -557,6 +560,18 @@ export async function saveSection(
   return { kind: "saved", version: body.version };
 }
 
+// PUT /mode (B-83): your message goes in literal; activating with the agent
+// stopped answers the turn it started.
+export async function putMode(projectID: string, mode: string, message: string): Promise<ModeResponse> {
+  return json(
+    await fetch(`/api/projects/${projectID}/mode`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode, message }),
+    }),
+  );
+}
+
 export async function postMessage(
   projectID: string,
   text: string,
@@ -612,6 +627,8 @@ export interface StepPayload {
   // The understanding's step names the chain that starts after it (B-17).
   understood?: string;
   next_turn_id?: string;
+  // Why the mode finished, with stop_reason mode_finished (B-83).
+  cause?: string;
   // Why the agent's chain stopped (P-43), computed in Go.
   stop_reason?: string;
   // Which of the demo's caps stopped the turn (B-89).

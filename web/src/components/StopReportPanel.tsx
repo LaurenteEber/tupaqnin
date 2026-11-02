@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { answerAudienceQuestion, getStopReport, markStopReportSeen } from "../api/client";
 import type { DetectedView, StopReportView } from "../api/types";
 import { translate, type Lang } from "../i18n";
+import { stopKey } from "../live";
 
 // P6 (backlog-r2 2.5): the last stop report, in the conversation, folded
 // under its first line. Everything comes from Go: why it stopped, the
@@ -84,7 +85,7 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
           {!report.seen && <> · <span className="st todo">{t("stop_report.unseen")}</span></>}
           <span className="reply" style={{ display: "block" }}>{first}</span>
         </summary>
-        <p className="meta">{t(`turn.stop.${report.stop_reason}`)}</p>
+        <p className="meta">{t(stopKey(report.stop_reason, report.cause))}</p>
         {/* P-75 (c): Go says the principal's part failed; the app's part follows. */}
         {report.principal_failed && <p className="meta">{t("stop_report.incomplete")}</p>}
         {/* Backlog-r3 3.6 (fichas §7): visible, blocking nothing. */}
