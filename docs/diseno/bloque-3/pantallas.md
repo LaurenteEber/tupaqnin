@@ -1,6 +1,6 @@
 ---
 titulo: Bloque 3 · Pantallas (bocetos)
-estado: v0.10 · 1-nov · paso 7 del recorrido: la ronda va con OpenAlex (B-55, B-72) · v0.9 · 31-oct · dónde va cada vista de la rebanada 4 · v0.8 · 30-oct · dónde va cada vista de la rebanada 3 · v0.7 · 30-oct · dónde va cada vista de la rebanada 2 en las tres columnas · v0.6 · 30-oct · P5: decisiones que sostienen el párrafo y fuente de cada dato copiado (P-60, D7) · v0.5 · 30-oct · tarjeta del «Entendí» en la rebanada 2 (B-51, B-53) · v0.4 · 30-oct · selector «Tus proyectos» (P-48) · «+ Sección», edición del título y de «qué debe abordar», y reordenar (K-17) · v0.3 · 30-oct · precisiones U-1 a U-6, R-5 y R-8 · v0.3 · 29-oct · bocetos de la rebanada 2: «por aclarar», P6 con la defensa, avisos en el texto y la línea de vuelta (backlog-r2) · v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
+estado: v0.11 · 2-nov · disposición en tres paneles, con proyectos a la izquierda, conversación o documento al centro y el marco a la derecha (Eber, maqueta `maqueta-tres-paneles.html`); reemplaza la del 29-oct · v0.10 · 1-nov · paso 7 del recorrido: la ronda va con OpenAlex (B-55, B-72) · v0.9 · 31-oct · dónde va cada vista de la rebanada 4 · v0.8 · 30-oct · dónde va cada vista de la rebanada 3 · v0.7 · 30-oct · dónde va cada vista de la rebanada 2 en las tres columnas · v0.6 · 30-oct · P5: decisiones que sostienen el párrafo y fuente de cada dato copiado (P-60, D7) · v0.5 · 30-oct · tarjeta del «Entendí» en la rebanada 2 (B-51, B-53) · v0.4 · 30-oct · selector «Tus proyectos» (P-48) · «+ Sección», edición del título y de «qué debe abordar», y reordenar (K-17) · v0.3 · 30-oct · precisiones U-1 a U-6, R-5 y R-8 · v0.3 · 29-oct · bocetos de la rebanada 2: «por aclarar», P6 con la defensa, avisos en el texto y la línea de vuelta (backlog-r2) · v0.2 · 29-oct · P2 y P3 rehechas en tres columnas (B3-9 precisada); boceto navegable en boceto-ui.html · v0.1 · 28-oct · borrador para Eber · bocetos de estructura, sin estilo visual
 relacion: dibuja funcionalidades.md (v1.0) sobre bloque-3.md §4. Usa fichas §2 y §8.2, flujos §3 (firma), especificación §9 (el marco) y las decisiones B3-9 y B3-18 a B3-21. No decide reglas: solo dónde va cada cosa y qué datos pide cada vista. Es la entrada de la arquitectura
 ---
 
@@ -55,7 +55,39 @@ flowchart LR
 
 **En la rebanada 1:** solo los dos botones y la lista. Hasta «Entrega» no hay cuentas, así que la lista no filtra por dueño `[inferencia]`.
 
-## Disposición general (29-oct, B3-9 precisada)
+## Disposición general (2-nov) · reemplaza la del 29-oct
+
+**Respuesta:** tres paneles, como la app de Claude. A la izquierda, tus proyectos y sus opciones; al centro, la conversación o el documento; a la derecha, **el marco** como recurso principal y la vista en markdown con su descarga. Los paneles laterales se pliegan y el divisor entre el centro y la derecha se arrastra. Lo pidió Eber el 2-nov, en literal: «opciones e historial de proyectos en un panel izquierdo · panel central con las conversaciones humano - agente · panel derecho con artefactos, opciones, etc -> en este iría como artefacto principal los recursos para que el humano forme el marco mental de lo que se está construyendo. así como la opción de la vista en markdown de lo que se está generando con la opción de descargar · con las opciones de plegar los paneles izquierdo y derecho; y de agrandar o reducir el ancho del panel derecho/central»; y eligió el documento **en el centro**, alternando con la conversación. La maqueta navegable es `maqueta-tres-paneles.html` (misma carpeta): manda en disposición, controles y fondo de cuadros; **no** en tipografía (U-4: una sola familia) ni en el selector de secciones (U-3: el esqueleto del marco es la única navegación). Los datos de cada zona siguen en las tablas de abajo.
+
+```
+┌ Izquierda · proyectos ──┬ Centro · [Conversación|Documento] ───────┬╎┬ Derecha · [El marco|Historia|Markdown] ┐
+│ ☰ tupaqnin              │ Título del proyecto ✎   [Normal|Hasta…] ▤ │╎│ Para qué (literal) · para quién · idea │
+│ ＋ Nuevo proyecto        │ modelo · contexto · gastado               │╎│ Cómo se juzga                          │
+│ ▷ Probar con el caso     │                                           │╎│ Lo que te toca (n)                     │
+│ Tus proyectos            │ Conversación: pedido, «Entendí», pasos,   │╎│ Esqueleto (elige la sección) · + Sección│
+│  · Microplásticos …      │  tarjetas, por aclarar, rondas, informe   │╎│ Decisiones críticas ▸ Objetar · Revocar│
+│  · …                     │ Documento: la sección elegida, editable,  │╎│ Candidatas · Línea de vuelta           │
+│ ─────────────            │  avisos, alertas, propuestas, Deshacer,   │╎│ Historia: del párrafo o la decisión    │
+│ Aviso sin cuenta         │  Auditar, Firmar, traza ▸                 │╎│ Markdown: vista · fuente · copiar ·    │
+│ Idioma · Cuenta          │ [ Dile al agente qué hacer… ]  (siempre)  │╎│  descargar .md                         │
+└──────────────────────────┴───────────────────────────────────────────┴╎┴────────────────────────────────────────┘
+ plegable (Ctrl/⌘+B)        fondo de cuadros                    divisor ↔        plegable (Ctrl/⌘+.)
+```
+
+| Zona | Haces | Lee |
+|---|---|---|
+| Izquierda · proyectos | crear un proyecto en blanco o con el caso de demo (B3-19) · abrir uno de «Tus proyectos» · cambiar el idioma · crear usuario, entrar o salir (E.5) | la lista de proyectos con su fecha y avance (E.6), el aviso «sin cuenta, se pierde al cerrar el navegador» (B3-18) |
+| Centro · Conversación | lo de la zona «Centro · conversación» de la tabla del 29-oct, igual | igual |
+| Centro · Documento | lo de la zona «Derecha · documento» del 29-oct, igual: editar, clic en un párrafo, Deshacer, Auditar, pedir firmar, aceptar o descartar propuestas | la sección que eligió el esqueleto (U-3) |
+| Derecha · El marco | lo de la zona «Izquierda · el marco» del 29-oct, igual (salvo «cambiar de proyecto», que pasa a la izquierda) | `frame(project)` |
+| Derecha · Historia | la historia del párrafo o de la decisión (P5), que hoy va bajo el documento | igual |
+| Derecha · Markdown | ver el documento como markdown (vista o fuente), copiarlo, descargarlo | `export.md` (B-47), el mismo que descarga |
+
+**Correspondencia para las tablas de abajo** (rebanadas 2, 3 y 4, escritas para las tres columnas del 29-oct): donde dicen «Izquierda · el marco», léase «Derecha · El marco»; donde dicen «Derecha · documento», léase «Centro · Documento»; «Centro · conversación» no cambia. La historia del párrafo va en «Derecha · Historia».
+
+**Reglas que se mantienen:** las de la disposición del 29-oct (abajo), y en particular: la firma va a pantalla completa y oculta el marco y el texto (P7); una sola familia tipográfica (U-4); el esqueleto es la única navegación entre secciones (U-3); ningún id interno a la vista (regla 7).
+
+## Disposición general (29-oct, B3-9 precisada) · reemplazada el 2-nov en la disposición; sus zonas valen con la correspondencia de arriba
 
 **Tres columnas, como un chat con su documento al lado.** El boceto navegable con el caso de demo está en `boceto-ui.html` (misma carpeta): manda sobre los dibujos de abajo en lo que es disposición; los datos que lee cada zona siguen siendo los de estas tablas.
 

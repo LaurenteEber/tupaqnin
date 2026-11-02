@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tupaqnin · maqueta de tres paneles</title>
+<style>
+:root{
+  --bg:#f6f5f1; --panel:#ffffff; --side:#efede7; --ink:#1f2421; --muted:#6b706c; --line:#e2dfd7;
+  --accent:#2f5d50; --accent-ink:#ffffff; --accent-soft:#e3ece8;
+  --warn:#f6ead6; --warn-ink:#8a5a12; --bad:#f8e1df; --bad-ink:#9b2c22; --ok:#e2efe6; --ok-ink:#2d6a43;
+  --prop:#e8eefb; --prop-ink:#2b4a8a; --radius:10px; --left-w:264px;
+  --font: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);color:var(--ink);background:var(--bg);font-size:14px;line-height:1.45}
+button{font:inherit;cursor:pointer}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ---------- Izquierda ---------- */
+.left{width:var(--left-w);background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;transition:width .18s ease;flex:none}
+.app.left-off .left{width:52px}
+.app.left-off .left .hide-when-off{display:none}
+.left-top{display:flex;align-items:center;gap:8px;padding:12px 12px 8px}
+.brand{font-weight:700;letter-spacing:.2px}
+.brand small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+.icon-btn{border:0;background:transparent;width:30px;height:30px;border-radius:8px;color:var(--muted);display:grid;place-items:center;flex:none}
+.icon-btn:hover{background:rgba(0,0,0,.06);color:var(--ink)}
+.left-actions{padding:4px 10px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:8px;color:var(--ink)}
+.nav-item:hover{background:rgba(0,0,0,.05)}
+.nav-item .ic{width:18px;text-align:center;color:var(--muted)}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:14px 20px 6px}
+.projects{flex:1;overflow:auto;padding:0 10px}
+.proj{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;color:var(--ink)}
+.proj:hover{background:rgba(0,0,0,.05)}
+.proj.active{background:#e3e0d8}
+.proj .meta{display:block;font-size:11px;color:var(--muted)}
+.left-bottom{border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:12px}
+.notice{background:var(--warn);color:var(--warn-ink);border-radius:8px;padding:8px 10px}
+.row{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{border:0;background:transparent;padding:4px 10px;color:var(--muted)}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.link{border:0;background:none;color:var(--accent);padding:0;text-decoration:underline}
+
+/* ---------- Centro ---------- */
+.center{flex:1;min-width:360px;display:flex;flex-direction:column;background:var(--bg)}
+.center-head{display:flex;flex-direction:column;gap:4px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.head-row{display:flex;align-items:center;gap:10px;min-width:0}
+.title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.seg{flex:none}.seg button{white-space:nowrap}
+.spacer{flex:1}
+.status-line{font-size:12px;color:var(--muted);white-space:nowrap}
+.mode{font-size:12px}
+.center-body{flex:1;overflow:auto}
+.view{display:none;max-width:760px;margin:0 auto;padding:20px 20px 120px}
+.view.on{display:block}
+
+.msg{margin:14px 0}
+.msg.human{display:flex;justify-content:flex-end}
+.bubble{background:#ece9e1;border-radius:14px;padding:10px 14px;max-width:85%}
+.agent-text{padding:2px 0}
+.agent-label{font-size:12px;color:var(--muted);margin-bottom:4px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin:14px 0}
+.card h4{margin:0 0 6px;font-size:13px}
+.card .kind{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.card.critical{border-left:4px solid #c98a22}
+.card.clarify{border-left:4px solid var(--prop-ink)}
+.contrast{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;font-size:13px}
+.contrast div{background:#faf9f6;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.contrast b{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}
+.opts label{display:flex;gap:8px;align-items:flex-start;padding:6px 0}
+textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;background:#fff;resize:vertical}
+.actions{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;color:var(--ink)}
+.btn:hover{background:#f3f1ec}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--accent)}
+.err{color:var(--bad-ink);font-size:12px}
+.report{font-size:13px}
+.report ul{margin:6px 0 0 18px;padding:0}
+.chip{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:#ecebe6;color:var(--muted);vertical-align:middle}
+.chip.warn{background:var(--warn);color:var(--warn-ink)}
+.chip.ok{background:var(--ok);color:var(--ok-ink)}
+.chip.bad{background:var(--bad);color:var(--bad-ink)}
+.chip.prop{background:var(--prop);color:var(--prop-ink)}
+
+.composer{position:sticky;bottom:0;padding:12px 20px 16px;background:linear-gradient(transparent,var(--bg) 30%)}
+.composer-box{max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.composer-box textarea{border:0;padding:4px;min-height:44px}
+.composer-foot{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+
+/* Documento en el centro */
+.doc-toolbar{position:sticky;top:0;z-index:2;background:var(--bg);display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:10px;flex-wrap:wrap}
+.doc-toolbar select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;font:inherit}
+.why-off{font-size:12px;color:var(--muted)}
+.band{border-radius:8px;padding:10px 12px;margin:10px 0;font-size:13px}
+.band.alert{background:var(--warn);color:var(--warn-ink)}
+.band.clarify{background:var(--prop);color:var(--prop-ink)}
+.doc{font-family:var(--serif);font-size:16px;line-height:1.65;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px 26px}
+.doc h2{font-family:var(--font);font-size:20px;margin:0 0 4px}
+.doc .addresses{font-family:var(--font);font-size:12px;color:var(--muted);margin-bottom:12px}
+.doc p{margin:0 0 12px;border-radius:6px;padding:2px 4px;margin-left:-4px}
+.doc p:hover{background:#f7f5ef;cursor:pointer}
+.doc p.selected{background:#efeadc}
+.doc[contenteditable=true]:focus{outline:2px solid var(--accent-soft)}
+.proposal{font-family:var(--font);font-size:13px;background:var(--prop);border:1px solid #cdd8f1;border-radius:8px;padding:10px 12px;margin:0 0 12px}
+.proposal del{color:var(--bad-ink)} .proposal ins{color:var(--ok-ink);text-decoration:none;background:#d9ecdf}
+
+/* ---------- Divisor ---------- */
+.divider{width:6px;cursor:col-resize;background:transparent;position:relative;flex:none}
+.divider::after{content:"";position:absolute;top:0;bottom:0;left:2px;width:2px;background:var(--line)}
+.divider:hover::after,.divider.drag::after{background:var(--accent)}
+.app.right-off .divider{display:none}
+
+/* ---------- Derecha ---------- */
+.right{width:420px;min-width:300px;max-width:65vw;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;flex:none}
+.app.right-off .right{display:none}
+.right-head{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:2px}
+.tab{border:0;background:transparent;padding:6px 12px;border-radius:8px;color:var(--muted)}
+.tab.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.right-body{flex:1;overflow:auto;padding:14px 16px 40px}
+.pane{display:none}.pane.on{display:block}
+.frame h5{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:18px 0 6px}
+.frame h5:first-child{margin-top:0}
+.frame .purpose{font-family:var(--serif);font-size:15px}
+.frame .kv{font-size:13px;margin:4px 0}
+.crit{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0;font-size:13px}
+.crit .case{display:block;font-size:12px;color:var(--muted);margin-top:4px}
+.todo li,.skel li,.decs li{list-style:none}
+.todo,.skel,.decs{padding:0;margin:0}
+.todo li{display:flex;gap:8px;align-items:center;padding:7px 8px;border-radius:8px;cursor:pointer}
+.todo li:hover,.skel li:hover,.decs li:hover{background:#f6f4ef}
+.skel li{padding:8px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.decs li{padding:8px;border-radius:8px;font-size:13px;cursor:pointer}
+.decs .tag{font-size:10px;text-transform:uppercase;color:#8a5a12;border:1px solid #e9cf9f;border-radius:4px;padding:0 4px;margin-right:6px}
+.dec-detail{display:none;font-size:12px;color:var(--muted);margin-top:6px}
+.decs li.open .dec-detail{display:block}
+.dec-detail .actions{margin-top:6px}
+.history{font-size:12px;border-top:1px dashed var(--line);margin-top:10px;padding-top:8px}
+.history li{margin:4px 0}
+.md-tools{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.md-preview{font-family:var(--serif);font-size:15px;line-height:1.6}
+.md-preview h1{font-family:var(--font);font-size:20px}
+.md-preview h2{font-family:var(--font);font-size:16px;margin-top:18px}
+pre.md-raw{display:none;white-space:pre-wrap;font-size:12px;background:#faf9f6;border:1px solid var(--line);border-radius:8px;padding:10px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1f2421;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:.92}
+.legend{font-size:11px;color:var(--muted)}
+@media (max-width:900px){.right{position:fixed;right:0;top:0;bottom:0;z-index:5;box-shadow:-8px 0 20px rgba(0,0,0,.1)}.divider{display:none}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ================= IZQUIERDA: proyectos e historial ================= -->
+  <aside class="left" aria-label="Proyectos">
+    <div class="left-top">
+      <button class="icon-btn" id="toggleLeft" title="Plegar panel izquierdo (Ctrl+B)" aria-label="Plegar panel izquierdo">☰</button>
+      <div class="brand hide-when-off">tupaqnin<small>Lo que firmas, lo entiendes</small></div>
+    </div>
+    <div class="left-actions">
+      <button class="nav-item" title="Nuevo proyecto"><span class="ic">＋</span><span class="hide-when-off">Nuevo proyecto</span></button>
+      <button class="nav-item" title="Probar con el caso de demo"><span class="ic">▷</span><span class="hide-when-off">Probar con el caso de demo</span></button>
+    </div>
+    <div class="section-label hide-when-off">Tus proyectos</div>
+    <nav class="projects hide-when-off">
+      <button class="proj active">Microplásticos en agua potable<span class="meta">Hoy · 3 secciones · 0 firmadas</span></button>
+      <button class="proj">Planta solar Moquegua<span class="meta">Ayer · 4 secciones · 2 firmadas</span></button>
+      <button class="proj">Especificación de pagos<span class="meta">31 oct · 5 secciones · 5 firmadas</span></button>
+    </nav>
+    <div class="left-bottom hide-when-off">
+      <div class="notice">Sin cuenta, tu proyecto se pierde al cerrar el navegador · <button class="link">descárgalo</button> o <button class="link">crea tu usuario</button></div>
+      <div class="row"><span>Idioma</span><span class="seg" role="group"><button class="on">ES</button><button>EN</button></span></div>
+      <div class="row"><button class="link">Crear usuario</button><button class="link">Entrar</button></div>
+    </div>
+  </aside>
+
+  <!-- ================= CENTRO: conversación o documento ================= -->
+  <main class="center">
+    <div class="center-head">
+      <div class="head-row">
+        <span class="seg" role="tablist" aria-label="Vista central">
+          <button class="on" data-center="conv" role="tab">Conversación</button>
+          <button data-center="doc" role="tab">Documento</button>
+        </span>
+        <div class="title">Microplásticos en agua potable</div>
+        <div class="spacer"></div>
+        <span class="seg mode" role="group" aria-label="Modo">
+          <button class="on" title="El agente para cuando hay algo para ti">Normal</button>
+          <button title="Lo que solo tú decides te esperará como «por aclarar»">Hasta terminar</button>
+        </span>
+        <button class="icon-btn" id="toggleRight" title="Plegar panel derecho (Ctrl+.)" aria-label="Plegar panel derecho">▤</button>
+      </div>
+      <span class="status-line">Muse Spark 1.3 · contexto 3 % · gastado 0,48 de 3 USD</span>
+    </div>
+
+    <div class="center-body" id="centerBody">
+      <!-- ---------- Conversación ---------- -->
+      <section class="view on" id="view-conv" aria-label="Conversación">
+        <div class="msg human"><div class="bubble">Escribe conmigo el capítulo 2 de mi tesis doctoral: el estado del arte sobre microplásticos en agua potable… <span class="legend">· 16 fuentes</span></div></div>
+
+        <div class="card">
+          <div class="kind">Entendí · confirmado</div>
+          <p style="margin:6px 0">Escribiremos el capítulo 2 para tu comité: compara conteos y métodos entre agua de grifo y embotellada, solo con estudios de campo, sin evaluar salud ni recomendar qué agua tomar.</p>
+          <button class="btn ghost">Ver los 16 casos</button>
+        </div>
+
+        <div class="msg"><div class="agent-label">Agente · Estudios incluidos <span class="chip">triaje: construir</span></div>
+          <div class="agent-text">Presenté los doce estudios de campo con su muestreo, conteo y tamaño mínimo, y dejé fuera los dos de laboratorio hasta que decidas sobre el piloto.</div></div>
+
+        <div class="card critical" id="card1">
+          <div class="kind">Tarjeta · decisión crítica · Síntesis, Conclusiones</div>
+          <h4>Usar la comparación con mismo tamaño mínimo de 20 micras como comparación válida entre embotellada y grifo.</h4>
+          <div class="contrast">
+            <div><b>En vez de</b>Usar solo los promedios crudos de los 12 estudios con distintos tamaños mínimos.</div>
+            <div><b>Elegiría la otra si</b>El comité quisiera ver el panorama histórico sin corregir el efecto del método.</div>
+          </div>
+          <div class="opts">
+            <label><input type="radio" name="c1"> Mantener esta decisión</label>
+            <label><input type="radio" name="c1"> La otra opción</label>
+          </div>
+          <textarea id="because1" rows="2" placeholder="Porque…"></textarea>
+          <div class="actions">
+            <button class="btn primary" id="apply1">Aplicar</button>
+            <button class="btn" id="object1">Objetar</button>
+            <span class="err" id="err1"></span>
+          </div>
+        </div>
+
+        <div class="card clarify">
+          <div class="kind">Por aclarar · solo tú decides · bloquea Síntesis, Estudios incluidos</div>
+          <h4>¿Aceptan el piloto de laboratorio de Paredes y Núñez (2023) como estudio de campo, o lo excluyo?</h4>
+          <div class="opts">
+            <label><input type="radio" name="q1"> Contar el piloto como estudio incluido <span class="legend">· riesgo: mezclar agua de planta con muestreos de red</span></label>
+            <label><input type="radio" name="q1"> Excluir el piloto y los experimentos de laboratorio <span class="legend">· riesgo: menos estudios comparables</span></label>
+          </div>
+          <textarea rows="2" placeholder="Porque…"></textarea>
+          <div class="actions"><button class="btn primary">Responder</button></div>
+        </div>
+
+        <div class="card report">
+          <div class="kind">El agente paró · Conclusiones <span class="chip warn">sin ver</span></div>
+          <p style="margin:6px 0">El borrador de las tres partes ya compara conteos con igual mínimo y deja fuera salud y recomendaciones. Te tocan dos decisiones.</p>
+          <div class="legend">Detectado desde este informe</div>
+          <ul><li>«Usar la comparación con mismo tamaño mínimo…» ahora está confirmada</li><li>Editaste «Estudios incluidos» (2 veces)</li><li>«Cerrar el capítulo solo con la comparación de campo…» pasó a por aclarar</li></ul>
+        </div>
+      </section>
+
+      <!-- ---------- Documento (editable) ---------- -->
+      <section class="view" id="view-doc" aria-label="Documento">
+        <div class="doc-toolbar">
+          <select id="sectionSel" aria-label="Sección">
+            <option>Estudios incluidos · borrador · 1 pendiente</option>
+            <option>Síntesis · borrador · 1 pendiente</option>
+            <option>Conclusiones · borrador · 3 pendientes</option>
+          </select>
+          <span class="chip warn">1 pendiente</span>
+          <div class="spacer"></div>
+          <span class="why-off" id="saveState">Guardado</span>
+          <button class="btn" id="undoBtn" disabled title="No hay ediciones tuyas para deshacer">Deshacer</button>
+          <button class="btn">Auditar sección</button>
+          <button class="btn primary">Firmar sección</button>
+        </div>
+        <div class="band clarify">Por aclarar: ¿Aceptan el piloto de laboratorio de Paredes y Núñez (2023) como estudio de campo, o lo excluyo? <button class="link">Ir</button></div>
+        <div class="band alert" id="alertBand" hidden>Borraste un párrafo entero · quitaste un texto citado. ¿Fue a propósito? <button class="btn" id="alertUndo">Deshacer</button> <button class="btn">Fue a propósito</button></div>
+
+        <article class="doc" id="doc" contenteditable="true" spellcheck="false">
+          <h2 contenteditable="false">Estudios incluidos</h2>
+          <div class="addresses" contenteditable="false">Debe abordar: qué estudios de campo se incluyen y cuáles se excluyen, con agua analizada, tamaño mínimo y conteos.</div>
+          <p data-p="1">Este capítulo incluye solo estudios de campo que muestrearon agua de grifo en la red o agua embotellada comprada en tiendas, con filtrado y conteo. Por ejemplo, Quispe y Morales (2016) analizaron 24 muestras de grifos domésticos de una red municipal, con 4 partículas por litro.</p>
+          <div class="proposal" contenteditable="false">
+            <b>Propuesta del agente</b> <span class="chip prop">sobre tu edición</span><br>
+            …con filtrado y conteo<del>.</del><ins>; el tamaño mínimo va de 1 a 100 micras según el estudio.</ins>
+            <div class="actions"><button class="btn primary">Aceptar</button><button class="btn">Descartar</button><span class="legend">Contraste: suma el tamaño mínimo que pide «Debe abordar»</span></div>
+          </div>
+          <p data-p="2">Quedan fuera de la síntesis, hasta que el comité responda, dos casos de laboratorio: Ishikawa y Weber (2021) y Paredes y Núñez (2023). Tampoco se usa como fuente la cita de las notas de Paula, Valdivia y Ortiz (2022), porque no hay PDF ni DOI en el proyecto.</p>
+        </article>
+        <p class="legend">Haz clic en un párrafo para ver su historia en el panel derecho.</p>
+      </section>
+    </div>
+
+    <div class="composer">
+      <div class="composer-box">
+        <textarea placeholder="Dile al agente qué hacer…" rows="2"></textarea>
+        <div class="composer-foot"><span>Las decisiones se toman en sus tarjetas, no en el chat.</span><div class="spacer"></div><button class="btn primary">Enviar</button></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="divider" id="divider" role="separator" aria-orientation="vertical" aria-label="Ajustar el ancho del panel derecho" tabindex="0"></div>
+
+  <!-- ================= DERECHA: el marco y el markdown ================= -->
+  <aside class="right" id="right" aria-label="Recursos">
+    <div class="right-head">
+      <div class="tabs" role="tablist">
+        <button class="tab on" data-pane="frame" role="tab">El marco</button>
+        <button class="tab" data-pane="md" role="tab">Markdown</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="closeRight" title="Plegar" aria-label="Plegar panel derecho">✕</button>
+    </div>
+    <div class="right-body">
+      <!-- ---------- El marco ---------- -->
+      <section class="pane frame on" id="pane-frame">
+        <div class="row"><h5>Para qué es</h5><button class="link" style="font-size:12px">Solo lo que no has visto</button></div>
+        <div class="purpose">Capítulo 2 de la tesis: estado del arte que compara conteos y métodos entre agua de grifo y embotellada.</div>
+        <div class="kv"><b>Para:</b> el comité de tesis (tres profesores de ingeniería ambiental).</div>
+        <div class="kv"><b>Tu idea:</b> «El agua embotellada trae más partículas que la del grifo.»</div>
+
+        <h5>Cómo se juzga</h5>
+        <div class="crit">«Solo estudios de campo, no de laboratorio.» <span class="chip ok">confirmado</span>
+          <span class="case">Cuenta: muestreo en grifos de una red o en botellas de tienda · No cuenta: el piloto de laboratorio</span></div>
+        <div class="crit">«Compara conteos y métodos; no evalúa salud ni recomienda agua.» <span class="chip ok">confirmado</span></div>
+
+        <h5>Lo que te toca · 3</h5>
+        <ul class="todo">
+          <li data-goto="card1"><span class="chip warn">tarjeta</span> Regla de comparación de 20 micras</li>
+          <li><span class="chip prop">por aclarar</span> ¿El piloto cuenta como campo?</li>
+          <li data-goto="doc"><span class="chip prop">propuesta</span> Estudios incluidos · tamaño mínimo</li>
+        </ul>
+
+        <h5>Esqueleto</h5>
+        <ul class="skel">
+          <li data-goto="doc"><span>Estudios incluidos</span><span class="chip warn">borrador · 1</span></li>
+          <li data-goto="doc"><span>Síntesis</span><span class="chip warn">borrador · 1</span></li>
+          <li data-goto="doc"><span>Conclusiones <span class="legend">· aquí se concluye</span></span><span class="chip warn">borrador · 3</span></li>
+        </ul>
+
+        <h5>Decisiones críticas</h5>
+        <ul class="decs">
+          <li class="dec"><span class="tag">conclusión</span>Usar la comparación con mismo tamaño mínimo de 20 micras. <span class="chip ok">tuya</span>
+            <div class="dec-detail">En vez de: solo los promedios crudos. Tu porque: «mezcla el efecto del método con el del agua».
+              <div class="actions"><button class="btn">Objetar</button><button class="btn">Revocar</button><button class="btn ghost">Ver su historia</button></div></div></li>
+          <li class="dec"><span class="tag">conclusión</span>Cerrar solo con la comparación de campo, sin salud ni recomendaciones. <span class="chip prop">por aclarar</span>
+            <div class="dec-detail">En vez de: incluir el piloto o evaluar salud.<div class="actions"><button class="btn ghost">Ir al por aclarar</button></div></div></li>
+        </ul>
+
+        <h5>Candidatas</h5>
+        <div class="crit">Valdivia, R. y Ortiz, M. (2022). <i>Microplásticos en agua embotellada andina…</i> <span class="chip bad">no existe</span>
+          <span class="case">La app la buscó en OpenAlex y no la encontró · descartada a la vista</span></div>
+
+        <div class="history" id="history" hidden>
+          <h5>Historia del párrafo</h5>
+          <ul style="padding-left:16px">
+            <li>Fuente: t1-quispe-morales-2016.md · «24 muestras… 4 partículas por litro»</li>
+            <li>2 nov, 15:53 · el agente escribió este párrafo</li>
+            <li>2 nov, 16:05 · editaste · <button class="link">deshacer</button></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ---------- Markdown ---------- -->
+      <section class="pane" id="pane-md">
+        <div class="md-tools">
+          <span class="seg"><button class="on" id="mdRendered">Vista</button><button id="mdSource">Fuente</button></span>
+          <div class="spacer"></div>
+          <button class="btn" id="copyMd">Copiar</button>
+          <button class="btn primary" id="downloadMd">Descargar .md</button>
+        </div>
+        <div class="md-preview" id="mdPreview"></div>
+        <pre class="md-raw" id="mdRaw"></pre>
+        <p class="legend">Es lo que se descarga: tu documento tal como está ahora, sin notas del proceso.</p>
+      </section>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const app = document.getElementById('app');
+  const right = document.getElementById('right');
+  const store = {
+    get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+    set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+  };
+  const toast = (t)=>{ const el=document.getElementById('toast'); el.textContent=t; el.classList.add('on'); setTimeout(()=>el.classList.remove('on'),1600); };
+
+  // --- Plegar paneles (se recuerda por navegador) ---
+  const setLeft = (off)=>{ app.classList.toggle('left-off', off); store.set('tq.leftOff', off?'1':'0'); };
+  const setRight = (off)=>{ app.classList.toggle('right-off', off); store.set('tq.rightOff', off?'1':'0'); };
+  setLeft(store.get('tq.leftOff')==='1');
+  setRight(store.get('tq.rightOff')==='1');
+  document.getElementById('toggleLeft').onclick = ()=> setLeft(!app.classList.contains('left-off'));
+  document.getElementById('toggleRight').onclick = ()=> setRight(!app.classList.contains('right-off'));
+  document.getElementById('closeRight').onclick = ()=> setRight(true);
+  document.addEventListener('keydown', (e)=>{
+    if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='b'){ e.preventDefault(); setLeft(!app.classList.contains('left-off')); }
+    if ((e.ctrlKey||e.metaKey) && e.key==='.'){ e.preventDefault(); setRight(!app.classList.contains('right-off')); }
+  });
+
+  // --- Divisor: ancho del panel derecho frente al central ---
+  const divider = document.getElementById('divider');
+  const saved = parseInt(store.get('tq.rightW')||'',10);
+  if (saved) right.style.width = saved+'px';
+  let dragging = false;
+  divider.addEventListener('mousedown', (e)=>{ dragging=true; divider.classList.add('drag'); document.body.style.userSelect='none'; e.preventDefault(); });
+  window.addEventListener('mousemove', (e)=>{
+    if(!dragging) return;
+    const w = Math.min(Math.max(window.innerWidth - e.clientX, 300), window.innerWidth*0.65);
+    right.style.width = w+'px';
+  });
+  window.addEventListener('mouseup', ()=>{ if(!dragging) return; dragging=false; divider.classList.remove('drag'); document.body.style.userSelect=''; store.set('tq.rightW', parseInt(right.style.width,10)); });
+  divider.addEventListener('dblclick', ()=>{ right.style.width='420px'; store.set('tq.rightW',420); });
+  divider.addEventListener('keydown', (e)=>{
+    const w = right.getBoundingClientRect().width;
+    if(e.key==='ArrowLeft'){ right.style.width=Math.min(w+24, window.innerWidth*0.65)+'px'; }
+    if(e.key==='ArrowRight'){ right.style.width=Math.max(w-24,300)+'px'; }
+  });
+
+  // --- Centro: conversación o documento ---
+  const showCenter = (v)=>{
+    document.querySelectorAll('[data-center]').forEach(b=>b.classList.toggle('on', b.dataset.center===v));
+    document.getElementById('view-conv').classList.toggle('on', v==='conv');
+    document.getElementById('view-doc').classList.toggle('on', v==='doc');
+  };
+  document.querySelectorAll('[data-center]').forEach(b=> b.onclick=()=>showCenter(b.dataset.center));
+
+  // --- Derecha: el marco o el markdown ---
+  const showPane = (p)=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.pane===p));
+    document.getElementById('pane-frame').classList.toggle('on', p==='frame');
+    document.getElementById('pane-md').classList.toggle('on', p==='md');
+    if(p==='md') renderMd();
+  };
+  document.querySelectorAll('.tab').forEach(t=> t.onclick=()=>showPane(t.dataset.pane));
+
+  // --- El marco lleva a lo que nombra ---
+  document.querySelectorAll('[data-goto]').forEach(li=> li.onclick=()=>{
+    const g = li.dataset.goto;
+    if(g==='doc'){ showCenter('doc'); }
+    else { showCenter('conv'); const el=document.getElementById(g); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.animate([{boxShadow:'0 0 0 3px #c98a22'},{boxShadow:'none'}],{duration:900}); } }
+  });
+  document.querySelectorAll('.dec').forEach(li=> li.addEventListener('click', (e)=>{ if(e.target.closest('button')) return; li.classList.toggle('open'); }));
+
+  // --- Tarjeta: «ok» no cuenta; Objetar pide su propio motivo ---
+  document.getElementById('apply1').onclick = ()=>{
+    const v = document.getElementById('because1').value.trim().toLowerCase();
+    const err = document.getElementById('err1');
+    if(!document.querySelector('input[name=c1]:checked')){ err.textContent='Elige una opción.'; return; }
+    if(!v || ['ok','sí','si','ya'].includes(v)){ err.textContent='Escribe un porque: «ok» no cuenta.'; return; }
+    err.textContent=''; toast('Tarjeta respondida (maqueta)');
+  };
+  document.getElementById('object1').onclick = ()=>{
+    const err = document.getElementById('err1');
+    if(!document.getElementById('because1').value.trim()){ err.textContent='Escribe tu motivo para objetar.'; return; }
+    err.textContent=''; toast('Nace un «por aclarar» con «mantener» y «la otra» (maqueta)');
+  };
+
+  // --- Documento: guardado a los 2 s, deshacer y alerta ---
+  const doc = document.getElementById('doc');
+  const saveState = document.getElementById('saveState');
+  const undoBtn = document.getElementById('undoBtn');
+  let timer=null, last=doc.innerHTML, prev=null;
+  doc.addEventListener('input', ()=>{
+    saveState.textContent='Cambios sin guardar';
+    clearTimeout(timer);
+    timer=setTimeout(()=>{
+      saveState.textContent='Guardando…';
+      setTimeout(()=>{
+        prev=last; last=doc.innerHTML; saveState.textContent='Guardado';
+        undoBtn.disabled=false; undoBtn.title='Deshace tu última edición';
+        if(doc.querySelectorAll('p').length<2) document.getElementById('alertBand').hidden=false;
+      },400);
+    },2000);
+  });
+  const undo = ()=>{ if(prev==null) return; doc.innerHTML=prev; last=prev; prev=null; undoBtn.disabled=true; undoBtn.title='No hay ediciones tuyas para deshacer'; document.getElementById('alertBand').hidden=true; saveState.textContent='Guardado'; toast('Edición deshecha'); bindParagraphs(); };
+  undoBtn.onclick=undo; document.getElementById('alertUndo').onclick=undo;
+
+  // --- Clic en un párrafo: su historia en el marco ---
+  const bindParagraphs = ()=> doc.querySelectorAll('p').forEach(p=> p.onclick=()=>{
+    doc.querySelectorAll('p').forEach(x=>x.classList.remove('selected')); p.classList.add('selected');
+    setRight(false); showPane('frame'); const h=document.getElementById('history'); h.hidden=false; h.scrollIntoView({behavior:'smooth',block:'nearest'});
+  });
+  bindParagraphs();
+
+  // --- Markdown: vista, fuente, copiar y descargar ---
+  const toMarkdown = ()=>{
+    const out=['# Microplásticos en agua potable',''];
+    doc.querySelectorAll('h2').forEach(h=>{ out.push('## '+h.textContent.trim(),''); });
+    doc.querySelectorAll('p').forEach(p=>{ out.push(p.textContent.trim(),''); });
+    out.push('## Síntesis','','_(borrador)_','','## Conclusiones','','_(borrador)_','');
+    return out.join('\n');
+  };
+  const esc = (s)=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  function renderMd(){
+    const md=toMarkdown();
+    document.getElementById('mdRaw').textContent=md;
+    document.getElementById('mdPreview').innerHTML = md.split('\n\n').map(b=>{
+      if(b.startsWith('## ')) return '<h2>'+esc(b.slice(3))+'</h2>';
+      if(b.startsWith('# ')) return '<h1>'+esc(b.slice(2))+'</h1>';
+      return b.trim()? '<p>'+esc(b).replace(/_(.+?)_/g,'<em>$1</em>')+'</p>' : '';
+    }).join('');
+  }
+  const mdR=document.getElementById('mdRendered'), mdS=document.getElementById('mdSource');
+  mdR.onclick=()=>{ mdR.classList.add('on'); mdS.classList.remove('on'); document.getElementById('mdPreview').style.display=''; document.getElementById('mdRaw').style.display='none'; };
+  mdS.onclick=()=>{ mdS.classList.add('on'); mdR.classList.remove('on'); document.getElementById('mdPreview').style.display='none'; document.getElementById('mdRaw').style.display='block'; };
+  document.getElementById('copyMd').onclick=async()=>{ try{ await navigator.clipboard.writeText(toMarkdown()); toast('Copiado'); }catch(e){ toast('No se pudo copiar'); } };
+  document.getElementById('downloadMd').onclick=()=>{
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([toMarkdown()],{type:'text/markdown'}));
+    a.download='microplasticos-en-agua-potable.md'; document.body.appendChild(a); a.click(); a.remove();
+  };
+})();
+</script>
+</body>
+</html>
