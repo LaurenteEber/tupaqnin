@@ -49,7 +49,7 @@ func TestB72_PostRoundsCreatesTheRoundAndTakesTheTurnSlot(t *testing.T) {
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, held, nil, hub)
 	runner.Evidence = evidence.NewReplay()
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	projectID := newProject(t, h, nil)
 	human := store.EventInput{Type: store.EventStateChanged, Actor: "human"}
 	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {

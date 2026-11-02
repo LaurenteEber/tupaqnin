@@ -66,7 +66,7 @@ func newProject(t *testing.T, h http.Handler, body any) string {
 }
 
 func TestB9_RequestIsStoredLiteral(t *testing.T) {
-	h, db, _ := newAPI(t)
+	h, _, _ := newAPI(t)
 	base := "/api/projects/" + newProject(t, h, map[string]any{"name": "Tesis"})
 
 	in := map[string]any{
@@ -84,9 +84,9 @@ func TestB9_RequestIsStoredLiteral(t *testing.T) {
 		t.Fatalf("request not literal: %+v", got)
 	}
 
-	projects, err := db.ListProjects(context.Background())
-	if err != nil || len(projects) != 1 || projects[0].Name != "Tesis" {
-		t.Fatalf("list projects: %+v, %v", projects, err)
+	projects := decode[[]store.Project](t, do(t, h, http.MethodGet, "/api/projects", nil))
+	if len(projects) != 1 || projects[0].Name != "Tesis" {
+		t.Fatalf("list projects: %+v", projects)
 	}
 }
 

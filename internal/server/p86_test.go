@@ -36,7 +36,7 @@ func TestP86_TheAudienceQuestionsShowInTheConversationAndBlockNothing(t *testing
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, fake, count, hub)
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	projectID := newProject(t, h, nil)
 	base := "/api/projects/" + projectID
 

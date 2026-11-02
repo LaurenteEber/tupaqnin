@@ -42,7 +42,7 @@ func newAPI(t *testing.T) (http.Handler, *store.DB, *stubStarter) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	starter := &stubStarter{}
-	return server.NewWithAPI(nil, server.NewHub(), db, starter), db, starter
+	return withVisitor(t, db, server.NewWithAPI(nil, server.NewHub(), db, starter)), db, starter
 }
 
 func do(t *testing.T, h http.Handler, method, path string, body any) *httptest.ResponseRecorder {

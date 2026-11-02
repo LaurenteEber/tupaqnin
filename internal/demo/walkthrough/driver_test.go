@@ -204,6 +204,34 @@ func (s *syncStarter) DiscardFlaw(ctx context.Context, projectID, label string, 
 	return s.runner.DiscardFlaw(ctx, projectID, label, n)
 }
 
+// withVisitor is h with one visitor of db: a link and a session in the
+// store, and the cookie on every request. The owner check runs as ever
+// (B-87); the session lasts a year because a test's clock moves.
+func withVisitor(t *testing.T, db *store.DB, h http.Handler) http.Handler {
+	t.Helper()
+	ctx := context.Background()
+	now := time.Now()
+	_, tokenHash, err := store.NewSecret()
+	if err != nil {
+		t.Fatalf("NewSecret: %v", err)
+	}
+	link, err := db.CreateInvitation(ctx, store.InvitationInput{Label: "test", BudgetUSD: 30, MaxAccounts: 10, MaxAnonProjects: 1000}, tokenHash, now)
+	if err != nil {
+		t.Fatalf("CreateInvitation: %v", err)
+	}
+	cookie, hash, err := store.NewSecret()
+	if err != nil {
+		t.Fatalf("NewSecret: %v", err)
+	}
+	if err := db.CreateSession(ctx, hash, link, now.Add(365*24*time.Hour), now); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.AddCookie(&http.Cookie{Name: "__Host-tq_session", Value: cookie})
+		h.ServeHTTP(w, r)
+	})
+}
+
 // walk is one run of the walkthrough over a fresh database.
 type walk struct {
 	t       *testing.T
@@ -243,7 +271,7 @@ func newWalk(t *testing.T, build func(*store.DB) (provider.Provider, memory.Toke
 	prov, count := build(db)
 	starter := &syncStarter{runner: cycle.NewRunner(db, prov, count, nil), gate: cycle.NewGate(db), db: db}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h := server.NewWithAPI(logger, server.NewHub(), db, starter)
+	h := withVisitor(t, db, server.NewWithAPI(logger, server.NewHub(), db, starter))
 	return &walk{t: t, h: h, db: db, dir: dir, starter: starter, lastOutput: lastOutput}
 }
 

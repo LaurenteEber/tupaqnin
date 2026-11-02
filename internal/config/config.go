@@ -39,6 +39,10 @@ type Config struct {
 	EvidenceBaseURLs map[string]string
 }
 
+// DataDir is TQ_DATA_DIR or its default. The invite command needs only
+// this, not the provider's configuration (B-92).
+func DataDir() string { return envOr("TQ_DATA_DIR", "./data") }
+
 // Load reads and validates the configuration. An empty variable takes
 // its default; if a required variable is missing or a value is
 // invalid, the error names the variable.
@@ -47,7 +51,7 @@ func Load() (Config, error) {
 		Provider:   envOr("TQ_PROVIDER", ProviderMeta),
 		MetaAPIKey: os.Getenv("META_API_KEY"),
 		Port:       envOr("PORT", "8080"),
-		DataDir:    envOr("TQ_DATA_DIR", "./data"),
+		DataDir:    DataDir(),
 	}
 
 	switch cfg.Provider {

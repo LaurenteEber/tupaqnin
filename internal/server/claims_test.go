@@ -159,8 +159,10 @@ func TestB51_CorrectingEvidenceRequiredConfirmsYourValue(t *testing.T) {
 		t.Fatalf("after correcting to false: pendings %v, provenance %+v", got, detail.Provenance)
 	}
 
-	other := newProject(t, h, nil)
-	if rec := do(t, h, http.MethodPut, "/api/projects/"+other+"/request/evidence", map[string]any{"required": true}); rec.Code != http.StatusNotFound {
+	// Without an account, a second project is a second visitor's (B3-18).
+	h2 := anotherVisitor(t, db, h)
+	other := newProject(t, h2, nil)
+	if rec := do(t, h2, http.MethodPut, "/api/projects/"+other+"/request/evidence", map[string]any{"required": true}); rec.Code != http.StatusNotFound {
 		t.Fatalf("put evidence without a request: %d, want 404", rec.Code)
 	}
 }

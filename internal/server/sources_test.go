@@ -24,7 +24,7 @@ func TestB61_GetSourceShowsAWebSourceWithItsRecord(t *testing.T) {
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, provider.NewFake(), nil, hub)
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	projectID := newProject(t, h, nil)
 	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
 		if _, err := tx.CreateObject(store.ObjectSource, "", map[string]any{"kind": "file", "filename": "a.md",

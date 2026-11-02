@@ -33,7 +33,7 @@ func newSignoffAPI(t *testing.T) (http.Handler, *store.DB, string) {
 	}
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, provider.NewFake(fixtures...), nil, hub)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	return h, db, newProject(t, h, nil)
 }
 

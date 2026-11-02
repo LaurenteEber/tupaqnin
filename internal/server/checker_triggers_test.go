@@ -50,7 +50,7 @@ func TestB36_SaveStartsTheWaitAndAskingToSignRunsTheBatch(t *testing.T) {
 		return func() bool { return true }
 	}
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	projectID := newProject(t, h, nil)
 	base := "/api/projects/" + projectID
 	seedSignSection(t, db, projectID, plainText, false)

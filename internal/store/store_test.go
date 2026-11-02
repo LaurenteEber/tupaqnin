@@ -41,9 +41,9 @@ func TestT8_OpenTwiceDoesNotReapplyMigrations(t *testing.T) {
 		`SELECT COUNT(*) FROM schema_version`).Scan(&applied); err != nil {
 		t.Fatalf("count schema_version: %v", err)
 	}
-	// One row per migration file (0001 to 0004).
-	if applied != 4 {
-		t.Fatalf("schema_version rows: got %d, want 4 (no reapplied migrations)", applied)
+	// One row per migration file (0001 to 0005).
+	if applied != 5 {
+		t.Fatalf("schema_version rows: got %d, want 5 (no reapplied migrations)", applied)
 	}
 }
 

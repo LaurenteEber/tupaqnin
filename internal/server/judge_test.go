@@ -53,7 +53,7 @@ func judgeServer(t *testing.T, prov provider.Provider, db *store.DB) (http.Handl
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, prov, func(_ context.Context, input []json.RawMessage) (int, error) { return len(input), nil }, hub)
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	projectID := newProject(t, h, nil)
 	human := store.EventInput{Type: store.EventStateChanged, Actor: "human"}
 	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
@@ -184,7 +184,7 @@ func TestB67_DiscardWritesFlawDiscardedOnlyBeforeTheBatchStarts(t *testing.T) {
 	hub := server.NewHub()
 	runner2 := cycle.NewRunner(db, held, func(_ context.Context, input []json.RawMessage) (int, error) { return len(input), nil }, hub)
 	t.Cleanup(runner2.Close)
-	h2 := server.NewWithAPI(nil, hub, db, runner2)
+	h2 := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner2))
 	if rec := do(t, h2, http.MethodPost, base+"/messages", map[string]string{"text": "Sigue."}); rec.Code != http.StatusAccepted {
 		t.Fatalf("message: %d %s", rec.Code, rec.Body.String())
 	}

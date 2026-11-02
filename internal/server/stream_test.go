@@ -13,6 +13,7 @@ import (
 
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
+	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
 // syncWriter is a ResponseWriter safe to read while the handler runs.
@@ -42,6 +43,19 @@ func (w *syncWriter) String() string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.body.String()
+}
+
+// streamAPI is the API over hub, with a project of the test's visitor:
+// a stream only opens for its owner (B-87).
+func streamAPI(t *testing.T, hub *server.Hub) (http.Handler, string) {
+	t.Helper()
+	db, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, &stubStarter{}))
+	return h, newProject(t, h, nil)
 }
 
 // serveAsync starts the stream and returns when the handler finishes.
@@ -89,18 +103,18 @@ func deltaTexts(t *testing.T, body string) []string {
 func TestB1_LateSubscriberReceivesEverythingFromTheStart(t *testing.T) {
 	hub := server.NewHub()
 	hub.HeartbeatInterval = 10 * time.Millisecond
-	handler := server.NewWithHub(nil, hub)
+	handler, projectID := streamAPI(t, hub)
 
 	// The turn emits before anyone connects.
-	hub.BeginTurn("p1", "t1")
-	hub.PublishDelta("p1", "t1", "one ")
-	hub.PublishDelta("p1", "t1", "two ")
+	hub.BeginTurn(projectID, "t1")
+	hub.PublishDelta(projectID, "t1", "one ")
+	hub.PublishDelta(projectID, "t1", "two ")
 
 	w := newSyncWriter()
-	done := serveAsync(t, handler, "/api/projects/p1/turns/t1/stream", w)
+	done := serveAsync(t, handler, "/api/projects/"+projectID+"/turns/t1/stream", w)
 
-	hub.PublishDelta("p1", "t1", "three")
-	hub.PublishStep("p1", "t1", json.RawMessage(`{"status":"accepted"}`))
+	hub.PublishDelta(projectID, "t1", "three")
+	hub.PublishStep(projectID, "t1", json.RawMessage(`{"status":"accepted"}`))
 	waitFor(t, done, 5*time.Second, "stream to finish", w)
 
 	texts := deltaTexts(t, w.String())
@@ -126,24 +140,24 @@ func TestB1_Stream90ArrivesCompleteWithHeartbeats(t *testing.T) {
 
 	hub := server.NewHub()
 	hub.HeartbeatInterval = 15 * time.Millisecond
-	handler := server.NewWithHub(nil, hub)
+	handler, projectID := streamAPI(t, hub)
 
-	hub.BeginTurn("p1", "t90")
+	hub.BeginTurn(projectID, "t90")
 	fake := provider.NewFake(fixture)
 	go func() {
 		resp, err := fake.Respond(context.Background(), provider.Request{
-			ProjectID: "p1", TurnID: "t90", Model: provider.PrincipalModel,
-		}, func(d provider.Delta) { hub.PublishDelta("p1", "t90", d.Text) })
+			ProjectID: projectID, TurnID: "t90", Model: provider.PrincipalModel,
+		}, func(d provider.Delta) { hub.PublishDelta(projectID, "t90", d.Text) })
 		if err != nil {
-			hub.PublishError("p1", "t90", "provider_error")
+			hub.PublishError(projectID, "t90", "provider_error")
 			return
 		}
 		step, _ := json.Marshal(map[string]string{"status": "completed", "text": resp.Text})
-		hub.PublishStep("p1", "t90", step)
+		hub.PublishStep(projectID, "t90", step)
 	}()
 
 	w := newSyncWriter()
-	done := serveAsync(t, handler, "/api/projects/p1/turns/t90/stream", w)
+	done := serveAsync(t, handler, "/api/projects/"+projectID+"/turns/t90/stream", w)
 	waitFor(t, done, 10*time.Second, "90-delta stream", w)
 
 	body := w.String()
@@ -166,11 +180,11 @@ func TestB1_Stream90ArrivesCompleteWithHeartbeats(t *testing.T) {
 
 func TestP9_UnknownTurnStreamIs404AndCreatesNothing(t *testing.T) {
 	hub := server.NewHub()
-	handler := server.NewWithHub(nil, hub)
+	handler, projectID := streamAPI(t, hub)
 
 	for i := 0; i < 2; i++ {
 		w := newSyncWriter()
-		done := serveAsync(t, handler, "/api/projects/p1/turns/does-not-exist/stream", w)
+		done := serveAsync(t, handler, "/api/projects/"+projectID+"/turns/does-not-exist/stream", w)
 		select {
 		case <-done:
 		case <-time.After(2 * time.Second):
@@ -187,12 +201,12 @@ func TestP9_UnknownTurnStreamIs404AndCreatesNothing(t *testing.T) {
 
 func TestB1_ErrorEventCarriesOnlyCodeAndCatalogMessage(t *testing.T) {
 	hub := server.NewHub()
-	handler := server.NewWithHub(nil, hub)
-	hub.BeginTurn("p1", "t1")
-	hub.PublishError("p1", "t1", "provider_error")
+	handler, projectID := streamAPI(t, hub)
+	hub.BeginTurn(projectID, "t1")
+	hub.PublishError(projectID, "t1", "provider_error")
 
 	w := newSyncWriter()
-	done := serveAsync(t, handler, "/api/projects/p1/turns/t1/stream", w)
+	done := serveAsync(t, handler, "/api/projects/"+projectID+"/turns/t1/stream", w)
 	waitFor(t, done, 5*time.Second, "error stream", w)
 
 	body := w.String()

@@ -25,7 +25,7 @@ func TestP100_PostRoundsWithoutARequestIs422(t *testing.T) {
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, fake, nil, hub)
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	base := "/api/projects/" + newProject(t, h, nil)
 	for range 2 {
 		rec := do(t, h, http.MethodPost, base+"/rounds", nil)
@@ -58,7 +58,7 @@ func TestP100_LeaveOpenVersionConflictIs409(t *testing.T) {
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, fake, nil, hub)
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, conflictRunner{runner})
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, conflictRunner{runner}))
 	base := "/api/projects/" + newProject(t, h, nil)
 	rec := do(t, h, http.MethodPost, base+"/rounds/rnd-1/leave-open", nil)
 	var body struct {

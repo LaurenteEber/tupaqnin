@@ -31,6 +31,11 @@ func main() {
 		os.Exit(pdfextract.RunChild(os.Stdin, os.Stdout, os.Stderr))
 	}
 
+	// Links by command on the same binary (B-92): no admin screen.
+	if len(os.Args) > 1 && os.Args[1] == "invite" {
+		os.Exit(runInvite(os.Args[2:], config.DataDir(), os.Stdout, os.Stderr))
+	}
+
 	logger := config.NewLogger()
 
 	cfg, err := config.Load()
@@ -104,6 +109,9 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// The hourly cleanup of expired anonymous projects and sessions (B-88).
+	go server.RunCleanup(ctx, db, logger, server.CleanupEvery, time.Now)
 
 	go func() {
 		<-ctx.Done()

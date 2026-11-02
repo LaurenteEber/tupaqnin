@@ -37,7 +37,7 @@ func externalServer(t *testing.T) (*store.DB, http.Handler, string) {
 	runner := cycle.NewRunner(db, fake, nil, hub)
 	runner.Evidence = evidence.NewReplay()
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	projectID := newProject(t, h, nil)
 	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
 		_, err := tx.CreateObject(store.ObjectRequest, "", map[string]any{"text": "Un estado del arte sobre pobreza.",

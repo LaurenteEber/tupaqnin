@@ -286,8 +286,8 @@ func newRushed(t *testing.T, name string) *rushed {
 	starter := &syncStarter{runner: cycle.NewRunner(db, script, count, nil), gate: cycle.NewGate(db), db: db}
 	r := &rushed{script: script, name: name, now: time.Now()}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h := server.NewWithAPI(logger, server.NewHub(), db, rushedStarter{starter},
-		server.WithClock(func() time.Time { return r.now }))
+	h := withVisitor(t, db, server.NewWithAPI(logger, server.NewHub(), db, rushedStarter{starter},
+		server.WithClock(func() time.Time { return r.now })))
 	r.walk = &walk{t: t, h: h, db: db, dir: dir, starter: starter, lastOutput: script.lastOutput}
 	return r
 }

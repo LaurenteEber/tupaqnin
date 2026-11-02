@@ -62,7 +62,7 @@ func TestK5_RoundCardCarriesTheDigestAndRepeatAndLeaveOpenAreYourClicks(t *testi
 	runner := cycle.NewRunner(db, fake, count, hub)
 	runner.Evidence = &noEvidence{}
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	projectID := newProject(t, h, nil)
 	human := store.EventInput{Type: store.EventStateChanged, Actor: "human"}
 	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {

@@ -282,16 +282,16 @@ func (s *Server) createProjectV2(w http.ResponseWriter, r *http.Request) {
 	}
 	switch req.Template {
 	case "":
-		id, err := s.db.CreateProject(r.Context(), req.Name)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal")
+		id, status, code := s.createOwnedProject(r, req.Name)
+		if code != "" {
+			writeError(w, status, code)
 			return
 		}
 		writeJSON(w, http.StatusCreated, CreateProjectResponse{ProjectID: id})
 	case "case-5":
-		id, code := s.createFromTemplate(r)
+		id, status, code := s.createFromTemplate(r)
 		if code != "" {
-			writeError(w, http.StatusInternalServerError, code)
+			writeError(w, status, code)
 			return
 		}
 		writeJSON(w, http.StatusCreated, CreateProjectResponse{ProjectID: id})
@@ -300,31 +300,31 @@ func (s *Server) createProjectV2(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) createFromTemplate(r *http.Request) (string, string) {
+func (s *Server) createFromTemplate(r *http.Request) (string, int, string) {
 	tpl, files, err := case5.Load()
 	if err != nil {
-		return "", "internal"
+		return "", http.StatusInternalServerError, "internal"
 	}
-	id, err := s.db.CreateProject(r.Context(), tpl.Name)
-	if err != nil {
-		return "", "internal"
+	id, status, code := s.createOwnedProject(r, tpl.Name)
+	if code != "" {
+		return "", status, code
 	}
 	if code := s.saveRequest(r, id, PutRequestRequest{Text: tpl.Text, Audience: tpl.Audience,
 		Criteria: tpl.Criteria, Premise: tpl.Premise, Exploratory: tpl.Exploratory}); code != "" {
-		return "", code
+		return "", http.StatusInternalServerError, code
 	}
 	for _, src := range tpl.Sources {
 		if _, code := s.addSource(r, id, src.Kind, src.Filename, files[src.Filename], ""); code != "" {
-			return "", code
+			return "", http.StatusInternalServerError, code
 		}
 	}
-	return id, ""
+	return id, http.StatusCreated, ""
 }
 
-// GET /api/projects → the project list (P1 minimum, no owner filter
-// until the delivery slice: pantallas.md P1).
+// GET /api/projects → only your projects (B3-18, P1).
 func (s *Server) listProjects(w http.ResponseWriter, r *http.Request) {
-	projects, err := s.db.ListProjects(r.Context())
+	sess, _ := r.Context().Value(sessionKey{}).(store.Session)
+	projects, err := s.db.ListOwnedProjects(r.Context(), sess)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return

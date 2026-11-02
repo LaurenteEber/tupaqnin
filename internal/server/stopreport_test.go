@@ -111,7 +111,7 @@ func TestB37_WithTheFakeTheTurnShowsP6AndSigueOpensAnotherTurn(t *testing.T) {
 	hub := server.NewHub()
 	runner := cycle.NewRunner(db, fake, count, hub)
 	t.Cleanup(runner.Close)
-	h := server.NewWithAPI(nil, hub, db, runner)
+	h := withVisitor(t, db, server.NewWithAPI(nil, hub, db, runner))
 	projectID := newProject(t, h, nil)
 	base := "/api/projects/" + projectID
 	if err := runner.RunTurn(context.Background(), projectID, "turn-1", "Escribe el alcance."); err != nil {

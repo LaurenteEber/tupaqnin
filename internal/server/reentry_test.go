@@ -23,7 +23,7 @@ func newAPIAt(t *testing.T, later *time.Duration) (http.Handler, *store.DB) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	clock := func() time.Time { return time.Now().Add(*later) }
-	return server.NewWithAPI(nil, server.NewHub(), db, &stubStarter{}, server.WithClock(clock)), db
+	return withVisitor(t, db, server.NewWithAPI(nil, server.NewHub(), db, &stubStarter{}, server.WithClock(clock))), db
 }
 
 // editSection saves a section's text as you (PUT /sections/{label}).

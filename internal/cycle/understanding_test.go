@@ -226,11 +226,11 @@ func TestP32_UnderstandingDoesNotChangeAConfirmedRole(t *testing.T) {
 
 func projectName(t *testing.T, db *store.DB) string {
 	t.Helper()
-	projects, err := db.ListProjects(context.Background())
-	if err != nil || len(projects) != 1 {
-		t.Fatalf("ListProjects: %v, %v", projects, err)
+	name, err := db.ProjectName(context.Background(), "p1")
+	if err != nil {
+		t.Fatalf("ProjectName: %v", err)
 	}
-	return projects[0].Name
+	return name
 }
 
 // B-23: a request without criteria gets an accepted understanding,

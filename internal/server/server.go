@@ -1,7 +1,6 @@
 // Package server implements HTTP, streaming and access for tupaqnin
-// (specification §6). In this base skeleton it only serves /healthz
-// and the embedded minimal page; streaming and invitation access
-// arrive in slice 0 and the delivery slice.
+// (specification §6): the API, the turn streams, the embedded web page
+// and the access by invitation link.
 package server
 
 import (
@@ -65,7 +64,7 @@ func requestLog(logger *slog.Logger, next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 		logger.Info("request",
 			"method", r.Method,
-			"path", r.URL.Path,
+			"path", loggedPath(r.URL.Path),
 			"status", rec.status,
 			"duration_ms", time.Since(start).Milliseconds(),
 		)
@@ -144,79 +143,9 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 		opt(s)
 	}
 	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-	})
-
-	if db != nil && starter != nil {
-		mux.HandleFunc("POST /api/projects", s.createProjectV2)
-		mux.HandleFunc("GET /api/projects", s.listProjects)
-		mux.HandleFunc("GET /api/projects/{projectID}/request", s.getRequest)
-		mux.HandleFunc("PUT /api/projects/{projectID}/request", s.putRequest)
-		mux.HandleFunc("POST /api/projects/{projectID}/sources", s.uploadSource)
-		mux.HandleFunc("GET /api/projects/{projectID}/sources/{label}/download", s.downloadSource)
-		mux.HandleFunc("GET /api/projects/{projectID}/sources/{label}", s.getSource)
-		mux.HandleFunc("POST /api/projects/{projectID}/request/submit", s.submitRequest)
-		mux.HandleFunc("GET /api/projects/{projectID}/understanding", s.getUnderstanding)
-		mux.HandleFunc("POST /api/projects/{projectID}/cases/{label}/confirm", s.confirmCase)
-		mux.HandleFunc("POST /api/projects/{projectID}/cases/{label}/correct", s.correctCase)
-		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}/role", s.putSectionRole)
-		mux.HandleFunc("POST /api/projects/{projectID}/plan/confirm", s.confirmPlan)
-		mux.HandleFunc("POST /api/projects/{projectID}/sections", s.createSection)
-		mux.HandleFunc("GET /api/projects/{projectID}/sections", s.listSections)
-		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}", s.putSection)
-		mux.HandleFunc("PUT /api/projects/{projectID}/sections/{label}/details", s.putSectionDetails)
-		mux.HandleFunc("PUT /api/projects/{projectID}/sections/order", s.putSectionOrder)
-		mux.HandleFunc("POST /api/projects/{projectID}/messages", s.postMessage)
-		mux.HandleFunc("GET /api/projects/{projectID}/todo", s.getTodo)
-		mux.HandleFunc("GET /api/projects/{projectID}/sections/{label}", s.getSection)
-		mux.HandleFunc("GET /api/projects/{projectID}/sections/{label}/history", s.getBlockHistory)
-		mux.HandleFunc("POST /api/projects/{projectID}/sections/{label}/claims/accept", s.acceptClaim)
-		mux.HandleFunc("PUT /api/projects/{projectID}/request/evidence", s.putRequestEvidence)
-		mux.HandleFunc("PUT /api/projects/{projectID}/request/audience", s.putRequestAudience)
-		mux.HandleFunc("PUT /api/projects/{projectID}/criteria/{label}", s.putCriterion)
-		mux.HandleFunc("GET /api/projects/{projectID}/export.md", s.getExport)
-		// The list of changes of a section (backlog-r2 2.2, A-1).
-		mux.HandleFunc("GET /api/projects/{projectID}/sections/{label}/changes", s.getSectionChanges)
-		mux.HandleFunc("POST /api/projects/{projectID}/changes/{label}/close", s.closeChange)
-		mux.HandleFunc("GET /api/projects/{projectID}/decisions/{label}/history", s.getDecisionHistory)
-		mux.HandleFunc("GET /api/projects/{projectID}/summary", s.getSummary)
-		mux.HandleFunc("GET /api/projects/{projectID}/conversation", s.getConversation)
-		mux.HandleFunc("GET /api/projects/{projectID}/rounds/{label}", s.getRound)
-		mux.HandleFunc("POST /api/projects/{projectID}/rounds", s.postRound)
-		mux.HandleFunc("POST /api/projects/{projectID}/rounds/{label}/repeat", s.repeatRound)
-		mux.HandleFunc("POST /api/projects/{projectID}/rounds/{label}/leave-open", s.leaveRoundOpen)
-		mux.HandleFunc("POST /api/projects/{projectID}/rounds/{label}/flaws/{n}/discard", s.discardFlaw)
-		mux.HandleFunc("POST /api/projects/{projectID}/sections/{label}/audit", s.auditSection)
-		mux.HandleFunc("PUT /api/projects/{projectID}/name", s.putProjectName)
-		mux.HandleFunc("POST /api/projects/{projectID}/editor", s.claimEditor)
-		mux.HandleFunc("GET /api/projects/{projectID}/cards/{label}", s.getCard)
-		mux.HandleFunc("POST /api/projects/{projectID}/cards/{label}/answer", s.answerCard)
-		mux.HandleFunc("PUT /api/projects/{projectID}/decisions/{label}/critical", s.putDecisionCritical)
-		mux.HandleFunc("POST /api/projects/{projectID}/open-questions/{label}/answer", s.answerOpenQuestion)
-		mux.HandleFunc("GET /api/projects/{projectID}/stop-report", s.getStopReport)
-		mux.HandleFunc("POST /api/projects/{projectID}/stop-report/seen", s.postStopReportSeen)
-		mux.HandleFunc("POST /api/projects/{projectID}/stop-report/continue", s.postStopReportContinue)
-		mux.HandleFunc("POST /api/projects/{projectID}/audience-questions/{label}/answer", s.answerAudienceQuestion)
-		mux.HandleFunc("GET /api/projects/{projectID}/frame", s.getFrame)
-		mux.HandleFunc("POST /api/projects/{projectID}/frame/decisions/{label}/seen", s.postFrameDecisionSeen)
-		// P7, the signoff (backlog-r1 1.7, B-13, B-14).
-		mux.HandleFunc("POST /api/projects/{projectID}/sections/{label}/signoff", s.requestSignoff)
-		mux.HandleFunc("GET /api/projects/{projectID}/signoffs/{label}", s.getSignoff)
-		mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/sign", s.signSignoff)
-		mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/leave", s.leaveSignoff)
-		if signoffs, ok := starter.(SignoffStarter); ok {
-			s.signoffs = signoffs
-			mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/explanation", s.postSignoffExplanation)
-			mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/answers", s.postSignoffAnswers)
-			mux.HandleFunc("POST /api/projects/{projectID}/signoffs/{label}/ask", s.postSignoffAsk)
-		}
+	for _, rt := range s.routes(db != nil && starter != nil, starter) {
+		mux.HandleFunc(rt.method+" "+rt.pattern, rt.handler)
 	}
-
-	mux.HandleFunc("GET /api/projects/{projectID}/turns/{turnID}/stream", s.streamTurn)
 	registerDevRoutes(mux, s)
 
 	staticFS, err := fs.Sub(staticFiles, "static")
@@ -225,5 +154,107 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 	}
 	mux.Handle("GET /", http.FileServer(http.FS(staticFS)))
 
-	return requestLog(logger, securityHeaders(mux))
+	return requestLog(logger, securityHeaders(s.ownerControl(mux)))
+}
+
+// route is one row of the route table (B-87): a test walks the table,
+// so a new route cannot be born outside the owner check.
+type route struct {
+	method  string
+	pattern string
+	handler http.HandlerFunc
+}
+
+// routes is the application's route table. The API needs a database and
+// a turn starter; the signoff's turns need a starter that runs them.
+func (s *Server) routes(withAPI bool, starter TurnStarter) []route {
+	table := []route{
+		{"GET", "/healthz", s.healthz},
+		{"GET", "/api/projects/{projectID}/turns/{turnID}/stream", s.streamTurn},
+	}
+	if !withAPI {
+		return table
+	}
+	table = append(table, route{"GET", "/i/{token}", s.redeemInvite})
+	table = append(table, s.apiRoutes()...)
+	if signoffs, ok := starter.(SignoffStarter); ok {
+		s.signoffs = signoffs
+		table = append(table, s.signoffTurnRoutes()...)
+	}
+	return table
+}
+
+func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (s *Server) apiRoutes() []route {
+	return []route{
+		{"POST", "/api/projects", s.createProjectV2},
+		{"GET", "/api/projects", s.listProjects},
+		{"GET", "/api/projects/{projectID}/request", s.getRequest},
+		{"PUT", "/api/projects/{projectID}/request", s.putRequest},
+		{"POST", "/api/projects/{projectID}/sources", s.uploadSource},
+		{"GET", "/api/projects/{projectID}/sources/{label}/download", s.downloadSource},
+		{"GET", "/api/projects/{projectID}/sources/{label}", s.getSource},
+		{"POST", "/api/projects/{projectID}/request/submit", s.submitRequest},
+		{"GET", "/api/projects/{projectID}/understanding", s.getUnderstanding},
+		{"POST", "/api/projects/{projectID}/cases/{label}/confirm", s.confirmCase},
+		{"POST", "/api/projects/{projectID}/cases/{label}/correct", s.correctCase},
+		{"PUT", "/api/projects/{projectID}/sections/{label}/role", s.putSectionRole},
+		{"POST", "/api/projects/{projectID}/plan/confirm", s.confirmPlan},
+		{"POST", "/api/projects/{projectID}/sections", s.createSection},
+		{"GET", "/api/projects/{projectID}/sections", s.listSections},
+		{"PUT", "/api/projects/{projectID}/sections/{label}", s.putSection},
+		{"PUT", "/api/projects/{projectID}/sections/{label}/details", s.putSectionDetails},
+		{"PUT", "/api/projects/{projectID}/sections/order", s.putSectionOrder},
+		{"POST", "/api/projects/{projectID}/messages", s.postMessage},
+		{"GET", "/api/projects/{projectID}/todo", s.getTodo},
+		{"GET", "/api/projects/{projectID}/sections/{label}", s.getSection},
+		{"GET", "/api/projects/{projectID}/sections/{label}/history", s.getBlockHistory},
+		{"POST", "/api/projects/{projectID}/sections/{label}/claims/accept", s.acceptClaim},
+		{"PUT", "/api/projects/{projectID}/request/evidence", s.putRequestEvidence},
+		{"PUT", "/api/projects/{projectID}/request/audience", s.putRequestAudience},
+		{"PUT", "/api/projects/{projectID}/criteria/{label}", s.putCriterion},
+		{"GET", "/api/projects/{projectID}/export.md", s.getExport},
+		{"GET", "/api/projects/{projectID}/sections/{label}/changes", s.getSectionChanges},
+		{"POST", "/api/projects/{projectID}/changes/{label}/close", s.closeChange},
+		{"GET", "/api/projects/{projectID}/decisions/{label}/history", s.getDecisionHistory},
+		{"GET", "/api/projects/{projectID}/summary", s.getSummary},
+		{"GET", "/api/projects/{projectID}/conversation", s.getConversation},
+		{"GET", "/api/projects/{projectID}/rounds/{label}", s.getRound},
+		{"POST", "/api/projects/{projectID}/rounds", s.postRound},
+		{"POST", "/api/projects/{projectID}/rounds/{label}/repeat", s.repeatRound},
+		{"POST", "/api/projects/{projectID}/rounds/{label}/leave-open", s.leaveRoundOpen},
+		{"POST", "/api/projects/{projectID}/rounds/{label}/flaws/{n}/discard", s.discardFlaw},
+		{"POST", "/api/projects/{projectID}/sections/{label}/audit", s.auditSection},
+		{"PUT", "/api/projects/{projectID}/name", s.putProjectName},
+		{"POST", "/api/projects/{projectID}/editor", s.claimEditor},
+		{"GET", "/api/projects/{projectID}/cards/{label}", s.getCard},
+		{"POST", "/api/projects/{projectID}/cards/{label}/answer", s.answerCard},
+		{"PUT", "/api/projects/{projectID}/decisions/{label}/critical", s.putDecisionCritical},
+		{"POST", "/api/projects/{projectID}/open-questions/{label}/answer", s.answerOpenQuestion},
+		{"GET", "/api/projects/{projectID}/stop-report", s.getStopReport},
+		{"POST", "/api/projects/{projectID}/stop-report/seen", s.postStopReportSeen},
+		{"POST", "/api/projects/{projectID}/stop-report/continue", s.postStopReportContinue},
+		{"POST", "/api/projects/{projectID}/audience-questions/{label}/answer", s.answerAudienceQuestion},
+		{"GET", "/api/projects/{projectID}/frame", s.getFrame},
+		{"POST", "/api/projects/{projectID}/frame/decisions/{label}/seen", s.postFrameDecisionSeen},
+		{"POST", "/api/projects/{projectID}/sections/{label}/signoff", s.requestSignoff},
+		{"GET", "/api/projects/{projectID}/signoffs/{label}", s.getSignoff},
+		{"POST", "/api/projects/{projectID}/signoffs/{label}/sign", s.signSignoff},
+		{"POST", "/api/projects/{projectID}/signoffs/{label}/leave", s.leaveSignoff},
+	}
+}
+
+// signoffTurnRoutes are the routes of P7 that start a model's turn
+// (backlog-r1 1.7, B-13, B-14).
+func (s *Server) signoffTurnRoutes() []route {
+	return []route{
+		{"POST", "/api/projects/{projectID}/signoffs/{label}/explanation", s.postSignoffExplanation},
+		{"POST", "/api/projects/{projectID}/signoffs/{label}/answers", s.postSignoffAnswers},
+		{"POST", "/api/projects/{projectID}/signoffs/{label}/ask", s.postSignoffAsk},
+	}
 }
