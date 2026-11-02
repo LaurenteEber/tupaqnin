@@ -309,6 +309,22 @@ func sinceLastStop(events []store.Event) []store.Event {
 // delivery rows (via = startup) and the startup event with the new
 // instance (B2-2, specification §1.4).
 func (m *Memory) Startup(ctx context.Context, projectID string, reason StartupReason, window int, count TokenCounter) (Brief, error) {
+	return m.startup(ctx, projectID, reason, window, count, nil)
+}
+
+// StartupAfterDiscard is the threshold startup of the retry of a step that
+// filled the window (B-86). What changed is measured against delivered, read
+// before that step: what the step delivered never reached a principal, and
+// the delivery rows only grow.
+func (m *Memory) StartupAfterDiscard(ctx context.Context, projectID string, window int, count TokenCounter, delivered map[string]int) (Brief, error) {
+	if delivered == nil {
+		delivered = map[string]int{}
+	}
+	return m.startup(ctx, projectID, StartupThreshold, window, count, delivered)
+}
+
+// startup assembles a startup; a nil deliveredBefore reads the deliveries.
+func (m *Memory) startup(ctx context.Context, projectID string, reason StartupReason, window int, count TokenCounter, deliveredBefore map[string]int) (Brief, error) {
 	switch reason {
 	case StartupNewSession, StartupModelChange, StartupThreshold:
 	default:
@@ -329,9 +345,10 @@ func (m *Memory) Startup(ctx context.Context, projectID string, reason StartupRe
 	if len(answered) > 10 {
 		answered = answered[len(answered)-10:]
 	}
-	deliveredBefore, err := m.db.LatestDeliveries(ctx, projectID)
-	if err != nil {
-		return Brief{}, err
+	if deliveredBefore == nil {
+		if deliveredBefore, err = m.db.LatestDeliveries(ctx, projectID); err != nil {
+			return Brief{}, err
+		}
 	}
 	changes := changesSince(objects, deliveredBefore)
 

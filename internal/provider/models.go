@@ -45,6 +45,16 @@ var contextWindows = map[string]int{
 	ModelWonder10: 1_048_576,
 }
 
+// contextThresholdPercents is the share of the window used at which the app
+// cleans the principal's context (B-86, block 2 §4: ~40 % free, [inicial]).
+// Constant per model; calibrating is out (B2-5).
+var contextThresholdPercents = map[string]int{
+	ModelSpark13:  60,
+	ModelSpark12:  60,
+	ModelSpark11:  60,
+	ModelWonder10: 60,
+}
+
 // Standard-mode prices in USD per million tokens, from
 // https://dev.meta.ai/docs/pricing-rate-limits (2026-10-28).
 // Cached-input rates are not applied: Usage carries no cached count,
@@ -61,6 +71,14 @@ var pricings = map[string]pricing{
 // ContextWindow returns the model's context window in tokens, or 0
 // for a model the docs have not confirmed.
 func ContextWindow(model string) int { return contextWindows[model] }
+
+// ContextThresholdReached reports whether a call's input tokens reach the
+// model's threshold against window (B-86). No window or an unknown model never
+// does.
+func ContextThresholdReached(model string, inputTokens, window int) bool {
+	percent, ok := contextThresholdPercents[model]
+	return ok && window > 0 && inputTokens*100 >= window*percent
+}
 
 // CostUSD prices a call at Standard-mode rates. Unknown models cost 0.
 func CostUSD(model string, inputTokens, outputTokens int) float64 {

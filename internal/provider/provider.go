@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -174,7 +175,18 @@ type ProviderError struct {
 	// HTTPStatus is the provider's HTTP status, 0 when the error did not
 	// come from an HTTP reply. B-20 (c) reads it, never the body's code.
 	HTTPStatus int
+	// contextFull is what the error's body said about the window (B-86),
+	// read before the body is dropped; see Is.
+	contextFull bool
 }
+
+// ErrContextFull is the provider saying a call does not fit in the model's
+// context window (B-86). A *ProviderError answers it through errors.Is; the
+// message it was recognised from is not kept (T-10).
+var ErrContextFull = errors.New("provider: context window full")
+
+// Is makes errors.Is(err, ErrContextFull) answer for a full window.
+func (e *ProviderError) Is(target error) bool { return target == ErrContextFull && e.contextFull }
 
 func (e *ProviderError) Error() string {
 	return fmt.Sprintf("provider error: code=%q type=%q param=%q", e.Code, e.Type, e.Param)

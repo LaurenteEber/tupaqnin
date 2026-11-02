@@ -37,3 +37,7 @@ func SetBeforeLeaveOpenWrite(f func()) (restore func()) {
 	beforeLeaveOpenWrite = f
 	return func() { beforeLeaveOpenWrite = func() {} }
 }
+
+// SetContextWindowForTest fixes the principal's window with a small value
+// (backlog-r4 4.5): only tests can set it, never the environment (T-9).
+func SetContextWindowForTest(r *Runner, tokens int) { r.contextWindow = tokens }

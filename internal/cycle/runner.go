@@ -77,6 +77,10 @@ type Runner struct {
 	schema   json.RawMessage
 	schemaOK bool
 
+	// contextWindow replaces the model's window in tests (backlog-r4 4.5:
+	// export_test.go sets it; T-9: never configuration). 0 uses models.go.
+	contextWindow int
+
 	// Evidence is what the readers search and read through (B-60): one
 	// shared client. Nil uses the replay of the recordings, which never
 	// reaches the network (TQ_PROVIDER=fake, tests).
@@ -507,15 +511,24 @@ func parseStoredTime(s string) time.Time {
 	return t
 }
 
-// ensureInstance returns the principal instance for this turn and,
-// when a new one was started, its startup input. A new instance
-// starts when there is no live conversation (B-7: last activity
-// under 2 h ago) or when the principal's model or effort changed
-// since the instance's last call (block 2 §4).
-func (r *Runner) ensureInstance(ctx context.Context, projectID string) (instanceID string, startupInput []json.RawMessage, started bool, err error) {
+// principalInstance is what the history says of the principal's current
+// instance. A conversation is live when its last activity is under 2 h ago
+// (B-7) and it has at least one call: an instance that never answered has no
+// conversation to go on with.
+type principalInstance struct {
+	id   string
+	live bool
+	// reason is the startup a new instance would have, before the threshold.
+	reason memory.StartupReason
+	// overThreshold: its last call reached the threshold (B-86).
+	overThreshold bool
+}
+
+func (r *Runner) readInstance(ctx context.Context, projectID string) (principalInstance, error) {
+	inst := principalInstance{reason: memory.StartupNewSession}
 	events, err := r.db.EventsSince(ctx, projectID, 0)
 	if err != nil {
-		return "", nil, false, err
+		return inst, err
 	}
 	var lastActivity time.Time
 	for _, ev := range events {
@@ -525,33 +538,112 @@ func (r *Runner) ensureInstance(ctx context.Context, projectID string) (instance
 		var data map[string]any
 		_ = json.Unmarshal(ev.Data, &data)
 		if id, _ := data["instance_id"].(string); id != "" {
-			instanceID = id
+			inst.id = id
 			lastActivity = parseStoredTime(ev.CreatedAt)
 		}
 	}
-	reason := memory.StartupNewSession
-	if instanceID != "" {
-		calls, err := r.db.ModelCalls(ctx, projectID, instanceID)
+	if inst.id == "" {
+		return inst, nil
+	}
+	calls, err := r.db.ModelCalls(ctx, projectID, inst.id)
+	if err != nil || len(calls) == 0 {
+		return inst, err
+	}
+	last := calls[len(calls)-1]
+	if t := parseStoredTime(last.CreatedAt); t.After(lastActivity) {
+		lastActivity = t
+	}
+	if last.ModelAndEffort != provider.PrincipalModel+" "+provider.PrincipalEffort {
+		inst.reason = memory.StartupModelChange
+	}
+	inst.live = !lastActivity.IsZero() && r.now().Sub(lastActivity) < liveConversationWindow
+	window := last.ContextWindow
+	if r.contextWindow != 0 {
+		window = r.contextWindow
+	}
+	inst.overThreshold = provider.ContextThresholdReached(provider.PrincipalModel, last.InputTokens, window)
+	return inst, nil
+}
+
+// mustClean: the live conversation stays only until the next step (B-86).
+func (inst principalInstance) mustClean() bool {
+	return inst.live && inst.reason == memory.StartupNewSession && inst.overThreshold
+}
+
+// NeedsReset reports whether the principal's live conversation reached the
+// threshold, measured with its last call (B-86, block 2 §4). A signoff in
+// progress delays the cleanup, not this answer. It says false when the history
+// cannot be read: the next step reads it again and fails there.
+func (r *Runner) NeedsReset(ctx context.Context, projectID string) bool {
+	inst, err := r.readInstance(ctx, projectID)
+	if err != nil {
+		if r.Logger != nil {
+			r.Logger.Error("read principal instance failed", "error", err.Error())
+		}
+		return false
+	}
+	return inst.mustClean()
+}
+
+// signoffInProgress reports a signoff in progress in the project: the cleanup
+// waits for it (B-86; a paused one does not count, it is not in progress).
+func (r *Runner) signoffInProgress(ctx context.Context, projectID string) (bool, error) {
+	sections, err := graph.SectionsInSignoff(ctx, r.db, projectID)
+	return len(sections) > 0, err
+}
+
+// cleanupWaitsForSignoff: over the threshold, the chain launches no new step
+// while a signoff is in progress (B-86).
+func (r *Runner) cleanupWaitsForSignoff(ctx context.Context, projectID string) (bool, error) {
+	inst, err := r.readInstance(ctx, projectID)
+	if err != nil || !inst.mustClean() {
+		return false, err
+	}
+	return r.signoffInProgress(ctx, projectID)
+}
+
+// SignoffClosed is B-86's «al cerrarse la firma, la app limpia y, si el modo
+// sigue, reabre la cadena». The cleanup needs nothing here: the next
+// ensureInstance does it. WAITS FOR 4.4: the mode, and this call from every
+// place a signoff closes (internal/server's sign, leave and edit, and
+// CancelSignoff in internal/cycle); there it opens the chain when the mode goes
+// on and NeedsReset says so.
+func (r *Runner) SignoffClosed(context.Context, string) {}
+
+// principalWindow is the window the startup's cap is measured against.
+func (r *Runner) principalWindow() int {
+	if r.contextWindow != 0 {
+		return r.contextWindow
+	}
+	return provider.ContextWindow(provider.PrincipalModel)
+}
+
+// ensureInstance returns the principal instance for this turn and,
+// when a new one was started, its startup input. A new instance
+// starts when there is no live conversation (B-7: last activity
+// under 2 h ago), when the principal's model or effort changed
+// since the instance's last call (block 2 §4), or when the last call reached
+// the threshold and no signoff is in progress (B-86).
+func (r *Runner) ensureInstance(ctx context.Context, projectID string) (instanceID string, startupInput []json.RawMessage, started bool, err error) {
+	inst, err := r.readInstance(ctx, projectID)
+	if err != nil {
+		return "", nil, false, err
+	}
+	reason := inst.reason
+	if inst.live && reason == memory.StartupNewSession {
+		if !inst.overThreshold {
+			return inst.id, nil, false, nil
+		}
+		waits, err := r.signoffInProgress(ctx, projectID)
 		if err != nil {
 			return "", nil, false, err
 		}
-		if len(calls) > 0 {
-			if t := parseStoredTime(calls[len(calls)-1].CreatedAt); t.After(lastActivity) {
-				lastActivity = t
-			}
-			current := provider.PrincipalModel + " " + provider.PrincipalEffort
-			if calls[len(calls)-1].ModelAndEffort != current {
-				reason = memory.StartupModelChange
-			}
+		if waits {
+			return inst.id, nil, false, nil
 		}
+		reason = memory.StartupThreshold
 	}
-	live := instanceID != "" && !lastActivity.IsZero() &&
-		r.now().Sub(lastActivity) < liveConversationWindow
-	if live && reason == memory.StartupNewSession {
-		return instanceID, nil, false, nil
-	}
-	brief, err := r.memory.Startup(ctx, projectID, reason,
-		provider.ContextWindow(provider.PrincipalModel), r.count)
+	brief, err := r.memory.Startup(ctx, projectID, reason, r.principalWindow(), r.count)
 	if err != nil {
 		return "", nil, false, err
 	}
@@ -973,6 +1065,25 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 	judgeFailed := map[string]bool{}
 	roundsRun := 0
 	for n := 1; n <= MaxChainSteps; n++ {
+		// B-86: over the threshold with a signoff in progress, no new step:
+		// the turn ends and releases the slot. It is not a stop: no report (the
+		// next chain's covers this work) and no reason on the page (block 2 §6:
+		// the person sees nothing). A message of yours stays unanswered and
+		// reaches the new principal in its startup.
+		// [EL DISEÑO NO LO DICE]: this first step with your message counts as a
+		// new step of the chain.
+		waits, err := r.cleanupWaitsForSignoff(ctx, projectID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
+		if waits {
+			if n == 1 {
+				last.Status = StatusAccepted
+			}
+			r.publishChainStep(projectID, turnID, last, lastApplied, lastText, "")
+			return nil
+		}
 		// B-67: the correction batch is this step, if a judge round waits.
 		batch, err := r.startJudgeBatch(ctx, projectID)
 		if err != nil {
@@ -1013,6 +1124,12 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		if notice != "" {
 			message = notice + "\n\n" + message
 		}
+		// What was delivered before this step, for the retry's startup (B-86).
+		delivered, err := r.db.LatestDeliveries(ctx, projectID)
+		if err != nil {
+			r.fail(projectID, turnID, "turn_failed")
+			return err
+		}
 		instanceID, startupInput, started, err := r.ensureInstance(ctx, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
@@ -1020,18 +1137,8 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 		}
 		var input []json.RawMessage
 		switch {
-		case started && n == 1 && human:
-			// The startup already carries this message as the current
-			// task (block 2 §3), so it is not appended again; a pending
-			// rejection (B-14) goes after it, once.
-			// [EL DISEÑO NO LO DICE]: the startup has no place for it; it
-			// goes as one more message after the startup.
-			input = startupInput
-			if notice != "" {
-				input = append(input, userItem(notice))
-			}
 		case started:
-			input = append(startupInput, userItem(message))
+			input = stepAfterStartup(startupInput, n == 1 && human, notice, message)
 		default:
 			conversation, err := r.conversation(ctx, projectID, instanceID)
 			if err != nil {
@@ -1047,6 +1154,13 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 			input = append(input, userItem(message))
 		}
 		result, applied, outText, err := r.runStep(ctx, projectID, turnID, instanceID, input, filter, n == MaxChainSteps)
+		if errors.Is(err, provider.ErrContextFull) {
+			retry := func(startup []json.RawMessage, instance string) (StepResult, ApplyResult, string, error) {
+				return r.runStep(ctx, projectID, turnID, instance,
+					stepAfterStartup(startup, n == 1 && human, notice, message), filter, n == MaxChainSteps)
+			}
+			result, applied, outText, err = r.retryFullStep(ctx, projectID, turnID, delivered, retry)
+		}
 		if capErr, ok := asCap(err); ok {
 			return r.stopAtCap(ctx, projectID, turnID, capErr)
 		}
@@ -1163,6 +1277,57 @@ func (r *Runner) runChain(ctx context.Context, projectID, turnID, text string, h
 	return nil
 }
 
+// stepAfterStartup is a step's input on a new instance. The startup already
+// carries your message as the current task (block 2 §3), so it is not appended
+// again; a pending rejection (B-14) goes after it, once.
+// [EL DISEÑO NO LO DICE]: the startup has no place for it; it goes as one more
+// message after the startup.
+func stepAfterStartup(startup []json.RawMessage, yourMessage bool, notice, message string) []json.RawMessage {
+	if !yourMessage {
+		return append(startup, userItem(message))
+	}
+	if notice != "" {
+		return append(startup, userItem(notice))
+	}
+	return startup
+}
+
+// ContextFullPending is the agent's pending of a step that filled the window
+// (B-86): the app's text, never the provider's (T-10).
+const ContextFullPending = "the step did not fit in the context window and was not applied"
+
+// retryFullStep is B-86 for a step that filled the window, already discarded
+// unapplied: it cleans and retries once from the startup, through the spend
+// gate like any call; a second failure stays as the agent's pending, as the
+// retry of fichas §7.
+// [EL DISEÑO NO LO DICE]: with a signoff in progress it cannot clean (block 2
+// §4), so it stays pending at once; the next step after the signoff fills the
+// window again and is the one that cleans. What this discarded step delivered
+// stays out of that later «lo que cambió»; core and index still carry it.
+func (r *Runner) retryFullStep(ctx context.Context, projectID, turnID string, delivered map[string]int,
+	retry func(startup []json.RawMessage, instanceID string) (StepResult, ApplyResult, string, error)) (StepResult, ApplyResult, string, error) {
+	pending := func() (StepResult, ApplyResult, string, error) {
+		result, err := r.gate.Reject(ctx, projectID, turnID, 2, []string{ContextFullPending})
+		return result, ApplyResult{}, "", err
+	}
+	waits, err := r.signoffInProgress(ctx, projectID)
+	if err != nil {
+		return StepResult{}, ApplyResult{}, "", err
+	}
+	if waits {
+		return pending()
+	}
+	brief, err := r.memory.StartupAfterDiscard(ctx, projectID, r.principalWindow(), r.count, delivered)
+	if err != nil {
+		return StepResult{}, ApplyResult{}, "", err
+	}
+	result, applied, text, err := retry(brief.Input, brief.InstanceID)
+	if errors.Is(err, provider.ErrContextFull) {
+		return pending()
+	}
+	return result, applied, text, err
+}
+
 // stopAtCap ends a turn the spend gate refused (B-89): the stop report with
 // the app's part, without calling the model (as PrincipalFailed), and the
 // stream's step with stop_reason and cap. Always a report, whatever work the
@@ -1205,7 +1370,7 @@ func (r *Runner) runStep(ctx context.Context, projectID, turnID, instanceID stri
 	for attempt := 1; attempt <= 2; attempt++ {
 		resp, sent, err := r.call(ctx, projectID, turnID, instanceID, input, f)
 		input = sent
-		if _, refused := asCap(err); refused {
+		if _, refused := asCap(err); refused || errors.Is(err, provider.ErrContextFull) {
 			return StepResult{}, ApplyResult{}, "", err
 		}
 		if err != nil {

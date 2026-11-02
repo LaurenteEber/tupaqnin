@@ -181,7 +181,8 @@ func (m *Meta) client() *http.Client {
 
 // httpError turns a non-200 reply into a ProviderError with only its
 // code and type. The raw body is read to find them and then dropped:
-// it is never returned or logged (T-10).
+// it is never returned or logged (T-10). A full window is recognised here,
+// before that (B-86).
 func (m *Meta) httpError(httpResp *http.Response) error {
 	raw, _ := io.ReadAll(io.LimitReader(httpResp.Body, 1<<20))
 	perr := &ProviderError{Code: fmt.Sprintf("http_%d", httpResp.StatusCode), Type: "http_error",
@@ -191,6 +192,8 @@ func (m *Meta) httpError(httpResp *http.Response) error {
 			Code  *string `json:"code"`
 			Type  string  `json:"type"`
 			Param *string `json:"param"`
+			// Message is read only to recognise a full window, then dropped.
+			Message string `json:"message"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &parsed); err == nil && parsed.Error != nil {
@@ -203,12 +206,25 @@ func (m *Meta) httpError(httpResp *http.Response) error {
 		if parsed.Error.Param != nil {
 			perr.Param = *parsed.Error.Param
 		}
+		perr.contextFull = httpResp.StatusCode == http.StatusBadRequest &&
+			saysContext(perr.Code, perr.Param, parsed.Error.Message)
 	}
 	if m.Logger != nil {
 		m.Logger.Error("provider error", "code", perr.Code, "type", perr.Type,
 			"param", perr.Param, "status", httpResp.StatusCode)
 	}
 	return perr
+}
+
+// saysContext is B-86's [inicial] test of the provider's length error: its
+// code, param or message contains «context», in any case.
+func saysContext(fields ...string) bool {
+	for _, f := range fields {
+		if strings.Contains(strings.ToLower(f), "context") {
+			return true
+		}
+	}
+	return false
 }
 
 // streamEvent is one SSE event of the Responses stream (docs:
