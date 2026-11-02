@@ -43,6 +43,11 @@ import { ModeBar } from "./components/ModeBar";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { HomePage } from "./components/HomePage";
+import { LeftPanel } from "./components/LeftPanel";
+import { RightPanel } from "./components/RightPanel";
+import { CenterHeader } from "./components/CenterHeader";
+import { Shell, useLayout } from "./components/Shell";
+import { centerView, effectiveTab, routeTarget } from "./layout";
 import { createErrorKey } from "./home";
 import { initialLang, translate, type Lang } from "./i18n";
 import {
@@ -59,6 +64,7 @@ import {
 export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
+  const layout = useLayout();
 
   // E.6: undefined until Go answers; null is no session.
   const [session, setSession] = useState<SessionView | null | undefined>(undefined);
@@ -104,7 +110,6 @@ export function App() {
   // sections change.
   const [frameTick, setFrameTick] = useState(0);
   const bumpFrame = useCallback(() => setFrameTick((k) => k + 1), []);
-  const [menuOpen, setMenuOpen] = useState(false);
   // P7 (1.7): the signoff in progress takes the whole screen, without
   // the frame; what keeps a signoff from opening is listed here.
   const [signing, setSigning] = useState("");
@@ -215,18 +220,18 @@ export function App() {
       created = await createProject(template);
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : "internal");
-      setMenuOpen(false);
       await refreshSession();
       return;
     }
     setSections([]);
     setSelected("");
+    setHistoryBlock(0);
+    layout.setCenter("conv");
     clearStream();
     setConversation([]);
     setRequestText("");
     setDefensePreparing(false);
     setProjectID(created.project_id);
-    setMenuOpen(false);
     await refreshSession();
   }
 
@@ -311,6 +316,9 @@ export function App() {
     await refreshSections(projectID);
     bumpFrame();
     setSelected(label);
+    // [EL DISEÑO NO LO DICE] A section you create shows at once, as it did beside
+    // the conversation; B-95 does not name this destination.
+    applyRoute("document");
   }
 
   // P-49: «subir» and «bajar» in the skeleton; Go keeps the order.
@@ -407,9 +415,9 @@ export function App() {
       setErrorCode("");
       setDefensePreparing(false);
       setCreateError("");
+      layout.setCenter("conv");
       setProjectID(id);
     }
-    setMenuOpen(false);
   }
 
   // Back to P1 (E.6): no project open.
@@ -421,11 +429,34 @@ export function App() {
   // «Te toca» leads to the card, the understanding or the signoff
   // button; the frame never opens from the signoff (§9).
   function reach(id: string) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.scrollIntoView({ block: "center", behavior: "smooth" });
-    el.classList.add("flash");
-    window.setTimeout(() => el.classList.remove("flash"), 900);
+    applyRoute(id);
+    // The view it lives in shows on the next frame.
+    window.requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.classList.add("flash");
+      window.setTimeout(() => el.classList.remove("flash"), 900);
+    });
+  }
+
+  // Each destination's panels (B-95, B-96).
+  function applyRoute(id: string) {
+    const route = routeTarget(id);
+    if (route.center) {
+      layout.setCenter(route.center);
+      if (layout.narrow) layout.foldOverlay();
+    }
+    if (route.right) {
+      layout.setRightTab(route.right);
+      layout.setRightOff(false);
+    }
+  }
+
+  // A click on a paragraph: its history, in the right panel (B-96).
+  function openBlock(block: number) {
+    setHistoryBlock(block);
+    applyRoute("history");
   }
 
   // «Deshacer» (B-79): what you typed saves first, so it is your last edit; the
@@ -479,9 +510,11 @@ export function App() {
   }
 
   // P-41 from the frame (backlog-r2 2.7): the decision's own history,
-  // in the right column, with the section it is listed under.
+  // in the right panel, with the section it is listed under.
   function openDecisionHistory(label: string, decision: string) {
-    openSection(label);
+    if (label !== selected) setSignBlocked(null);
+    setSelected(label);
+    setHistoryBlock(0);
     setHistoryDecision(decision);
     window.setTimeout(() => reach("history"), 0);
   }
@@ -495,10 +528,11 @@ export function App() {
   }
 
   // P6 (backlog-r2 2.5): «Firmar» opens P7 for the report's section,
-  // shown on the right like the section's own button.
+  // in the document, like the section's own button (B-95).
   function signFromReport(section: string) {
     setSelected(section);
     setHistoryBlock(0);
+    applyRoute("sign-section");
     void askToSign(section);
   }
 
@@ -599,12 +633,29 @@ export function App() {
   // Never a label on screen (P-30, P-36): the title, or the catalog's.
   const sectionName = (s: SectionView) => s.title || t("section.untitled");
 
-  return (
-    <main className="app">
-      <header className="app-header">
-        <div className="brand">
-          <h1>{t("app.title")}</h1>
-          {projectID ? (
+  const hasDocument = sections.length > 0;
+  const centerShown = centerView(layout.center, hasDocument);
+  const historyOpen = Boolean(current && (historyBlock > 0 || historyDecision));
+  const rightTab = effectiveTab(layout.rightTab, historyOpen);
+
+  const langSwitch = (
+    <div className="lang-switch" role="group" aria-label="language">
+      <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
+        {t("language.en")}
+      </button>
+      <button type="button" className={lang === "es" ? "active" : ""} onClick={() => setLang("es")}>
+        {t("language.es")}
+      </button>
+    </div>
+  );
+
+  // P7: the signoff takes the whole screen, without the frame or the text.
+  if (projectID && signing) {
+    return (
+      <main className="app">
+        <header className="app-header">
+          <div className="brand">
+            <h1>{t("app.title")}</h1>
             <ProjectTitle
               key={projectID}
               lang={lang}
@@ -612,83 +663,390 @@ export function App() {
               name={currentProject?.name ?? ""}
               onRenamed={() => void refreshProjects()}
             />
-          ) : (
-            <span className="tagline">{t("app.tagline")}</span>
-          )}
-        </div>
-        {projectID && (
-          // [EL DISEÑO NO LO DICE]: how you go back to P1 from a project; a
-          // button in the header, since the frame's menu stays as it is.
-          <button type="button" className="small" onClick={closeProject}>
-            {t("home.back")}
-          </button>
-        )}
-        {projectID && (
-          // Backlog-r2 2.8 (B-47): the .md comes from Go, unsigned
-          // sections marked. [EL DISEÑO NO LO DICE]: where the download
-          // goes; the header, beside the language switch.
-          <a className="export" href={exportURL(projectID, lang)} download>
-            {t("export.download")}
-          </a>
-        )}
-        <div className="lang-switch" role="group" aria-label="language">
-          <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
-            {t("language.en")}
-          </button>
-          <button type="button" className={lang === "es" ? "active" : ""} onClick={() => setLang("es")}>
-            {t("language.es")}
-          </button>
-        </div>
-      </header>
-
-      {!projectID ? (
-        (session !== undefined || sessionFailed) && (
-          <HomePage
-            lang={lang}
-            session={session ?? null}
-            sessionFailed={sessionFailed}
-            projects={projects}
-            createError={createError}
-            onOpen={openProject}
-            onNew={(template) => void newProject(template)}
-            onSessionChanged={async () => {
-              setCreateError("");
-              await refreshSession();
-            }}
-          />
-        )
-      ) : signing ? (
+          </div>
+          {langSwitch}
+        </header>
         <SignoffPanel lang={lang} projectID={projectID} label={signing} onClose={closeSignoff} />
-      ) : (
-      <div className={`columns${projectID && sections.length > 0 ? "" : " nodoc"}`}>
-        <aside className="col" aria-label={t("frame.title")}>
-          <div className="hd">
-            <button
-              type="button"
-              className="proj"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              {t("project.list")} ▾
+      </main>
+    );
+  }
+
+  const left = (
+    <LeftPanel
+      lang={lang}
+      off={layout.leftOff}
+      onToggle={() => layout.setLeftOff(!layout.leftOff)}
+      projects={projects}
+      projectID={projectID}
+      onOpen={openProject}
+      onNew={(template) => void newProject(template)}
+      footer={
+        <>
+          {projectID && (
+            // [EL DISEÑO NO LO DICE]: how you go back to P1 from a project; a
+            // button in the header, since the frame's menu stays as it is.
+            <button type="button" className="small" onClick={closeProject}>
+              {t("home.back")}
             </button>
-            {menuOpen && (
-              <div className="pmenu">
-                {projects.map((p) => (
-                  <button key={p.project_id} type="button" onClick={() => openProject(p.project_id)}>
-                    {projectName(p)}
-                  </button>
-                ))}
-                <button type="button" className="meta" onClick={() => void newProject("case-5")}>
-                  {t("project.demo")}
-                </button>
-                <button type="button" className="meta" onClick={() => void newProject()}>
-                  {t("project.blank")}
-                </button>
-              </div>
+          )}
+          {projectID && (
+            // Backlog-r2 2.8 (B-47): the .md comes from Go, unsigned
+            // sections marked. [EL DISEÑO NO LO DICE]: where the download
+            // goes; the header, beside the language switch.
+            <a className="export" href={exportURL(projectID, lang)} download>
+              {t("export.download")}
+            </a>
+          )}
+          {langSwitch}
+        </>
+      }
+    />
+  );
+
+  if (!projectID) {
+    return (
+      <Shell
+        lang={lang}
+        layout={layout}
+        left={left}
+        right={null}
+        center={
+          <div className="center-home">
+            {(session !== undefined || sessionFailed) && (
+              <HomePage
+                lang={lang}
+                session={session ?? null}
+                sessionFailed={sessionFailed}
+                projects={projects}
+                createError={createError}
+                onOpen={openProject}
+                onNew={(template) => void newProject(template)}
+                onSessionChanged={async () => {
+                  setCreateError("");
+                  await refreshSession();
+                }}
+              />
             )}
           </div>
-          <div className="scroll">
-            {projectID ? (
+        }
+      />
+    );
+  }
+
+  return (
+    <Shell
+      lang={lang}
+      layout={layout}
+      left={left}
+      center={
+        <>
+          <CenterHeader
+            lang={lang}
+            view={centerShown}
+            hasDocument={hasDocument}
+            conversationNews={working || errorCode !== ""}
+            onView={layout.setCenter}
+            title={
+              <ProjectTitle
+                key={projectID}
+                lang={lang}
+                projectID={projectID}
+                name={currentProject?.name ?? ""}
+                onRenamed={() => void refreshProjects()}
+              />
+            }
+            mode={
+              summary && (
+                <ModeBar lang={lang} mode={summary.mode} waitsSignoff={summary.mode_waits_signoff} disabled={!editor} onSet={setMode} />
+              )
+            }
+            model={summary && <ModelLine lang={lang} summary={summary} />}
+            onToggleRight={() => layout.setRightOff(!layout.rightOff)}
+          />
+          {createErrorKey(createError, null) && (
+            <p className="turn-error center-notice">{t(createErrorKey(createError, null) ?? "")}</p>
+          )}
+          <div className="center-body">
+            <section className={`center-view${centerShown === "conv" ? "" : " off"}`} role="tabpanel" aria-label={t("chat.title")}>
+              <div className="view-inner">
+                {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}
+                {projectID && (
+                  <RequestPanel
+                    key={`request-${projectID}`}
+                    lang={lang}
+                    projectID={projectID}
+                    onRequest={setRequestText}
+                    onSubmitted={(turnID) => {
+                      clearStream();
+                      setErrorCode("");
+                      watchTurn(turnID);
+                    }}
+                  />
+                )}
+
+                {projectID && (
+                  <UnderstandingPanel
+                    key={`understanding-${projectID}`}
+                    lang={lang}
+                    projectID={projectID}
+                    refreshKey={understandingKey}
+                    onRoleChanged={() => {
+                      void refreshSections(projectID);
+                      setUnderstandingKey((k) => k + 1); // a role can open a card (K-13)
+                    }}
+                    onChanged={bumpFrame}
+                    onSearchEvidence={editor ? () => void searchEvidence() : undefined}
+                  />
+                )}
+
+                {projectID && (
+                  <ConversationPanel
+                    lang={lang}
+                    projectID={projectID}
+                    entries={conversation}
+                    requestText={requestText}
+                    working={working}
+                    stream={stream}
+                    rawStream={rawStream}
+                    errorCode={errorCode}
+                    defensePreparing={defensePreparing}
+                    onRoundAct={(turnID) => {
+                      // Backlog-r3 3.4: a repeated round shows its card and is
+                      // followed; a round left to clarify shows in the cards.
+                      void refreshConversation(projectID);
+                      bumpFrame();
+                      if (turnID) watchTurn(turnID);
+                    }}
+                    disabled={!editor || working}
+                    onAnswerAudience={(label, answer) => {
+                      // P-86: the question keeps showing with its new state.
+                      void answerAudienceQuestion(projectID, label, answer)
+                        .catch(() => undefined)
+                        .then(() => refreshConversation(projectID));
+                    }}
+                    report={
+                      <StopReportPanel
+                        lang={lang}
+                        projectID={projectID}
+                        refreshKey={conversation.length}
+                        disabled={!editor || working}
+                        onContinue={(text) => void send(text, true)}
+                        onSign={signFromReport}
+                        onSeen={bumpFrame}
+                      />
+                    }
+                  />
+                )}
+
+                {projectID && (
+                  <CardPanel
+                    lang={lang}
+                    projectID={projectID}
+                    refreshKey={`${understandingKey}-${frameTick}`}
+                    onAnswered={(defense) => {
+                      void refreshSections(projectID);
+                      void refreshConversation(projectID); // the answered card (U-5)
+                      if (defense) setDefensePreparing(true); // P-92
+                    }}
+                    onUndo={undoLastEdit}
+                    onDecisionActed={editor ? decisionActed : undefined}
+                  />
+                )}
+              </div>
+            </section>
+
+            {hasDocument && (
+              <section className={`center-view${centerShown === "doc" ? "" : " off"}`} role="tabpanel" aria-label={t("doc.title")} id="document">
+                {/* U-3: the frame chooses the section; this view shows only
+                    that one: its title, state, pendings and «Sign section». */}
+                <div className="view-inner">
+                <div className="hd doc-toolbar">
+                  {current ? (
+                    <span className="doc-state">
+                      <span className={`st ${current.state === "signed" ? "signed" : current.pendings > 0 ? "todo" : ""}`}>
+                        {t(`section.status.${current.state}`)}
+                      </span>
+                      {current.pendings > 0 && (
+                        <span className="st todo">{t("section.pendings", { n: String(current.pendings) })}</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="lbl">{t("doc.title")}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="small"
+                    disabled={!current || !editor || working}
+                    onClick={() => current && void auditCurrent(current.label)}
+                  >
+                    {t("doc.audit")}
+                  </button>
+                  <button
+                    type="button"
+                    className="small"
+                    disabled={!current || !editor || !undo.available}
+                    title={undo.reason ? t(undoReasonKey(undo.reason)) : undefined}
+                    onClick={() => current && void undoLastEdit(current.label)}
+                  >
+                    {t("undo.button")}
+                  </button>
+                  <button
+                    type="button"
+                    id="sign-section"
+                    className="primary small"
+                    disabled={!current || !editor || current.state === "signed"}
+                    onClick={() => void askToSign()}
+                  >
+                    {t("doc.sign")}
+                  </button>
+                </div>
+                  {undoLineKey(undo.available, undo.reason) && <p className="meta">{t(undoLineKey(undo.available, undo.reason))}</p>}
+                  {undoError && <p className="turn-error">{t(undoReasonKey(undoError))}</p>}
+                  {signQueued && <p className="meta" role="status">{t("signoff.request.queued")}</p>}
+                  {signBlocked && (
+                    <div className="sign-blocked" role="status">
+                      <b>{t("signoff.blocked")}</b>
+                      <ul>
+                        {signBlocked.pendings?.map((p, i) => (
+                          <li key={i}>
+                            {t(`pending.${p.kind}`)}
+                            {p.about && <> · «{p.about}»</>}
+                          </li>
+                        ))}
+                        {signBlocked.open_changes?.map((c) => (
+                          <li key={c}>{t("signoff.open_change")}</li>
+                        ))}
+                      </ul>
+                      <button type="button" className="small" onClick={() => setSignBlocked(null)}>
+                        {t("history.close")}
+                      </button>
+                    </div>
+                  )}
+                  {signError && (
+                    <p className="turn-error">
+                      {/* P-67: asking to sign while the agent works waits for the checker on your edits. */}
+                      {signError === "turn_running" ? t("signoff.request.turn_running") : t(`signoff.error.${signError}`)}
+                    </p>
+                  )}
+                  {current && (
+                    <SectionEditor
+                      key={current.label}
+                      lang={lang}
+                      projectID={projectID}
+                      label={current.label}
+                      heading={
+                        <SectionDetails
+                          key={`details-${current.label}`}
+                          lang={lang}
+                          projectID={projectID}
+                          label={current.label}
+                          title={current.title}
+                          focus={current.focus}
+                          readOnly={!editor}
+                          onChanged={detailsChanged}
+                        />
+                      }
+                      band={
+                        <>
+                          <EditAlerts
+                            lang={lang}
+                            projectID={projectID}
+                            alerts={alerts}
+                            readOnly={!editor}
+                            onUndo={(version) => void undoLastEdit(current.label, version)}
+                            onAnswered={() => setWarningsTick((k) => k + 1)}
+                          />
+                          <SectionWarnings
+                            lang={lang}
+                            projectID={projectID}
+                            warnings={warnings}
+                            readOnly={!editor}
+                            onClosed={() => {
+                              // Closing a change can free the section (A-1).
+                              setWarningsTick((k) => k + 1);
+                              bumpFrame();
+                              void refreshSections(projectID);
+                            }}
+                            onQuestion={reachWarning}
+                            onHistory={(block) => openSection(current.label, block)}
+                          />
+                        </>
+                      }
+                      underlines={warnings.filter(
+                        (w) => w.kind === "open_question" || w.kind === "agent_pending" || w.kind === "flaw",
+                      )}
+                      onQuestion={reachWarning}
+                      readOnly={!editor}
+                      onBlock={openBlock}
+                      origins={current.origins ?? []}
+                      version={current.version}
+                      text={current.text}
+                      paragraphs={current.paragraphs}
+                      onSaved={onSaved}
+                      registerSave={registerSave}
+                    />
+                  )}
+                  {current && (
+                    <div id="proposals">
+                      <ProposalPanel
+                        lang={lang}
+                        projectID={projectID}
+                        section={current.label}
+                        refreshKey={`${frameTick}-${current.version}`}
+                        readOnly={!editor}
+                        onChanged={proposalActed}
+                      />
+                    </div>
+                  )}
+                  <p className="hint">{t("doc.paragraph_hint")}</p>
+
+                  <div id="proposed-sections">
+                    <ProposalPanel
+                      lang={lang}
+                      projectID={projectID}
+                      refreshKey={String(frameTick)}
+                      readOnly={!editor}
+                      onChanged={proposalActed}
+                    />
+                  </div>
+
+                  <details className="trace">
+                    <summary>{t("doc.trace")}</summary>
+                    <dl>
+                      <dt>{t("doc.trace.last_triage")}</dt>
+                      <dd>{summary?.last_triage || t("doc.trace.none")}</dd>
+                      {summary && (
+                        <>
+                          <dt>{t("doc.trace.spent")}</dt>
+                          <dd>
+                            {t("summary.spent", { spent: summary.spent_usd.toFixed(2), cap: summary.cap_usd.toFixed(2) })}
+                          </dd>
+                        </>
+                      )}
+                    </dl>
+                  </details>
+                </div>
+              </section>
+            )}
+          </div>
+          <div className="composer">
+            <div className="composer-box">
+              <MessageInput lang={lang} disabled={!projectID || !editor} onSend={send} />
+              {messageQueued && <span className="hint" role="status">{t("message.queued")}</span>}
+              <span className="hint">{t("chat.decisions_hint")}</span>
+            </div>
+          </div>
+        </>
+      }
+      right={
+        <RightPanel
+          lang={lang}
+          tab={rightTab}
+          historyOpen={historyOpen}
+          onTab={layout.setRightTab}
+          onClose={() => layout.setRightOff(true)}
+          frame={
+            <div className="frame-pane">
               <FramePanel
                 lang={lang}
                 projectID={projectID}
@@ -702,13 +1060,6 @@ export function App() {
                 onSearchCandidate={editor ? (n) => void searchEvidence([n]) : undefined}
                 onDecisionActed={editor ? decisionActed : undefined}
               />
-            ) : (
-              <div className="frame-empty">
-                <b>{t("frame.title")}</b>
-                <span>{t("frame.empty")}</span>
-              </div>
-            )}
-            {projectID && (
               <NewSectionForm
                 key={projectID}
                 lang={lang}
@@ -716,309 +1067,31 @@ export function App() {
                 disabled={!editor}
                 onCreated={(label) => void sectionCreated(label)}
               />
-            )}
-          </div>
-        </aside>
-
-        <section className="col" aria-label={t("chat.title")}>
-          <div className="hd">
-            <span className="lbl">{t("chat.title")}</span>
-            {projectID && summary && <ModelLine lang={lang} summary={summary} />}
-            {projectID && summary && (
-              <ModeBar lang={lang} mode={summary.mode} waitsSignoff={summary.mode_waits_signoff} disabled={!editor} onSet={setMode} />
-            )}
-          </div>
-          <div className="scroll">
-            {projectID && !editor && <p className="turn-error">{t("tab.read_only")}</p>}
-            {createErrorKey(createError, null) && (
-              <p className="turn-error">{t(createErrorKey(createError, null) ?? "")}</p>
-            )}
-
-            {projectID && (
-              <RequestPanel
-                key={`request-${projectID}`}
-                lang={lang}
-                projectID={projectID}
-                onRequest={setRequestText}
-                onSubmitted={(turnID) => {
-                  clearStream();
-                  setErrorCode("");
-                  watchTurn(turnID);
-                }}
-              />
-            )}
-
-            {projectID && (
-              <UnderstandingPanel
-                key={`understanding-${projectID}`}
-                lang={lang}
-                projectID={projectID}
-                refreshKey={understandingKey}
-                onRoleChanged={() => {
-                  void refreshSections(projectID);
-                  setUnderstandingKey((k) => k + 1); // a role can open a card (K-13)
-                }}
-                onChanged={bumpFrame}
-                onSearchEvidence={editor ? () => void searchEvidence() : undefined}
-              />
-            )}
-
-            {projectID && (
-              <ConversationPanel
-                lang={lang}
-                projectID={projectID}
-                entries={conversation}
-                requestText={requestText}
-                working={working}
-                stream={stream}
-                rawStream={rawStream}
-                errorCode={errorCode}
-                defensePreparing={defensePreparing}
-                onRoundAct={(turnID) => {
-                  // Backlog-r3 3.4: a repeated round shows its card and is
-                  // followed; a round left to clarify shows in the cards.
-                  void refreshConversation(projectID);
-                  bumpFrame();
-                  if (turnID) watchTurn(turnID);
-                }}
-                disabled={!editor || working}
-                onAnswerAudience={(label, answer) => {
-                  // P-86: the question keeps showing with its new state.
-                  void answerAudienceQuestion(projectID, label, answer)
-                    .catch(() => undefined)
-                    .then(() => refreshConversation(projectID));
-                }}
-                report={
-                  <StopReportPanel
-                    lang={lang}
-                    projectID={projectID}
-                    refreshKey={conversation.length}
-                    disabled={!editor || working}
-                    onContinue={(text) => void send(text, true)}
-                    onSign={signFromReport}
-                    onSeen={bumpFrame}
-                  />
-                }
-              />
-            )}
-
-            {projectID && (
-              <CardPanel
-                lang={lang}
-                projectID={projectID}
-                refreshKey={`${understandingKey}-${frameTick}`}
-                onAnswered={(defense) => {
-                  void refreshSections(projectID);
-                  void refreshConversation(projectID); // the answered card (U-5)
-                  if (defense) setDefensePreparing(true); // P-92
-                }}
-                onUndo={undoLastEdit}
-                onDecisionActed={editor ? decisionActed : undefined}
-              />
-            )}
-          </div>
-          <div className="composer">
-            <MessageInput lang={lang} disabled={!projectID || !editor} onSend={send} />
-            {messageQueued && <span className="hint" role="status">{t("message.queued")}</span>}
-            <span className="hint">{t("chat.decisions_hint")}</span>
-          </div>
-        </section>
-
-        {projectID && sections.length > 0 && (
-          <section className="col doc" aria-label={t("doc.title")} id="document">
-            {/* U-3: the frame chooses the section; this column shows only
-                that one: its title, state, pendings and «Sign section». */}
-            <div className="hd">
-              {current ? (
-                <span className="doc-state">
-                  <span className={`st ${current.state === "signed" ? "signed" : current.pendings > 0 ? "todo" : ""}`}>
-                    {t(`section.status.${current.state}`)}
-                  </span>
-                  {current.pendings > 0 && (
-                    <span className="st todo">{t("section.pendings", { n: String(current.pendings) })}</span>
-                  )}
-                </span>
-              ) : (
-                <span className="lbl">{t("doc.title")}</span>
-              )}
-              <button
-                type="button"
-                className="small"
-                disabled={!current || !editor || working}
-                onClick={() => current && void auditCurrent(current.label)}
-              >
-                {t("doc.audit")}
-              </button>
-              <button
-                type="button"
-                className="small"
-                disabled={!current || !editor || !undo.available}
-                title={undo.reason ? t(undoReasonKey(undo.reason)) : undefined}
-                onClick={() => current && void undoLastEdit(current.label)}
-              >
-                {t("undo.button")}
-              </button>
-              <button
-                type="button"
-                id="sign-section"
-                className="primary small"
-                disabled={!current || !editor || current.state === "signed"}
-                onClick={() => void askToSign()}
-              >
-                {t("doc.sign")}
-              </button>
             </div>
-            <div className="scroll">
-              {undoLineKey(undo.available, undo.reason) && <p className="meta">{t(undoLineKey(undo.available, undo.reason))}</p>}
-              {undoError && <p className="turn-error">{t(undoReasonKey(undoError))}</p>}
-              {signQueued && <p className="meta" role="status">{t("signoff.request.queued")}</p>}
-              {signBlocked && (
-                <div className="sign-blocked" role="status">
-                  <b>{t("signoff.blocked")}</b>
-                  <ul>
-                    {signBlocked.pendings?.map((p, i) => (
-                      <li key={i}>
-                        {t(`pending.${p.kind}`)}
-                        {p.about && <> · «{p.about}»</>}
-                      </li>
-                    ))}
-                    {signBlocked.open_changes?.map((c) => (
-                      <li key={c}>{t("signoff.open_change")}</li>
-                    ))}
-                  </ul>
-                  <button type="button" className="small" onClick={() => setSignBlocked(null)}>
-                    {t("history.close")}
-                  </button>
-                </div>
-              )}
-              {signError && (
-                <p className="turn-error">
-                  {/* P-67: asking to sign while the agent works waits for the checker on your edits. */}
-                  {signError === "turn_running" ? t("signoff.request.turn_running") : t(`signoff.error.${signError}`)}
-                </p>
-              )}
-              {current && (
-                <SectionEditor
-                  key={current.label}
+          }
+          history={
+            current && (
+              <div id="history">
+                <HistoryPanel
                   lang={lang}
                   projectID={projectID}
                   label={current.label}
-                  heading={
-                    <SectionDetails
-                      key={`details-${current.label}`}
-                      lang={lang}
-                      projectID={projectID}
-                      label={current.label}
-                      title={current.title}
-                      focus={current.focus}
-                      readOnly={!editor}
-                      onChanged={detailsChanged}
-                    />
-                  }
-                  band={
-                    <>
-                      <EditAlerts
-                        lang={lang}
-                        projectID={projectID}
-                        alerts={alerts}
-                        readOnly={!editor}
-                        onUndo={(version) => void undoLastEdit(current.label, version)}
-                        onAnswered={() => setWarningsTick((k) => k + 1)}
-                      />
-                      <SectionWarnings
-                        lang={lang}
-                        projectID={projectID}
-                        warnings={warnings}
-                        readOnly={!editor}
-                        onClosed={() => {
-                          // Closing a change can free the section (A-1).
-                          setWarningsTick((k) => k + 1);
-                          bumpFrame();
-                          void refreshSections(projectID);
-                        }}
-                        onQuestion={reachWarning}
-                        onHistory={(block) => openSection(current.label, block)}
-                      />
-                    </>
-                  }
-                  underlines={warnings.filter(
-                    (w) => w.kind === "open_question" || w.kind === "agent_pending" || w.kind === "flaw",
-                  )}
-                  onQuestion={reachWarning}
-                  readOnly={!editor}
-                  onBlock={setHistoryBlock}
-                  origins={current.origins ?? []}
-                  version={current.version}
-                  text={current.text}
-                  paragraphs={current.paragraphs}
-                  onSaved={onSaved}
-                  registerSave={registerSave}
-                />
-              )}
-              {current && (
-                <div id="proposals">
-                  <ProposalPanel
-                    lang={lang}
-                    projectID={projectID}
-                    section={current.label}
-                    refreshKey={`${frameTick}-${current.version}`}
-                    readOnly={!editor}
-                    onChanged={proposalActed}
-                  />
-                </div>
-              )}
-              <p className="hint">{t("doc.paragraph_hint")}</p>
-
-              <div id="proposed-sections">
-                <ProposalPanel
-                  lang={lang}
-                  projectID={projectID}
-                  refreshKey={String(frameTick)}
-                  readOnly={!editor}
-                  onChanged={proposalActed}
+                  name={sectionName(current)}
+                  block={historyBlock}
+                  decision={historyDecision || undefined}
+                  onClose={() => setHistoryBlock(0)}
+                  onSearchCandidate={editor ? (n) => void searchEvidence([n]) : undefined}
+                  onMarked={() => {
+                    // Marking can open a card and change the frame (T-5).
+                    bumpFrame();
+                    void refreshSections(projectID);
+                  }}
                 />
               </div>
-
-              {current && (historyBlock > 0 || historyDecision) && (
-                <div id="history">
-                  <HistoryPanel
-                    lang={lang}
-                    projectID={projectID}
-                    label={current.label}
-                    name={sectionName(current)}
-                    block={historyBlock}
-                    decision={historyDecision || undefined}
-                    onClose={() => setHistoryBlock(0)}
-                    onSearchCandidate={editor ? (n) => void searchEvidence([n]) : undefined}
-                    onMarked={() => {
-                      // Marking can open a card and change the frame (T-5).
-                      bumpFrame();
-                      void refreshSections(projectID);
-                    }}
-                  />
-                </div>
-              )}
-
-              <details className="trace">
-                <summary>{t("doc.trace")}</summary>
-                <dl>
-                  <dt>{t("doc.trace.last_triage")}</dt>
-                  <dd>{summary?.last_triage || t("doc.trace.none")}</dd>
-                  {summary && (
-                    <>
-                      <dt>{t("doc.trace.spent")}</dt>
-                      <dd>
-                        {t("summary.spent", { spent: summary.spent_usd.toFixed(2), cap: summary.cap_usd.toFixed(2) })}
-                      </dd>
-                    </>
-                  )}
-                </dl>
-              </details>
-            </div>
-          </section>
-        )}
-      </div>
-      )}
-    </main>
+            )
+          }
+        />
+      }
+    />
   );
 }

@@ -677,5 +677,16 @@
   "alert.reason.decision_text": "Quitaste el párrafo que sostiene «{what}».",
   "alert.reason.signed_text": "Quitaste texto que habías firmado.",
   "alert.reason.other_section": "Quitaste texto aquí mientras trabajabas en «{what}».",
-  "alert.reason.pasted": "Pegaste un texto que ya está en «{what}»."
+  "alert.reason.pasted": "Pegaste un texto que ya está en «{what}».",
+  "layout.left_toggle": "Plegar el panel izquierdo (Ctrl/⌘+B)",
+  "layout.right_toggle": "Plegar el panel derecho (Ctrl/⌘+.)",
+  "layout.right_close": "Plegar el panel derecho",
+  "layout.divider": "Ajustar el ancho del panel derecho",
+  "layout.center_view": "Vista central",
+  "layout.right_view": "Recursos",
+  "layout.projects": "Proyectos",
+  "center.doc": "Documento",
+  "center.activity": "La conversación tiene algo nuevo",
+  "history.tab": "Historia",
+  "left.new": "Nuevo proyecto"
 }

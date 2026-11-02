@@ -677,5 +677,16 @@
   "alert.reason.decision_text": "You removed the paragraph that holds «{what}».",
   "alert.reason.signed_text": "You removed text you had signed.",
   "alert.reason.other_section": "You removed text here while you were working on «{what}».",
-  "alert.reason.pasted": "You pasted a text that is already in «{what}»."
+  "alert.reason.pasted": "You pasted a text that is already in «{what}».",
+  "layout.left_toggle": "Fold the left panel (Ctrl/⌘+B)",
+  "layout.right_toggle": "Fold the right panel (Ctrl/⌘+.)",
+  "layout.right_close": "Fold the right panel",
+  "layout.divider": "Adjust the right panel's width",
+  "layout.center_view": "Center view",
+  "layout.right_view": "Resources",
+  "layout.projects": "Projects",
+  "center.doc": "Document",
+  "center.activity": "The conversation has something new",
+  "history.tab": "History",
+  "left.new": "New project"
 }
