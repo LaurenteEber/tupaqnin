@@ -572,6 +572,11 @@ func (m *Memory) agentPendings(ctx context.Context, projectID string, sections [
 			if passage := pendingPassage(b.str("text"), p); passage != "" {
 				line += " · passage: «" + passage + "»"
 			}
+			// P-110: it closes when that passage leaves the text, so the
+			// agent has to know which one and that a citation will not do.
+			if p.Passage != "" {
+				line += " · passage: «" + p.Passage + "» · rewrite this passage so each claim rests on its citation; a new citation does not close it"
+			}
 			out = append(out, line)
 		}
 	}

@@ -516,3 +516,38 @@ func literalIn(passage any, text string) bool {
 	p, _ := passage.(string)
 	return strings.TrimSpace(p) != "" && strings.Contains(text, p)
 }
+
+// P-110: a citation the checker found not to support its claim reaches the
+// agent with the passage it marked and how that pending closes: the passage
+// leaving the text, never one more citation (graph.checkerPendings). A
+// citation whose passage is not in its source keeps its plain line.
+func TestP110_AnAgentPendingOnACitationSaysHowItCloses(t *testing.T) {
+	db := seedCheckerProject(t)
+	runCheckedTurn(t, db, nil, textFixture(t, string(stepFile(t, "citations"))), checkerFixture(t, "source-not-supporting"))
+	agent, err := memory.New(db).AgentPendings(context.Background(), "p1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var marked, notFound string
+	for _, line := range agent {
+		switch {
+		case strings.Contains(line, "cit-1 (does_not_support)"):
+			marked = line
+		case strings.Contains(line, "cit-2 (passage_not_found)"):
+			notFound = line
+		}
+	}
+	if !strings.Contains(marked, "passage: «Los estudios usan filtros.»") ||
+		!strings.Contains(marked, "rewrite this passage") || !strings.Contains(marked, "a new citation does not close it") {
+		t.Fatalf("does_not_support line: %q (all: %v)", marked, agent)
+	}
+	if !strings.HasSuffix(notFound, "cit-2 (passage_not_found)") {
+		t.Fatalf("passage_not_found line changed: %q", notFound)
+	}
+	// The page's JSON stays as it was: the passage is for the agent.
+	_, pendings := status(t, db, "sec-1")
+	raw, err := json.Marshal(pendings)
+	if err != nil || strings.Contains(string(raw), "Los estudios usan filtros.") {
+		t.Fatalf("pendings JSON: %s, %v", raw, err)
+	}
+}

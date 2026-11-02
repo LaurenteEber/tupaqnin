@@ -62,6 +62,9 @@ func checkerPendings(events []store.Event, section store.Object) []Pending {
 		}
 		if !seen[p] {
 			seen[p] = true
+			if p.Cause == CauseDoesNotSupport {
+				p.Passage = passage // P-110: after seen, so one pending per citation stays
+			}
 			out = append(out, p)
 		}
 	}

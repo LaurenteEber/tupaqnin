@@ -60,6 +60,9 @@ type Pending struct {
 	// Cause tells the two causes of source_not_supporting apart
 	// (CausePassageNotFound, CauseDoesNotSupport); empty on other kinds.
 	Cause string `json:"cause,omitempty"`
+	// Passage is what the checker marked on a does_not_support citation: the
+	// text the pending closes with (P-110). For the agent, not for the page.
+	Passage string `json:"-"`
 }
 
 // SectionStatus is the one function every view uses for a section's
