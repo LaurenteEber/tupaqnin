@@ -161,7 +161,7 @@ func TestB3_22_6_EveryProjectRouteChecksOwner(t *testing.T) {
 	projects := a.count(t, `SELECT COUNT(*) FROM project`)
 
 	walked := 0
-	a.now = a.now.Add(3 * 24 * time.Hour) // the owner's expiry would move
+	a.now = a.now.Add(3 * time.Hour) // the owner's expiry would move
 	for _, row := range server.RouteTableForTest() {
 		method, pattern, _ := strings.Cut(row, " ")
 		if !strings.Contains(pattern, "{projectID}") {
@@ -179,6 +179,10 @@ func TestB3_22_6_EveryProjectRouteChecksOwner(t *testing.T) {
 	if walked < 50 {
 		t.Fatalf("walked %d routes with {projectID}, want the whole table", walked)
 	}
+	// The project's own path, which a later route may use (P-113).
+	wantCode(t, "other visitor, the project itself", a.do(http.MethodGet, "/api/projects/"+projectID, other, nil), http.StatusNotFound, "project_not_found")
+	wantCode(t, "other account, the project itself", a.do(http.MethodGet, "/api/projects/"+projectID, otherAccount, nil), http.StatusNotFound, "project_not_found")
+	wantCode(t, "no cookie, the project itself", a.do(http.MethodGet, "/api/projects/"+projectID, nil, nil), http.StatusUnauthorized, "no_session")
 	if got := a.count(t, `SELECT COUNT(*) FROM event`); got != events {
 		t.Fatalf("events: got %d, want %d", got, events)
 	}
@@ -300,9 +304,15 @@ func TestB3_22_3_InviteRedeemed(t *testing.T) {
 		t.Fatalf("the answer carries the token: %s", rec.Body.String())
 	}
 	raw := rec.Header().Get("Set-Cookie")
-	for _, want := range []string{"__Host-tq_session=", "Path=/", "HttpOnly", "Secure", "SameSite=Lax", "Max-Age=1209600"} {
+	for _, want := range []string{"__Host-tq_session=", "Path=/", "HttpOnly", "Secure", "SameSite=Lax"} {
 		if !strings.Contains(raw, want) {
 			t.Fatalf("Set-Cookie %q lacks %q", raw, want)
+		}
+	}
+	// Without an account it is a session cookie (B3-18, 2-nov).
+	for _, never := range []string{"Max-Age", "Expires"} {
+		if strings.Contains(raw, never) {
+			t.Fatalf("Set-Cookie %q has %s: the browser would keep it after closing", raw, never)
 		}
 	}
 	if strings.Contains(raw, "Domain=") {
@@ -317,8 +327,8 @@ func TestB3_22_3_InviteRedeemed(t *testing.T) {
 	}
 	if got := a.count(t, `SELECT COUNT(*) FROM session WHERE invitation_id = ? AND account_id IS NULL
 		AND id_hash = ? AND expires_at = ?`, linkID, store.HashSecret(cookies[0].Value),
-		a.now.Add(14*24*time.Hour).Format("2006-01-02T15:04:05.000")+"Z"); got != 1 {
-		t.Fatalf("session rows: %d, want 1 lasting 14 days", got)
+		a.now.Add(24*time.Hour).Format("2006-01-02T15:04:05.000")+"Z"); got != 1 {
+		t.Fatalf("session rows: %d, want 1 lasting 24 h", got)
 	}
 	log := a.log.String()
 	if strings.Contains(log, token) {
@@ -371,7 +381,7 @@ func TestB3_22_3_ValidSessionIsKept(t *testing.T) {
 	if got := a.count(t, `SELECT COUNT(*) FROM session`); got != 1 {
 		t.Fatalf("sessions: %d, want 1", got)
 	}
-	a.now = a.now.Add(14*24*time.Hour + time.Minute)
+	a.now = a.now.Add(24*time.Hour + time.Minute)
 	wantCode(t, "expired session", a.do(http.MethodGet, "/api/projects", first, nil), http.StatusUnauthorized, "no_session")
 	rec = a.do(http.MethodGet, "/i/"+token, first, nil)
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Set-Cookie") == "" {
@@ -432,7 +442,7 @@ func TestB3_18_SecondAnonProjectIsAccountRequired(t *testing.T) {
 	}
 	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ? AND invitation_id = ? AND anon_session_hash = ?
 		AND account_id IS NULL AND expires_at = ?`, first, linkID, store.HashSecret(cookie.Value),
-		a.now.Add(7*24*time.Hour).Format("2006-01-02T15:04:05.000")+"Z"); got != 1 {
+		a.now.Add(24*time.Hour).Format("2006-01-02T15:04:05.000")+"Z"); got != 1 {
 		t.Fatal("the project does not keep its link, its session's hash and its expiry")
 	}
 }
@@ -547,9 +557,6 @@ func seedEveryTable(t *testing.T, a *access, cookie *http.Cookie, projectID stri
 	}
 }
 
-// B3-18, B-88: 7 days and 1 minute after your last request, the cleanup
-// leaves the project with no row in any table and the link's spending
-// as it was; a request at day 6 moves the expiry, at most once an hour.
 func TestB3_18_AnonProjectExpires(t *testing.T) {
 	a := newAccess(t)
 	linkID, token := newLink(t, a.db, "jury", 10)
@@ -568,38 +575,44 @@ func TestB3_18_AnonProjectExpires(t *testing.T) {
 		t.Fatalf("seed legacy: %v", err)
 	}
 	start := a.now
+	stamp := func(at time.Time) string { return at.Format("2006-01-02T15:04:05.000") + "Z" }
+	keptHash := store.HashSecret(kept.Value)
+	sessionExpiry := func() string {
+		return a.text(t, `SELECT expires_at FROM session WHERE id_hash = ?`, keptHash)
+	}
 
-	a.now = start.Add(6 * 24 * time.Hour)
+	a.now = start.Add(23 * time.Hour)
 	if rec := a.do(http.MethodGet, "/api/projects/"+keptID+"/sections", kept, nil); rec.Code != http.StatusOK {
-		t.Fatalf("day 6: %d", rec.Code)
+		t.Fatalf("hour 23: %d", rec.Code)
 	}
 	moved := a.text(t, `SELECT expires_at FROM project WHERE id = ?`, keptID)
-	if want := a.now.Add(7*24*time.Hour).Format("2006-01-02T15:04:05.000") + "Z"; moved != want {
-		t.Fatalf("expiry after day 6: %s, want %s", moved, want)
+	if want := stamp(a.now.Add(24 * time.Hour)); moved != want || sessionExpiry() != want {
+		t.Fatalf("after hour 23: project %s, session %s, want both %s", moved, sessionExpiry(), want)
 	}
 	// Within the hour there is no second write.
 	a.now = a.now.Add(30 * time.Minute)
 	a.do(http.MethodGet, "/api/projects/"+keptID+"/sections", kept, nil)
-	if got := a.text(t, `SELECT expires_at FROM project WHERE id = ?`, keptID); got != moved {
-		t.Fatalf("expiry moved twice within the hour: %s → %s", moved, got)
+	if got := a.text(t, `SELECT expires_at FROM project WHERE id = ?`, keptID); got != moved || sessionExpiry() != moved {
+		t.Fatalf("expiry moved twice within the hour: %s → %s, session %s", moved, got, sessionExpiry())
 	}
 	a.now = a.now.Add(31 * time.Minute)
 	a.do(http.MethodGet, "/api/projects/"+keptID+"/sections", kept, nil)
-	if got := a.text(t, `SELECT expires_at FROM project WHERE id = ?`, keptID); got <= moved {
-		t.Fatalf("expiry did not move after an hour: %s", got)
+	if got := a.text(t, `SELECT expires_at FROM project WHERE id = ?`, keptID); got <= moved || sessionExpiry() != got {
+		t.Fatalf("expiry did not move after an hour: project %s, session %s", got, sessionExpiry())
 	}
 
 	// One minute before: nothing goes.
-	if n, _, err := a.db.PurgeExpired(ctx, start.Add(7*24*time.Hour-time.Minute)); err != nil || n != 0 {
-		t.Fatalf("purge before the time: %d, %v", n, err)
+	if n, s, err := a.db.PurgeExpired(ctx, start.Add(24*time.Hour-time.Minute)); err != nil || n != 0 || s != 0 {
+		t.Fatalf("purge before the time: %d, %d, %v", n, s, err)
 	}
 	if got := a.count(t, `SELECT COUNT(*) FROM project WHERE id = ?`, goneID); got != 1 {
 		t.Fatal("the project went before its time")
 	}
 
-	n, _, err := a.db.PurgeExpired(ctx, start.Add(7*24*time.Hour+time.Minute))
-	if err != nil || n != 1 {
-		t.Fatalf("purge: %d, %v; want 1", n, err)
+	// 24 h without activity: the session and its project go.
+	n, sessions, err := a.db.PurgeExpired(ctx, start.Add(24*time.Hour+time.Minute))
+	if err != nil || n != 1 || sessions != 1 {
+		t.Fatalf("purge: %d projects, %d sessions, %v; want 1 and 1", n, sessions, err)
 	}
 	for _, table := range tablesWithProjectID(t, a) {
 		if got := a.count(t, `SELECT COUNT(*) FROM "`+table+`" WHERE project_id = ?`, goneID); got != 0 {
@@ -619,31 +632,115 @@ func TestB3_18_AnonProjectExpires(t *testing.T) {
 	if err := a.db.Reader.QueryRowContext(ctx, `SELECT spent_usd FROM invitation WHERE id = ?`, linkID).Scan(&spent); err != nil || spent != 1.25 {
 		t.Fatalf("spent_usd: %v, %v; want 1.25", spent, err)
 	}
-	a.now = start.Add(7*24*time.Hour + time.Minute)
-	wantCode(t, "expired project", a.do(http.MethodGet, "/api/projects/"+goneID+"/sections", gone, nil), http.StatusNotFound, "project_not_found")
+	a.now = start.Add(24*time.Hour + time.Minute)
+	wantCode(t, "expired session", a.do(http.MethodGet, "/api/projects/"+goneID+"/sections", gone, nil), http.StatusUnauthorized, "no_session")
 
-	// Sessions go when they expire (B-88).
-	if _, s, err := a.db.PurgeExpired(ctx, start.Add(14*24*time.Hour+time.Minute)); err != nil || s != 2 {
-		t.Fatalf("expired sessions: %d, %v; want 2", s, err)
+	// The other goes the same way, 24 h after its last request.
+	if n, s, err := a.db.PurgeExpired(ctx, start.Add(48*time.Hour+time.Minute)); err != nil || n != 1 || s != 1 {
+		t.Fatalf("second purge: %d, %d, %v; want 1 and 1", n, s, err)
 	}
 	if got := a.count(t, `SELECT COUNT(*) FROM session`); got != 0 {
 		t.Fatalf("sessions: %d, want 0", got)
 	}
 }
 
-// [EL DISEÑO NO LO DICE] choice: until the cleanup passes, a project past
-// its expiry is still yours, and your request moves its expiry again.
-func TestB3_18_RequestBeforeTheCleanupKeepsTheProject(t *testing.T) {
+// B3-18 (2-nov): past 24 h without activity the session is over, even if
+// the cleanup has not passed: the request does not bring it back.
+func TestB3_18_ExpiredSessionDoesNotComeBackBeforeTheCleanup(t *testing.T) {
 	a := newAccess(t)
 	_, token := newLink(t, a.db, "jury", 10)
 	cookie := a.visitor(t, token)
 	projectID := a.project(t, cookie)
-	a.now = a.now.Add(7*24*time.Hour + time.Minute)
-	if rec := a.do(http.MethodGet, "/api/projects/"+projectID+"/sections", cookie, nil); rec.Code != http.StatusOK {
-		t.Fatalf("request past the expiry: %d", rec.Code)
+	expires := a.text(t, `SELECT expires_at FROM project WHERE id = ?`, projectID)
+	a.now = a.now.Add(24*time.Hour + time.Minute)
+	wantCode(t, "past the time", a.do(http.MethodGet, "/api/projects/"+projectID+"/sections", cookie, nil), http.StatusUnauthorized, "no_session")
+	if got := a.text(t, `SELECT expires_at FROM project WHERE id = ?`, projectID); got != expires {
+		t.Fatalf("the expiry moved: %s → %s", expires, got)
 	}
-	if n, _, err := a.db.PurgeExpired(context.Background(), a.now); err != nil || n != 0 {
-		t.Fatalf("purge after the request: %d, %v; want 0", n, err)
+}
+
+// B3-18 (2-nov): every request moves the session and its project, also one
+// that does not name the project, or the project would go before its session.
+func TestB3_18_ListingMovesTheSessionAndItsProject(t *testing.T) {
+	a := newAccess(t)
+	_, token := newLink(t, a.db, "jury", 10)
+	cookie := a.visitor(t, token)
+	projectID := a.project(t, cookie)
+	a.now = a.now.Add(23 * time.Hour)
+	if rec := a.do(http.MethodGet, "/api/projects", cookie, nil); rec.Code != http.StatusOK {
+		t.Fatalf("list: %d", rec.Code)
+	}
+	want := a.now.Add(24*time.Hour).Format("2006-01-02T15:04:05.000") + "Z"
+	if got := a.text(t, `SELECT expires_at FROM project WHERE id = ?`, projectID); got != want {
+		t.Fatalf("project expiry: %s, want %s", got, want)
+	}
+	if got := a.text(t, `SELECT expires_at FROM session WHERE id_hash = ?`, store.HashSecret(cookie.Value)); got != want {
+		t.Fatalf("session expiry: %s, want %s", got, want)
+	}
+}
+
+// B3-18 (2-nov): with an account the cookie lasts 14 days from the last
+// activity: the server's expiry and the browser's Max-Age move together, at
+// most one write an hour. Without an account no Set-Cookie is ever repeated.
+func TestB3_22_4_AccountCookieLasts14DaysFromTheLastActivity(t *testing.T) {
+	a := newAccess(t)
+	linkID, token := newLink(t, a.db, "jury", 10)
+	account := accountCookie(t, a, linkID)
+	hash := store.HashSecret(account.Value)
+	soon := a.now.Add(14*24*time.Hour).Format("2006-01-02T15:04:05.000") + "Z"
+	if _, err := a.db.Writer.ExecContext(context.Background(), `UPDATE session SET expires_at = ? WHERE id_hash = ?`, soon, hash); err != nil {
+		t.Fatal(err)
+	}
+	a.now = a.now.Add(10 * 24 * time.Hour)
+	rec := a.do(http.MethodGet, "/api/projects", account, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list: %d", rec.Code)
+	}
+	want := a.now.Add(14*24*time.Hour).Format("2006-01-02T15:04:05.000") + "Z"
+	if got := a.text(t, `SELECT expires_at FROM session WHERE id_hash = ?`, hash); got != want {
+		t.Fatalf("session expiry: %s, want %s", got, want)
+	}
+	raw := rec.Header().Get("Set-Cookie")
+	for _, part := range []string{"__Host-tq_session=" + account.Value, "Max-Age=1209600", "Path=/", "HttpOnly", "Secure", "SameSite=Lax"} {
+		if !strings.Contains(raw, part) {
+			t.Fatalf("Set-Cookie %q lacks %q", raw, part)
+		}
+	}
+	a.now = a.now.Add(30 * time.Minute)
+	if rec := a.do(http.MethodGet, "/api/projects", account, nil); rec.Header().Get("Set-Cookie") != "" {
+		t.Fatalf("a second write within the hour: %q", rec.Header().Get("Set-Cookie"))
+	}
+
+	visitor := a.visitor(t, token)
+	a.now = a.now.Add(2 * time.Hour)
+	if rec := a.do(http.MethodGet, "/api/projects", visitor, nil); rec.Header().Get("Set-Cookie") != "" {
+		t.Fatalf("without an account the cookie is not sent again: %q", rec.Header().Get("Set-Cookie"))
+	}
+}
+
+// B3-22 row 6, P-113: /api/projects/{projectID} itself meets the owner check,
+// so a route added there cannot skip it. Today no route answers there.
+func TestB3_22_6_TheProjectPathItselfMeetsTheOwnerCheck(t *testing.T) {
+	a := newAccess(t)
+	linkID, token := newLink(t, a.db, "jury", 10)
+	owner := a.visitor(t, token)
+	other := a.visitor(t, token)
+	otherAccount := accountCookie(t, a, linkID)
+	projectID := a.project(t, owner)
+	for _, prefix := range []string{"/api/projects/", "/api/pro%6Aects/", "/%61pi/projects/"} {
+		for _, method := range []string{http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodPost} {
+			path := prefix + projectID
+			wantCode(t, "other visitor "+method+" "+path, a.do(method, path, other, nil), http.StatusNotFound, "project_not_found")
+			wantCode(t, "other account "+method+" "+path, a.do(method, path, otherAccount, nil), http.StatusNotFound, "project_not_found")
+			wantCode(t, "no cookie "+method+" "+path, a.do(method, path, nil, nil), http.StatusUnauthorized, "no_session")
+		}
+	}
+	// The list stays a list, and the owner passes the check.
+	if rec := a.do(http.MethodGet, "/api/projects", owner, nil); rec.Code != http.StatusOK {
+		t.Fatalf("list: %d", rec.Code)
+	}
+	if rec := a.do(http.MethodGet, "/api/projects/"+projectID, owner, nil); rec.Code == http.StatusUnauthorized || strings.Contains(rec.Body.String(), "project_not_found") {
+		t.Fatalf("owner: %d %s", rec.Code, rec.Body.String())
 	}
 }
 

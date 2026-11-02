@@ -24,6 +24,9 @@ var migrationsFS embed.FS
 // (TQ_DATA_DIR) but not the file, so this is the smallest choice.
 const dbFileName = "tupaqnin.db"
 
+// DatabasePath is where the database of a data directory lives.
+func DatabasePath(dataDir string) string { return filepath.Join(dataDir, dbFileName) }
+
 // busyTimeoutMS is applied to every connection at open time.
 // [EL DISEÑO NO LO DICE]: T-8 requires a busy_timeout pragma without
 // naming a value.

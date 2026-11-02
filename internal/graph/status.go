@@ -65,6 +65,28 @@ type Pending struct {
 	Passage string `json:"-"`
 }
 
+// IsYours reports a pending only you can close: an open card or an open «por
+// aclarar» (glossary §9, human_pending). All the others are the agent's.
+func (p Pending) IsYours() bool {
+	return p.Kind == PendingOpenCard || p.Kind == PendingOpenQuestion
+}
+
+// PendingsAtCap splits a section's pendings for the signoff (B3-20, Eber
+// 2-nov): with a cap stopping the agent, its pendings do not block, since it
+// can no longer close them; yours still do. Below the caps every pending
+// blocks. stoppedBy is what Runner.StoppedBy answers.
+func PendingsAtCap(pendings []Pending, stoppedBy string) (blocking, atCap []Pending) {
+	blocking, atCap = []Pending{}, []Pending{}
+	for _, p := range pendings {
+		if stoppedBy == "" || p.IsYours() {
+			blocking = append(blocking, p)
+		} else {
+			atCap = append(atCap, p)
+		}
+	}
+	return blocking, atCap
+}
+
 // SectionStatus is the one function every view uses for a section's
 // state and its pendings (specification §4, estados §1). The pendings of
 // slice 1 are the open cards of the decisions the section uses and the

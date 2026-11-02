@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -231,10 +233,11 @@ func TestB3_20_SummaryWarnAndStoppedBy(t *testing.T) {
 	}
 }
 
-// B-89 with B3-20: asking to sign with edits unchecked and a link without
-// balance answers the cap's code: 409, as what keeps the signoff from
-// opening, with no 500.
-func TestB89_AskingToSignAtTheLinkCapAnswersItsCode(t *testing.T) {
+// B3-20 (2-nov) with B-89: asking to sign with edits unchecked and a link
+// without balance opens the signoff: the checker cannot run, so «sin
+// comprobar» is listed apart, with the cap, and signing records it. No call
+// goes out.
+func TestB3_20_AskingToSignAtTheLinkCapSignsWithTheAgentPendingsListed(t *testing.T) {
 	s := newSpendAPI(t, nil)
 	link := budgetLink(t, s.db, "guests", 1)
 	cookie := newSessionCookie(t, s.db, link)
@@ -251,8 +254,36 @@ func TestB89_AskingToSignAtTheLinkCapAnswersItsCode(t *testing.T) {
 	}
 	spendOn(t, s.db, p, 1)
 	rec = s.do(http.MethodPost, base+"/sections/"+sec.Label+"/signoff", cookie, nil)
-	if rec.Code != http.StatusConflict || !containsCode(rec.Body.Bytes(), "demo_cap") {
+	if rec.Code != http.StatusCreated {
 		t.Fatalf("signoff: %d %s", rec.Code, rec.Body.String())
+	}
+	var view graph.SignoffView
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatal(err)
+	}
+	if view.StoppedBy != "link" || len(view.Pendings) != 0 || len(view.PendingsAtCap) != 1 || view.PendingsAtCap[0].Kind != graph.PendingUnchecked {
+		t.Fatalf("view: %+v", view)
+	}
+	if view.CanSign {
+		t.Fatalf("can sign before your explanation: %+v", view)
+	}
+	signoff := base + "/signoffs/" + view.Label
+	if rec := s.do(http.MethodPost, signoff+"/explanation", cookie, map[string]any{"text": "Mi texto dice esto."}); rec.Code >= 300 {
+		t.Fatalf("explanation: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = s.do(http.MethodPost, signoff+"/sign", cookie, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sign: %d %s", rec.Code, rec.Body.String())
+	}
+	var data string
+	if err := s.db.Reader.QueryRowContext(context.Background(),
+		`SELECT data FROM event WHERE project_id = ? AND type = 'brief_signoff'`, p).Scan(&data); err != nil {
+		t.Fatalf("the signing's event: %v", err)
+	}
+	for _, part := range []string{`"open_at_cap"`, `"kind":"unchecked"`, `"stopped_by":"link"`} {
+		if !strings.Contains(data, part) {
+			t.Fatalf("event data %s lacks %s", data, part)
+		}
 	}
 	if s.calls.n != 0 {
 		t.Fatalf("provider calls: %d", s.calls.n)

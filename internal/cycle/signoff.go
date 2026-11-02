@@ -125,6 +125,22 @@ func openChanges(section store.Object) []string {
 	return out
 }
 
+// pendingsNow is what the section lacks for the signoff: what blocks and what
+// a cap leaves open (B3-20, Eber 2-nov), with that cap.
+func (g *Gate) pendingsNow(ctx context.Context, projectID, sectionLabel string) (blocking, atCap []graph.Pending, stoppedBy string, err error) {
+	_, pendings, err := graph.SectionStatus(ctx, g.db, projectID, sectionLabel)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if g.StoppedBy != nil {
+		if stoppedBy, err = g.StoppedBy(ctx, projectID); err != nil {
+			return nil, nil, "", err
+		}
+	}
+	blocking, atCap = graph.PendingsAtCap(pendings, stoppedBy)
+	return blocking, atCap, stoppedBy, nil
+}
+
 // RequestSignoff is 7a: only you ask to sign. With pendings or open
 // changes it lists them and opens nothing; with a signoff in progress
 // it returns that one; otherwise it opens a new sign-n, brief when the
@@ -141,7 +157,7 @@ func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel strin
 	if strings.TrimSpace(bodyStr(bodyOf(section), "text")) == "" {
 		return SignoffOpen{}, ErrSectionEmpty
 	}
-	_, pendings, err := graph.SectionStatus(ctx, g.db, projectID, sectionLabel)
+	pendings, _, _, err := g.pendingsNow(ctx, projectID, sectionLabel)
 	if err != nil {
 		return SignoffOpen{}, err
 	}
@@ -352,9 +368,11 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 			return ErrSignoffOutdated
 		}
 	}
-	if _, pendings, err := graph.SectionStatus(ctx, g.db, projectID, section.Label); err != nil {
+	pendings, openAtCap, stoppedBy, err := g.pendingsNow(ctx, projectID, section.Label)
+	if err != nil {
 		return err
-	} else if len(pendings) > 0 {
+	}
+	if len(pendings) > 0 {
 		return &PendingsError{Pendings: pendings}
 	}
 	critical, err := graph.SectionCriticalDecisions(ctx, g.db, projectID, section.ID)
@@ -421,13 +439,18 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 				}
 			}
 			body.Ended = graph.StepSigned
-			ev := store.EventInput{Type: store.EventStateChanged, Actor: "human",
-				Data: map[string]any{"signoff_step": graph.StepSigned, "section": section.Label}}
+			data := map[string]any{"signoff_step": graph.StepSigned, "section": section.Label}
+			ev := store.EventInput{Type: store.EventStateChanged, Actor: "human", Data: data}
 			if body.Brief {
 				// A-4: the history records «pregunta de origen: no aplica».
 				ev.Type = store.EventBriefSignoff
-				ev.Data = map[string]any{"signoff_step": graph.StepSigned, "section": section.Label,
-					"origin_question": "not_applicable"}
+				data["origin_question"] = "not_applicable"
+			}
+			// B3-20 (Eber, 2-nov): the history records what you signed with
+			// open because of the cap, and which cap.
+			if len(openAtCap) > 0 {
+				data["open_at_cap"] = openAtCap
+				data["stopped_by"] = stoppedBy
 			}
 			if _, err := tx.UpdateObject(sign.ID, sign.CurrentVersion, "", body, ev); err != nil {
 				return err

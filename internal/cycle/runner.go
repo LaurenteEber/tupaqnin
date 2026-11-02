@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -143,6 +144,7 @@ func NewRunner(db *store.DB, prov provider.Provider, count memory.TokenCounter, 
 	r := &Runner{db: db, count: count, pub: pub,
 		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{}, preparing: map[string]int{},
 		waits: map[string]*editWait{}, ctx: ctx, cancel: cancel}
+	r.gate.StoppedBy = r.StoppedBy
 	r.spend = newSpendGate(r, db, prov)
 	r.prov, r.checker = r.spend, NewChecker(r.spend)
 	return r
@@ -349,11 +351,13 @@ func (r *Runner) RequestSignoff(ctx context.Context, projectID, sectionLabel str
 	if err != nil {
 		return SignoffOpen{}, err
 	}
+	var capped *provider.CapError
+	var turnID string
 	if pending || refused {
 		if !r.tryAcquireTurn(projectID) {
 			return SignoffOpen{}, ErrTurnRunning
 		}
-		turnID, err := newTurnID()
+		turnID, err = newTurnID()
 		if err == nil {
 			err = r.checkPending(ctx, projectID, turnID)
 		}
@@ -361,11 +365,43 @@ func (r *Runner) RequestSignoff(ctx context.Context, projectID, sectionLabel str
 			err = r.checkRefusedSection(ctx, projectID, turnID, sectionLabel)
 		}
 		r.releaseTurn(projectID)
+		// At the cap what the checker did not see is one more agent's pending
+		// and does not keep the signoff from opening (B3-20, Eber 2-nov).
+		// [EL DISEÑO NO LO DICE]: this replaces the 409 with the cap's code.
+		if capErr, ok := asCap(err); ok {
+			capped, err = capErr, nil
+		}
 		if err != nil {
 			return SignoffOpen{}, err
 		}
 	}
-	return r.gate.RequestSignoff(ctx, projectID, sectionLabel)
+	open, err := r.gate.RequestSignoff(ctx, projectID, sectionLabel)
+	if err != nil || !open.Opened || capped == nil || refused {
+		return open, err
+	}
+	if err := r.recordEditsNotChecked(ctx, projectID, turnID, sectionLabel, capped); err != nil {
+		return SignoffOpen{}, err
+	}
+	return open, nil
+}
+
+// recordEditsNotChecked leaves «sin comprobar» on record for a signoff that
+// opened on a section whose edits the cap kept from the checker. It runs after
+// the gate, so a request the gate rejects writes nothing, and only for your
+// edits in this section: a section without any has nothing unchecked.
+func (r *Runner) recordEditsNotChecked(ctx context.Context, projectID, turnID, sectionLabel string, capErr *provider.CapError) error {
+	edits, err := checks.YourEditsToCheck(ctx, r.db, projectID)
+	if err != nil {
+		return err
+	}
+	section, err := r.db.GetObject(ctx, projectID, sectionLabel)
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(edits.Sections, section.ID) {
+		return nil
+	}
+	return r.recordRefusedCheck(ctx, projectID, turnID, []string{sectionLabel}, capErr)
 }
 
 // tryAcquireTurn takes the project's turn slot, or reports false

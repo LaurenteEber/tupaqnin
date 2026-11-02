@@ -62,9 +62,8 @@ func signoffError(w http.ResponseWriter, err error) {
 	case errors.As(err, &pend):
 		writeJSON(w, http.StatusConflict, SignoffBlocked{Error: "pendings", Pendings: pend.Pendings})
 	case errors.As(err, &capErr):
-		// [EL DISEÑO NO LO DICE]: asking to sign with edits the checker has
-		// not seen, when a cap refuses it: what needs a model waits (B3-20),
-		// 409 with the stop's own code.
+		// [EL DISEÑO NO LO DICE]: a round of the signoff a cap refuses: what
+		// needs a model waits (B3-20), 409 with the stop's own code.
 		writeError(w, http.StatusConflict, capErr.Reason)
 	case errors.Is(err, cycle.ErrSectionNotFound):
 		writeError(w, http.StatusNotFound, "section_not_found")
@@ -97,8 +96,26 @@ func signoffError(w http.ResponseWriter, err error) {
 	}
 }
 
+// signoffGate is the gate of the signoff, knowing the caps when the runner
+// is there (B3-20, Eber 2-nov).
+func (s *Server) signoffGate() *cycle.Gate {
+	g := cycle.NewGate(s.db)
+	if c, ok := s.starter.(SpendChecker); ok {
+		g.StoppedBy = c.StoppedBy
+	}
+	return g
+}
+
 func (s *Server) writeSignoff(w http.ResponseWriter, r *http.Request, projectID, label string, status int) {
-	v, err := graph.SignoffDetail(r.Context(), s.db, projectID, label)
+	stoppedBy := ""
+	if c, ok := s.starter.(SpendChecker); ok {
+		var err error
+		if stoppedBy, err = c.StoppedBy(r.Context(), projectID); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+	}
+	v, err := graph.SignoffDetailAtCap(r.Context(), s.db, projectID, label, stoppedBy)
 	if err != nil {
 		signoffError(w, cycle.ErrSignoffNotFound)
 		return
@@ -114,7 +131,7 @@ func (s *Server) requestSignoff(w http.ResponseWriter, r *http.Request) {
 	if !s.requireProject(w, r, projectID) {
 		return
 	}
-	request := cycle.NewGate(s.db).RequestSignoff
+	request := s.signoffGate().RequestSignoff
 	if sr, ok := s.starter.(SignoffRequester); ok {
 		request = sr.RequestSignoff
 	}
@@ -146,7 +163,7 @@ func (s *Server) signSignoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	label := r.PathValue("label")
-	if err := cycle.NewGate(s.db).Sign(r.Context(), projectID, label); err != nil {
+	if err := s.signoffGate().Sign(r.Context(), projectID, label); err != nil {
 		signoffError(w, err)
 		return
 	}

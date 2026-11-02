@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -369,21 +370,32 @@ func TestB3_20_YourEditWaitsAndTheSignoffChecksItWithTheBalance(t *testing.T) {
 	}
 }
 
-// B-89: with the link out of balance, asking to sign with edits unchecked
-// answers the cap: no call, no text the checker has not seen in a signoff.
-func TestB89_AskingToSignWithEditsAtTheLinkCapIsRefused(t *testing.T) {
+// B3-20 (2-nov) with B-89: with the link out of balance, asking to sign with
+// edits unchecked opens the signoff: no call, and the section stays «sin
+// comprobar» on record once, however many times you ask.
+func TestB89_AskingToSignWithEditsAtTheLinkCapOpensUnchecked(t *testing.T) {
 	db := seedCheckerProject(t)
 	yourEdit(t, db, "sec-1", contradictingEdit)
 	runner, c := checkerRunner(t, db)
 	t.Cleanup(runner.Close)
 	newLinkFor(t, db, "p1", "guests", 0.01)
-	_, err := runner.RequestSignoff(context.Background(), "p1", "sec-1")
-	var capErr *provider.CapError
-	if !errorsAs(err, &capErr) || capErr.Reason != "demo_cap" || capErr.Cap != "link" {
-		t.Fatalf("RequestSignoff: %v", err)
+	ctx := context.Background()
+	open, err := runner.RequestSignoff(ctx, "p1", "sec-1")
+	if err != nil || !open.Opened || len(open.Pendings) != 0 {
+		t.Fatalf("RequestSignoff: %+v, %v", open, err)
 	}
 	if len(c.checker) != 0 {
 		t.Fatalf("checker calls: %d", len(c.checker))
+	}
+	if _, pendings := status(t, db, "sec-1"); !hasPending(pendings, graph.PendingUnchecked, "") {
+		t.Fatalf("pendings: %v, want unchecked", pendings)
+	}
+	before := len(eventsOfType(t, db, store.EventOutputRetry))
+	if _, err := runner.RequestSignoff(ctx, "p1", "sec-1"); err != nil {
+		t.Fatalf("again: %v", err)
+	}
+	if after := len(eventsOfType(t, db, store.EventOutputRetry)); after != before {
+		t.Fatalf("output_retry: %d → %d, want one record", before, after)
 	}
 }
 
@@ -509,19 +521,177 @@ func TestB3_20_AskingToSignChecksWhatARefusedCheckerLeft(t *testing.T) {
 	}
 }
 
-// B3-20: when that batch does not fit even with the balance, the answer's
-// code says the cap: no call, and no failure of the checker on record.
-func TestB3_20_AskingToSignPastTheWholeCapSaysTheCap(t *testing.T) {
+// B3-20 (2-nov): when that batch does not fit even with the balance, the
+// signoff opens anyway: no call, no failure of the checker on record, and
+// the section stays «sin comprobar», listed apart.
+func TestB3_20_AskingToSignPastTheWholeCapOpensWithoutTheChecker(t *testing.T) {
 	db, runner, c := refusedCheck(t)
 	spend(t, db, "p1", 0.42) // 2.99
 	before := len(eventsOfType(t, db, store.EventOutputRetry))
-	_, err := runner.RequestSignoff(context.Background(), "p1", "sec-1")
-	var capErr *provider.CapError
-	if !errorsAs(err, &capErr) || capErr.Reason != "project_cap" {
-		t.Fatalf("RequestSignoff: %v", err)
+	open, err := runner.RequestSignoff(context.Background(), "p1", "sec-1")
+	if err != nil || !open.Opened || len(open.Pendings) != 0 {
+		t.Fatalf("RequestSignoff: %+v, %v", open, err)
 	}
 	if after := len(eventsOfType(t, db, store.EventOutputRetry)); len(c.checker) != 0 || after != before {
 		t.Fatalf("checker calls %d, output_retry %d → %d", len(c.checker), before, after)
+	}
+	if _, pendings := status(t, db, "sec-1"); !hasPending(pendings, graph.PendingUnchecked, "") {
+		t.Fatalf("pendings: %v, want unchecked still open", pendings)
+	}
+}
+
+// B3-20 (2-nov): a request the gate rejects writes nothing, and a section
+// with no edit of its own gets no «sin comprobar»: the record is written only
+// for a signoff that opens on the section whose edits were not checked.
+func TestB3_20_ARejectedRequestAtTheCapWritesNothing(t *testing.T) {
+	db := seedCheckerProject(t)
+	yourEdit(t, db, "sec-1", contradictingEdit)
+	seedSignable(t, db, false) // sec-2, with no edit of yours
+	runner, c := checkerRunner(t, db)
+	t.Cleanup(runner.Close)
+	newLinkFor(t, db, "p1", "guests", 0.01)
+	ctx := context.Background()
+	before := len(eventsOfType(t, db, store.EventOutputRetry))
+	if _, err := runner.RequestSignoff(ctx, "p1", "sec-99"); !errors.Is(err, cycle.ErrSectionNotFound) {
+		t.Fatalf("unknown section: %v", err)
+	}
+	if after := len(eventsOfType(t, db, store.EventOutputRetry)); after != before {
+		t.Fatalf("a rejected request wrote: output_retry %d → %d", before, after)
+	}
+	open, err := runner.RequestSignoff(ctx, "p1", "sec-2")
+	if err != nil || !open.Opened {
+		t.Fatalf("sec-2: %+v, %v", open, err)
+	}
+	if _, pendings := status(t, db, "sec-2"); hasPending(pendings, graph.PendingUnchecked, "") {
+		t.Fatalf("sec-2 pendings: %v, it has no edit of its own", pendings)
+	}
+	if len(c.checker) != 0 {
+		t.Fatalf("checker calls: %d", len(c.checker))
+	}
+}
+
+// atTheCap is a gate over a project the given cap stopped.
+func atTheCap(db *store.DB, stoppedBy string) *cycle.Gate {
+	g := cycle.NewGate(db)
+	g.StoppedBy = func(context.Context, string) (string, error) { return stoppedBy, nil }
+	return g
+}
+
+// withFigurePending leaves sec-1 with an agent's pending: a figure without
+// its decision (it is the same one TestB14 uses).
+func withFigurePending(t *testing.T, db *store.DB, sectionID string) {
+	t.Helper()
+	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
+		sec, err := tx.Object(sectionID)
+		if err != nil {
+			return err
+		}
+		var b map[string]any
+		_ = json.Unmarshal(sec.Body, &b)
+		b["text"] = signText + " La diferencia es de 60 veces."
+		_, err = tx.UpdateObject(sectionID, sec.CurrentVersion, sec.State, b, store.EventInput{Type: store.EventEdit, Actor: "human"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed the pending: %v", err)
+	}
+}
+
+// B3-20 (2-nov): at the cap the agent's pendings do not block the signoff:
+// P7 lists them apart, you can sign, and the history records that you signed
+// with them open because of the cap.
+func TestB3_20_AgentPendingsDoNotBlockTheSignoffAtTheCap(t *testing.T) {
+	db := openTemp(t)
+	sectionID, _ := seedSignable(t, db, false)
+	withFigurePending(t, db, sectionID)
+	g := atTheCap(db, "project_cap")
+	ctx := context.Background()
+	open, err := g.RequestSignoff(ctx, "p1", "sec-1")
+	if err != nil || !open.Opened || len(open.Pendings) != 0 {
+		t.Fatalf("RequestSignoff: %+v, %v", open, err)
+	}
+	if err := g.RecordExplanation(ctx, "p1", open.Label, "Cuenta cómo se compararon."); err != nil {
+		t.Fatalf("RecordExplanation: %v", err)
+	}
+	v, err := graph.SignoffDetailAtCap(ctx, db, "p1", open.Label, "project_cap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.CanSign || v.StoppedBy != "project_cap" || len(v.Pendings) != 0 || len(v.PendingsAtCap) != 1 ||
+		v.PendingsAtCap[0].Kind != graph.PendingFigureWithoutDecision {
+		t.Fatalf("view: %+v", v)
+	}
+	if err := g.Sign(ctx, "p1", open.Label); err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	if got := sectionState(t, db, "sec-1"); got != "signed" {
+		t.Fatalf("section: %q", got)
+	}
+	briefs := eventsOfType(t, db, store.EventBriefSignoff)
+	if len(briefs) != 1 {
+		t.Fatalf("brief_signoff: %d", len(briefs))
+	}
+	for _, part := range []string{`"open_at_cap"`, `"kind":"figure_without_decision"`, `"stopped_by":"project_cap"`} {
+		if !strings.Contains(string(briefs[0].Data), part) {
+			t.Fatalf("event %s lacks %s", briefs[0].Data, part)
+		}
+	}
+}
+
+// B3-20 (2-nov): with the agent still able to work, its pendings block as
+// ever, and the signing records nothing about a cap.
+func TestB3_20_AgentPendingsBlockBelowTheCap(t *testing.T) {
+	db := openTemp(t)
+	sectionID, _ := seedSignable(t, db, false)
+	withFigurePending(t, db, sectionID)
+	open, err := atTheCap(db, "").RequestSignoff(context.Background(), "p1", "sec-1")
+	if err != nil || open.Opened || !hasPending(open.Pendings, graph.PendingFigureWithoutDecision, "") {
+		t.Fatalf("RequestSignoff: %+v, %v", open, err)
+	}
+}
+
+// B3-20 (2-nov): your own pendings still block at the cap: an open card keeps
+// the signoff from opening and from signing, and it is listed with what is
+// yours, not with the agent's.
+func TestB3_20_YourPendingsStillBlockAtTheCap(t *testing.T) {
+	db := openTemp(t)
+	sectionID, _ := seedSignable(t, db, false)
+	withFigurePending(t, db, sectionID)
+	g := atTheCap(db, "project_cap")
+	ctx := context.Background()
+	open, err := g.RequestSignoff(ctx, "p1", "sec-1")
+	if err != nil || !open.Opened {
+		t.Fatalf("RequestSignoff: %+v, %v", open, err)
+	}
+	if err := g.RecordExplanation(ctx, "p1", open.Label, "Cuenta cómo se compararon."); err != nil {
+		t.Fatalf("RecordExplanation: %v", err)
+	}
+	err = db.Write(ctx, "p1", func(tx *store.Tx) error {
+		_, err := tx.CreateObject(store.ObjectCard, "open", map[string]any{"section_id": sectionID},
+			store.EventInput{Type: store.EventStateChanged, Actor: "app"})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed card: %v", err)
+	}
+	v, err := graph.SignoffDetailAtCap(ctx, db, "p1", open.Label, "project_cap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.CanSign || !hasPending(v.Pendings, graph.PendingOpenCard, "") || hasPending(v.Pendings, graph.PendingFigureWithoutDecision, "") ||
+		!hasPending(v.PendingsAtCap, graph.PendingFigureWithoutDecision, "") {
+		t.Fatalf("view: %+v", v)
+	}
+	var pend *cycle.PendingsError
+	if err := g.Sign(ctx, "p1", open.Label); !errors.As(err, &pend) || len(pend.Pendings) != 1 || pend.Pendings[0].Kind != graph.PendingOpenCard {
+		t.Fatalf("Sign: %v", err)
+	}
+	if err := g.LeaveSignoff(ctx, "p1", open.Label); err != nil {
+		t.Fatalf("leave: %v", err)
+	}
+	again, err := g.RequestSignoff(ctx, "p1", "sec-1")
+	if err != nil || again.Opened || len(again.Pendings) != 1 || again.Pendings[0].Kind != graph.PendingOpenCard {
+		t.Fatalf("asking again: %+v, %v", again, err)
 	}
 }
 

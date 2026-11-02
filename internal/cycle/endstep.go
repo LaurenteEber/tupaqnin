@@ -41,6 +41,10 @@ type StepResult struct {
 // receiver; the gate holding the store is the smallest choice.
 type Gate struct {
 	db *store.DB
+	// StoppedBy says which cap keeps the agent from its next call, or ""
+	// (Runner.StoppedBy): at a cap the agent's pendings do not block the
+	// signoff (B3-20, Eber 2-nov). Nil reads as no cap.
+	StoppedBy func(ctx context.Context, projectID string) (string, error)
 }
 
 // NewGate returns a Gate over db.

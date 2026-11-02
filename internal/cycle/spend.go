@@ -194,6 +194,12 @@ func (r *Runner) checkAgentStep(ctx context.Context, projectID, turnID string, c
 		}
 		sections = append(sections, sec.Label)
 	}
+	return r.recordRefusedCheck(ctx, projectID, turnID, sections, capErr)
+}
+
+// recordRefusedCheck leaves the sections «sin comprobar» because a cap refused
+// their checker, with no failed attempts.
+func (r *Runner) recordRefusedCheck(ctx context.Context, projectID, turnID string, sections []string, capErr *provider.CapError) error {
 	data := map[string]any{"turn_kind": "checker", "result": "unchecked", "refused": capErr.Reason,
 		"errors": []string{}, "sections": sections}
 	if capErr.Cap != "" {

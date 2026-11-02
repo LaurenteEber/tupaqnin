@@ -108,11 +108,12 @@ const (
 // [inicial]): each is the maximum of one call unless the dearest call of
 // that role in the project cost more.
 const (
-	PrincipalReserveUSD  = 0.15
-	JudgeReserveUSD      = 0.05
-	DigestReserveUSD     = 0.05
-	CheckerReserveUSD    = 0.05
-	ContrasterReserveUSD = 0.05
+	PrincipalReserveUSD = 0.15
+	JudgeReserveUSD     = 0.05
+	DigestReserveUSD    = 0.05
+	CheckerReserveUSD   = 0.05
+	// ContrasterReserveUSD is Wonder's (Eber, 2-nov).
+	ContrasterReserveUSD = 0.20
 	// ReaderReserveUSD is one reader call (3.0: a whole reader cost 0.025
 	// to 0.042 USD, over 4 to 6 calls).
 	ReaderReserveUSD = 0.05

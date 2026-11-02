@@ -34,13 +34,14 @@ func (s *Server) sessionOf(r *http.Request) (store.Session, bool, error) {
 	return s.db.ValidSession(r.Context(), store.HashSecret(c.Value), s.now())
 }
 
-// projectInPath finds the {projectID} of a /api/projects/{projectID}/…
-// path. It decides on each segment decoded, the way the mux matches them:
+// projectInPath finds the {projectID} of /api/projects/{projectID} and of
+// anything under it (P-113: a route added on the project's own path cannot
+// skip the check). It decides on each segment decoded, the way the mux matches them:
 // comparing the escaped path would let /api/pro%6Aects/… reach the route
 // without meeting the check.
 func projectInPath(r *http.Request) (string, bool) {
 	segments := strings.Split(r.URL.EscapedPath(), "/")
-	if len(segments) < 5 || segments[0] != "" {
+	if len(segments) < 4 || segments[0] != "" {
 		return "", false
 	}
 	decoded := make([]string, 4)
@@ -54,15 +55,19 @@ func projectInPath(r *http.Request) (string, bool) {
 	if decoded[1] != "api" || decoded[2] != "projects" {
 		return "", false
 	}
+	// /api/projects/ names no project: it is not a route, and stays as it was.
+	if len(segments) == 4 && decoded[3] == "" {
+		return "", false
+	}
 	return decoded[3], true
 }
 
 // ownerControl is the one owner check (B-87, B3-22 row 6), in front of
 // the mux so no handler repeats it or can forget it: no session answers
 // 401 no_session; a project that is not yours answers 404
-// project_not_found, the same as one that does not exist. A request to
-// your project without an account moves its expiry (B-88). No option,
-// variable or build tag turns it off.
+// project_not_found, the same as one that does not exist. Every request
+// with a session counts as activity (B-88). No option, variable or build
+// tag turns it off.
 func (s *Server) ownerControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		projectID, scoped := projectInPath(r)
@@ -79,8 +84,9 @@ func (s *Server) ownerControl(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "no_session")
 			return
 		}
+		s.touchSession(w, r, sess)
 		if scoped {
-			owned, expiresAt, err := s.db.ProjectOwned(r.Context(), projectID, sess)
+			owned, err := s.db.ProjectOwned(r.Context(), projectID, sess)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, "internal")
 				return
@@ -89,23 +95,51 @@ func (s *Server) ownerControl(next http.Handler) http.Handler {
 				writeError(w, http.StatusNotFound, "project_not_found")
 				return
 			}
-			// [EL DISEÑO NO LO DICE]: a request in the window between the
-			// expiry and the hourly cleanup. Smallest choice: it counts as
-			// activity, so the project stays.
-			if err := s.db.TouchAnonProject(r.Context(), projectID, expiresAt, s.now()); err != nil {
-				s.logger.Error("project expiry not moved", "error", err.Error())
-			}
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionKey{}, sess)))
 	})
+}
+
+// touchSession counts a request as activity (B-88, B3-18 2-nov). With an
+// account the browser's cookie moves with it, so it lasts 14 days from the
+// last activity; without one it stays a session cookie. A failure is logged
+// and the request goes on.
+func (s *Server) touchSession(w http.ResponseWriter, r *http.Request, sess store.Session) {
+	moved, err := s.db.TouchSession(r.Context(), sess, s.now())
+	if err != nil {
+		s.logger.Error("session expiry not moved", "error", err.Error())
+		return
+	}
+	if !moved || sess.AccountID == "" {
+		return
+	}
+	if c, err := r.Cookie(sessionCookie); err == nil {
+		setSessionCookie(w, c.Value, true)
+	}
+}
+
+// setSessionCookie writes the one cookie (B3-22 row 4): with an account it
+// lasts 14 days; without one it has neither Max-Age nor Expires, so it ends
+// when the browser closes (B3-18, 2-nov).
+func setSessionCookie(w http.ResponseWriter, value string, withAccount bool) {
+	cookie := &http.Cookie{
+		Name:     sessionCookie,
+		Value:    value,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	if withAccount {
+		cookie.MaxAge = int(store.SessionTTL / time.Second)
+	}
+	http.SetCookie(w, cookie)
 }
 
 // redeemInvite is GET /i/{token} (B3-22 row 3): a valid link gives a
 // session without an account, or keeps the valid one you have, and
 // redirects to an address without the token. Anything else is a 404
 // without a cookie.
-// [EL DISEÑO NO LO DICE]: a session lasts 14 days from the link, whatever
-// your activity (§1.7 says «dura 14 días» and no more).
 func (s *Server) redeemInvite(w http.ResponseWriter, r *http.Request) {
 	invitationID, ok, err := s.db.ActiveInvitationByTokenHash(r.Context(), store.HashSecret(r.PathValue("token")))
 	if err != nil {
@@ -116,31 +150,25 @@ func (s *Server) redeemInvite(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	_, hasSession, err := s.sessionOf(r)
+	sess, hasSession, err := s.sessionOf(r)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	if !hasSession {
+	if hasSession {
+		s.touchSession(w, r, sess)
+	} else {
 		cookie, hash, err := store.NewSecret()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "internal")
 			return
 		}
 		now := s.now()
-		if err := s.db.CreateSession(r.Context(), hash, invitationID, now.Add(store.SessionTTL), now); err != nil {
+		if err := s.db.CreateSession(r.Context(), hash, invitationID, now.Add(store.AnonSessionTTL), now); err != nil {
 			writeError(w, http.StatusInternalServerError, "internal")
 			return
 		}
-		http.SetCookie(w, &http.Cookie{
-			Name:     sessionCookie,
-			Value:    cookie,
-			Path:     "/",
-			MaxAge:   int(store.SessionTTL / time.Second),
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		})
+		setSessionCookie(w, cookie, false)
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"text/tabwriter"
 	"time"
 
@@ -43,7 +44,15 @@ func runInvite(args []string, dataDir string, stdout, stderr io.Writer) int {
 	return 2
 }
 
+// openForInvite opens the database that exists, and refuses otherwise
+// (P-113): a shell that did not inherit TQ_DATA_DIR must not create a second
+// one, whose links the app would never see.
 func openForInvite(dataDir string, stderr io.Writer) (*store.DB, bool) {
+	path := store.DatabasePath(dataDir)
+	if _, err := os.Stat(path); err != nil {
+		_, _ = fmt.Fprintf(stderr, "invite: no database at %s: start the app first, or set TQ_DATA_DIR to its data directory\n", path)
+		return nil, false
+	}
 	db, err := store.Open(context.Background(), dataDir)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "store: %v\n", err)

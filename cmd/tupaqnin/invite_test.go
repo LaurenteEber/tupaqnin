@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -17,10 +18,51 @@ func invite(t *testing.T, dir string, args ...string) (string, string, int) {
 	return out.String(), errs.String(), code
 }
 
+// inviteDir is a data directory whose database exists, as on a machine where
+// the app already ran.
+func inviteDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	db, err := store.Open(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("store.Open: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	return dir
+}
+
+// P-113: a session that does not inherit TQ_DATA_DIR must not silently create
+// a second database: every subcommand refuses, says why, and creates nothing.
+func TestB92_InviteRefusesWithoutTheDatabase(t *testing.T) {
+	dir := t.TempDir()
+	for _, args := range [][]string{
+		{"create", "--label", "jury", "--budget", "30", "--accounts", "10", "--anon", "10"},
+		{"list"},
+		{"revoke", "some-id"},
+	} {
+		out, errs, code := invite(t, dir, args...)
+		if code == 0 || out != "" {
+			t.Fatalf("%v: exit %d, stdout %q", args, code, out)
+		}
+		if !strings.Contains(errs, "tupaqnin.db") || !strings.Contains(errs, "TQ_DATA_DIR") {
+			t.Fatalf("%v: stderr %q does not say what is missing", args, errs)
+		}
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("the refused commands left %d files, want none", len(entries))
+	}
+}
+
 // B-92: `invite create` prints the token once; the database keeps its
 // SHA-256 and `invite list` shows what the link has, never the token.
 func TestB92_InviteCreatePrintsTheTokenOnceAndListHidesIt(t *testing.T) {
-	dir := t.TempDir()
+	dir := inviteDir(t)
 	out, errs, code := invite(t, dir, "create", "--label", "jury", "--budget", "30", "--accounts", "10", "--anon", "10")
 	if code != 0 {
 		t.Fatalf("create: exit %d, stderr %q", code, errs)
@@ -68,7 +110,7 @@ func TestB92_InviteCreatePrintsTheTokenOnceAndListHidesIt(t *testing.T) {
 
 // B-92, B3-22 row 2: `invite revoke` ends the link and list says so.
 func TestB92_InviteRevoke(t *testing.T) {
-	dir := t.TempDir()
+	dir := inviteDir(t)
 	out, _, code := invite(t, dir, "create", "--label", "guests")
 	if code != 0 {
 		t.Fatalf("create: exit %d", code)
@@ -100,7 +142,7 @@ func TestB92_InviteRevoke(t *testing.T) {
 
 // §1.7: the defaults of a link, by label.
 func TestB3_22_2_InviteDefaultsByLabel(t *testing.T) {
-	dir := t.TempDir()
+	dir := inviteDir(t)
 	for _, label := range []string{"jury", "guests"} {
 		if _, errs, code := invite(t, dir, "create", "--label", label); code != 0 {
 			t.Fatalf("create %s: exit %d, stderr %q", label, code, errs)
@@ -129,7 +171,7 @@ func TestB3_22_2_InviteDefaultsByLabel(t *testing.T) {
 
 // A wrong command says so and creates nothing.
 func TestB92_InviteRefusesBadArguments(t *testing.T) {
-	dir := t.TempDir()
+	dir := inviteDir(t)
 	for _, args := range [][]string{
 		nil,
 		{"nope"},

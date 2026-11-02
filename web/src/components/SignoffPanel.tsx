@@ -175,6 +175,20 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
               ))}
             </ul>
           )}
+          {view.pendings_at_cap.length > 0 && (
+            <div className="sign-blocked" role="status">
+              <p>{t("signoff.at_cap_notice")}</p>
+              <ul>
+                {view.pendings_at_cap.map((p, i) => (
+                  <li key={i}>
+                    {t(`pending.${p.kind}`)}
+                    {p.about && <> · «{p.about}»</>}
+                    {p.cause && <> · {t(`pending.cause.${p.cause}`)}</>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </li>
 
         <li>

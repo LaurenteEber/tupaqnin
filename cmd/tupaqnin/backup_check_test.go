@@ -344,7 +344,7 @@ func TestB93_BackupCheckUsageAndMissingFile(t *testing.T) {
 // copy, and `invite` sees the same links before and after it.
 func TestB92_InviteAndTheDatabaseHoldAfterACopy(t *testing.T) {
 	ctx := context.Background()
-	dir := t.TempDir()
+	dir := inviteDir(t)
 	if _, errs, code := invite(t, dir, "create", "--label", "jury"); code != 0 {
 		t.Fatalf("create: exit %d, stderr %q", code, errs)
 	}

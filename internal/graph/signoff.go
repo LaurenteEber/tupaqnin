@@ -442,8 +442,14 @@ type SignoffView struct {
 	Phase        SignoffPhase `json:"phase"`
 	Cancelled    string       `json:"cancelled,omitempty"`
 	Brief        bool         `json:"brief"`
-	// Pendings of the section now (estados §1); signing needs none.
-	Pendings          []Pending       `json:"pendings"`
+	// Pendings of the section that block the signoff now (estados §1);
+	// signing needs none.
+	Pendings []Pending `json:"pendings"`
+	// PendingsAtCap are the agent's pendings when a cap stopped it: it can
+	// no longer close them, so they are listed apart and do not block
+	// (B3-20, Eber 2-nov). StoppedBy is that cap, as Runner.StoppedBy says.
+	PendingsAtCap     []Pending       `json:"pendings_at_cap"`
+	StoppedBy         string          `json:"stopped_by,omitempty"`
 	CriticalDecisions []string        `json:"critical_decisions"`
 	OriginAssumption  string          `json:"origin_assumption,omitempty"`
 	Explanation       string          `json:"explanation"`
@@ -459,7 +465,7 @@ type SignoffView struct {
 	ContrastedBy      string `json:"contrasted_by,omitempty"`
 	WonderUnavailable bool   `json:"wonder_unavailable"`
 	Coincides         bool   `json:"coincides"`
-	// CanSign: in progress, no pendings, and everything coincides (or,
+	// CanSign: in progress, nothing in Pendings, and everything coincides (or,
 	// in a brief signoff, your explanation is there).
 	CanSign bool `json:"can_sign"`
 }
@@ -489,8 +495,14 @@ func (b SignoffBody) OpenCase() (int, bool) {
 	return 0, false
 }
 
-// SignoffDetail is the view of one signoff (P7).
+// SignoffDetail is the view of one signoff (P7) of a project no cap stopped.
 func SignoffDetail(ctx context.Context, db *store.DB, projectID, signLabel string) (SignoffView, error) {
+	return SignoffDetailAtCap(ctx, db, projectID, signLabel, "")
+}
+
+// SignoffDetailAtCap is the view of one signoff (P7), with stoppedBy the cap
+// that keeps the agent from its next call, or "" (B3-20, Eber 2-nov).
+func SignoffDetailAtCap(ctx context.Context, db *store.DB, projectID, signLabel, stoppedBy string) (SignoffView, error) {
 	sign, err := db.GetObject(ctx, projectID, signLabel)
 	if err != nil || sign.Type != store.ObjectSignoff {
 		return SignoffView{}, fmt.Errorf("%w: signoff %s", store.ErrNotFound, signLabel)
@@ -511,12 +523,13 @@ func SignoffDetail(ctx context.Context, db *store.DB, projectID, signLabel strin
 	if err != nil {
 		return SignoffView{}, err
 	}
-	_, pendings, err := SectionStatus(ctx, db, projectID, section.Label)
+	_, all, err := SectionStatus(ctx, db, projectID, section.Label)
 	if err != nil {
 		return SignoffView{}, err
 	}
+	pendings, atCap := PendingsAtCap(all, stoppedBy)
 	v := SignoffView{Label: sign.Label, Section: section.Label, SectionTitle: bodyString(section, "title"),
-		Phase: phase, Cancelled: reason, Brief: body.Brief, Pendings: pendings,
+		Phase: phase, Cancelled: reason, Brief: body.Brief, Pendings: pendings, PendingsAtCap: atCap, StoppedBy: stoppedBy,
 		CriticalDecisions: []string{}, Explanation: body.Explanation,
 		OriginQuestion: body.OriginQuestion, OriginAnswer: body.OriginAnswer,
 		Verdicts: []WonderVerdict{}, Cases: append([]SignoffCase{}, body.Cases...),

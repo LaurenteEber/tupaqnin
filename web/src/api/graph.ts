@@ -893,9 +893,17 @@ export interface SignoffView {
   cancelled?: string;
   brief: boolean;
   /**
-   * Pendings of the section now (estados §1); signing needs none.
+   * Pendings of the section that block the signoff now (estados §1);
+   * signing needs none.
    */
   pendings: Pending[];
+  /**
+   * PendingsAtCap are the agent's pendings when a cap stopped it: it can
+   * no longer close them, so they are listed apart and do not block
+   * (B3-20, Eber 2-nov). StoppedBy is that cap, as Runner.StoppedBy says.
+   */
+  pendings_at_cap: Pending[];
+  stopped_by?: string;
   critical_decisions: string[];
   origin_assumption?: string;
   explanation: string;

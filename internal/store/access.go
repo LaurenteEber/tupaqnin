@@ -13,13 +13,17 @@ import (
 )
 
 const (
-	// SessionTTL is how long a session lasts (§1.7, 14 days [inicial]).
+	// SessionTTL is how long a session with an account lasts after your last
+	// activity (§1.7, 14 days [inicial]; B3-18, 2-nov).
 	SessionTTL = 14 * 24 * time.Hour
-	// AnonProjectTTL is how long a project without an account lasts after
-	// your last activity (B3-18, 7 days [inicial]).
-	AnonProjectTTL = 7 * 24 * time.Hour
-	// anonExpiryStep keeps the moving expiry to one write an hour (B-88).
-	anonExpiryStep = time.Hour
+	// AnonSessionTTL is how long the server keeps a session without an
+	// account after your last activity, since it cannot see the browser
+	// close (B3-18, 2-nov, 24 h [inicial]).
+	AnonSessionTTL = 24 * time.Hour
+	// AnonProjectTTL is the same for that session's project: they go together.
+	AnonProjectTTL = AnonSessionTTL
+	// touchStep keeps the moving expiry to one write an hour (B-88).
+	touchStep = time.Hour
 )
 
 var (
@@ -190,35 +194,54 @@ func (db *DB) ValidSession(ctx context.Context, idHash string, now time.Time) (S
 // before migration 0005 has neither, and belongs to no one.
 const ownedBy = `(account_id = ? OR (account_id IS NULL AND anon_session_hash = ?))`
 
-// ProjectOwned reports whether the project belongs to the session, and
-// its expires_at (empty if it does not expire).
-func (db *DB) ProjectOwned(ctx context.Context, projectID string, s Session) (owned bool, expiresAt string, err error) {
-	err = db.Reader.QueryRowContext(ctx,
-		`SELECT COALESCE(expires_at, '') FROM project WHERE id = ? AND `+ownedBy,
-		projectID, s.AccountID, s.IDHash).Scan(&expiresAt)
+// ProjectOwned reports whether the project belongs to the session.
+func (db *DB) ProjectOwned(ctx context.Context, projectID string, s Session) (bool, error) {
+	var one int
+	err := db.Reader.QueryRowContext(ctx,
+		`SELECT 1 FROM project WHERE id = ? AND `+ownedBy,
+		projectID, s.AccountID, s.IDHash).Scan(&one)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, "", nil
+		return false, nil
 	}
 	if err != nil {
-		return false, "", fmt.Errorf("project owner: %w", err)
+		return false, fmt.Errorf("project owner: %w", err)
 	}
-	return true, expiresAt, nil
+	return true, nil
 }
 
-// TouchAnonProject moves the expiry of a project without an account to
-// «now + 7 days», as B-88 asks: at most one write an hour, so the caller
-// passes the expires_at it read. A project with no expiry is left alone.
-func (db *DB) TouchAnonProject(ctx context.Context, projectID, expiresAt string, now time.Time) error {
-	next := now.Add(AnonProjectTTL)
-	if expiresAt == "" || expiresAt >= timeText(next.Add(-anonExpiryStep)) {
-		return nil
+// TouchSession moves a session's expiry and, without an account, its
+// project's, so both last from your last activity (B-88, B3-18 2-nov): at
+// most one write an hour, measured on the expiry the session was read with.
+// It reports whether it wrote. A session further out than its TTL is left
+// alone.
+func (db *DB) TouchSession(ctx context.Context, s Session, now time.Time) (bool, error) {
+	ttl := AnonSessionTTL
+	if s.AccountID != "" {
+		ttl = SessionTTL
 	}
-	if _, err := db.Writer.ExecContext(ctx,
-		`UPDATE project SET expires_at = ? WHERE id = ? AND account_id IS NULL AND expires_at IS NOT NULL`,
-		timeText(next), projectID); err != nil {
-		return fmt.Errorf("touch project: %w", err)
+	next := timeText(now.Add(ttl))
+	if s.ExpiresAt >= timeText(now.Add(ttl-touchStep)) {
+		return false, nil
 	}
-	return nil
+	tx, err := db.Writer.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("touch session: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `UPDATE session SET expires_at = ? WHERE id_hash = ?`, next, s.IDHash); err != nil {
+		return false, fmt.Errorf("touch session: %w", err)
+	}
+	if s.AccountID == "" {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE project SET expires_at = ? WHERE account_id IS NULL AND anon_session_hash = ? AND expires_at IS NOT NULL`,
+			next, s.IDHash); err != nil {
+			return false, fmt.Errorf("touch project: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("touch session: %w", err)
+	}
+	return true, nil
 }
 
 // CreateOwnedProject creates a project for the session: with an account
