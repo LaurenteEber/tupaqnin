@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { answerCard, answerOpenQuestion, getTodo } from "../api/client";
 import type { CardView, OpenQuestionView } from "../api/types";
+import { anchoredScroll, draftHasText, draftsOf, dropDraft, holdOrder, setDraft, type CardDraft } from "../cardDrafts";
 import { translate, type Lang } from "../i18n";
 import { undoReasonKey } from "../undo";
 import { DecisionActions } from "./DecisionActions";
@@ -26,10 +27,19 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [cards, setCards] = useState<CardView[]>([]);
   const [questions, setQuestions] = useState<OpenQuestionView[]>([]);
-  const [chosen, setChosen] = useState<Record<string, number>>({});
-  const [options, setOptions] = useState<Record<string, "keep" | "other">>({});
-  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<Record<string, CardDraft>>(() => draftsOf(projectID));
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const shownOrder = useRef<string[]>([]);
+  const panel = useRef<HTMLDivElement>(null);
+
+  const write = (label: string, patch: CardDraft) => setDrafts(setDraft(projectID, label, patch));
+
+  // Another project's drafts, under the same labels, are not this one's.
+  useEffect(() => {
+    setDrafts(draftsOf(projectID));
+    setErrors({});
+    shownOrder.current = [];
+  }, [projectID]);
 
   const refresh = useCallback(async () => {
     if (!projectID) return;
@@ -44,11 +54,12 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
 
   async function apply(card: CardView) {
     // The card of your critical edit asks only for the «porque» (B-49).
-    const option = card.own_edit ? null : options[card.label];
+    const option = card.own_edit ? null : drafts[card.label]?.option;
     if (!card.own_edit && !option) return;
     try {
-      const res = await answerCard(projectID, card.label, option ?? null, reasons[card.label] ?? "");
+      const res = await answerCard(projectID, card.label, option ?? null, drafts[card.label]?.reason ?? "");
       setErrors((prev) => ({ ...prev, [card.label]: "" }));
+      setDrafts(dropDraft(projectID, card.label));
       await refresh();
       onAnswered(res.defense_preparing === true, res.turn_id);
     } catch (e) {
@@ -60,11 +71,12 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
   }
 
   async function applyQuestion(q: OpenQuestionView) {
-    const option = chosen[q.label];
+    const option = drafts[q.label]?.chosen;
     if (option === undefined) return;
     try {
-      const res = await answerOpenQuestion(projectID, q.label, option, reasons[q.label] ?? "");
+      const res = await answerOpenQuestion(projectID, q.label, option, drafts[q.label]?.reason ?? "");
       setErrors((prev) => ({ ...prev, [q.label]: "" }));
+      setDrafts(dropDraft(projectID, q.label));
       await refresh();
       onAnswered(res.defense_preparing === true, res.turn_id);
     } catch (e) {
@@ -75,12 +87,42 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
     }
   }
 
-  if (cards.length === 0 && questions.length === 0) return null;
+  // A card with text written stays where it is: what grows above it, such as the
+  // conversation's stream, moves the scroll by as much (C.11).
+  const held = [...cards.map((c) => c.label), ...questions.map((q) => q.label)].find((label) => draftHasText(drafts[label]));
+  const heldID = held === undefined ? "" : cards.some((c) => c.label === held) ? `card-${held}` : `oq-${held}`;
+  useEffect(() => {
+    const card = heldID ? document.getElementById(heldID) : null;
+    const scroller = panel.current?.closest<HTMLElement>(".center-view");
+    const content = panel.current?.parentElement;
+    if (!card || !scroller || !content) return;
+    let top = card.getBoundingClientRect().top;
+    const hold = () => {
+      const now = card.getBoundingClientRect().top;
+      if (now !== top) scroller.scrollTop = anchoredScroll(scroller.scrollTop, top, now);
+      top = card.getBoundingClientRect().top;
+    };
+    const follow = () => {
+      top = card.getBoundingClientRect().top;
+    };
+    const watcher = new ResizeObserver(hold);
+    for (const child of Array.from(content.children)) watcher.observe(child);
+    scroller.addEventListener("scroll", follow, { passive: true });
+    return () => {
+      watcher.disconnect();
+      scroller.removeEventListener("scroll", follow);
+    };
+  }, [heldID]);
 
-  return (
-    <div className="request-panel cards">
-      <h2>{t("card.todo")}</h2>
-      {cards.map((card) => (
+  const sent = [...cards.map((c) => c.label), ...questions.map((q) => q.label)];
+  const order = holdOrder(shownOrder.current, sent, held !== undefined);
+  shownOrder.current = order;
+  // A card closed before your answer leaves with its button: its error stays here.
+  const closed = Object.entries(errors).filter(([label, code]) => code && !sent.includes(label));
+
+  if (sent.length === 0 && closed.length === 0) return null;
+
+  const cardView = (card: CardView) => (
         <div key={card.label} id={`card-${card.label}`} className="card chat-card todo">
           <h3>
             {/* The decision by its statement, never its label (rule 7, P-59). */}
@@ -92,7 +134,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
           <p>{t("card.sections")}: {card.sections.map((s) => s.title || t("section.untitled")).join(", ")}</p>
           {onDecisionActed && (
             <DecisionActions lang={lang} projectID={projectID} decision={card.decision} canObject={card.can_object}
-              canRevoke={card.can_revoke} presetReason={reasons[card.label]} onActed={onDecisionActed} />
+              canRevoke={card.can_revoke} presetReason={drafts[card.label]?.reason} onActed={onDecisionActed} />
           )}
           {card.own_edit ? (
             <>
@@ -115,8 +157,8 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
                 <input
                   type="radio"
                   name={`option-${card.label}`}
-                  checked={options[card.label] === "keep"}
-                  onChange={() => setOptions((prev) => ({ ...prev, [card.label]: "keep" }))}
+                  checked={drafts[card.label]?.option === "keep"}
+                  onChange={() => write(card.label, { option: "keep" })}
                 />
                 {t("card.keep")}
               </label>
@@ -124,8 +166,8 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
                 <input
                   type="radio"
                   name={`option-${card.label}`}
-                  checked={options[card.label] === "other"}
-                  onChange={() => setOptions((prev) => ({ ...prev, [card.label]: "other" }))}
+                  checked={drafts[card.label]?.option === "other"}
+                  onChange={() => write(card.label, { option: "other" })}
                 />
                 {t("card.other")}
               </label>
@@ -134,17 +176,20 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
           <label>
             {t("card.reason")}
             <input
-              value={reasons[card.label] ?? ""}
-              onChange={(e) => setReasons((prev) => ({ ...prev, [card.label]: e.target.value }))}
+              value={drafts[card.label]?.reason ?? ""}
+              onChange={(e) => write(card.label, { reason: e.target.value })}
             />
           </label>
-          <button type="button" disabled={!card.own_edit && !options[card.label]} onClick={() => void apply(card)}>
-            {t("card.apply")}
-          </button>
-          {errors[card.label] && <p className="turn-error">{t(`card.error.${errors[card.label]}`)}</p>}
+          <div className="card-apply">
+            <button type="button" disabled={!card.own_edit && !drafts[card.label]?.option} onClick={() => void apply(card)}>
+              {t("card.apply")}
+            </button>
+            {errors[card.label] && <span className="turn-error" role="alert">{t(`card.error.${errors[card.label]}`)}</span>}
+          </div>
         </div>
-      ))}
-      {questions.map((q) => (
+  );
+
+  const questionView = (q: OpenQuestionView) => (
         <div key={q.label} id={`oq-${q.label}`} className="card chat-card todo">
           <h3>
             {t("oq.title")} ·{" "}
@@ -166,8 +211,8 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
               <input
                 type="radio"
                 name={`option-${q.label}`}
-                checked={chosen[q.label] === i}
-                onChange={() => setChosen((prev) => ({ ...prev, [q.label]: i }))}
+                checked={drafts[q.label]?.chosen === i}
+                onChange={() => write(q.label, { chosen: i })}
               />
               {o.keep ? t("oq.keep", { what: o.option }) : o.other ? t("oq.other", { what: o.option }) : o.code ? t(`oq.scope.${o.code}`) : o.option}
               {o.contrast && <span className="meta"> · {t("oq.contrast")}: {o.contrast}</span>}
@@ -197,16 +242,31 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
           <label>
             {t("card.reason")}
             <input
-              value={reasons[q.label] ?? ""}
-              onChange={(e) => setReasons((prev) => ({ ...prev, [q.label]: e.target.value }))}
+              value={drafts[q.label]?.reason ?? ""}
+              onChange={(e) => write(q.label, { reason: e.target.value })}
             />
           </label>
-          <button type="button" disabled={chosen[q.label] === undefined} onClick={() => void applyQuestion(q)}>
-            {t("card.apply")}
-          </button>
-          {errors[q.label] && <p className="turn-error">{t(`card.error.${errors[q.label]}`)}</p>}
+          <div className="card-apply">
+            <button type="button" disabled={drafts[q.label]?.chosen === undefined} onClick={() => void applyQuestion(q)}>
+              {t("card.apply")}
+            </button>
+            {errors[q.label] && <span className="turn-error" role="alert">{t(`card.error.${errors[q.label]}`)}</span>}
+          </div>
         </div>
+  );
+
+  return (
+    <div className="request-panel cards" ref={panel}>
+      <h2>{t("card.todo")}</h2>
+      {closed.map(([label, code]) => (
+        <p key={label} className="turn-error" role="alert">{t(`card.error.${code}`)}</p>
       ))}
+      {order.map((label) => {
+        const card = cards.find((c) => c.label === label);
+        if (card) return cardView(card);
+        const question = questions.find((q) => q.label === label);
+        return question ? questionView(question) : null;
+      })}
     </div>
   );
 }
