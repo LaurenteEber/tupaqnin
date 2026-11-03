@@ -206,6 +206,12 @@ type StopReport struct {
 	// JudgeNotVerified are the sections whose last judge round could not
 	// verify (backlog-r3 3.6, fichas §7: visible, blocking nothing).
 	JudgeNotVerified []string `json:"judge_not_verified,omitempty"`
+	// Decided and AgentChanges are the stretch since the previous report (B-103):
+	// what was decided and why, and what the agent changed on its own. The app
+	// reads them from the history, with no model. A report stored before B-103
+	// has neither.
+	Decided      []graph.ReportDecided     `json:"decided,omitempty"`
+	AgentChanges []graph.ReportAgentChange `json:"agent_changes,omitempty"`
 }
 
 // StoredStopReport is the last stop report with its place in the
@@ -393,6 +399,10 @@ func stopReasonLine(reason StopReason, unseen int) string {
 		return "your last step brought no new text and no new decisions"
 	case StopDecisionApplied:
 		return "you applied the person's decisions in one step"
+	case StopCorrectionApplied:
+		return "you did, in one step, the correction the person asked for"
+	case StopCorrectionStillOpen:
+		return "you took one step on the correction the person asked for, and it is still open"
 	case StopAgentPending:
 		return "your last step was left pending after its retry"
 	case StopStepLimit:
@@ -529,6 +539,12 @@ func (r *Runner) stopReport(ctx context.Context, projectID, turnID string, reaso
 			return err
 		}
 		if report.JudgeNotVerified, err = JudgeNotVerified(ctx, tx, projectID); err != nil {
+			return err
+		}
+		if report.Decided, err = graph.ReportDecisions(ctx, tx, projectID); err != nil {
+			return err
+		}
+		if report.AgentChanges, err = graph.ReportAgentChanges(ctx, tx, projectID); err != nil {
 			return err
 		}
 		if _, err = tx.AppendEvent(store.EventInput{Type: store.EventStopReport, Actor: "agent",

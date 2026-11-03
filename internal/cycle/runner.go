@@ -481,6 +481,7 @@ func (r *Runner) releaseTurn(projectID string) {
 	q := r.queues[projectID]
 	if q != nil {
 		q.turn = ""
+		q.correction = nil
 	}
 	if q != nil && !r.closed && (q.wake || len(q.signoffs) > 0 || q.wantsChain || q.applyWanted) {
 		r.running[projectID] = true
@@ -1188,9 +1189,15 @@ type chainState struct {
 	roundsRun   int
 	// idleSteps: the mode's steps in a row with no text, decisions or proposals.
 	idleSteps int
-	// oneStep and task: the one step that applies your decisions (B-100).
-	oneStep bool
-	task    string
+	// oneStep and task: the one step that applies your decisions (B-100) or does
+	// the correction you asked for (B-103); oneStepReason says which.
+	oneStep       bool
+	task          string
+	oneStepReason StopReason
+	// taskSection: the section the correction names, by label; stillOpen says after
+	// the step whether what it asked is still open (B-103).
+	taskSection string
+	stillOpen   func(context.Context) (bool, error)
 }
 
 // chainTurn is one turn of a chain; it returns the next turn's id when the app
@@ -1360,7 +1367,12 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 			input = append(append(input, extra...), userItem(message))
 		}
 		// During the mode no cut of B-17 is a stop until the app says so (B-83).
-		opts := stepOptions{last: n == MaxChainSteps && !mode.On(), quiet: mode.On()}
+		// B-103: a judge's correction batch is on its own, even in a step your message
+		// opened. A task excuses only its section: B-100's by the answers waiting on it.
+		opts := stepOptions{last: n == MaxChainSteps && !mode.On(), quiet: mode.On(), answersYou: yours && batch == ""}
+		if task != "" {
+			opts.answersSection = state.taskSection
+		}
 		result, applied, outText, err := r.runStep(ctx, projectID, turnID, instanceID, input, filter, opts)
 		if errors.Is(err, provider.ErrContextFull) {
 			retry := func(startup []json.RawMessage, instance string) (StepResult, ApplyResult, string, error) {
@@ -1436,7 +1448,17 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		}
 		// B-100: one step, not a chain; what a judge found waits for the next chain.
 		if state.oneStep {
-			reason = StopDecisionApplied
+			reason = state.oneStepReason
+			if state.stillOpen != nil {
+				open, err := state.stillOpen(ctx)
+				if err != nil {
+					r.fail(projectID, turnID, "turn_failed")
+					return "", err
+				}
+				if open {
+					reason = StopCorrectionStillOpen
+				}
+			}
 			break
 		}
 		if waiting {
@@ -1512,7 +1534,7 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 	if on {
 		// B-100: the mode turned on during the one step does not end there: its
 		// chain opens the next turn, as at a boundary (B-83).
-		if reason == StopDecisionApplied {
+		if reason == StopDecisionApplied || reason == StopCorrectionApplied || reason == StopCorrectionStillOpen {
 			reason = StopStepLimit
 		}
 		return r.modeBoundary(ctx, projectID, turnID, reason, last, lastApplied, lastText)
@@ -1712,8 +1734,13 @@ var errProvider = errors.New("cycle: provider call failed")
 
 // stepOptions says how a chain's step is applied. last: the chain's last allowed
 // step. quiet: during the mode a step's step_ended carries no stop_reason (B-83):
-// the chain does not stop for it.
-type stepOptions struct{ last, quiet bool }
+// the chain does not stop for it. answersYou: the step read a message of yours, so
+// what it changes is not on its own; answersSection: the section your correction
+// named, the only one it excuses (B-103).
+type stepOptions struct {
+	last, quiet, answersYou bool
+	answersSection          string
+}
 
 // runStep runs one step: the call, EndStep (the fixed shape) and
 // ApplyStep (rules 2 to 6). A rejection by either counts as the retry

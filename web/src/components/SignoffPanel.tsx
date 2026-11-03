@@ -20,11 +20,14 @@ import { HistoryPanel } from "./HistoryPanel";
 // screen only shows it and sends your answers.
 const draftStore = () => window.sessionStorage;
 
-export function SignoffPanel({ lang, projectID, label, onClose }: {
+export function SignoffPanel({ lang, projectID, label, onClose, onReadFull }: {
   lang: Lang;
   projectID: string;
   label: string;
   onClose: () => void;
+  // «Leer completo» (B-103): the screen hides the text on purpose, so reading it
+  // leaves the screen, without ending the signoff.
+  onReadFull: () => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [view, setView] = useState<SignoffView | null>(null);
@@ -121,6 +124,11 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
     onClose();
   }
 
+  function readFull() {
+    if (draftRead.current) saveSignDraft(draftStore, projectID, section, explanation);
+    onReadFull();
+  }
+
   async function ask() {
     setAgentAnswer("");
     setErrorCode("");
@@ -168,11 +176,14 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
     <section className="signoff" aria-label={t("signoff.title", { section: title })}>
       <div className="signoff-head">
         <h2>{t("signoff.title", { section: title })}</h2>
-        {active ? (
-          <button type="button" onClick={() => void leave()}>{t("signoff.leave")}</button>
-        ) : (
-          <button type="button" onClick={onClose}>{t("signoff.back")}</button>
-        )}
+        <span className="signoff-head-actions">
+          <button type="button" className="read-full" onClick={readFull}>{t("doc.read_full")}</button>{" "}
+          {active ? (
+            <button type="button" onClick={() => void leave()}>{t("signoff.leave")}</button>
+          ) : (
+            <button type="button" onClick={onClose}>{t("signoff.back")}</button>
+          )}
+        </span>
       </div>
 
       {!active && <p className="signoff-phase">{t(`signoff.phase.${view.phase}${view.cancelled ? `.${view.cancelled}` : ""}`)}</p>}

@@ -197,6 +197,7 @@ func (g *Gate) applyChainStep(ctx context.Context, projectID, turnID string, out
 		return TrackCriticality(ctx, tx, turnID, func() error {
 			var err error
 			p.lastStep = last
+			p.answersYou, p.answersSection = opts.answersYou, opts.answersSection
 			if !work {
 				if p.earlierRound, err = roundEarlierInTurn(ctx, tx, turnID); err != nil {
 					return err
@@ -290,6 +291,10 @@ type project struct {
 	// lastStep is the chain's last allowed step, and earlierRound says an
 	// earlier step of this turn already asked for a round (P-99, B-24).
 	lastStep, earlierRound bool
+	// answersYou: the step read a message of yours; answersSection: the section your
+	// correction named (B-103).
+	answersYou     bool
+	answersSection string
 	// rejectedCloses are the handled_changes rule 7 rejected, each with
 	// its message for the agent (specification §3).
 	rejectedCloses []map[string]any
@@ -1417,6 +1422,14 @@ func (p *project) apply(tx *store.Tx, turnID string, out stepOutput, pl *plan, s
 	}
 	if stop != "" { // B-24
 		data["stop_reason"] = string(stop)
+	}
+	// B-103: only the step knows what entered its call: a queued message written
+	// during it waits in the history, right before this event, and did not.
+	if p.answersYou {
+		data["answers_you"] = true
+	}
+	if p.answersSection != "" {
+		data["answers_section"] = p.answersSection
 	}
 	ev := agent(store.EventStepEnded)
 	ev.Data = data

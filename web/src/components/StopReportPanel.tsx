@@ -16,7 +16,7 @@ import { plainAgentText } from "../plain";
 // The short return (backlog-r2 2.7, B-48 b): under the report, what the
 // app detected since it, your edits included; when Go says so (unseen,
 // no return line), the conversation opens with the report on top.
-export function StopReportPanel({ lang, projectID, refreshKey, disabled, onContinue, onSign, onSeen }: {
+export function StopReportPanel({ lang, projectID, refreshKey, disabled, onContinue, onSign, onSeen, onReadFull }: {
   lang: Lang;
   projectID: string;
   refreshKey: string | number;
@@ -26,6 +26,8 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
   // «Firmar» opens P7 for the report's section.
   onSign: (section: string) => void;
   onSeen: () => void;
+  // «Leer completo» opens the document's Markdown tab (B-103).
+  onReadFull: () => void;
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [report, setReport] = useState<StopReportView | null>(null);
@@ -98,6 +100,45 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
             })}
           </p>
         )}
+        {/* B-103: the app's, from the history, with no model; what was written, in literal. */}
+        <details className="note" id="stop-report-decided" open={report.decided.length > 0}>
+          <summary>{t("stop_report.decided", { n: String(report.decided.length) })}</summary>
+          <ul>
+            {report.decided.map((d, i) => (
+              <li key={i}>
+                «{d.statement}»
+                {d.reason && <> · {t("stop_report.decided.because")} «{d.reason}»</>}
+                {!d.reason && d.instead_of && <> · {t("stop_report.decided.instead_of")} «{d.instead_of}»</>}
+                <span className="meta">
+                  {" "}· {t(`stop_report.decided.who.${d.who}`)}
+                  {d.sections.map((s) => ` · ${s.title || t("section.untitled")}`).join("")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+        <details className="note" id="stop-report-agent-changes" open={report.agent_changes.length > 0}>
+          <summary>{t("stop_report.agent_changes", { n: String(report.agent_changes.length) })}</summary>
+          <ul>
+            {report.agent_changes.map((c, i) => (
+              <li key={i}>
+                <span className="meta">
+                  {t("stop_report.agent_changes.step", { n: String(c.step) })} · {c.section.title || t("section.untitled")}
+                </span>{" "}
+                {plainAgentText(c.summary)}
+                <details className="agent-change">
+                  <summary>{t("stop_report.agent_changes.see")}</summary>
+                  {c.changes.map((change, j) => (
+                    <div key={j}>
+                      <p><b>{t("proposal.leaves")}:</b> {change.out ? <>«{change.out}»</> : t("judge.change_nothing")}</p>
+                      <p><b>{t("proposal.enters")}:</b> {change.in ? <>«{change.in}»</> : t("judge.change_nothing")}</p>
+                    </div>
+                  ))}
+                </details>
+              </li>
+            ))}
+          </ul>
+        </details>
         <details className="note">
           <summary>{t("stop_report.done", { n: String(report.done.length) })}</summary>
           <ul>{report.done.map((d, i) => <li key={i}>{plainAgentText(d)}</li>)}</ul>
@@ -190,6 +231,7 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
         <div className="empty-actions">
           <button type="button" disabled={disabled} onClick={() => onContinue(continueText)}>{continueText}</button>
           <button type="button" disabled={disabled} onClick={() => onContinue(addressText)}>{addressText}</button>
+          <button type="button" className="read-full" onClick={onReadFull}>{t("doc.read_full")}</button>
           {report.propose_signoff && report.section && (
             <button type="button" className="primary small" disabled={disabled}
               onClick={() => report.section && onSign(report.section.label)}>

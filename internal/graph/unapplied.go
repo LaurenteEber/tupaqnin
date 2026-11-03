@@ -33,46 +33,11 @@ func UnappliedDecisions(ctx context.Context, q store.Querier, projectID string) 
 	if err != nil {
 		return nil, err
 	}
-	type open struct {
-		section, text, reason, decision, source string
-		// during: the turn whose step was in flight when you answered. It did not
-		// read your answer, so what it writes closes nothing until it ends.
-		during string
-	}
-	var pending []open
+	ledger := appliedLedger{ctx: ctx, q: q, projectID: projectID}
 	for _, ev := range events {
-		var data struct {
-			AppliesTo   []string `json:"applies_to"`
-			AppliesText string   `json:"applies_text"`
-			Reason      string   `json:"applies_reason"`
-			During      string   `json:"applies_during"`
-			Decision    string   `json:"applies_decision"`
-			Section     string   `json:"section"`
-			To          string   `json:"to"`
-		}
-		_ = json.Unmarshal(ev.Data, &data)
-		for _, section := range data.AppliesTo {
-			pending = append(pending, open{section: section, text: data.AppliesText, reason: data.Reason, decision: data.Decision, source: ev.ObjectID, during: data.During})
-		}
-		if ev.Actor != "agent" {
-			continue
-		}
-		kept := pending[:0]
-		for _, p := range pending {
-			if p.during != "" && p.during == ev.TurnID {
-				if ev.Type == store.EventStepEnded {
-					p.during = ""
-				}
-				kept = append(kept, p)
-				continue
-			}
-			if ev.ObjectID == p.section || data.To == "open" && data.Section != "" && sectionNamed(ctx, q, projectID, data.Section) == p.section {
-				continue
-			}
-			kept = append(kept, p)
-		}
-		pending = kept
+		ledger.observe(ev)
 	}
+	pending := ledger.pending
 	out := make([]UnappliedDecision, 0, len(pending))
 	for _, p := range pending {
 		sec, err := q.GetObject(ctx, projectID, p.section)
@@ -94,6 +59,61 @@ func UnappliedDecisions(ctx context.Context, q store.Querier, projectID string) 
 		out = append(out, UnappliedDecision{Section: sec.Label, Title: body.Title, Text: p.text, Reason: p.reason, Decision: p.decision, Source: p.source, Ready: ready})
 	}
 	return out, nil
+}
+
+// answerToApply is an answer of yours waiting to reach a section. during: the turn
+// whose step was in flight when you answered. It did not read your answer, so what
+// it writes closes nothing until it ends.
+type answerToApply struct {
+	section, text, reason, decision, source, during string
+}
+
+// appliedLedger is the one reading of which step applies an answer (B-100), for
+// the unapplied list and for what the agent did on its own (B-103).
+type appliedLedger struct {
+	ctx       context.Context
+	q         store.Querier
+	projectID string
+	pending   []answerToApply
+}
+
+// observe reads one event of the history in order; it returns the sections whose
+// waiting answer this event closed.
+func (l *appliedLedger) observe(ev store.Event) []string {
+	var data struct {
+		AppliesTo   []string `json:"applies_to"`
+		AppliesText string   `json:"applies_text"`
+		Reason      string   `json:"applies_reason"`
+		During      string   `json:"applies_during"`
+		Decision    string   `json:"applies_decision"`
+		Section     string   `json:"section"`
+		To          string   `json:"to"`
+	}
+	_ = json.Unmarshal(ev.Data, &data)
+	for _, section := range data.AppliesTo {
+		l.pending = append(l.pending, answerToApply{section: section, text: data.AppliesText, reason: data.Reason, decision: data.Decision, source: ev.ObjectID, during: data.During})
+	}
+	if ev.Actor != "agent" {
+		return nil
+	}
+	var closed []string
+	kept := l.pending[:0]
+	for _, p := range l.pending {
+		if p.during != "" && p.during == ev.TurnID {
+			if ev.Type == store.EventStepEnded {
+				p.during = ""
+			}
+			kept = append(kept, p)
+			continue
+		}
+		if ev.ObjectID == p.section || data.To == "open" && data.Section != "" && sectionNamed(l.ctx, l.q, l.projectID, data.Section) == p.section {
+			closed = append(closed, p.section)
+			continue
+		}
+		kept = append(kept, p)
+	}
+	l.pending = kept
+	return closed
 }
 
 // sectionNamed is the internal id of a proposal's section label, "" if none.

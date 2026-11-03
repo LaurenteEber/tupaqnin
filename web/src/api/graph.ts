@@ -41,6 +41,33 @@ export interface Candidate {
 }
 
 //////////
+// source: catchup.go
+
+/**
+ * ReportDecided is one decision of the stretch: its statement, its «porque» (yours;
+ * a decision of the agent has none and says what it chose it instead of), the
+ * sections that use it, by label, and who decided: human or agent.
+ */
+export interface ReportDecided {
+  statement: string;
+  instead_of?: string;
+  reason?: string;
+  sections: string[];
+  who: string;
+}
+/**
+ * ReportAgentChange is what one step changed in one section on its own: the
+ * section's label, the step's place in the stretch (from 1), its one line, and what
+ * left and entered the text («Sale / Entra», B-99).
+ */
+export interface ReportAgentChange {
+  section: string;
+  step: number /* int */;
+  summary: string;
+  changes: JudgeChange[];
+}
+
+//////////
 // source: changes.go
 
 /**

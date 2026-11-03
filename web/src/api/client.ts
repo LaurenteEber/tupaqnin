@@ -679,6 +679,24 @@ export async function postMessage(
   );
 }
 
+// «Pedir corrección al agente» (B-103): one step on one pending, or your message
+// queued with a turn running. It throws the API's code.
+export async function requestCorrection(
+  projectID: string,
+  label: string,
+  kind: string,
+  about: string,
+  message: string,
+): Promise<PostMessageResponse> {
+  return coded(
+    await fetch(`/api/projects/${projectID}/sections/${label}/correction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, about, message }),
+    }),
+  );
+}
+
 // P6, the stop report (backlog-r2 2.5): Go assembles it; null when the
 // project has none yet.
 export async function getStopReport(projectID: string): Promise<StopReportView | null> {

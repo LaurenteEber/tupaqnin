@@ -19,6 +19,7 @@ import {
   reorderSections,
   postMessage,
   putMode,
+  requestCorrection,
   requestSignoff,
   startRound,
   subscribeTurn,
@@ -57,6 +58,7 @@ import { initialLang, translate, type Lang } from "./i18n";
 import { takeOverResult, type TakeOverResult } from "./tab";
 import { projectHash, readProjectHash, saveLang } from "./route";
 import { isQueued } from "./queue";
+import { correctionMessage, oneAtATime, OPEN_CHANGE, pendingRoute, shownAbout } from "./catchUp";
 import { askToWriteParams, sectionHasNoText } from "./signEmpty";
 import {
   IDLE_ACTIVITY,
@@ -140,6 +142,7 @@ export function App() {
   // the frame; what keeps a signoff from opening is listed here.
   const [signing, setSigning] = useState("");
   const [signBlocked, setSignBlocked] = useState<SignoffBlocked | null>(null);
+  const correcting = useRef(false);
   const [signError, setSignError] = useState("");
   const [undoError, setUndoError] = useState("");
   const saveRef = useRef<() => Promise<void>>(async () => {});
@@ -476,6 +479,37 @@ export function App() {
     } catch (e) {
       setErrorCode(e instanceof Error ? e.message : "internal");
     }
+  }
+
+  // «Leer completo» (B-103): the document's Markdown tab.
+  function readFull() {
+    layout.setRightTab("markdown");
+    layout.setRightOff(false);
+  }
+
+  // «Pedir corrección al agente» (B-103): one step on this pending, or your message
+  // queued with a turn running. Go checks it is still open.
+  // The panel closes at once and the flag holds a second click (Go holds too).
+  function askCorrection(section: { label: string; title: string }, p: { kind: string; about?: string }) {
+    if (!projectID) return;
+    const asked = projectID;
+    setSignBlocked(null);
+    setSignError("");
+    void oneAtATime(correcting, async () => {
+      try {
+        await saveRef.current();
+        const { turn_id, queued } = await requestCorrection(asked, section.label, p.kind, p.about ?? "",
+          correctionMessage(t, p, section.title || t("section.untitled")));
+        layout.setCenter("conv");
+        void refreshConversation(asked);
+        if (!queued) {
+          if (!working) clearStream();
+          watchTurn(turn_id);
+        }
+      } catch (e) {
+        setSignError(e instanceof Error ? e.message : "internal");
+      }
+    });
   }
 
   function closeSignoff() {
@@ -821,7 +855,11 @@ export function App() {
           </div>
           {langSwitch}
         </header>
-        <SignoffPanel lang={lang} projectID={projectID} label={signing} onClose={closeSignoff} />
+        <SignoffPanel lang={lang} projectID={projectID} label={signing} onClose={closeSignoff}
+          onReadFull={() => {
+            closeSignoff();
+            readFull();
+          }} />
       </main>
     );
   }
@@ -839,10 +877,7 @@ export function App() {
       onHome={goHome}
       onForm={openHomeForm}
       onLogout={() => void leaveAccount()}
-      onDownload={() => {
-        layout.setRightTab("markdown");
-        layout.setRightOff(false);
-      }}
+      onDownload={readFull}
       langSwitch={langSwitch}
     />
   );
@@ -1003,6 +1038,7 @@ export function App() {
                         onContinue={(text) => void send(text, true)}
                         onSign={signFromReport}
                         onSeen={bumpFrame}
+                        onReadFull={readFull}
                       />
                     }
                   />
@@ -1103,14 +1139,36 @@ export function App() {
                     <div className="sign-blocked" role="status">
                       <b>{t("signoff.blocked")}</b>
                       <ul>
-                        {signBlocked.pendings?.map((p, i) => (
-                          <li key={i}>
-                            {t(`pending.${p.kind}`)}
-                            {p.about && <> · «{p.about}»</>}
-                          </li>
-                        ))}
+                        {signBlocked.pendings?.map((p, i) => {
+                          const route = pendingRoute(p);
+                          const about = shownAbout(p);
+                          return (
+                            <li key={i}>
+                              {t(`pending.${p.kind}`)}
+                              {about && <> · «{about}»</>}{" "}
+                              {route.to === "reach" ? (
+                                <button type="button" className="small" onClick={() => reach(route.target)}>
+                                  {t(p.kind === "open_card" ? "signoff.go_to_card" : "signoff.answer_question")}
+                                </button>
+                              ) : (
+                                editor && current && (
+                                  <button type="button" className="small" onClick={() => askCorrection(current, p)}>
+                                    {t("signoff.correction.ask")}
+                                  </button>
+                                )
+                              )}
+                            </li>
+                          );
+                        })}
                         {signBlocked.open_changes?.map((c) => (
-                          <li key={c}>{t("signoff.open_change")}</li>
+                          <li key={c}>
+                            {t("signoff.open_change")}{" "}
+                            {editor && current && (
+                              <button type="button" className="small" onClick={() => askCorrection(current, { kind: OPEN_CHANGE, about: c })}>
+                                {t("signoff.correction.ask")}
+                              </button>
+                            )}
+                          </li>
                         ))}
                       </ul>
                       <button type="button" className="small" onClick={() => setSignBlocked(null)}>

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -184,4 +186,81 @@ func TestP75_AFailedReportIsIncompleteInTheRoutesAndAWellFormedOneIsNot(t *testi
 	if len(reports) != 2 || reports[0].Incomplete || !reports[1].Incomplete {
 		t.Fatalf("conversation stop reports: %+v, want the second incomplete only", reports)
 	}
+}
+
+// B-103: the view names sections by title, keeps the reason in literal, and a report
+// stored before B-103 reads with both lists empty, never null.
+func TestB103_TheViewCarriesBothListsAndAnOldReportReads(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	base := "/api/projects/" + projectID
+	seedSignSection(t, db, projectID, "Comparamos solo estudios con el mismo filtro.", false)
+	write := func(data any) {
+		t.Helper()
+		if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+			_, err := tx.AppendEvent(store.EventInput{Type: store.EventStopReport, Actor: "agent", AgentRole: "principal", Data: data})
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(map[string]any{"stop_reason": "no_work", "answer": "Paré."})
+	rec := do(t, h, http.MethodGet, base+"/stop-report", nil)
+	body := rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.Contains(body, `"decided":[]`) || !strings.Contains(body, `"agent_changes":[]`) {
+		t.Fatalf("an old report: %d %s", rec.Code, body)
+	}
+	const reason = "Porque el comité pidió conteos."
+	write(cycle.StopReport{StopReason: cycle.StopCorrectionApplied,
+		Decided: []graph.ReportDecided{{Statement: "Usar conteos.", Reason: reason, Sections: []string{"sec-1"}, Who: "human"}},
+		AgentChanges: []graph.ReportAgentChange{{Section: "sec-1", Step: 2, Summary: "Corrijo el cierre.",
+			Changes: []graph.JudgeChange{{Out: "Cierre.", In: "Fin."}}}}})
+	view := decode[server.StopReportView](t, do(t, h, http.MethodGet, base+"/stop-report", nil))
+	if len(view.Decided) != 1 || view.Decided[0].Reason != reason || view.Decided[0].Who != "human" ||
+		view.Decided[0].Sections[0].Title != "Regla de comparación" {
+		t.Fatalf("decided: %+v", view.Decided)
+	}
+	if len(view.AgentChanges) != 1 || view.AgentChanges[0].Section.Title != "Regla de comparación" || view.AgentChanges[0].Step != 2 ||
+		view.AgentChanges[0].Summary != "Corrijo el cierre." || view.AgentChanges[0].Changes[0].Out != "Cierre." {
+		t.Fatalf("agent changes: %+v", view.AgentChanges)
+	}
+}
+
+// B-103 (c) through the route: Go checks the pending, one step runs, and asking again
+// while it runs answers with its turn and writes nothing.
+func TestB103_TheCorrectionRoute(t *testing.T) {
+	h, db, projectID, hold, _ := modeAPI(t, nil)
+	base := "/api/projects/" + projectID
+	seedSignSection(t, db, projectID, "Se revisaron 7 casos.", false)
+	post := func(label, kind, about, message string) *httptest.ResponseRecorder {
+		return do(t, h, http.MethodPost, base+"/sections/"+label+"/correction", server.CorrectionRequest{Kind: kind, About: about, Message: message})
+	}
+	const message = "Corrige la cifra en «Regla de comparación»."
+	for _, tc := range []struct {
+		label, kind, about, message, code string
+		status                            int
+	}{
+		{"sec-1", graph.PendingFigureWithoutDecision, "7", " ", "empty_message", http.StatusBadRequest},
+		{"sec-9", graph.PendingFigureWithoutDecision, "7", message, "not_found", http.StatusNotFound},
+		{"sec-1", graph.PendingFigureWithoutDecision, "99", message, "pending_closed", http.StatusConflict},
+		{"sec-1", graph.PendingOpenCard, "card-1", message, "pending_yours", http.StatusConflict},
+	} {
+		rec := post(tc.label, tc.kind, tc.about, tc.message)
+		if rec.Code != tc.status || !strings.Contains(rec.Body.String(), tc.code) {
+			t.Fatalf("%+v: %d %s", tc, rec.Code, rec.Body.String())
+		}
+	}
+	started := decode[server.PostMessageResponse](t, post("sec-1", graph.PendingFigureWithoutDecision, "7", message))
+	if started.TurnID == "" || started.Queued {
+		t.Fatalf("the step: %+v", started)
+	}
+	<-hold.entered
+	again := decode[server.PostMessageResponse](t, post("sec-1", graph.PendingFigureWithoutDecision, "7", message))
+	if again.TurnID != started.TurnID || again.Queued {
+		t.Fatalf("asked again while it runs: %+v", again)
+	}
+	if n := len(eventsOf(t, db, projectID, store.EventHumanMessage)); n != 0 {
+		t.Fatalf("messages written: %d", n)
+	}
+	close(hold.release)
 }

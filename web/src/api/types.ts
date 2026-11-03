@@ -1171,6 +1171,27 @@ export interface StopReportPending {
   passage?: string;
 }
 /**
+ * StopReportDecided is one decision of the stretch (B-103): statement and «porque»
+ * in literal, the sections by title, and who decided (human or agent).
+ */
+export interface StopReportDecided {
+  statement: string;
+  instead_of: string;
+  reason: string;
+  sections: SectionRef[];
+  who: string;
+}
+/**
+ * StopReportAgentChange is what one step changed on its own in one section
+ * (B-103): its place in the stretch, its one line, and its «Sale / Entra».
+ */
+export interface StopReportAgentChange {
+  section: SectionRef;
+  step: number /* int */;
+  summary: string;
+  changes: JudgeChange[];
+}
+/**
  * StopReportView is P6 [2]: the last stop report and whether you opened
  * it (backlog-r2 2.5). First the answer; Section is the section it
  * evaluates, nil when none, and ProposeSignoff whether the app proposes
@@ -1223,6 +1244,11 @@ export interface StopReportView {
    */
   detected: DetectedView[];
   /**
+   * Decided and AgentChanges catch you up on the stretch before signing (B-103).
+   */
+  decided: StopReportDecided[];
+  agent_changes: StopReportAgentChange[];
+  /**
    * OpensConversation: the report is unseen and there is no return
    * line, so the conversation opens with it on top (short return,
    * backlog-r2 2.7). Go decides it, with the frame's clock.
@@ -1246,6 +1272,19 @@ export interface DetectedView {
  */
 export interface ContinueStopReportRequest {
   text: string;
+}
+/**
+ * CorrectionAsker is «Pedir corrección al agente» (B-103); the runner does it.
+ */
+export type CorrectionAsker = any;
+/**
+ * CorrectionRequest names what to correct, as «Firmar» listed it, and the message
+ * that stands for it in the conversation if it has to wait, in the page's language.
+ */
+export interface CorrectionRequest {
+  kind: string;
+  about: string;
+  message: string;
 }
 
 //////////

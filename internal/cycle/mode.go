@@ -61,6 +61,8 @@ type modeQueue struct {
 	turn string
 	// applyWanted: an answer left decisions to apply with the slot taken (B-100).
 	applyWanted bool
+	// correction is the step of «Pedir corrección» running now (B-103).
+	correction *runningCorrection
 }
 
 type signoffOutcome struct {

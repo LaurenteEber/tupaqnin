@@ -47,6 +47,25 @@ type StopReportPending struct {
 	Passage string     `json:"passage,omitempty"`
 }
 
+// StopReportDecided is one decision of the stretch (B-103): statement and «porque»
+// in literal, the sections by title, and who decided (human or agent).
+type StopReportDecided struct {
+	Statement string       `json:"statement"`
+	InsteadOf string       `json:"instead_of"`
+	Reason    string       `json:"reason"`
+	Sections  []SectionRef `json:"sections"`
+	Who       string       `json:"who"`
+}
+
+// StopReportAgentChange is what one step changed on its own in one section
+// (B-103): its place in the stretch, its one line, and its «Sale / Entra».
+type StopReportAgentChange struct {
+	Section SectionRef          `json:"section"`
+	Step    int                 `json:"step"`
+	Summary string              `json:"summary"`
+	Changes []graph.JudgeChange `json:"changes"`
+}
+
 // StopReportView is P6 [2]: the last stop report and whether you opened
 // it (backlog-r2 2.5). First the answer; Section is the section it
 // evaluates, nil when none, and ProposeSignoff whether the app proposes
@@ -85,6 +104,9 @@ type StopReportView struct {
 	// Detected is what the app detected since this report, your edits
 	// included (B-48 b): the short return shows it under the report.
 	Detected []DetectedView `json:"detected"`
+	// Decided and AgentChanges catch you up on the stretch before signing (B-103).
+	Decided      []StopReportDecided     `json:"decided"`
+	AgentChanges []StopReportAgentChange `json:"agent_changes"`
 	// OpensConversation: the report is unseen and there is no return
 	// line, so the conversation opens with it on top (short return,
 	// backlog-r2 2.7). Go decides it, with the frame's clock.
@@ -203,6 +225,19 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 		view.AgentPendings = append(view.AgentPendings, StopReportPending{Section: s.sectionRef(ctx, projectID, p.Section),
 			Kind: p.Kind, Cause: p.Cause, Passage: p.Passage})
 	}
+	view.Decided = []StopReportDecided{}
+	for _, d := range report.Decided {
+		dv := StopReportDecided{Statement: d.Statement, InsteadOf: d.InsteadOf, Reason: d.Reason, Who: d.Who, Sections: []SectionRef{}}
+		for _, sec := range d.Sections {
+			dv.Sections = append(dv.Sections, s.sectionRef(ctx, projectID, sec))
+		}
+		view.Decided = append(view.Decided, dv)
+	}
+	view.AgentChanges = []StopReportAgentChange{}
+	for _, c := range report.AgentChanges {
+		view.AgentChanges = append(view.AgentChanges, StopReportAgentChange{Section: s.sectionRef(ctx, projectID, c.Section),
+			Step: c.Step, Summary: c.Summary, Changes: c.Changes})
+	}
 	// The short return (B-48 b): what was detected since this report,
 	// and whether the conversation opens with it (unseen, no return line).
 	detected, err := graph.DetectedSinceStop(ctx, s.db, projectID)
@@ -283,4 +318,56 @@ func (s *Server) postStopReportContinue(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeTurnStarted(w, turnID)
+}
+
+// CorrectionAsker is «Pedir corrección al agente» (B-103); the runner does it.
+type CorrectionAsker interface {
+	RequestCorrection(ctx context.Context, projectID, label, kind, about, message string) (string, error)
+}
+
+// CorrectionRequest names what to correct, as «Firmar» listed it, and the message
+// that stands for it in the conversation if it has to wait, in the page's language.
+type CorrectionRequest struct {
+	Kind    string `json:"kind"`
+	About   string `json:"about"`
+	Message string `json:"message"`
+}
+
+// POST /api/projects/{projectID}/sections/{label}/correction {kind, about, message}
+// → 202 {turn_id, queued}: one step of the agent on that pending, or your message
+// queued with a turn running (B-103). Go checks it is open.
+// [EL DISEÑO NO LO DICE]: 400 empty_message, 404 not_found, 409 pending_closed when
+// it is no longer open, 409 pending_yours for a card or a «por aclarar».
+func (s *Server) postCorrection(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	asker, ok := s.starter.(CorrectionAsker)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	var req CorrectionRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	if strings.TrimSpace(req.Message) == "" {
+		writeError(w, http.StatusBadRequest, "empty_message")
+		return
+	}
+	turnID, err := asker.RequestCorrection(r.Context(), projectID, r.PathValue("label"), req.Kind, req.About, req.Message)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found")
+	case errors.Is(err, cycle.ErrPendingNotOpen):
+		writeError(w, http.StatusConflict, "pending_closed")
+	case errors.Is(err, cycle.ErrPendingYours):
+		writeError(w, http.StatusConflict, "pending_yours")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal")
+	default:
+		writeTurnStarted(w, turnID)
+	}
 }
