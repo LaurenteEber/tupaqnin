@@ -378,6 +378,8 @@
   "decision.error.closed": "This decision changed: that is no longer possible.",
   "decision.error.failed": "It could not be saved. Try again.",
   "oq.other": "The other: {what}",
+  "oq.own": "Write yours",
+  "oq.own.statement": "Your decision",
   "oq.contrast": "contrast",
   "oq.consequence": "consequence",
   "oq.risk": "risk",

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -45,6 +46,8 @@ type OpenQuestionView struct {
 	// ObjectionReason: born from an objection, Question is the decision and this
 	// is your reason (P-115).
 	ObjectionReason string `json:"objection_reason,omitempty"`
+	// OffersOwn: Go offers «Escribe la tuya», on an objection's question (B-107).
+	OffersOwn bool `json:"offers_own"`
 }
 
 type AnswerOpenQuestionResponse struct {
@@ -58,10 +61,12 @@ type AnswerOpenQuestionResponse struct {
 }
 
 // AnswerOpenQuestionRequest answers a «por aclarar» (backlog-r2 2.4):
-// option is the index in its options, from 0; null chooses none.
+// option is the index in its options, from 0; null chooses none. OwnStatement is
+// «Escribe la tuya» (B-107), instead of an option.
 type AnswerOpenQuestionRequest struct {
-	Option *int   `json:"option"`
-	Reason string `json:"reason"`
+	Option       *int    `json:"option"`
+	OwnStatement *string `json:"own_statement,omitempty"`
+	Reason       string  `json:"reason"`
 }
 
 // OpenQuestionAnswerer answers a «por aclarar» and, when the premise
@@ -72,6 +77,12 @@ type OpenQuestionAnswerer interface {
 	AnswerOpenQuestion(ctx context.Context, projectID, label string, option *int, reason string) (cycle.OpenQuestionAnswer, error)
 }
 
+// OwnOptionAnswerer is «Escribe la tuya» with what any answer starts (B-107);
+// *cycle.Runner satisfies it; without it, the gate answers alone.
+type OwnOptionAnswerer interface {
+	AnswerObjectionWithYours(ctx context.Context, projectID, label, statement, reason string) (cycle.OpenQuestionAnswer, error)
+}
+
 func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Object) (OpenQuestionView, error) {
 	ctx := r.Context()
 	b := bodyMap(q)
@@ -79,7 +90,7 @@ func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Obj
 	view := OpenQuestionView{Label: q.Label, State: q.State, Question: str(b, "question"),
 		Options: []OpenQuestionOption{}, Sections: []SectionRef{}, Decisions: []string{}, Variants: []string{},
 		UndeclaredByAgent: undeclared, NewPassage: str(b, "new_passage"), ClashingPassage: str(b, "clashing_passage"),
-		ObjectionReason: str(b, "objection_reason")}
+		ObjectionReason: str(b, "objection_reason"), OffersOwn: str(b, "origin") == checks.OriginObjection}
 	options, _ := b["options"].([]any)
 	for _, o := range options {
 		m, _ := o.(map[string]any)
@@ -130,7 +141,9 @@ func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Obj
 // [EL DISEÑO NO LO DICE]: the status codes, as the card's: 422
 // invalid_reason (answer_without_reason recorded, still open), 422
 // option_required (no option chosen, still open), 400 invalid_option
-// (an index outside the list), 409 for one that is not open.
+// (an index outside the list), 409 for one that is not open. B-107: 422
+// empty_statement, 400 own_option_not_offered, and 400 invalid_option with both an
+// option and your own.
 func (s *Server) answerOpenQuestion(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {
@@ -141,12 +154,31 @@ func (s *Server) answerOpenQuestion(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_body")
 		return
 	}
-	answer := cycle.NewGate(s.db).AnswerOpenQuestion
+	if req.OwnStatement != nil && req.Option != nil {
+		writeError(w, http.StatusBadRequest, "invalid_option")
+		return
+	}
+	gate := cycle.NewGate(s.db)
+	answer := gate.AnswerOpenQuestion
 	if a, ok := s.starter.(OpenQuestionAnswerer); ok {
 		answer = a.AnswerOpenQuestion
 	}
-	got, err := answer(r.Context(), projectID, r.PathValue("label"), req.Option, req.Reason)
+	answerOwn := gate.AnswerObjectionWithYours
+	if a, ok := s.starter.(OwnOptionAnswerer); ok {
+		answerOwn = a.AnswerObjectionWithYours
+	}
+	var got cycle.OpenQuestionAnswer
+	var err error
+	if req.OwnStatement != nil {
+		got, err = answerOwn(r.Context(), projectID, r.PathValue("label"), *req.OwnStatement, req.Reason)
+	} else {
+		got, err = answer(r.Context(), projectID, r.PathValue("label"), req.Option, req.Reason)
+	}
 	switch {
+	case errors.Is(err, cycle.ErrOwnOptionNotOffered):
+		writeError(w, http.StatusBadRequest, "own_option_not_offered")
+	case errors.Is(err, cycle.ErrEmptyStatement):
+		writeError(w, http.StatusUnprocessableEntity, "empty_statement")
 	case errors.Is(err, cycle.ErrOpenQuestionNotFound):
 		writeError(w, http.StatusNotFound, "open_question_not_found")
 	case errors.Is(err, cycle.ErrInvalidOption):

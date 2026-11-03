@@ -378,6 +378,8 @@
   "decision.error.closed": "Esta decisión cambió: eso ya no se puede.",
   "decision.error.failed": "No se pudo guardar. Intenta de nuevo.",
   "oq.other": "La otra: {what}",
+  "oq.own": "Escribe la tuya",
+  "oq.own.statement": "Tu decisión",
   "oq.contrast": "contraste",
   "oq.consequence": "consecuencia",
   "oq.risk": "riesgo",

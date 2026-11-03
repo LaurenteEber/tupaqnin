@@ -297,3 +297,73 @@ func TestB14_ARealSignoffInProgressWaitsForTheObjection(t *testing.T) {
 		}
 	}
 }
+
+// B-107 through the route: only an objection's question offers your own option, and
+// each refusal has its code.
+func TestB107_TheRouteAnswersYourOption(t *testing.T) {
+	h, _, base, _ := objectionAPI(t)
+	rec := do(t, h, http.MethodPost, base+"/decisions/dec-1/object", map[string]string{"reason": objectionReason})
+	if rec.Code >= 300 {
+		t.Fatalf("object: %d %s", rec.Code, rec.Body.String())
+	}
+	label := decode[server.ObjectDecisionResponse](t, rec).OpenQuestion
+	if todo := decode[server.TodoView](t, do(t, h, http.MethodGet, base+"/todo", nil)); len(todo.OpenQuestions) != 1 || !todo.OpenQuestions[0].OffersOwn {
+		t.Fatalf("the view: %+v", todo.OpenQuestions)
+	}
+	url := base + "/open-questions/" + label + "/answer"
+	const statement = "Cobrar por uso medido."
+	own := func(option *int, statement, reason string) (int, string) {
+		rec := do(t, h, http.MethodPost, url, server.AnswerOpenQuestionRequest{Option: option, OwnStatement: &statement, Reason: reason})
+		return rec.Code, rec.Body.String()
+	}
+	zero := 0
+	for _, tc := range []struct {
+		option            *int
+		statement, reason string
+		status            int
+		code              string
+	}{
+		{nil, statement, "ok", http.StatusUnprocessableEntity, "invalid_reason"},
+		{nil, " ", objectionReason, http.StatusUnprocessableEntity, "empty_statement"},
+		{&zero, statement, objectionReason, http.StatusBadRequest, "invalid_option"},
+	} {
+		if code, body := own(tc.option, tc.statement, tc.reason); code != tc.status || !strings.Contains(body, tc.code) {
+			t.Fatalf("%+v: %d %s", tc, code, body)
+		}
+	}
+	code, body := own(nil, statement, objectionReason)
+	if code != http.StatusOK || !strings.Contains(body, "new_decision") {
+		t.Fatalf("answer: %d %s", code, body)
+	}
+}
+
+// An ordinary «por aclarar» does not offer it, and the route refuses it.
+func TestB107_AnOrdinaryQuestionDoesNotOfferIt(t *testing.T) {
+	h, db, base, projectID := objectionAPI(t)
+	var label string
+	if err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
+		q, err := tx.CreateObject(store.ObjectOpenQuestion, "open", map[string]any{"question": "¿Cuál?",
+			"options": []any{map[string]any{"option": "Una"}, map[string]any{"option": "Otra"}}},
+			store.EventInput{Type: store.EventStateChanged, Actor: "agent"})
+		if err != nil {
+			return err
+		}
+		label = q.Label
+		sec, err := tx.GetObject(context.Background(), projectID, "sec-1")
+		if err != nil {
+			return err
+		}
+		_, err = tx.AddEdge(store.EdgeBlocks, q.ID, sec.ID, "", nil, store.EventInput{Type: store.EventEdge, Actor: "agent"})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if todo := decode[server.TodoView](t, do(t, h, http.MethodGet, base+"/todo", nil)); len(todo.OpenQuestions) != 1 || todo.OpenQuestions[0].OffersOwn {
+		t.Fatalf("the view: %+v", todo.OpenQuestions)
+	}
+	statement := "Otra cosa."
+	rec := do(t, h, http.MethodPost, base+"/open-questions/"+label+"/answer", server.AnswerOpenQuestionRequest{OwnStatement: &statement, Reason: objectionReason})
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "own_option_not_offered") {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+}

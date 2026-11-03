@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { answerCard, answerOpenQuestion, getTodo } from "../api/client";
+import { answerCard, answerOpenQuestion, answerOpenQuestionWithYours, getTodo } from "../api/client";
 import type { CardView, OpenQuestionView } from "../api/types";
-import { anchoredScroll, draftHasText, draftsOf, dropDraft, holdOrder, setDraft, type CardDraft } from "../cardDrafts";
+import { anchoredScroll, canApplyQuestion, draftHasText, draftsOf, dropDraft, holdOrder, OWN_OPTION, setDraft, type CardDraft } from "../cardDrafts";
 import { translate, type Lang } from "../i18n";
 import { cardCounter } from "../noise";
 import { undoReasonKey } from "../undo";
@@ -72,10 +72,12 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
   }
 
   async function applyQuestion(q: OpenQuestionView) {
-    const option = drafts[q.label]?.chosen;
-    if (option === undefined) return;
+    const draft = drafts[q.label];
+    if (!canApplyQuestion(draft) || draft?.chosen === undefined) return;
     try {
-      const res = await answerOpenQuestion(projectID, q.label, option, drafts[q.label]?.reason ?? "");
+      const res = draft.chosen === OWN_OPTION
+        ? await answerOpenQuestionWithYours(projectID, q.label, draft.own ?? "", draft.reason ?? "")
+        : await answerOpenQuestion(projectID, q.label, draft.chosen, draft.reason ?? "");
       setErrors((prev) => ({ ...prev, [q.label]: "" }));
       setDrafts(dropDraft(projectID, q.label));
       await refresh();
@@ -230,6 +232,30 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
               )}
             </label>
           ))}
+          {/* B-107: Go offers it, on an objection's question. Your words go as you wrote them. */}
+          {q.offers_own && (
+            <>
+              <label className="oq-option">
+                <input
+                  type="radio"
+                  name={`option-${q.label}`}
+                  checked={drafts[q.label]?.chosen === OWN_OPTION}
+                  onChange={() => write(q.label, { chosen: OWN_OPTION })}
+                />
+                {t("oq.own")}
+              </label>
+              {drafts[q.label]?.chosen === OWN_OPTION && (
+                <label>
+                  {t("oq.own.statement")}
+                  <input
+                    className="oq-own-statement"
+                    value={drafts[q.label]?.own ?? ""}
+                    onChange={(e) => write(q.label, { own: e.target.value })}
+                  />
+                </label>
+              )}
+            </>
+          )}
           {q.variants.length > 0 && (
             <details>
               <summary>{t("oq.variants")}</summary>
@@ -254,7 +280,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
             />
           </label>
           <div className="card-apply">
-            <button type="button" disabled={drafts[q.label]?.chosen === undefined} onClick={() => void applyQuestion(q)}>
+            <button type="button" disabled={!canApplyQuestion(drafts[q.label])} onClick={() => void applyQuestion(q)}>
               {t("card.apply")}
             </button>
             {errors[q.label] && <span className="turn-error" role="alert">{t(`card.error.${errors[q.label]}`)}</span>}

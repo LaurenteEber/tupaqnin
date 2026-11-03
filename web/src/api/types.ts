@@ -564,6 +564,10 @@ export interface OpenQuestionView {
    * is your reason (P-115).
    */
   objection_reason?: string;
+  /**
+   * OffersOwn: Go offers «Escribe la tuya», on an objection's question (B-107).
+   */
+  offers_own: boolean;
 }
 export interface AnswerOpenQuestionResponse {
   open_question: string;
@@ -580,10 +584,12 @@ export interface AnswerOpenQuestionResponse {
 }
 /**
  * AnswerOpenQuestionRequest answers a «por aclarar» (backlog-r2 2.4):
- * option is the index in its options, from 0; null chooses none.
+ * option is the index in its options, from 0; null chooses none. OwnStatement is
+ * «Escribe la tuya» (B-107), instead of an option.
  */
 export interface AnswerOpenQuestionRequest {
   option?: number /* int */;
+  own_statement?: string;
   reason: string;
 }
 /**
@@ -593,6 +599,11 @@ export interface AnswerOpenQuestionRequest {
  * satisfies it; without it, the gate answers alone.
  */
 export type OpenQuestionAnswerer = any;
+/**
+ * OwnOptionAnswerer is «Escribe la tuya» with what any answer starts (B-107);
+ * *cycle.Runner satisfies it; without it, the gate answers alone.
+ */
+export type OwnOptionAnswerer = any;
 
 //////////
 // source: proposals.go

@@ -3,6 +3,7 @@ package cycle
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/checks"
@@ -15,6 +16,10 @@ var (
 	// ErrNoOption: the answer chooses no option (estados §4: «una
 	// respuesta que no elige»); act_timed is recorded and it stays open.
 	ErrNoOption = errors.New("cycle: the answer chooses no option")
+	// ErrOwnOptionNotOffered: only an objection's «por aclarar» takes your own option (B-107).
+	ErrOwnOptionNotOffered = errors.New("cycle: this open question does not offer your own option")
+	// ErrEmptyStatement: your own option has no statement (B-107).
+	ErrEmptyStatement = errors.New("cycle: your own option has no statement")
 )
 
 // OpenQuestionAnswer is what answering a «por aclarar» did.
@@ -55,6 +60,21 @@ type OpenQuestionAnswer struct {
 // the resolved event as discarded_variants. The premise's new text is
 // the chosen option, as a replaced decision's statement is.
 func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, option *int, reason string) (OpenQuestionAnswer, error) {
+	return g.answerQuestion(ctx, projectID, label, option, nil, reason)
+}
+
+// AnswerObjectionWithYours is «Escribe la tuya» (B-107, extends B-81): only on an
+// objection's «por aclarar», your statement, literal (rule 8), and your «porque» make
+// a decision of yours that replaces the objected one, down the same path as «la
+// otra». It joins the question's options as the one you chose, so what reads the
+// chosen option keeps reading it.
+// [EL DISEÑO NO LO DICE]: an empty statement is refused like an answer with no
+// option (act_timed, still open); spaces around the statement do not count.
+func (g *Gate) AnswerObjectionWithYours(ctx context.Context, projectID, label, statement, reason string) (OpenQuestionAnswer, error) {
+	return g.answerQuestion(ctx, projectID, label, nil, &statement, reason)
+}
+
+func (g *Gate) answerQuestion(ctx context.Context, projectID, label string, option *int, own *string, reason string) (OpenQuestionAnswer, error) {
 	oq, err := g.db.GetObject(ctx, projectID, label)
 	if err != nil || oq.Type != store.ObjectOpenQuestion {
 		return OpenQuestionAnswer{}, ErrOpenQuestionNotFound
@@ -67,6 +87,10 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 	if option != nil && (*option < 0 || *option >= len(options)) {
 		return OpenQuestionAnswer{}, ErrInvalidOption
 	}
+	if own != nil && bodyStr(body, "origin") != checks.OriginObjection {
+		return OpenQuestionAnswer{}, ErrOwnOptionNotOffered
+	}
+	emptyOwn := own != nil && strings.TrimSpace(*own) == ""
 	opened, err := g.cardOpenedAt(ctx, projectID, oq.ID)
 	if err != nil {
 		return OpenQuestionAnswer{}, err
@@ -75,12 +99,15 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 		Data: map[string]any{"act": "open_question", "label": oq.Label,
 			"duration_ms": time.Since(opened).Milliseconds()}}
 
-	if !ValidReason(reason) || option == nil {
+	if !ValidReason(reason) || (option == nil && own == nil) || emptyOwn {
 		err := g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 			if !ValidReason(reason) {
 				data := map[string]any{"label": oq.Label, "option": nil}
 				if option != nil {
 					data["option"] = *option
+				}
+				if own != nil {
+					data["own"] = true
 				}
 				if _, err := tx.AppendEvent(store.EventInput{Type: store.EventAnswerWithoutReason,
 					Actor: "human", ObjectID: oq.ID, Data: data}); err != nil {
@@ -95,6 +122,9 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 		}
 		if !ValidReason(reason) {
 			return OpenQuestionAnswer{}, ErrInvalidReason
+		}
+		if emptyOwn {
+			return OpenQuestionAnswer{}, ErrEmptyStatement
 		}
 		return OpenQuestionAnswer{}, ErrNoOption
 	}
@@ -112,13 +142,22 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 			}
 			body := bodyOf(oq)
 			options, _ := body["options"].([]any)
-			chosen, _ := options[*option].(map[string]any)
+			var chosen map[string]any
+			var index int
+			if own != nil {
+				chosen = map[string]any{"option": strings.TrimSpace(*own), "own": true, "contrast": "", "consequence": "", "risk": ""}
+				index = len(options)
+				body["options"] = append(options, chosen)
+			} else {
+				index = *option
+				chosen, _ = options[index].(map[string]any)
+			}
 			chosenText := bodyStr(chosen, "option")
 			keep, _ := chosen["keep"].(bool)
 			if err := g.applyKept(ctx, tx, body, keep, chosenText, reason, &answer); err != nil {
 				return err
 			}
-			body["chosen_option"], body["reason"] = *option, reason
+			body["chosen_option"], body["reason"] = index, reason
 			variants, _ := body["variants"].([]any)
 			if variants == nil {
 				variants = []any{}
@@ -128,7 +167,10 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 				return err
 			}
 			resolved := map[string]any{"label": oq.Label, "from": "open", "to": "resolved",
-				"option": *option, "chosen": chosenText, "discarded_variants": variants}
+				"option": index, "chosen": chosenText, "discarded_variants": variants}
+			if own != nil {
+				resolved["own"] = true
+			}
 			// B-100: an answer other than «mantener» changes the text of what the
 			// question blocked and of where the decision it replaced was used.
 			if !keep {
@@ -253,6 +295,17 @@ func (g *Gate) applyKept(ctx context.Context, tx *store.Tx, body map[string]any,
 func (r *Runner) AnswerOpenQuestion(ctx context.Context, projectID, label string, option *int, reason string) (OpenQuestionAnswer, error) {
 	before := r.notReadyBeforeYourAnswer(ctx, projectID)
 	answer, err := r.gate.AnswerOpenQuestion(ctx, projectID, label, option, reason)
+	return r.afterQuestionAnswer(ctx, projectID, before, answer, err)
+}
+
+// AnswerObjectionWithYours is the gate's, plus what any answer starts: B-100's step.
+func (r *Runner) AnswerObjectionWithYours(ctx context.Context, projectID, label, statement, reason string) (OpenQuestionAnswer, error) {
+	before := r.notReadyBeforeYourAnswer(ctx, projectID)
+	answer, err := r.gate.AnswerObjectionWithYours(ctx, projectID, label, statement, reason)
+	return r.afterQuestionAnswer(ctx, projectID, before, answer, err)
+}
+
+func (r *Runner) afterQuestionAnswer(ctx context.Context, projectID string, before map[string]bool, answer OpenQuestionAnswer, err error) (OpenQuestionAnswer, error) {
 	if err != nil {
 		return answer, err
 	}

@@ -5,7 +5,12 @@ export interface CardDraft {
   reason?: string;
   option?: "keep" | "other";
   chosen?: number;
+  // B-107: «Escribe la tuya»: chosen is OWN_OPTION and own is your statement.
+  own?: string;
 }
+
+// The third option of an objection, which is not one of the question's options.
+export const OWN_OPTION = -1;
 
 const drafts = new Map<string, Record<string, CardDraft>>();
 
@@ -28,7 +33,13 @@ export function dropDraft(projectID: string, label: string): Record<string, Card
 }
 
 export function draftHasText(draft: CardDraft | undefined): boolean {
-  return (draft?.reason ?? "").trim() !== "";
+  return (draft?.reason ?? "").trim() !== "" || (draft?.own ?? "").trim() !== "";
+}
+
+// «Apply» on a «por aclarar»: a choice, and your own option its statement.
+export function canApplyQuestion(draft: CardDraft | undefined): boolean {
+  if (draft?.chosen === undefined) return false;
+  return draft.chosen !== OWN_OPTION || (draft.own ?? "").trim() !== "";
 }
 
 // The cards' order: as Go sent it, unless a card has text written; then the ones

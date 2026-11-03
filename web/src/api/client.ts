@@ -264,6 +264,22 @@ export async function answerOpenQuestion(
   );
 }
 
+// «Escribe la tuya» (B-107): your statement instead of an option; the literal text.
+export async function answerOpenQuestionWithYours(
+  projectID: string,
+  label: string,
+  ownStatement: string,
+  reason: string,
+): Promise<AnswerOpenQuestionResponse> {
+  return json(
+    await fetch(`/api/projects/${projectID}/open-questions/${label}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ own_statement: ownStatement, reason }),
+    }),
+  );
+}
+
 // With plan, the mark is changed from the «Entendí»'s card and also
 // answers the plan (R-6).
 export async function putSectionRole(
