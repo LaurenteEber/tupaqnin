@@ -66,6 +66,8 @@ type AnswerCardResponse struct {
 	// DefensePreparing: your answer left a section ready and its defense
 	// is being prepared in the background (P-92).
 	DefensePreparing bool `json:"defense_preparing,omitempty"`
+	// TurnID: your answer started the one step that applies it to the text (B-100).
+	TurnID string `json:"turn_id,omitempty"`
 }
 
 func (s *Server) cardView(r *http.Request, projectID string, card store.Object) (CardView, error) {
@@ -217,7 +219,7 @@ func (s *Server) answerCard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 	default:
 		writeJSON(w, http.StatusOK, AnswerCardResponse{Card: answer.Card, Decision: answer.Decision,
-			NewDecision: answer.NewDecision, DefensePreparing: answer.DefensePreparing})
+			NewDecision: answer.NewDecision, DefensePreparing: answer.DefensePreparing, TurnID: answer.TurnID})
 	}
 }
 

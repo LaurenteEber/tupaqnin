@@ -391,6 +391,8 @@ func stopReasonLine(reason StopReason, unseen int) string {
 	switch reason {
 	case StopNoWork:
 		return "your last step brought no new text and no new decisions"
+	case StopDecisionApplied:
+		return "you applied the person's decisions in one step"
 	case StopAgentPending:
 		return "your last step was left pending after its retry"
 	case StopStepLimit:

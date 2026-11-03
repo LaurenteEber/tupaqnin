@@ -23,6 +23,9 @@ type ConversationEntry struct {
 	// the round; GET /rounds/{label} has its card).
 	Kind string `json:"kind"`
 	Text string `json:"text,omitempty"`
+	// WillApply: on an answered card, the sections the agent will update with your
+	// decision (B-100), until it does. Their titles, never a label.
+	WillApply []string `json:"will_apply,omitempty"`
 	// Queued: on a message, it waits for the agent's next step (B-101), and N is
 	// what edits or removes it. Never shown.
 	Queued bool `json:"queued,omitempty"`
@@ -93,6 +96,15 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inSignoff := len(signing) > 0
+	unapplied, err := graph.UnappliedDecisions(r.Context(), s.db, projectID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	willApply := map[string][]string{}
+	for _, u := range unapplied {
+		willApply[u.Source] = append(willApply[u.Source], u.Title)
+	}
 	withdrawn := store.WithdrawnMessages(events)
 	waiting := map[int]bool{}
 	if q, ok := s.starter.(MessageQueue); ok {
@@ -198,6 +210,7 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			entry.Kind = "card_answered"
+			entry.WillApply = willApply[ev.ObjectID]
 			if dec, err := s.db.GetObject(r.Context(), projectID, str(bodyMap(obj), "decision_id")); err == nil {
 				entry.Text = str(bodyMap(dec), "statement")
 			}

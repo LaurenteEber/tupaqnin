@@ -35,7 +35,7 @@ Quoted verbatim from `docs/construccion/backlog-cierre.md` and from Eber's reque
 | T2 | S4, S5, S6 | inline | done | RED `live.test.ts` (pending round stops asking), GREEN; `TestP28` updated; smoke `c2`; rerun on a slow fake (compile overlay, repo untouched): the spend rises with the status still «working» |
 | T3 | S7, S8 | inline | done | RED `route.test.ts` (module missing), GREEN; smoke `c3` |
 | T4 | S9, S10 | inline | done | `TestB101_*` (RED by construction: `StartTurn` refused), GREEN; six tests that pinned the old 409 updated (L5); smoke `c4` on the slow fake |
-| T5 | S11, S12, S13 | inline | pending | |
+| T5 | S11, S12, S13 | inline | done | `TestB100_*`, GREEN; smoke `c5`, limited: the stock fake's next step does not touch the card's section, so the page shows the «Apply them» path; the text updating is proven by `TestB100_TheStepUpdatesTheTextWithYourDecision` |
 | T6 | S14, S15, S16 | inline | pending | |
 | T7 | S17, S18 | inline | pending | |
 
@@ -47,3 +47,4 @@ Quoted verbatim from `docs/construccion/backlog-cierre.md` and from Eber's reque
 - **L4:** Until this sync the Engram mirror held only a summary from creation, not the full document, and was not updated after T1-T3; corrected on Eber's question. The mirror is updated after each task from here on.
 - **L5:** B-101 replaces the 409, so six tests that pinned it changed: `TestB83_TheNormalModeStillRefusesToSignDuringATurn` (its message assertion only, signing still refuses), `TestP20_MessageWhileTheRoundRunsQueues` (renamed), the round-slot test in `round_test.go`, `runner_test.go`, `TestB101_TheNormalModeQueuesAMessageDuringATurn` (was `TestB83_TheNormalModeStillAnswers409…`) and `TestB72_PostRoundsCreatesTheRoundAndTakesTheTurnSlot`. The other B-83 tests are unchanged and green.
 - **L6:** Risk: item 4 (concurrency, the queue's order against a running step). Independent verifier at the feature's end, with C.5 and C.6.
+- **L7:** C.5 Risk: item 4 (an automatic turn takes the slot from a request). Verifier at the feature's end with C.4 and C.6.

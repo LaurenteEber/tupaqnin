@@ -59,6 +59,8 @@ type modeQueue struct {
 	wantsChain bool
 	// turn is the chain's current turn, for the page and a queued message.
 	turn string
+	// applyWanted: an answer left decisions to apply with the slot taken (B-100).
+	applyWanted bool
 }
 
 type signoffOutcome struct {
@@ -547,6 +549,8 @@ func (r *Runner) runHandoff(projectID string) {
 	q := r.queueOf(projectID)
 	wanted := q.wantsChain
 	q.wantsChain = false
+	apply := q.applyWanted
+	q.applyWanted = false
 	r.mu.Unlock()
 	messages := r.hasMessages(r.ctx, projectID)
 	if wanted && !messages {
@@ -554,6 +558,16 @@ func (r *Runner) runHandoff(projectID string) {
 		wanted = err == nil && mode.On()
 	}
 	if !messages && !wanted {
+		// B-100: the answers that waited for the slot, if the holder did not apply them.
+		if apply {
+			if unapplied, err := graph.UnappliedDecisions(r.ctx, r.db, projectID); err == nil {
+				if task := applyTask(unapplied); task != "" {
+					r.beginChainTurn(projectID, turnID)
+					r.runApplyStep(projectID, turnID, task)
+					return
+				}
+			}
+		}
 		r.releaseTurn(projectID)
 		return
 	}

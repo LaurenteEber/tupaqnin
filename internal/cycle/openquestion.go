@@ -27,6 +27,8 @@ type OpenQuestionAnswer struct {
 	// PremiseChanged: you changed the contradicted premise; its new
 	// version is probed against the current text (B-46).
 	PremiseChanged bool
+	// TurnID is the one step your answer started to apply it to the text (B-100).
+	TurnID string
 	// Premise is the premise's label when the question kept or changed it.
 	Premise string
 	// DefensePreparing: the answer left a section ready whose defense is
@@ -120,14 +122,44 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 			if variants == nil {
 				variants = []any{}
 			}
-			if _, err := tx.UpdateObject(oq.ID, oq.CurrentVersion, "resolved", body,
-				store.EventInput{Type: store.EventStateChanged, Actor: "human", Reason: reason,
-					Data: map[string]any{"label": oq.Label, "from": "open", "to": "resolved",
-						"option": *option, "chosen": chosenText, "discarded_variants": variants}}); err != nil {
-				return err
-			}
 			edges, err := tx.EdgesFrom(ctx, projectID, oq.ID)
 			if err != nil {
+				return err
+			}
+			resolved := map[string]any{"label": oq.Label, "from": "open", "to": "resolved",
+				"option": *option, "chosen": chosenText, "discarded_variants": variants}
+			// B-100: an answer other than «mantener» changes the text of what the
+			// question blocked and of where the decision it replaced was used.
+			if !keep {
+				var sections []string
+				for _, e := range edges {
+					if e.Type != store.EdgeBlocks {
+						continue
+					}
+					if to, err := tx.GetObject(ctx, projectID, e.ToID); err == nil && to.Type == store.ObjectSection {
+						sections = append(sections, to.ID)
+					}
+				}
+				if answer.NewDecision != "" {
+					born, err := tx.GetObject(ctx, projectID, answer.NewDecision)
+					if err != nil {
+						return err
+					}
+					keeps, _ := body["keeps"].(map[string]any)
+					replaced, err := tx.GetObject(ctx, projectID, bodyStr(keeps, "id"))
+					if err != nil {
+						return err
+					}
+					used, err := sectionsTouchedBy(ctx, tx, born, replaced)
+					if err != nil {
+						return err
+					}
+					sections = append(sections, used...)
+				}
+				resolved = appliesData(resolved, sections, chosenText, reason, answer.NewDecision)
+			}
+			if _, err := tx.UpdateObject(oq.ID, oq.CurrentVersion, "resolved", body,
+				store.EventInput{Type: store.EventStateChanged, Actor: "human", Reason: reason, Data: resolved}); err != nil {
 				return err
 			}
 			for _, e := range edges {
@@ -225,5 +257,6 @@ func (r *Runner) AnswerOpenQuestion(ctx context.Context, projectID, label string
 	}
 	defenses := r.defensesToPrepare(ctx, projectID, before)
 	answer.DefensePreparing = len(defenses) > 0 // P-92
-	return answer, r.afterYourAnswer(ctx, projectID, defenses, answer.PremiseChanged)
+	answer.TurnID, err = r.afterYourAnswer(ctx, projectID, defenses, answer.PremiseChanged)
+	return answer, err
 }

@@ -176,6 +176,16 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
           </div>
         )}
         {report.defense_failed && <p className="meta">{t("stop_report.defense.failed")}</p>}
+        {/* B-100: your decisions that have not reached the text, read now. */}
+        {report.unapplied.length > 0 && (
+          <div className="unapplied" role="status">
+            <p className="meta">{t("stop_report.unapplied", { section: report.unapplied.join(", ") })}</p>
+            <button type="button" className="small" disabled={disabled}
+              onClick={() => onContinue(t("stop_report.unapplied_message", { section: report.unapplied.join(", ") }))}>
+              {t("stop_report.unapplied_apply")}
+            </button>
+          </div>
+        )}
         <div className="empty-actions">
           <button type="button" disabled={disabled} onClick={() => onContinue(continueText)}>{continueText}</button>
           <button type="button" disabled={disabled} onClick={() => onContinue(addressText)}>{addressText}</button>

@@ -281,11 +281,13 @@ func (r *Runner) sectionsNotReady(ctx context.Context, projectID string) (map[st
 // afterYourAnswer runs what your answer to a card or a «por aclarar»
 // leaves to do, once the answer is saved: the queued probes when you
 // changed the premise (P-72), in the answer's request and in the turn
-// slot, as before; then the defense of each section in defenses
+// slot, as before; then the one step that applies your decisions (B-100), whose
+// turn it returns; then the defense of each section in defenses
 // (defensesToPrepare), queued at once and prepared in the background
 // (P-90: the answer returns at once; P-92: DefensePreparing reports it
-// until it ends). A probe's failure is returned, as before.
-func (r *Runner) afterYourAnswer(ctx context.Context, projectID string, defenses []string, probes bool) error {
+// until it ends), so with a step running it reads the text that step leaves. A
+// probe's failure is returned, as before.
+func (r *Runner) afterYourAnswer(ctx context.Context, projectID string, defenses []string, probes bool) (string, error) {
 	if probes && r.tryAcquireTurn(projectID) {
 		turnID, err := newTurnID()
 		if err == nil {
@@ -293,11 +295,12 @@ func (r *Runner) afterYourAnswer(ctx context.Context, projectID string, defenses
 		}
 		r.releaseTurn(projectID)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
+	turn := r.applyAfterAnswer(ctx, projectID)
 	r.defendInBackground(projectID, defenses)
-	return nil
+	return turn, nil
 }
 
 // defensesToPrepare are the sections among before (not ready before

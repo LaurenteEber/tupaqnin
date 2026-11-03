@@ -17,7 +17,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
   projectID: string;
   refreshKey: number | string;
   // P-92: whether your answer left a defense being prepared.
-  onAnswered: (defensePreparing: boolean) => void;
+  onAnswered: (defensePreparing: boolean, turnID?: string) => void;
   // «Fue un error · deshacer» on the card of your critical edit (B-78).
   onUndo: (section: string, editVersion: number) => Promise<void>;
   // «Objetar» and «Revocar» did something (E-1, B-82); absent in a read-only tab.
@@ -50,7 +50,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
       const res = await answerCard(projectID, card.label, option ?? null, reasons[card.label] ?? "");
       setErrors((prev) => ({ ...prev, [card.label]: "" }));
       await refresh();
-      onAnswered(res.defense_preparing === true);
+      onAnswered(res.defense_preparing === true, res.turn_id);
     } catch (e) {
       const code = e instanceof Error && e.message === "http_422" ? "invalid_reason"
         : e instanceof Error && e.message === "http_409" ? "card_closed" : "failed";
@@ -66,7 +66,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
       const res = await answerOpenQuestion(projectID, q.label, option, reasons[q.label] ?? "");
       setErrors((prev) => ({ ...prev, [q.label]: "" }));
       await refresh();
-      onAnswered(res.defense_preparing === true);
+      onAnswered(res.defense_preparing === true, res.turn_id);
     } catch (e) {
       const code = e instanceof Error && e.message === "http_422" ? "invalid_reason"
         : e instanceof Error && e.message === "http_409" ? "question_closed" : "failed";

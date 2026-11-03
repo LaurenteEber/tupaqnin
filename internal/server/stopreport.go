@@ -70,6 +70,9 @@ type StopReportView struct {
 	Open            []StopReportOpenItem `json:"open"`
 	AgentPendings   []StopReportPending  `json:"agent_pendings"`
 	PrincipalFailed bool                 `json:"principal_failed"`
+	// Unapplied are the titles of the sections your decisions have not reached,
+	// read now, not when the report was written (B-100).
+	Unapplied []string `json:"unapplied"`
 	// AudienceQuestions are the open audience questions of the report's
 	// section (backlog-r2 2.6, P6 «preparación de la defensa»), each
 	// answered «sí» or «no»; DefenseFailed says the judge failed its
@@ -134,6 +137,17 @@ func (s *Server) getStopReport(w http.ResponseWriter, r *http.Request) {
 		AudienceQuestions: []graph.AudienceQuestion{}}
 	if view.Done == nil {
 		view.Done = []string{}
+	}
+	unapplied, err := graph.UnappliedDecisions(ctx, s.db, projectID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
+	view.Unapplied = []string{}
+	for _, u := range unapplied {
+		if !slices.Contains(view.Unapplied, u.Title) {
+			view.Unapplied = append(view.Unapplied, u.Title)
+		}
 	}
 	if report.Section != "" {
 		ref := s.sectionRef(ctx, projectID, report.Section)

@@ -676,9 +676,8 @@ func TestB67_AnsweringRedoGivesThePrincipalYourIndication(t *testing.T) {
 	if _, err := runner.AnswerOpenQuestion(ctx, "p1", oqs[0].Label, &zero, indication); err != nil {
 		t.Fatalf("AnswerOpenQuestion: %v", err)
 	}
-	if err := runner.RunTurn(ctx, "p1", "turn-2", "Sigue."); err != nil {
-		t.Fatalf("RunTurn: %v", err)
-	}
+	// B-100: the answer starts the step that takes your indication.
+	cycle.WaitTurnsForTest(runner)
 	text := itemsText(cap.sent[len(cap.sent)-1])
 	if !strings.Contains(text, indication) || !strings.Contains(text, "<<<BEGIN passage>>>") {
 		t.Fatalf("the principal lacks your indication:\n%s", text)

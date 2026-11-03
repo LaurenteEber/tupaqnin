@@ -198,9 +198,16 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct,
       return entry.label ? <RoundCard lang={lang} projectID={projectID} label={entry.label} onAct={onRoundAct} /> : null;
     case "card_answered":
       return (
-        <p className="meta answered">
+        <>
+          <p className="meta answered">
           {t("conversation.card_answered")} «{entry.text}»
         </p>
+          {entry.will_apply?.map((section) => (
+            <p key={section} className="meta" role="status">
+              {translate(lang, "conversation.will_apply", { section })}
+            </p>
+          ))}
+        </>
       );
     case "step":
       return (

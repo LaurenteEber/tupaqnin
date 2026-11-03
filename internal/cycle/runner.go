@@ -481,7 +481,7 @@ func (r *Runner) releaseTurn(projectID string) {
 	if q != nil {
 		q.turn = ""
 	}
-	if q != nil && !r.closed && (q.wake || len(q.signoffs) > 0 || q.wantsChain) {
+	if q != nil && !r.closed && (q.wake || len(q.signoffs) > 0 || q.wantsChain || q.applyWanted) {
 		r.running[projectID] = true
 		r.turns.Add(1)
 		r.mu.Unlock()
@@ -1187,6 +1187,9 @@ type chainState struct {
 	roundsRun   int
 	// idleSteps: the mode's steps in a row with no text, decisions or proposals.
 	idleSteps int
+	// oneStep and task: the one step that applies your decisions (B-100).
+	oneStep bool
+	task    string
 }
 
 // chainTurn is one turn of a chain; it returns the next turn's id when the app
@@ -1247,7 +1250,11 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		}
 		first := n == 1 && human
 		yours := first || len(queued) > 0
-		if len(queued) > 0 || (mode.On() && !first) {
+		task := ""
+		if n == 1 {
+			task = state.task
+		}
+		if len(queued) > 0 || task != "" || (mode.On() && !first) {
 			if err := r.checkPending(ctx, projectID, turnID); err != nil {
 				if capErr, ok := asCap(err); ok {
 					return "", r.stopAtCap(ctx, projectID, turnID, capErr)
@@ -1302,6 +1309,14 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		notice := strings.Join(rejections, "\n")
 		if batch != "" {
 			notice = strings.TrimSpace(notice + "\n" + batch)
+		}
+		// B-100: the step's task, beside a message of yours when one entered too.
+		if task != "" {
+			if len(queued) > 0 {
+				notice = strings.TrimSpace(notice + "\n" + task)
+			} else {
+				message = task
+			}
 		}
 		switch {
 		case notice != "" && !first && len(queued) > 0:
@@ -1417,6 +1432,11 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
 			return "", err
+		}
+		// B-100: one step, not a chain; what a judge found waits for the next chain.
+		if state.oneStep {
+			reason = StopDecisionApplied
+			break
 		}
 		if waiting {
 			continue

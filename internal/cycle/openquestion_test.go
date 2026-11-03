@@ -331,6 +331,7 @@ func TestE2_OpenQuestionOnYourDecisionKeepsItFirstAndAnotherOptionReplacesIt(t *
 	if err != nil || answer.NewDecision != "dec-3" {
 		t.Fatalf("answer: %+v, %v", answer, err)
 	}
+	cycle.WaitTurnsForTest(runner) // B-100: the step it started
 	if dec, _ := object(t, db, "dec-1"); dec.State != "superseded" {
 		t.Fatalf("dec-1: %s, want superseded", dec.State)
 	}

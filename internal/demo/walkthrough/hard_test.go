@@ -1057,6 +1057,7 @@ func TestB83_Case07A_TheModeRunsAllDayAndTheHumanDecidesAtTheEnd(t *testing.T) {
 
 	// F15: the question closes with its «porque».
 	r.answerQuestion("F15", afterF5.Label, intPtr(0), "12 años y vender equipos, porque la minera no tiene concesión para vender a la red", http.StatusOK)
+	r.settle("F15") // B-100: the one step his answer starts
 	if _, open := r.openQuestionView("F15", afterF5.Label); open {
 		r.fail("F15", "the «por aclarar» %s stayed open", afterF5.Label)
 	}

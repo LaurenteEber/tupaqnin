@@ -53,6 +53,8 @@ type AnswerOpenQuestionResponse struct {
 	// DefensePreparing: your answer left a section ready and its defense
 	// is being prepared in the background (P-92).
 	DefensePreparing bool `json:"defense_preparing,omitempty"`
+	// TurnID: your answer started the one step that applies it to the text (B-100).
+	TurnID string `json:"turn_id,omitempty"`
 }
 
 // AnswerOpenQuestionRequest answers a «por aclarar» (backlog-r2 2.4):
@@ -159,6 +161,6 @@ func (s *Server) answerOpenQuestion(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 	default:
 		writeJSON(w, http.StatusOK, AnswerOpenQuestionResponse{OpenQuestion: got.OpenQuestion, NewDecision: got.NewDecision,
-			DefensePreparing: got.DefensePreparing})
+			DefensePreparing: got.DefensePreparing, TurnID: got.TurnID})
 	}
 }

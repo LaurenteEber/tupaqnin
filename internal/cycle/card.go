@@ -37,6 +37,8 @@ type CardAnswer struct {
 	Card        string // label
 	Decision    string // label of the card's decision
 	NewDecision string // label of the human decision born with "other" (B-16)
+	// TurnID is the one step your answer started to apply it to the text (B-100).
+	TurnID string
 	// DefensePreparing: the answer left a section ready whose defense is
 	// now being prepared in the background (P-92).
 	DefensePreparing bool
@@ -124,8 +126,21 @@ func (g *Gate) AnswerCard(ctx context.Context, projectID, cardLabel, option, rea
 				answer.NewDecision = born.Label
 			}
 			cardBody["chosen_option"], cardBody["reason"] = option, reason
+			answered := map[string]any{"label": card.Label, "from": "open", "to": "answered"}
+			if answer.NewDecision != "" {
+				// B-100: «la otra» changes the text of the sections it is used in.
+				born, err := tx.GetObject(ctx, projectID, answer.NewDecision)
+				if err != nil {
+					return err
+				}
+				sections, err := sectionsTouchedBy(ctx, tx, born, dec)
+				if err != nil {
+					return err
+				}
+				answered = appliesData(answered, sections, bodyStr(bodyOf(born), "statement"), reason, born.Label)
+			}
 			if _, err := tx.UpdateObject(card.ID, card.CurrentVersion, "answered", cardBody,
-				human(store.EventStateChanged, map[string]any{"label": card.Label, "from": "open", "to": "answered"})); err != nil {
+				human(store.EventStateChanged, answered)); err != nil {
 				return err
 			}
 			if _, err := tx.AppendEvent(store.EventInput{Type: store.EventDecisionSeen, Actor: "human",
@@ -256,5 +271,6 @@ func (r *Runner) AnswerCard(ctx context.Context, projectID, cardLabel, option, r
 	}
 	defenses := r.defensesToPrepare(ctx, projectID, before)
 	answer.DefensePreparing = len(defenses) > 0 // P-92
-	return answer, r.afterYourAnswer(ctx, projectID, defenses, false)
+	answer.TurnID, err = r.afterYourAnswer(ctx, projectID, defenses, false)
+	return answer, err
 }

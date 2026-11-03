@@ -204,6 +204,10 @@ export interface AnswerCardResponse {
    * is being prepared in the background (P-92).
    */
   defense_preparing?: boolean;
+  /**
+   * TurnID: your answer started the one step that applies it to the text (B-100).
+   */
+  turn_id?: string;
 }
 /**
  * CardAnswerer answers a card and then prepares the defense of the
@@ -298,6 +302,11 @@ export interface ConversationEntry {
    */
   kind: string;
   text?: string;
+  /**
+   * WillApply: on an answered card, the sections the agent will update with your
+   * decision (B-100), until it does. Their titles, never a label.
+   */
+  will_apply?: string[];
   /**
    * Queued: on a message, it waits for the agent's next step (B-101), and N is
    * what edits or removes it. Never shown.
@@ -540,6 +549,10 @@ export interface AnswerOpenQuestionResponse {
    * is being prepared in the background (P-92).
    */
   defense_preparing?: boolean;
+  /**
+   * TurnID: your answer started the one step that applies it to the text (B-100).
+   */
+  turn_id?: string;
 }
 /**
  * AnswerOpenQuestionRequest answers a «por aclarar» (backlog-r2 2.4):
@@ -1157,6 +1170,11 @@ export interface StopReportView {
   open: StopReportOpenItem[];
   agent_pendings: StopReportPending[];
   principal_failed: boolean;
+  /**
+   * Unapplied are the titles of the sections your decisions have not reached,
+   * read now, not when the report was written (B-100).
+   */
+  unapplied: string[];
   /**
    * AudienceQuestions are the open audience questions of the report's
    * section (backlog-r2 2.6, P6 «preparación de la defensa»), each

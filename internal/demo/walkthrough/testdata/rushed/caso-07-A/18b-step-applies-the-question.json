@@ -1,0 +1,10 @@
+{
+  "turn_kind": "step",
+  "script": "F15 (B-100): his answer closed the question: the app's one step; it leaves the text for the recalculation",
+  "output": {
+    "stretch": "direct",
+    "triage_line": "Vía directa: tomo tu respuesta; el texto va con el recálculo.",
+    "closing_risk": "none",
+    "note": "Lo aplico en el recálculo."
+  }
+}

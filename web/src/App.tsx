@@ -187,10 +187,10 @@ export function App() {
   // B-83: with the mode on and nothing followed, the app may open a chain when a
   // holder that is no chain ends: ask until it does or the mode ends.
   // [EL DISEÑO NO LO DICE]: how the page learns it: the summary, every 3 s.
-  // B-101: the same with a message of yours waiting, in the normal mode: a turn may
-  // open with it, and its mark goes when it enters a step.
+  // B-100, B-101: the same with a message or a decision of yours waiting, in the
+  // normal mode: a turn may open with it, and its mark goes when it is taken.
   const modeOn = summary?.mode === "run_to_completion";
-  const messageWaits = conversation.some(isQueued);
+  const messageWaits = conversation.some((e) => isQueued(e) || (e.will_apply?.length ?? 0) > 0);
   useEffect(() => {
     if (!projectID || (!modeOn && !messageWaits) || working) return;
     const timer = window.setInterval(() => {
@@ -1003,10 +1003,16 @@ export function App() {
                     lang={lang}
                     projectID={projectID}
                     refreshKey={`${understandingKey}-${frameTick}`}
-                    onAnswered={(defense) => {
+                    onAnswered={(defense, turnID) => {
                       void refreshSections(projectID);
                       void refreshConversation(projectID); // the answered card (U-5)
                       if (defense) setDefensePreparing(true); // P-92
+                      if (turnID) {
+                        // B-100: the one step that applies your decision.
+                        clearStream();
+                        setErrorCode("");
+                        watchTurn(turnID);
+                      }
                     }}
                     onUndo={undoLastEdit}
                     onDecisionActed={editor ? decisionActed : undefined}

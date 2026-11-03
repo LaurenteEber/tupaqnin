@@ -123,6 +123,7 @@ func TestP86_AnsweringTheLastOpenQuestionPreparesTheDefense(t *testing.T) {
 	if _, err := runner.AnswerOpenQuestion(context.Background(), "p1", "oq-1", intp(1), p86Reason); err != nil {
 		t.Fatalf("AnswerOpenQuestion: %v", err)
 	}
+	cycle.WaitTurnsForTest(runner) // B-100: the step first; the defense reads what it left
 	cycle.WaitAfterAnswersForTest(runner)
 	if len(cap.judges) != 1 || cap.judges[0].DefenseSection != "sec-1" {
 		t.Fatalf("judge calls: %+v, want one on sec-1 (audience present, B-38)", cap.judges)
