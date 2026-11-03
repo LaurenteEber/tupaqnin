@@ -72,6 +72,7 @@ import {
   statusLine,
   turnToFollow,
   type AgentActivity,
+  afterFailedTurn,
 } from "./live";
 
 export function App() {
@@ -390,7 +391,7 @@ export function App() {
       onError: (code) => {
         setErrorCode(code);
         setWorking(false);
-        void refreshConversation(projectID); // a message the failed step did not deliver
+        afterFailedTurn({ sections: () => refreshSections(projectID), conversation: () => refreshConversation(projectID) });
       },
     });
   }

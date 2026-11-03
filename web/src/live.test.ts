@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  afterFailedTurn,
   DEFENSE_POLL_CAP_MS,
   DEFENSE_POLL_MS,
   pollDefense,
@@ -228,4 +229,12 @@ test("C.2: the status line for each event", () => {
   assert.deepEqual(line({ working: false, todo: 3 }), { key: "status.yours.many", params: { n: "3" } });
   assert.equal(line({ working: false }), null);
   assert.deepEqual(line({ todo: 3 }), { key: "status.agent.working" }, "while it works it does not ask you");
+});
+
+// A step that fails right after the understanding leaves sections no one read: the
+// page reads them and the conversation, so «Document» does not wait for a reload.
+test("a failed turn reads the sections and the conversation again", () => {
+  const read: string[] = [];
+  afterFailedTurn({ sections: () => read.push("sections"), conversation: () => read.push("conversation") });
+  assert.deepEqual(read.sort(), ["conversation", "sections"]);
 });

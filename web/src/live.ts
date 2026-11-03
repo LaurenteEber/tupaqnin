@@ -1,6 +1,14 @@
 // The page's live updates with no turn of their own (P-92, P-93,
 // P-94): plain functions, without React, so `node --test` checks them.
 
+// What a failed turn leaves to read: its message comes back (B-101), and a step that
+// failed right after the understanding leaves sections the page has not read, so
+// «Document» would stay off until a reload.
+export function afterFailedTurn(read: { sections: () => unknown; conversation: () => unknown }): void {
+  void read.sections();
+  void read.conversation();
+}
+
 // P-92: while a defense after your answer is being prepared, the
 // conversation asks again every few seconds, up to a cap.
 // [EL DISEÑO NO LO DICE]: the interval and the cap; 3 s, and 3 min
