@@ -77,6 +77,25 @@ func TestS2_ASecondTabCannotSave(t *testing.T) {
 	}
 }
 
+// B-102 through the routes: DELETE frees the lease, and a take-over of a tab
+// that just renewed answers editor false and leaves it read-only.
+func TestB102_EditorRoutes(t *testing.T) {
+	h, db, _ := newAPI(t)
+	projectID := newProject(t, h, nil)
+	seedUnderstanding(t, db, projectID)
+	base := "/api/projects/" + projectID
+	do(t, h, http.MethodPost, base+"/editor", map[string]any{"tab_id": "tab-a"})
+	if got := decode[server.EditorResponse](t, do(t, h, http.MethodPost, base+"/editor", map[string]any{"tab_id": "tab-b", "take_over": true})); got.Editor {
+		t.Fatal("take-over won over a tab that just renewed")
+	}
+	if rec := do(t, h, http.MethodDelete, base+"/editor", map[string]any{"tab_id": "tab-a"}); rec.Code != http.StatusNoContent {
+		t.Fatalf("release: %d, want 204", rec.Code)
+	}
+	if got := decode[server.EditorResponse](t, do(t, h, http.MethodPost, base+"/editor", map[string]any{"tab_id": "tab-b"})); !got.Editor {
+		t.Fatal("the other tab cannot claim after the release")
+	}
+}
+
 // P3: the section detail carries its status, pendings and linked
 // figures; the summary carries what was spent against the cap.
 func TestP3_SectionDetailAndSummary(t *testing.T) {

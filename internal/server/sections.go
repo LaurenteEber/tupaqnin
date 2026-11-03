@@ -19,6 +19,10 @@ import (
 // and its saves are refused.
 const editorLease = 45 * time.Second // [inicial]
 
+// editorStaleAfter is how long a tab goes without renewing before another
+// can take the edit with «Editar aquí» (B-102). The page renews every 15 s.
+const editorStaleAfter = 15 * time.Second // [inicial]
+
 type editors struct {
 	mu      sync.Mutex
 	holders map[string]editorHolder
@@ -48,8 +52,33 @@ func (e *editors) claim(projectID, tab string) bool {
 	return true
 }
 
+// release frees the lease when tab holds it; another tab's lease stays (B-102).
+func (e *editors) release(projectID, tab string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if h, ok := e.holders[projectID]; ok && h.tab == tab {
+		delete(e.holders, projectID)
+	}
+}
+
+// takeOver gives the lease to tab when the holder has not renewed for
+// staleAfter («Editar aquí», B-102), and reports whether tab is the editor.
+func (e *editors) takeOver(projectID, tab string, staleAfter time.Duration) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	now := e.now()
+	h, ok := e.holders[projectID]
+	if ok && h.tab != tab && now.Sub(h.seen) < staleAfter {
+		return false
+	}
+	e.holders[projectID] = editorHolder{tab: tab, seen: now}
+	return true
+}
+
 type EditorRequest struct {
 	TabID string `json:"tab_id"`
+	// TakeOver asks for the lease of a tab that stopped renewing (B-102).
+	TakeOver bool `json:"take_over,omitempty"`
 }
 
 type EditorResponse struct {
@@ -58,6 +87,7 @@ type EditorResponse struct {
 
 // POST /api/projects/{projectID}/editor with {tab_id}: claims or renews
 // the editor lease; a second tab gets editor false and stays read-only.
+// With take_over it takes a lease not renewed for editorStaleAfter.
 func (s *Server) claimEditor(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {
@@ -68,7 +98,27 @@ func (s *Server) claimEditor(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_body")
 		return
 	}
+	if req.TakeOver {
+		writeJSON(w, http.StatusOK, EditorResponse{Editor: s.editors.takeOver(projectID, req.TabID, editorStaleAfter)})
+		return
+	}
 	writeJSON(w, http.StatusOK, EditorResponse{Editor: s.editors.claim(projectID, req.TabID)})
+}
+
+// DELETE /api/projects/{projectID}/editor with {tab_id}: the page frees the
+// lease as it goes (B-102); it answers 204 whether or not the tab held it.
+func (s *Server) releaseEditor(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	var req EditorRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	s.editors.release(projectID, req.TabID)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // SectionDetail is P3's editor: the text, the state and pendings from

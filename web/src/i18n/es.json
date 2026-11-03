@@ -101,6 +101,8 @@
   "turn.raw": "Salida cruda del modelo (desarrollo)",
   "summary.spent": "gastado {spent}/{cap} USD",
   "tab.read_only": "Esta pestaña es de solo lectura: el proyecto está abierto para editar en otra pestaña.",
+  "tab.edit_here": "Editar aquí",
+  "tab.edit_here_busy": "Otra pestaña está editando en este momento. Ciérrala, o vuelve a intentarlo cuando deje de hacerlo.",
   "section.status.draft": "borrador",
   "section.status.ready": "lista",
   "section.status.signed": "firmada",

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   claimEditor,
+  releaseEditor,
+  takeOverEditor,
   auditSection,
   continueFromStopReport,
   createProject,
@@ -51,6 +53,7 @@ import { Shell, useLayout } from "./components/Shell";
 import { centerView, effectiveTab, routeTarget } from "./layout";
 import { createErrorKey } from "./home";
 import { initialLang, translate, type Lang } from "./i18n";
+import { takeOverResult, type TakeOverResult } from "./tab";
 import {
   auditErrorCode,
   keepsAskingToSign,
@@ -95,6 +98,8 @@ export function App() {
   // Only one tab edits (backlog-r1 1.5): this tab holds the editor
   // lease, renewed every 15 s, or stays read-only.
   const [editor, setEditor] = useState(true);
+  // «Editar aquí» (B-102): why taking the edit was refused.
+  const [takeOver, setTakeOver] = useState<TakeOverResult>("");
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const watchedTurn = useRef("");
   const activeProject = useRef("");
@@ -140,8 +145,26 @@ export function App() {
     const renew = () => void claimEditor(projectID).then(setEditor, () => setEditor(false));
     renew();
     const timer = window.setInterval(renew, 15_000);
-    return () => window.clearInterval(timer);
+    // B-102: a tab that goes frees the edit at once. A save fired on the same
+    // event may claim it back for this tab, which then lapses by itself.
+    const release = () => releaseEditor(projectID);
+    window.addEventListener("pagehide", release);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("pagehide", release);
+    };
   }, [projectID]);
+
+  async function editHere() {
+    setTakeOver("");
+    try {
+      const taken = await takeOverEditor(projectID);
+      setEditor(taken);
+      setTakeOver(takeOverResult(taken));
+    } catch {
+      setTakeOver("busy");
+    }
+  }
 
   activeProject.current = projectID;
 
@@ -791,7 +814,15 @@ export function App() {
             onToggleRight={() => layout.setRightOff(!layout.rightOff)}
           />
           {/* In both views: at a glance, it says why the document does not let you edit. */}
-          {!editor && <p className="turn-error center-notice">{t("tab.read_only")}</p>}
+          {!editor && (
+            <p className="turn-error center-notice">
+              {t("tab.read_only")}{" "}
+              <button type="button" className="small" onClick={() => void editHere()}>
+                {t("tab.edit_here")}
+              </button>
+              {takeOver === "busy" && <> {t("tab.edit_here_busy")}</>}
+            </p>
+          )}
           {createErrorKey(createError, null) && (
             <p className="turn-error center-notice">{t(createErrorKey(createError, null) ?? "")}</p>
           )}

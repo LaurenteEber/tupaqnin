@@ -309,6 +309,7 @@ func (s *Server) apiRoutes() []route {
 		{"POST", "/api/projects/{projectID}/sections/{label}/audit", s.auditSection},
 		{"PUT", "/api/projects/{projectID}/name", s.putProjectName},
 		{"POST", "/api/projects/{projectID}/editor", s.claimEditor},
+		{"DELETE", "/api/projects/{projectID}/editor", s.releaseEditor},
 		{"GET", "/api/projects/{projectID}/cards/{label}", s.getCard},
 		{"POST", "/api/projects/{projectID}/cards/{label}/answer", s.answerCard},
 		{"PUT", "/api/projects/{projectID}/decisions/{label}/critical", s.putDecisionCritical},

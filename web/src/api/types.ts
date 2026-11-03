@@ -887,6 +887,10 @@ export interface RoundCardHit {
 
 export interface EditorRequest {
   tab_id: string;
+  /**
+   * TakeOver asks for the lease of a tab that stopped renewing (B-102).
+   */
+  take_over?: boolean;
 }
 export interface EditorResponse {
   editor: boolean;

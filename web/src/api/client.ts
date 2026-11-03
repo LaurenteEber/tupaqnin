@@ -1,4 +1,5 @@
 import { saveRequest } from "../saveStatus";
+import { editorReleaseRequest, readTabId } from "../tab";
 import type {
   UndoResponse,
   RoundCard,
@@ -425,10 +426,13 @@ export type SaveResult =
 // 409 → the base version is stale (specification §2).
 // TAB_ID names this tab for the editor lease: only one tab edits
 // (specification §2, backlog-r1 1.5).
-export const TAB_ID =
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random()}`;
+export const TAB_ID = readTabId(
+  () => globalThis.sessionStorage,
+  () =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`,
+);
 
 // claimEditor claims or renews this tab's editor lease; false means the
 // tab is read-only.
@@ -441,6 +445,25 @@ export async function claimEditor(projectID: string): Promise<boolean> {
     }),
   );
   return res.editor;
+}
+
+// «Editar aquí» (B-102): takes the edit from a tab that stopped renewing; false
+// means the other tab is still editing.
+export async function takeOverEditor(projectID: string): Promise<boolean> {
+  const res = await json<EditorResponse>(
+    await fetch(`/api/projects/${projectID}/editor`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tab_id: TAB_ID, take_over: true }),
+    }),
+  );
+  return res.editor;
+}
+
+// releaseEditor frees the lease as the page goes (B-102). Nothing waits for it:
+// if it does not arrive, the lease lapses by itself.
+export function releaseEditor(projectID: string): void {
+  void fetch(`/api/projects/${projectID}/editor`, editorReleaseRequest(TAB_ID)).catch(() => undefined);
 }
 
 // P5 (backlog-r1 1.6): the history of one block; opening it records

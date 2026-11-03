@@ -101,6 +101,8 @@
   "turn.raw": "Raw model output (development)",
   "summary.spent": "spent {spent}/{cap} USD",
   "tab.read_only": "This tab is read-only: the project is open for editing in another tab.",
+  "tab.edit_here": "Edit here",
+  "tab.edit_here_busy": "Another tab is editing right now. Close it, or try again when it stops.",
   "section.status.draft": "draft",
   "section.status.ready": "ready",
   "section.status.signed": "signed",
