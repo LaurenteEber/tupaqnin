@@ -86,6 +86,7 @@
   "understanding.role_state.proposed": "propuesto",
   "understanding.role_state.confirmed": "confirmado",
   "understanding.pending": "El agente no pudo terminar su «Entendí»; queda pendiente del agente. Puedes escribirle abajo.",
+  "understanding.agent_started": "El agente ya empezó. Si corriges el Entendí, rehace lo afectado",
   "assent_list": "ok, okay, sí, si, dale, listo, de acuerdo, bien, vale, va",
   "card.todo": "Lo que te toca",
   "card.counter": "Tarjeta {n} de {total}",

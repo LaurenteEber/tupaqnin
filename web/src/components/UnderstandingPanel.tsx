@@ -12,6 +12,7 @@ import {
 } from "../api/client";
 import type { CaseView, SectionRoleView, UnderstandingView } from "../api/types";
 import { translate, type Lang } from "../i18n";
+import { understandingUnconfirmed } from "../understandingState";
 
 // «Lo que entendí» as one card (U-6): (1) what was understood, with
 // what was read from your material; (2) how it will be judged, only if
@@ -141,10 +142,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
     );
   }
 
-  const unconfirmed =
-    view.cases.some((c) => c.state === "unconfirmed") ||
-    view.sections.some((s) => s.role_state === "proposed") ||
-    (!view.plan_confirmed && view.sections.length > 0);
+  const unconfirmed = understandingUnconfirmed(view);
   if (folded && !unconfirmed && !failed) {
     return (
       <div className="chat-card understanding folded" id="understanding">
@@ -193,6 +191,8 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
     <div className="chat-card understanding" id="understanding">
       <h2>{t("understanding.title")}</h2>
       {failed && <p className="turn-error">{t("understanding.pending")}</p>}
+      {/* C.19 (B-109). [EL DISEÑO NO LO DICE] With a failed understanding it shows too: it did start. */}
+      {unconfirmed && <p className="meta agent-started">{t("understanding.agent_started")}</p>}
 
       {view.understood && <p>{view.understood}</p>}
       {readings.length > 0 && (

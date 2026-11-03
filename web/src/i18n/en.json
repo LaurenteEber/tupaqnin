@@ -86,6 +86,7 @@
   "understanding.role_state.proposed": "proposed",
   "understanding.role_state.confirmed": "confirmed",
   "understanding.pending": "The agent could not finish its understanding; it stays pending for the agent. You can write to it below.",
+  "understanding.agent_started": "The agent has already started. If you correct what it understood, it redoes what is affected",
   "assent_list": "ok, okay, yes, yep, sure, fine, agreed, k, lgtm",
   "card.todo": "Yours to do",
   "card.counter": "Card {n} of {total}",
