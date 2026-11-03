@@ -137,6 +137,7 @@ type Server struct {
 	signoffs   SignoffStarter
 	modes      ModeSetter
 	editors    *editors
+	saves      *lastSaves
 	projectCap float64
 	// diskFull says the disk is at 80 % (espec. §6); nil: not checked.
 	diskFull func() (bool, error)
@@ -202,7 +203,7 @@ func buildHandler(logger *slog.Logger, hub *Hub, db *store.DB, starter TurnStart
 	if hub == nil {
 		hub = NewHub()
 	}
-	s := &Server{hub: hub, logger: logger, db: db, starter: starter, editors: newEditors(), projectCap: 3,
+	s := &Server{hub: hub, logger: logger, db: db, starter: starter, editors: newEditors(), saves: newLastSaves(), projectCap: 3,
 		now: time.Now, returnAfter: graph.ReturnAfter(), attempts: store.NewLoginAttempts()}
 	for _, opt := range opts {
 		opt(s)

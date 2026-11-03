@@ -1465,6 +1465,13 @@ export const UndoReasonLaterEdit = "later_edit";
  */
 export const EditReadVersion = "read_version";
 /**
+ * EditSameEdition is the key, in the data of your edit, of a save that came right
+ * after your previous save of that section: the route decides by its clock and
+ * the history keeps the answer (C.20). A write of text in between still ends the
+ * edition: SectionUndo reads that from the events.
+ */
+export const EditSameEdition = "same_edition";
+/**
  * UndoState is that answer: on, with the edit it reverts and the version whose
  * text comes back; or off, with its reason.
  */
@@ -1472,16 +1479,20 @@ export interface UndoState {
   Available: boolean;
   Reason: string;
   /**
-   * Version is the version your last edit made; Restores the one it reverts to.
+   * Version is the version your last edit made; Restores the one it reverts
+   * to, under the first save of the edition; Versions every save of it.
    */
   Version: number /* int */;
   Restores: number /* int */;
+  Versions: number /* int */[];
 }
 /**
  * CardUndo is «Fue un error · deshacer» on a card of your edit (B-78): the
  * section and edit it names and whether the undo reverts that edit now.
  * [EL DISEÑO NO LO DICE]: a card whose edit has a later edit of yours on top
- * says so instead of reverting a different edit; undo that one first.
+ * says so instead of reverting a different edit; undo that one first. A later
+ * save in the same edition (C.20) is not a later edit: the card's undo takes
+ * the whole edition, as «Deshacer» does.
  */
 export interface CardUndo {
   Section: string;

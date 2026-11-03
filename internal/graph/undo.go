@@ -3,6 +3,7 @@ package graph
 import (
 	"context"
 	"encoding/json"
+	"slices"
 
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -11,7 +12,9 @@ import (
 // section. The route obeys this one answer and the page shows it. It is read
 // from the history, by the events that write a section's text: a save that
 // changed the fingerprint is one edit, an agent's step or a proposal you
-// accepted ends your run, and an undo takes the last edit off it.
+// accepted ends your run, and an undo takes the last edition off it. Saves of a
+// section in a row and close in time are one edition (C.20): each stays its
+// own event, for rule 6 and for the history, and an undo takes them together.
 
 // Why «Deshacer» is off (B-79).
 const (
@@ -28,17 +31,47 @@ const (
 // brings back.
 const EditReadVersion = "read_version"
 
+// EditSameEdition is the key, in the data of your edit, of a save that came right
+// after your previous save of that section: the route decides by its clock and
+// the history keeps the answer (C.20). A write of text in between still ends the
+// edition: SectionUndo reads that from the events.
+const EditSameEdition = "same_edition"
+
 // UndoState is that answer: on, with the edit it reverts and the version whose
 // text comes back; or off, with its reason.
 type UndoState struct {
 	Available bool
 	Reason    string
-	// Version is the version your last edit made; Restores the one it reverts to.
+	// Version is the version your last edit made; Restores the one it reverts
+	// to, under the first save of the edition; Versions every save of it.
 	Version  int
 	Restores int
+	Versions []int
 }
 
-type undoEntry struct{ version, restores int }
+// Covers says the version is a save of the edition «Deshacer» reverts now.
+func (u UndoState) Covers(version int) bool {
+	return u.Available && slices.Contains(u.Versions, version)
+}
+
+type undoEntry struct {
+	versions []int
+	restores int
+}
+
+// UndoneVersions are the saves an edit_undone took back: every save of the
+// edition, or undone_version alone in an undo from before C.20.
+func UndoneVersions(ev store.Event) []int {
+	var data struct {
+		One int   `json:"undone_version"`
+		All []int `json:"undone_versions"`
+	}
+	_ = json.Unmarshal(ev.Data, &data)
+	if len(data.All) > 0 {
+		return data.All
+	}
+	return []int{data.One}
+}
 
 // SectionUndo says what «Deshacer» does on a section now (B-79).
 func SectionUndo(ctx context.Context, q store.Querier, projectID, sectionID string) (UndoState, error) {
@@ -48,8 +81,14 @@ func SectionUndo(ctx context.Context, q store.Querier, projectID, sectionID stri
 	}
 	var run []undoEntry
 	reason := UndoReasonNoEdit
+	// joinable: the next save can still join the last edition; any other write of
+	// text ends it, on this section or another (C.20).
+	joinable := false
 	for _, ev := range events {
 		if ev.ObjectID != sectionID {
+			if ev.Type == store.EventEdit || ev.Type == store.EventEditUndone {
+				joinable = false
+			}
 			continue
 		}
 		switch ev.Type {
@@ -64,24 +103,32 @@ func SectionUndo(ctx context.Context, q store.Querier, projectID, sectionID stri
 					}
 				}
 				run = nil
+				joinable = false
 				continue
 			}
-			entry := undoEntry{version: ev.NewVersion, restores: ev.BaseVersion}
+			if joinable && data[EditSameEdition] == true {
+				top := &run[len(run)-1]
+				top.versions = append(top.versions, ev.NewVersion)
+				continue
+			}
+			entry := undoEntry{versions: []int{ev.NewVersion}, restores: ev.BaseVersion}
 			if read, ok := data[EditReadVersion].(float64); ok {
 				entry.restores = int(read)
 			}
 			run = append(run, entry)
+			joinable = true
 		case store.EventEditUndone:
 			if len(run) > 0 {
 				run = run[:len(run)-1]
 			}
+			joinable = false
 		}
 	}
 	if len(run) == 0 {
 		return UndoState{Reason: reason}, nil
 	}
 	top := run[len(run)-1]
-	return UndoState{Available: true, Version: top.version, Restores: top.restores}, nil
+	return UndoState{Available: true, Version: top.versions[len(top.versions)-1], Restores: top.restores, Versions: top.versions}, nil
 }
 
 // LastWriteUndid says whether the last text written on a section is the undo
@@ -101,8 +148,7 @@ func LastWriteUndid(ctx context.Context, q store.Querier, projectID, sectionID s
 		case store.EventEdit:
 			undid = false
 		case store.EventEditUndone:
-			n, _ := eventData(ev)["undone_version"].(float64)
-			undid = int(n) == version
+			undid = slices.Contains(UndoneVersions(ev), version)
 		}
 	}
 	return undid, nil
@@ -133,7 +179,9 @@ func EditThatOpened(events []store.Event, sectionID, cardID string) int {
 // CardUndo is «Fue un error · deshacer» on a card of your edit (B-78): the
 // section and edit it names and whether the undo reverts that edit now.
 // [EL DISEÑO NO LO DICE]: a card whose edit has a later edit of yours on top
-// says so instead of reverting a different edit; undo that one first.
+// says so instead of reverting a different edit; undo that one first. A later
+// save in the same edition (C.20) is not a later edit: the card's undo takes
+// the whole edition, as «Deshacer» does.
 type CardUndo struct {
 	Section   string
 	Version   int
@@ -162,7 +210,7 @@ func UndoOfCard(ctx context.Context, q store.Querier, projectID string, card sto
 		out.Reason = undo.Reason
 	case out.Version == 0:
 		out.Reason = UndoReasonNoEdit
-	case out.Version != undo.Version:
+	case !undo.Covers(out.Version):
 		out.Reason = UndoReasonLaterEdit
 	default:
 		out.Available = true
@@ -233,8 +281,9 @@ func EditAlerts(ctx context.Context, q store.Querier, projectID, sectionID strin
 		}
 		switch ev.Type {
 		case store.EventEditUndone:
-			n, _ := eventData(ev)["undone_version"].(float64)
-			undone[int(n)] = true
+			for _, n := range UndoneVersions(ev) {
+				undone[n] = true
+			}
 		case store.EventSuspiciousEditAlert:
 			var data EditAlertData
 			_ = json.Unmarshal(ev.Data, &data)
@@ -253,7 +302,7 @@ func EditAlerts(ctx context.Context, q store.Querier, projectID, sectionID strin
 		switch {
 		case !undo.Available:
 			a.UndoReason = undo.Reason
-		case undo.Version != a.Version:
+		case !undo.Covers(a.Version):
 			a.UndoReason = UndoReasonLaterEdit
 		default:
 			a.Undoable = true

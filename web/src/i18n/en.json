@@ -568,6 +568,7 @@
   "digest.unused": "Not used in the answer ({n})",
   "digest.reader_contradictions": "Contradictions the readers marked (always shown)",
   "doc.audit": "Audit section",
+  "doc.audit.cost": "about {cost} USD",
   "frame.todo.flaws": "Flaws to review in «{section}» ({n})",
   "judge.tag": "judge",
   "judge.triage.risk": "Verifying «{section}» with the judge: risk {risks}",

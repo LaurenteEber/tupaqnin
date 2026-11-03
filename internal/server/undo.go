@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -101,4 +103,40 @@ func (s *Server) answerAlert(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusOK)
 	}
+}
+
+// editGroupWindow is the gap under which two saves are one edition (C.20,
+// [inicial]). It runs from the previous save, so a chain of close saves is one.
+const editGroupWindow = 5 * time.Second
+
+// lastSaves is each project's last save of yours, by the server's clock: what
+// tells a save that joins the edition before it (C.20). [EL DISEÑO NO LO DICE]:
+// in memory, like the editor lease: the event's created_at has no clock a test can
+// move, and a normal edit's event carries no data. A restart inside the window
+// only makes the next save an edition of its own.
+type lastSaves struct {
+	mu   sync.Mutex
+	last map[string]lastSave
+}
+
+type lastSave struct {
+	sectionID string
+	at        time.Time
+}
+
+func newLastSaves() *lastSaves { return &lastSaves{last: map[string]lastSave{}} }
+
+// joins says the save comes under the window after the project's last save, and
+// that save was of this section: another section's save ended the edition.
+func (l *lastSaves) joins(projectID, sectionID string, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	prev, ok := l.last[projectID]
+	return ok && prev.sectionID == sectionID && now.Sub(prev.at) < editGroupWindow
+}
+
+func (l *lastSaves) record(projectID, sectionID string, now time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.last[projectID] = lastSave{sectionID: sectionID, at: now}
 }

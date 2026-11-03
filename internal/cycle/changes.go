@@ -147,11 +147,9 @@ func editStandsSince(events []store.Event, sectionID string, seq int) bool {
 		case ev.Type == store.EventEdit && ev.Actor == "human":
 			standing[ev.NewVersion] = true
 		case ev.Type == store.EventEditUndone:
-			var data struct {
-				UndoneVersion int `json:"undone_version"`
+			for _, version := range graph.UndoneVersions(ev) {
+				delete(standing, version)
 			}
-			_ = json.Unmarshal(ev.Data, &data)
-			delete(standing, data.UndoneVersion)
 		}
 	}
 	return len(standing) > 0

@@ -40,7 +40,8 @@ type UndoOutcome struct {
 // the version your tab read, not to the agent's it was saved over: that text
 // and its figures and citations stay in the open proposal, which accepting
 // brings back (B-73 d, B-79). editVersion, when it is not 0, is the edit you
-// mean (a card's, an alert's): under a later one it is refused.
+// mean (a card's, an alert's): under a later one it is refused; inside the
+// edition being reverted, it takes the whole edition (C.20).
 func (g *Gate) UndoEdit(ctx context.Context, projectID, label string, editVersion int) (UndoOutcome, error) {
 	var out UndoOutcome
 	stoppedBy := ""
@@ -65,7 +66,7 @@ func (g *Gate) UndoEdit(ctx context.Context, projectID, label string, editVersio
 		if !undo.Available {
 			return UndoRefused{Reason: undo.Reason}
 		}
-		if editVersion != 0 && editVersion != undo.Version {
+		if editVersion != 0 && !undo.Covers(editVersion) {
 			return UndoRefused{Reason: graph.UndoReasonLaterEdit}
 		}
 		restored, err := textAtVersion(ctx, tx, sec.ID, undo.Restores)
@@ -83,12 +84,14 @@ func (g *Gate) UndoEdit(ctx context.Context, projectID, label string, editVersio
 		}
 		updated, err := tx.UpdateObject(sec.ID, sec.CurrentVersion, state, body, store.EventInput{
 			Type: store.EventEditUndone, Actor: "human",
-			Data: map[string]any{"section": sec.Label, "undone_version": undo.Version, "restored_version": undo.Restores}})
+			Data: map[string]any{"section": sec.Label, "undone_version": undo.Version, "undone_versions": undo.Versions, "restored_version": undo.Restores}})
 		if err != nil {
 			return err
 		}
-		if err := obsoleteCardsOfEdit(ctx, tx, sec.ID, undo.Version); err != nil {
-			return err
+		for _, version := range undo.Versions {
+			if err := obsoleteCardsOfEdit(ctx, tx, sec.ID, version); err != nil {
+				return err
+			}
 		}
 		// The restored version passes rules 1 to 5 like any edit (flujos §1),
 		// and not rule 6: that one is on your edits (B-80).

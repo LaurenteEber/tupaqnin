@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { spendNoticeKey } from "./spend.ts";
+import { auditCostText, spendNoticeKey } from "./spend.ts";
 
 const catalog = (lang: string): Record<string, string> =>
   JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"));
@@ -39,4 +39,21 @@ test("B3-20: the day's notice says the demo reached today's cap", () => {
 test("B3-20: «sin comprobar» does not say the checker failed: the cap may have refused it", () => {
   assert.doesNotMatch(catalog("es")["pending.unchecked"], /falló/);
   assert.doesNotMatch(catalog("en")["pending.unchecked"], /failed/);
+});
+
+test("C20: the cost on «Audit section» comes from Go, formatted as the header's spend", () => {
+  assert.deepEqual(auditCostText(0.05), { key: "doc.audit.cost", params: { cost: "0.05" } });
+  assert.deepEqual(auditCostText(0.1234), { key: "doc.audit.cost", params: { cost: "0.12" } });
+});
+
+test("C20: before Go answers, the button says no cost", () => {
+  assert.equal(auditCostText(undefined), null);
+});
+
+test("C20: the cost's text, in both languages, once each", () => {
+  for (const [lang, want] of [["en", "about {cost} USD"], ["es", "unos {cost} USD"]] as const) {
+    const raw = readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8");
+    assert.equal(JSON.parse(raw)["doc.audit.cost"], want);
+    assert.equal(raw.split('"doc.audit.cost"').length - 1, 1, lang);
+  }
 });

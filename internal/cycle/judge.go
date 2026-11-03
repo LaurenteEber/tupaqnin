@@ -1030,6 +1030,42 @@ func firstOf(errs ...error) error {
 	return nil
 }
 
+// AuditEstimateInitialUSD is what «Auditar» says before the project has an
+// audit to measure (C.20, [inicial]): what one judge call reserves (B-89).
+const AuditEstimateInitialUSD = provider.JudgeReserveUSD
+
+// AuditEstimate is what «Auditar sección» should cost, said before you press it
+// (C.20): the median of what the project's audits cost, each the sum of its turn,
+// the judge and the batch it led to. An audit that cost nothing says nothing.
+func AuditEstimate(ctx context.Context, db *store.DB, projectID string) (float64, error) {
+	_, bodies, err := judgeRoundsOf(ctx, db, projectID)
+	if err != nil {
+		return 0, err
+	}
+	var costs []float64
+	for _, body := range bodies {
+		if body.DelegationReason != JudgeReasonAudit {
+			continue
+		}
+		cost, err := db.TurnSpend(ctx, projectID, body.TurnID)
+		if err != nil {
+			return 0, err
+		}
+		if cost > 0 {
+			costs = append(costs, cost)
+		}
+	}
+	if len(costs) == 0 {
+		return AuditEstimateInitialUSD, nil
+	}
+	slices.Sort(costs)
+	mid := len(costs) / 2
+	if len(costs)%2 == 1 {
+		return costs[mid], nil
+	}
+	return (costs[mid-1] + costs[mid]) / 2, nil
+}
+
 // AuditSection is «Auditar sección» (B-67 b): your act calls the judge
 // always, whatever the section's risks, and it runs in the background in
 // the project's turn slot (P-20): ErrTurnRunning while one runs. With

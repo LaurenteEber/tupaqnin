@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
@@ -246,6 +247,9 @@ type SummaryView struct {
 	// [EL DISEÑO NO LO DICE]: where the page reads that the preparation
 	// ended; this field of the summary, which it already reads.
 	DefensePreparing bool `json:"defense_preparing"`
+	// AuditEstimateUSD is what «Auditar sección» should cost (C.20), said before
+	// you press it: the median of the project's audits, or an initial value.
+	AuditEstimateUSD float64 `json:"audit_estimate_usd"`
 	// Warn: what the project spent is at 80 % of its cap or more (B3-20).
 	Warn bool `json:"warn"`
 	// StoppedBy is the cap that keeps the agent from its next call (B-89):
@@ -286,6 +290,10 @@ func (s *Server) getSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := SummaryView{SpentUSD: spent, CapUSD: s.projectCap, Warn: spent+1e-9 >= warnShare*s.projectCap}
+	if view.AuditEstimateUSD, err = cycle.AuditEstimate(r.Context(), s.db, projectID); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal")
+		return
+	}
 	if c, ok := s.starter.(SpendChecker); ok {
 		if view.StoppedBy, err = c.StoppedBy(r.Context(), projectID); err != nil {
 			writeError(w, http.StatusInternalServerError, "internal")

@@ -47,6 +47,7 @@ import { ModeBar } from "./components/ModeBar";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { HomePage, type HomeForm } from "./components/HomePage";
+import { auditCostText } from "./spend";
 import { LeftPanel } from "./components/LeftPanel";
 import { RightPanel } from "./components/RightPanel";
 import { MarkdownPanel } from "./components/MarkdownPanel";
@@ -773,6 +774,7 @@ export function App() {
   }
 
   const current = sections.find((s) => s.label === selected);
+  const auditCost = auditCostText(summary?.audit_estimate_usd);
 
   // Avisos en el texto (backlog-r2 2.9): the chosen section's warnings,
   // computed and placed by Go, refetched when the section moves.
@@ -1092,6 +1094,7 @@ export function App() {
                     onClick={() => current && void auditCurrent(current.label)}
                   >
                     {t("doc.audit")}
+                    {auditCost && <span className="audit-cost"> · {t(auditCost.key, auditCost.params)}</span>}
                   </button>
                   <button
                     type="button"

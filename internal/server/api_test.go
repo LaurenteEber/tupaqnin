@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/server"
@@ -42,7 +45,20 @@ func newAPI(t *testing.T) (http.Handler, *store.DB, *stubStarter) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	starter := &stubStarter{}
-	return withVisitor(t, db, server.NewWithAPI(nil, server.NewHub(), db, starter)), db, starter
+	offset := new(atomic.Int64)
+	clockOffsets.Store(db, offset)
+	clock := func() time.Time { return time.Now().Add(time.Duration(offset.Load())) }
+	return withVisitor(t, db, server.NewWithAPI(nil, server.NewHub(), db, starter, server.WithClock(clock))), db, starter
+}
+
+// clockOffsets moves the clock of a newAPI server, by its database.
+var clockOffsets sync.Map
+
+// apart moves that clock past the window that makes two saves one edition (C.20):
+// for a test about two separate edits.
+func apart(db *store.DB) {
+	offset, _ := clockOffsets.Load(db)
+	offset.(*atomic.Int64).Add(int64(6 * time.Second))
 }
 
 func do(t *testing.T, h http.Handler, method, path string, body any) *httptest.ResponseRecorder {

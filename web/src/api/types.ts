@@ -1015,6 +1015,11 @@ export interface SummaryView {
    */
   defense_preparing: boolean;
   /**
+   * AuditEstimateUSD is what «Auditar sección» should cost (C.20), said before
+   * you press it: the median of the project's audits, or an initial value.
+   */
+  audit_estimate_usd: number /* float64 */;
+  /**
    * Warn: what the project spent is at 80 % of its cap or more (B3-20).
    */
   warn: boolean;

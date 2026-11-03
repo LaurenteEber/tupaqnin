@@ -103,8 +103,9 @@ func TestB79_EditAndUndoLeaveThePreviousVersionWithEditUndone(t *testing.T) {
 // B-79: pressing it again reverts the previous one, while they are yours and
 // in a row.
 func TestB79_PressingAgainRevertsThePreviousEditOfYours(t *testing.T) {
-	h, _, base, _ := proposalsAPI(t)
+	h, db, base, _ := proposalsAPI(t)
 	saveOn(t, h, base, "sec-1", "Primera edición mía del cobro.")
+	apart(db)
 	saveOn(t, h, base, "sec-1", "Segunda edición mía del cobro.")
 	undoRoute(t, h, base, "sec-1")
 	if detail := sectionDetail(t, h, base, "sec-1"); detail["text"] != "Primera edición mía del cobro." || detail["undo_available"] != true {
@@ -176,6 +177,7 @@ func TestB78_FueUnErrorOnTheR4CardLeavesItObsolete(t *testing.T) {
 		t.Fatalf("the card offers its undo: %+v", card)
 	}
 	// A later edit of yours: the card's is no longer the last one (B-79).
+	apart(db)
 	saveOn(t, h, base, "sec-1", "La embotellada trae 62 veces más.")
 	refused := decode[server.TodoView](t, do(t, h, http.MethodGet, base+"/todo", nil)).Cards[0]
 	if refused.UndoAvailable || refused.UndoReason != "later_edit" {
@@ -395,6 +397,7 @@ func TestB79_TheRestoredVersionPassesTheRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	saveOn(t, h, base, "sec-1", "Ver dec-1: este texto nombra una etiqueta interna del proyecto.")
+	apart(db)
 	saveOn(t, h, base, "sec-1", "Otro texto mío, ya sin etiquetas.")
 	undoRoute(t, h, base, "sec-1")
 	pendings := sectionDetail(t, h, base, "sec-1")["pendings"].([]any)
@@ -803,8 +806,9 @@ func TestB80_UndoingTheEditTakesItsAlertOffTheBand(t *testing.T) {
 
 // The alert's «Deshacer» says when it no longer undoes that edit (B-79).
 func TestB80_AnAlertUnderALaterEditIsNotUndoable(t *testing.T) {
-	h, _, base, _ := rule6API(t)
+	h, db, base, _ := rule6API(t)
 	saveOn(t, h, base, "sec-1", "Corto.")
+	apart(db)
 	saveOn(t, h, base, "sec-1", "Corto y algo más.")
 	a := sectionDetail(t, h, base, "sec-1")["alerts"].([]any)[0].(map[string]any)
 	if a["undoable"] != false || a["undo_reason"] != "later_edit" {
@@ -867,11 +871,12 @@ func TestB79_ANormalEditIsStillAnEditWithoutData(t *testing.T) {
 // Existing behaviour: a stale save of yours over your own edit stays 409, and
 // over your undo too.
 func TestP84_AStaleSaveOverYourOwnEditOrUndoIsStillAVersionConflict(t *testing.T) {
-	h, _, base, _ := proposalsAPI(t)
+	h, db, base, _ := proposalsAPI(t)
 	saveText(t, h, base, 1, "Primera edición mía del cobro.")
 	if rec := do(t, h, http.MethodPut, base+"/sections/sec-1", map[string]any{"base_version": 1, "text": "Otra."}); rec.Code != http.StatusConflict {
 		t.Fatalf("over your edit: %d", rec.Code)
 	}
+	apart(db)
 	saveOn(t, h, base, "sec-1", "Segunda edición mía del cobro.")
 	undoRoute(t, h, base, "sec-1")
 	if rec := do(t, h, http.MethodPut, base+"/sections/sec-1", map[string]any{"base_version": 1, "text": "Otra."}); rec.Code != http.StatusConflict {
@@ -1066,6 +1071,7 @@ func TestA1_AnEditThatStandsKeepsTheCloseUpdatedAfterAnUndo(t *testing.T) {
 	if rec := do(t, h, http.MethodPost, base+"/changes/"+chgOf(t, db, projectID, "sec-1")+"/close", map[string]any{"result": "updated"}); rec.Code != http.StatusNoContent {
 		t.Fatalf("close: %d", rec.Code)
 	}
+	apart(db)
 	saveOn(t, h, base, "sec-1", "Texto actualizado otra vez con el resultado dos.")
 	undoRoute(t, h, base, "sec-1")
 	sec, _ := db.GetObject(context.Background(), projectID, "sec-1")

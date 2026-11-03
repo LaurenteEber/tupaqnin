@@ -344,6 +344,7 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	var updated store.Object
 	var displacedProposal string
 	unchanged, signoffCancelled := false, false
+	savedAt := s.now()
 	err = s.db.Write(r.Context(), projectID, func(tx *store.Tx) error {
 		// P-84: re-read in the transaction; a version written since the
 		// read above that kept the text keeps your edit, which keeps its
@@ -373,10 +374,17 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 			state = "changed_since_signoff"
 		}
 		ev := store.EventInput{Type: store.EventEdit, Actor: "human"}
+		data := map[string]any{}
 		if displaced {
 			// Undoing it goes back to what your tab read, not to the agent's
 			// text, which stays in its proposal (B-79).
-			ev.Data = map[string]any{graph.EditReadVersion: req.BaseVersion}
+			data[graph.EditReadVersion] = req.BaseVersion
+		}
+		if s.saves.joins(projectID, obj.ID, savedAt) {
+			data[graph.EditSameEdition] = true // one edition for «Deshacer» (C.20)
+		}
+		if len(data) > 0 {
+			ev.Data = data
 		}
 		updated, err = tx.UpdateObject(obj.ID, obj.CurrentVersion, state, body, ev)
 		if err != nil {
@@ -425,6 +433,7 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, "internal")
 	default:
+		s.saves.record(projectID, updated.ID, savedAt)
 		// [EL DISEÑO NO LO DICE]: «sin cambios» counts from a save that
 		// changed the fingerprint, as the rules (B-36).
 		if n, ok := s.starter.(EditNotifier); ok {
