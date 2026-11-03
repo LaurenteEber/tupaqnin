@@ -17,35 +17,49 @@ AI agents now write reports, methodologies and research faster than anyone can f
 - **The app computes, the models judge.** States, fingerprints, links between figures and decisions, and what is critical are computed by rules in Go. Models are used only where judgment is needed.
 - **The agent does not depend on its memory.** Its memory is rebuilt from the project graph and its history at every step, so a restart or a model change loses nothing.
 
-It is designed for Meta's models: Muse Spark for the agent and Muse Wonder to contrast your explanation when you sign. The provider is not implemented yet; it arrives in slice 0, and the exact model names are confirmed by the model micro-test (piece 0.8).
+It runs on Meta's models: Muse Spark for the agent and Muse Wonder to contrast your explanation when you sign.
 
-## Status
+## What the jury sees
 
-🛠️ **In construction** for the Meta Global AI Developer Hackathon (27 Oct – 4 Nov 2026). The design is complete (`docs/diseno/`); the code is being built in slices, starting with slice 0 (`docs/construccion/backlog.md`). What existed before the event and what was built during it is listed in [`HACKATHON.md`](HACKATHON.md).
+Open the invitation link and press «Try with the demo case». It takes about 10 to 15 minutes.
 
-## Run it
+1. **The request.** Paula's state of the art on microplastics, already filled in, with her criterion and her sources. Send it.
+2. **What the agent understood.** How it will apply «field studies», with a case that counts and one that does not. Confirm or correct it; the agent does not wait for you.
+3. **The agent at work.** Text arrives live, and the comparison rule (1.5 times, not 60) appears as a critical decision with its card.
+4. **Your decision.** Answer the card with an option and a reason; «ok» does not count. Click a paragraph to see its history.
+5. **Evidence.** A citation that does not exist in the sources is discarded in plain sight.
+6. **The signoff.** Press «Sign section» and explain it without looking. Muse Wonder names what is missing without giving the answer and brings a new case. Resolve it and sign.
 
-Requires Go 1.27.
+The screen works in English and Spanish.
+
+## Run it locally
+
+Requires Go 1.27. The web page is already built and embedded in the binary.
 
 ```sh
-TQ_PROVIDER=fake make run    # http://localhost:8080 — GET /healthz and GET /
-make test
-make vet
-make build  # bin/tupaqnin
+export TQ_PROVIDER=fake                 # no API key, recorded answers, no spend
+go run ./cmd/tupaqnin                   # http://localhost:8080
+go run ./cmd/tupaqnin invite create --label local   # prints /i/<token>, once
 ```
 
-Configuration comes only from environment variables (see `.env.example`);
-the app never reads a `.env` file itself. `META_API_KEY` is required unless
-`TQ_PROVIDER=fake`; defaults are `PORT=8080` and `TQ_DATA_DIR=./data`.
-The Meta and fake providers arrive in piece 0.5.
+Run the second command from another terminal, with the same environment, and open `http://localhost:8080/i/<token>`. Creating a project needs a link.
+
+With real models, set `TQ_PROVIDER=meta` and `META_API_KEY`. Configuration comes only from environment variables (see `.env.example`); the app never reads a `.env` file itself.
+
+```sh
+make test    # Go tests, with the fake provider
+make vet
+make web     # installs, tests and builds the page (Node 24 and pnpm)
+make build   # bin/tupaqnin
+```
 
 ## Repository map
 
 | Path | What it holds |
 |---|---|
-| `cmd/tupaqnin/` | The single binary: API and the embedded web page (streaming arrives in piece 0.6) |
-| `internal/` | One package per responsibility: `store`, `graph`, `cycle`, `memory`, `provider`, `fingerprint`, `server`, `voice` |
-| `web/` | For now only a README; the React + Vite editor arrives in piece 0.10. It only presents; anything with evidence value is computed in Go |
+| `cmd/tupaqnin/` | The single binary: API, embedded page and the `invite` command |
+| `internal/` | One package per responsibility: `store`, `graph`, `cycle`, `checks`, `memory`, `evidence`, `provider`, `fingerprint`, `server` and others |
+| `web/` | The React page. It only presents; anything with evidence value is computed in Go |
 | `deploy/` | Dockerfile and Fly.io config |
 | `docs/` | The design in Spanish (`docs/diseno/`) and the build backlog (`docs/construccion/`) |
 | `AGENTS.md` | Rules for coding agents working in this repo |
@@ -58,8 +72,8 @@ The Meta and fake providers arrive in piece 0.5.
 | [`docs/diseno/bloque-2/`](docs/diseno/bloque-2/) | The agent's memory: what it keeps, how it restarts, how contradictions are caught |
 | [`docs/diseno/bloque-3/`](docs/diseno/bloque-3/) | Platform: data model, write gate, technical defaults, output schema, repo layout |
 | [`docs/diseno/glosario.md`](docs/diseno/glosario.md) | Spanish design terms → English code names |
-| [`docs/diseno/_plan-hackathon.md`](docs/diseno/_plan-hackathon.md) | Slices and calendar |
-| [`docs/construccion/backlog.md`](docs/construccion/backlog.md) | What to build next, with what to read for each piece |
+
+Built for the Meta Global AI Developer Hackathon. What existed before the event and what was built during it is in [`HACKATHON.md`](HACKATHON.md).
 
 ## Inspiration
 
