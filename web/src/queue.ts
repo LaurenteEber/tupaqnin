@@ -14,9 +14,17 @@ export function queuedRetryPath(projectID: string, n: number): string {
   return `${queuedMessagePath(projectID, n)}/retry`;
 }
 
-// The mark's text, and whether it offers the retry: Go says it was not sent.
-export function queuedMark(notSent?: boolean): { key: string; retry: boolean } {
-  return notSent ? { key: "message.not_sent", retry: true } : { key: "message.queued", retry: false };
+// The mark's text and the retry it offers, from what Go said about the message: at
+// a spend cap none, since it would stop there; with several waiting, how many go.
+export function queuedMark(entry: { not_sent?: boolean; not_sent_cap?: boolean; retry_sends?: number }): {
+  key: string;
+  retry: string | null;
+  n: string;
+} {
+  const n = String(entry.retry_sends ?? 0);
+  if (!entry.not_sent) return { key: "message.queued", retry: null, n };
+  if (entry.not_sent_cap) return { key: "message.not_sent_cap", retry: null, n };
+  return { key: "message.not_sent", retry: (entry.retry_sends ?? 0) > 1 ? "message.queued_retry_many" : "message.queued_retry", n };
 }
 
 export function queuedEditRequest(text: string) {

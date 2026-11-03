@@ -34,6 +34,10 @@ type ConversationEntry struct {
 	// NotSent: on a queued message, no step will read it (a failed step left it):
 	// the page says so and offers to retry.
 	NotSent bool `json:"not_sent,omitempty"`
+	// NotSentCap: a spend cap is why; a retry would stop there, so none is offered.
+	NotSentCap bool `json:"not_sent_cap,omitempty"`
+	// RetrySends: how many messages a retry sends, in order (a step takes them all).
+	RetrySends int `json:"retry_sends,omitempty"`
 	// WaitsSignoff: on a message, the agent answers it when the signoff in
 	// progress ends (P-114).
 	WaitsSignoff bool   `json:"waits_signoff,omitempty"`
@@ -144,6 +148,7 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			entry.Kind, entry.Text = "message", str(data, "text")
 			if m, ok := waiting[ev.Seq]; ok {
 				entry.Queued, entry.N, entry.NotSent = true, ev.Seq, m.NotSent
+				entry.NotSentCap, entry.RetrySends = m.NotSentCap, m.RetrySends
 			}
 			// P-114: the line under your message, while its signoff lasts.
 			if waits, _ := data["waits_signoff"].(bool); waits && inSignoff && ev.Seq > lastStep {

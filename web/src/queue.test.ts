@@ -31,12 +31,23 @@ test("B-101: the mark says what happens, in both languages", () => {
 });
 
 test("B-101: a message Go says was not sent says so and offers the retry, in both languages", () => {
-  assert.deepEqual(queuedMark(true), { key: "message.not_sent", retry: true });
-  assert.deepEqual(queuedMark(false), { key: "message.queued", retry: false });
-  assert.deepEqual(queuedMark(undefined), { key: "message.queued", retry: false });
+  assert.deepEqual(queuedMark({ not_sent: true, retry_sends: 1 }), { key: "message.not_sent", retry: "message.queued_retry", n: "1" });
+  assert.deepEqual(queuedMark({}), { key: "message.queued", retry: null, n: "0" });
   assert.equal(queuedRetryPath("p1", 7), "/api/projects/p1/messages/7/retry");
   assert.equal(en["message.not_sent"], "Not sent · the agent stopped before reading it");
   assert.equal(es["message.not_sent"], "No se envió · el agente se detuvo antes de leerlo");
   assert.equal(en["message.queued_retry"], "Retry");
   assert.equal(es["message.queued_retry"], "Reintentar");
+});
+
+test("B-101: with two or more waiting the retry says how many it sends", () => {
+  assert.deepEqual(queuedMark({ not_sent: true, retry_sends: 3 }), { key: "message.not_sent", retry: "message.queued_retry_many", n: "3" });
+  assert.equal(en["message.queued_retry_many"], "Retry · sends the {n} waiting");
+  assert.equal(es["message.queued_retry_many"], "Reintentar · envía los {n} que esperan");
+});
+
+test("B-101: at a spend cap the mark says so and offers no retry", () => {
+  assert.deepEqual(queuedMark({ not_sent: true, not_sent_cap: true, retry_sends: 2 }), { key: "message.not_sent_cap", retry: null, n: "2" });
+  assert.equal(en["message.not_sent_cap"], "Not sent · the spend cap was reached");
+  assert.equal(es["message.not_sent_cap"], "No se envió · se alcanzó el tope de gasto");
 });

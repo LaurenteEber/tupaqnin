@@ -116,16 +116,16 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
 
 // B-101: the mark under a message that waits, with «Edit» and «Remove», and «Retry»
 // when Go says no step will read it.
-function QueuedMark({ lang, projectID, n, text, notSent, readOnly, onChanged }: {
+function QueuedMark({ lang, projectID, n, text, entry, readOnly, onChanged }: {
   lang: Lang;
   projectID: string;
   n: number;
   text: string;
-  notSent?: boolean;
+  entry: ConversationEntry;
   readOnly?: boolean;
   onChanged?: (turnID?: string) => void;
 }) {
-  const t = (key: string) => translate(lang, key);
+  const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text);
   const [busy, setBusy] = useState(false);
@@ -161,10 +161,10 @@ function QueuedMark({ lang, projectID, n, text, notSent, readOnly, onChanged }: 
     }
   }
 
-  const mark = queuedMark(notSent);
+  const mark = queuedMark(entry);
   return (
     <div className="queued" role="status">
-      <span className={notSent ? "turn-error" : "meta"}>{t(mark.key)}</span>
+      <span className={entry.not_sent ? "turn-error" : "meta"}>{t(mark.key)}</span>
       {editing ? (
         <>
           <textarea aria-label={t("message.queued_edit")} value={draft} onChange={(e) => setDraft(e.target.value)} />
@@ -180,7 +180,7 @@ function QueuedMark({ lang, projectID, n, text, notSent, readOnly, onChanged }: 
           <>
             {mark.retry && (
               <button type="button" className="link" disabled={busy} onClick={() => void retry()}>
-                {t("message.queued_retry")}
+                {t(mark.retry, { n: mark.n })}
               </button>
             )}
             <button type="button" className="link" disabled={busy} onClick={() => { setDraft(text); setEditing(true); }}>
@@ -214,7 +214,7 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct,
         <>
           <div className="msg me">{entry.text}</div>
           {isQueued(entry) && (
-            <QueuedMark key={entry.n} lang={lang} projectID={projectID} n={entry.n ?? 0} text={entry.text ?? ""} notSent={entry.not_sent} readOnly={readOnly} onChanged={onQueueChanged} />
+            <QueuedMark key={entry.n} lang={lang} projectID={projectID} n={entry.n ?? 0} text={entry.text ?? ""} entry={entry} readOnly={readOnly} onChanged={onQueueChanged} />
           )}
           {entry.waits_signoff && <p className="meta" role="status">{t("message.waits_signoff")}</p>}
         </>

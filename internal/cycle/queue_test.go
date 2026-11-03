@@ -212,3 +212,113 @@ func TestB101_AfterAProviderFailureAQueuedMessageSaysItWasNotSentAndRetrySendsIt
 		t.Fatalf("retry after it entered: %v", err)
 	}
 }
+
+// A retry sends every message waiting, in order, and the mark says how many.
+func TestB101_ARetrySaysHowManyItSendsAndSendsThemInOrder(t *testing.T) {
+	down := errors.New("provider down")
+	hold := &holdProvider{kind: provider.TurnStep, at: 1, fail: map[int]error{}}
+	for n := 2; n <= 12; n++ {
+		hold.fail[n] = down
+	}
+	_, runner, cap, _ := newModeRunner(t, hold,
+		textFixture(t, pendingFigureStep), loadAppFixture(t, "04-principal-no-work.json"), loadAppFixture(t, "04-principal-no-work.json"))
+	ctx := context.Background()
+	if _, err := runner.StartTurn("p1", "Empieza."); err != nil {
+		t.Fatal(err)
+	}
+	<-hold.entered
+	messages := []string{"Primero esto.", "Después esto.", "Y al final esto."}
+	for _, m := range messages {
+		if _, err := runner.StartTurn("p1", m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	close(hold.release)
+	cycle.WaitTurnsForTest(runner)
+	queued, err := runner.QueuedMessages(ctx, "p1")
+	if err != nil || len(queued) != 3 {
+		t.Fatalf("after the failure: %+v %v", queued, err)
+	}
+	for _, m := range queued {
+		if !m.NotSent || m.RetrySends != 3 || m.NotSentCap {
+			t.Fatalf("each mark says the three: %+v", m)
+		}
+	}
+	calls := len(cap.sent)
+	hold.fail = nil
+	if _, err := runner.RetryQueuedMessage(ctx, "p1", queued[1].N); err != nil {
+		t.Fatal(err)
+	}
+	cycle.WaitTurnsForTest(runner)
+	sent := asJSON(t, cap.sent[calls])
+	first, second, third := strings.Index(sent, messages[0]), strings.Index(sent, messages[1]), strings.Index(sent, messages[2])
+	if first < 0 || second < first || third < second {
+		t.Fatalf("the step's order: %d %d %d", first, second, third)
+	}
+	if left, _ := runner.QueuedMessages(ctx, "p1"); len(left) != 0 {
+		t.Fatalf("still queued: %+v", left)
+	}
+}
+
+// One message waiting: the plain retry says no count.
+func TestB101_OneMessageWaitingRetrySendsOne(t *testing.T) {
+	hold := &holdProvider{kind: provider.TurnStep, at: 1, fail: map[int]error{}}
+	for n := 2; n <= 12; n++ {
+		hold.fail[n] = errors.New("provider down")
+	}
+	_, runner, _, _ := newModeRunner(t, hold, textFixture(t, pendingFigureStep))
+	if _, err := runner.StartTurn("p1", "Empieza."); err != nil {
+		t.Fatal(err)
+	}
+	<-hold.entered
+	if _, err := runner.StartTurn("p1", "Sola."); err != nil {
+		t.Fatal(err)
+	}
+	close(hold.release)
+	cycle.WaitTurnsForTest(runner)
+	queued, err := runner.QueuedMessages(context.Background(), "p1")
+	if err != nil || len(queued) != 1 || queued[0].RetrySends != 1 {
+		t.Fatalf("after the failure: %+v %v", queued, err)
+	}
+}
+
+// B3-20, B-89: a queue stranded at a spend cap says so, and a retry over the cap
+// stops at the cap: no call goes out and the message keeps waiting.
+func TestB101_AQueueStrandedAtACapSaysSoAndARetryCallsNoModel(t *testing.T) {
+	hold := &holdProvider{kind: provider.TurnStep, at: 1}
+	db, runner, cap, _ := newModeRunner(t, hold,
+		loadAppFixture(t, "04-principal-no-work.json"), loadAppFixture(t, "04-principal-no-work.json"))
+	ctx := context.Background()
+	if _, err := runner.StartTurn("p1", "Empieza."); err != nil {
+		t.Fatal(err)
+	}
+	<-hold.entered
+	const message = "Una cosa más."
+	if _, err := runner.StartTurn("p1", message); err != nil {
+		t.Fatal(err)
+	}
+	spend(t, db, "p1", 2.50) // the principal's reserve no longer fits
+	close(hold.release)
+	cycle.WaitTurnsForTest(runner)
+	queued, err := runner.QueuedMessages(ctx, "p1")
+	if err != nil || len(queued) != 1 || !queued[0].NotSent || !queued[0].NotSentCap {
+		t.Fatalf("at the cap: %+v %v, want it marked not sent by the cap", queued, err)
+	}
+	calls, reports := len(cap.sent), len(cap.reports)
+	spent, _ := db.ProjectSpend(ctx, "p1")
+	turn, err := runner.RetryQueuedMessage(ctx, "p1", queued[0].N)
+	if err != nil {
+		t.Fatalf("retry: %q %v", turn, err)
+	}
+	cycle.WaitTurnsForTest(runner)
+	if len(cap.sent) != calls || len(cap.reports) != reports {
+		t.Fatalf("calls after the retry: %d steps, %d reports; want %d, %d", len(cap.sent), len(cap.reports), calls, reports)
+	}
+	if after, _ := db.ProjectSpend(ctx, "p1"); after != spent {
+		t.Fatalf("spent %.4f, then %.4f: the stop spends nothing", spent, after)
+	}
+	left, err := runner.QueuedMessages(ctx, "p1")
+	if err != nil || len(left) != 1 || left[0].Text != message || !left[0].NotSentCap {
+		t.Fatalf("after the retry: %+v %v", left, err)
+	}
+}

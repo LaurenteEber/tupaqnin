@@ -459,7 +459,7 @@ export interface Entry {
    * Changes: on a text change of a correction batch, what left and entered in
    * this paragraph, with the flaw it answers (B-99).
    */
-  changes?: { n?: number; scenario?: string; out: string; in: string }[];
+  changes?: JudgeChange[];
 }
 /**
  * Entry kinds.
@@ -526,10 +526,25 @@ export interface OpenJudgeRound {
  * OpenFlaw is one flaw of an open judge round.
  */
 export interface OpenFlaw {
-  Section: string;
+  section?: string;
   N: number /* int */;
   Passage: string;
   Scenario: string;
+}
+
+//////////
+// source: judgechanges.go
+
+/**
+ * JudgeChange is one change of a correction batch (B-99): what left the text, what
+ * entered, and the flaw it answers in the judge's words. Both texts are literal
+ * (rule 8). Round, Seq and Section are for the app; the page never shows them.
+ */
+export interface JudgeChange {
+  n?: number /* int */;
+  scenario?: string;
+  out: string;
+  in: string;
 }
 
 //////////
@@ -632,6 +647,22 @@ export const ProposalFromPlan = "plan_confirmed";
  * Why a proposal was born (B-73, B-77).
  */
 export const ProposalFromDisplacement = "displaced";
+/**
+ * B-99: changes the app does not apply without you seeing them.
+ */
+export const ProposalRemovesHalf = "removes_half";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalRemovesSupport = "removes_support";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalBreaksSentence = "breaks_sentence";
+/**
+ * Why a proposal was born (B-73, B-77).
+ */
+export const ProposalRewritesSentenceEnd = "rewrites_sentence_end";
 /**
  * Why a proposal was discarded (B-75, B-76, B-73 d).
  */
@@ -1353,6 +1384,31 @@ export interface Compared {
   Text: string;
   Start: number /* int */[];
   End: number /* int */[];
+}
+
+//////////
+// source: unapplied.go
+
+/**
+ * UnappliedDecision is an answer of yours that changes a section's text and has
+ * not reached it (B-100): nothing of the agent touched the section since. It is
+ * computed from the history, so it survives a restart. Text is literal.
+ */
+export interface UnappliedDecision {
+  section: string;
+  title: string;
+  text: string;
+  reason: string;
+  /**
+   * Decision is the decision born from the answer; empty when an answer to a
+   * «por aclarar» made none.
+   */
+  decision?: string;
+  /**
+   * Ready: the section has no card or «por aclarar» of yours open, so the agent
+   * can apply it (one batch, not one step per answer).
+   */
+  ready: boolean;
 }
 
 //////////

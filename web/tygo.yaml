@@ -5,7 +5,10 @@ packages:
   - path: "github.com/LaurenteEber/tupaqnin/internal/server"
     output_path: "src/api/types.ts"
     frontmatter: |
-      import type { AudienceQuestion, Entry, OpenChange, Paragraph, Pending, Provenance, Warning } from "./graph";
+      import type { AudienceQuestion, Entry, JudgeChange, OpenChange, Paragraph, Pending, Provenance, Warning } from "./graph";
+    # access.go only holds CleanupEvery, a time.Duration tygo cannot write.
+    exclude_files:
+      - "access.go"
     type_mappings:
       time.Time: "string"
       graph.Entry: "Entry"
@@ -14,5 +17,6 @@ packages:
       graph.Paragraph: "Paragraph"
       graph.OpenChange: "OpenChange"
       graph.AudienceQuestion: "AudienceQuestion"
+      graph.JudgeChange: "JudgeChange"
       graph.Warning: "Warning"
     fallback_type: any

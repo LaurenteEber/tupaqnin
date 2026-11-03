@@ -538,8 +538,8 @@ func TestB101_ARetryFromTheConversationSendsAMessageThatWasNotSent(t *testing.T)
 			break
 		}
 	}
-	if mark == nil || !mark.Queued || !mark.NotSent || mark.N == 0 {
-		t.Fatalf("after the failure: %+v, want queued and not sent", mark)
+	if mark == nil || !mark.Queued || !mark.NotSent || mark.N == 0 || mark.RetrySends != 1 || mark.NotSentCap {
+		t.Fatalf("after the failure: %+v, want queued, not sent, one to retry, no cap", mark)
 	}
 	path := fmt.Sprintf("%s/messages/%d/retry", base, mark.N)
 	hold.failing.Store(false)

@@ -274,11 +274,15 @@ func (r *Runner) undeliveredMessages(ctx context.Context, projectID string) ([]s
 
 // QueuedMessage is a message of yours waiting for the next step (B-101): N is
 // its place in the history, which the page uses to edit or remove it. NotSent: no
-// step will read it unless you send something or retry (queueStranded).
+// step will read it unless you send something or retry (queueStranded); NotSentCap:
+// a spend cap is why, and a retry would stop there; RetrySends: how many a retry
+// sends, since a step takes the queue whole.
 type QueuedMessage struct {
-	N       int
-	Text    string
-	NotSent bool
+	N          int
+	Text       string
+	NotSent    bool
+	NotSentCap bool
+	RetrySends int
 }
 
 func (r *Runner) undelivered(ctx context.Context, projectID string) ([]QueuedMessage, error) {
@@ -377,8 +381,15 @@ func (r *Runner) QueuedMessages(ctx context.Context, projectID string) ([]Queued
 	if err != nil {
 		return nil, err
 	}
+	if !stranded {
+		return waiting, nil
+	}
+	stopped, err := r.StoppedBy(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 	for i := range waiting {
-		waiting[i].NotSent = stranded
+		waiting[i].NotSent, waiting[i].NotSentCap, waiting[i].RetrySends = true, stopped != "", len(waiting)
 	}
 	return waiting, nil
 }
