@@ -1,5 +1,5 @@
 import { atCapPendingKey } from "../decisionActs";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   askFromSignoff,
   getSignoff,
@@ -11,12 +11,15 @@ import {
 } from "../api/client";
 import type { SignoffView } from "../api/graph";
 import { modelName, translate, type Lang } from "../i18n";
+import { clearSignDraft, loadSignDraft, saveSignDraft, SIGN_DRAFT_DELAY_MS } from "../signDraft";
 import { HistoryPanel } from "./HistoryPanel";
 
 // P7 (backlog-r1 1.7): the signoff, full screen, without the frame and
 // without the text: you explain without looking (flujos §3). Go decides
 // what is missing, whether it coincides and whether you can sign; this
 // screen only shows it and sends your answers.
+const draftStore = () => window.sessionStorage;
+
 export function SignoffPanel({ lang, projectID, label, onClose }: {
   lang: Lang;
   projectID: string;
@@ -49,6 +52,21 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // C.10: what you wrote comes back when the signoff of this section opens, and
+  // stays in this tab while you write.
+  const section = view?.section ?? "";
+  const draftRead = useRef(false);
+  useEffect(() => {
+    if (!section || draftRead.current) return;
+    draftRead.current = true;
+    setExplanation(loadSignDraft(draftStore, projectID, section));
+  }, [projectID, section]);
+  useEffect(() => {
+    if (!section || !draftRead.current) return;
+    const timer = window.setTimeout(() => saveSignDraft(draftStore, projectID, section, explanation), SIGN_DRAFT_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [projectID, section, explanation]);
 
   function watch(turnID: string) {
     if (!turnID) {
@@ -85,6 +103,8 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
     setErrorCode("");
     try {
       setView(await signSignoff(projectID, label));
+      clearSignDraft(draftStore, projectID, section);
+      setExplanation("");
     } catch (e) {
       setErrorCode(e instanceof Error ? e.message : "internal");
       void reload();
@@ -92,6 +112,7 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
   }
 
   async function leave() {
+    if (draftRead.current) saveSignDraft(draftStore, projectID, section, explanation);
     try {
       await leaveSignoff(projectID, label);
     } catch {
@@ -219,7 +240,10 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
                 type="button"
                 className="primary small"
                 disabled={!active || contrasting || explanation.trim() === ""}
-                onClick={() => void run(() => postSignoffExplanation(projectID, label, explanation))}
+                onClick={() => {
+                  saveSignDraft(draftStore, projectID, section, explanation);
+                  void run(() => postSignoffExplanation(projectID, label, explanation));
+                }}
               >
                 {t("signoff.send_explanation")}
               </button>
