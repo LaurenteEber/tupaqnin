@@ -74,7 +74,11 @@ as a schema. Always include:
   document concludes or a criterion becomes `build`.
 - `closing_risk`: `none`, or one of the schema's closed list.
 - `reply`: only when the human's message asks something; null
-  otherwise.
+  otherwise. When the message reached you while you were working
+  (it comes after your last step, not as the start of a turn), do
+  not leave it unanswered: `reply` opens with «Respondo a tu mensaje:
+  «…»», with their words quoted literally, in the language of the
+  conversation.
 - `note`: a short note — what you tried, what you discarded, and
   what you plan to do next. It is kept whole; write it for a future
   instance of yourself that remembers nothing else.

@@ -72,8 +72,8 @@ func TestB72_PostRoundsCreatesTheRoundAndTakesTheTurnSlot(t *testing.T) {
 		t.Fatalf("started: %+v", started)
 	}
 	<-held.entered
-	if rec := do(t, h, http.MethodPost, base+"/messages", map[string]string{"text": "hola"}); rec.Code != http.StatusConflict {
-		t.Fatalf("message during the round: %d", rec.Code)
+	if rec := do(t, h, http.MethodPost, base+"/messages", map[string]string{"text": "hola"}); rec.Code != http.StatusAccepted {
+		t.Fatalf("message during the round: %d, want 202 queued (B-101)", rec.Code)
 	}
 	if rec := do(t, h, http.MethodPost, base+"/rounds", nil); rec.Code != http.StatusConflict {
 		t.Fatalf("second round: %d", rec.Code)

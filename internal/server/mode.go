@@ -91,8 +91,8 @@ func (s *Server) signoffClosed(ctx context.Context, projectID string) {
 	}
 }
 
-// writeTurnStarted answers a message: its turn, or «queued» with none when the
-// mode's running chain takes it (B-83).
+// writeTurnStarted answers a message: its turn, or «queued» with none when it
+// waits for the running turn (B-83, B-101).
 func writeTurnStarted(w http.ResponseWriter, turnID string) {
 	writeJSON(w, http.StatusAccepted, PostMessageResponse{TurnID: turnID, Queued: turnID == ""})
 }

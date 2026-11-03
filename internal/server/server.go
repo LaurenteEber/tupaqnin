@@ -288,6 +288,8 @@ func (s *Server) apiRoutes() []route {
 		{"PUT", "/api/projects/{projectID}/sections/{label}/details", s.putSectionDetails},
 		{"PUT", "/api/projects/{projectID}/sections/order", s.putSectionOrder},
 		{"POST", "/api/projects/{projectID}/messages", s.postMessage},
+		{"PUT", "/api/projects/{projectID}/messages/{n}", s.putQueuedMessage},
+		{"DELETE", "/api/projects/{projectID}/messages/{n}", s.deleteQueuedMessage},
 		{"GET", "/api/projects/{projectID}/todo", s.getTodo},
 		{"GET", "/api/projects/{projectID}/sections/{label}", s.getSection},
 		{"GET", "/api/projects/{projectID}/sections/{label}/history", s.getBlockHistory},

@@ -510,8 +510,9 @@ type humanMessage struct {
 // [EL DISEÑO NO LO DICE]: the event data fields are text and
 // response; table 1.3 names the content, not the field names.
 func humanMessages(events []store.Event) (answered []humanMessage, unanswered []string) {
+	withdrawn := store.WithdrawnMessages(events)
 	for _, ev := range events {
-		if ev.Type != store.EventHumanMessage {
+		if ev.Type != store.EventHumanMessage || withdrawn[ev.Seq] {
 			continue
 		}
 		var data map[string]any

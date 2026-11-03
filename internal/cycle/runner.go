@@ -131,6 +131,10 @@ type Runner struct {
 	turns sync.WaitGroup
 	// queues is what waits for each project's slot during the mode (4.4).
 	queues map[string]*modeQueue
+	// queueMu orders a step taking your queued messages with your edits of them
+	// (B-101); entering is what the running step took, by project and seq.
+	queueMu  sync.Mutex
+	entering map[string]map[int]bool
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -512,21 +516,14 @@ func newTurnID() (string, error) {
 // StartTurn registers a turn and runs it in the background,
 // returning its id at once (B-1). It is the server's TurnStarter.
 // A second turn for the same project is refused with
-// ErrTurnRunning while one is in flight; during the mode it queues instead
-// (B-83) and the answer has no turn id: the running chain takes it.
+// nothing while one is in flight: it queues instead (B-83, B-101) and the answer
+// has no turn id: the running chain takes it, or its release opens a turn.
 //
 // The turn runs on the runner's context and Close waits for it: the mode can
 // keep a chain running, in a turn you started, for as long as its cap.
 func (r *Runner) StartTurn(projectID, text string) (string, error) {
 	if !r.tryAcquireTurn(projectID) {
-		queued, err := r.queueMessage(projectID, text)
-		if err != nil {
-			return "", err
-		}
-		if queued {
-			return "", nil
-		}
-		return "", ErrTurnRunning
+		return "", r.queueMessage(projectID, text)
 	}
 	if !r.trackTurn() {
 		r.releaseTurn(projectID)
@@ -1201,6 +1198,7 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 	var lastText string
 	reason := StopStepLimit
 	judgeFailed := state.judgeFailed
+	defer r.doneQueued(projectID)
 	for n := 1; n <= MaxChainSteps; n++ {
 		mode, err := r.mode(ctx, projectID)
 		if err != nil {
@@ -1242,7 +1240,7 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		// no chain releases the slot for the wait of your edits to find it free,
 		// and the mode skips no check.
 		r.clearWake(projectID)
-		queued, err := r.undeliveredMessages(ctx, projectID)
+		queued, err := r.takeQueued(ctx, projectID)
 		if err != nil {
 			r.fail(projectID, turnID, "turn_failed")
 			return "", err
@@ -1355,6 +1353,7 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 			}
 			result, applied, outText, err = r.retryFullStep(ctx, projectID, turnID, delivered, retry)
 		}
+		r.doneQueued(projectID)
 		if capErr, ok := asCap(err); ok {
 			return "", r.stopAtCap(ctx, projectID, turnID, capErr)
 		}

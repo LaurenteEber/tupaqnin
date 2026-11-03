@@ -23,6 +23,10 @@ type ConversationEntry struct {
 	// the round; GET /rounds/{label} has its card).
 	Kind string `json:"kind"`
 	Text string `json:"text,omitempty"`
+	// Queued: on a message, it waits for the agent's next step (B-101), and N is
+	// what edits or removes it. Never shown.
+	Queued bool `json:"queued,omitempty"`
+	N      int  `json:"n,omitempty"`
 	// WaitsSignoff: on a message, the agent answers it when the signoff in
 	// progress ends (P-114).
 	WaitsSignoff bool   `json:"waits_signoff,omitempty"`
@@ -89,6 +93,18 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inSignoff := len(signing) > 0
+	withdrawn := store.WithdrawnMessages(events)
+	waiting := map[int]bool{}
+	if q, ok := s.starter.(MessageQueue); ok {
+		queued, err := q.QueuedMessages(r.Context(), projectID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
+		for _, m := range queued {
+			waiting[m.N] = true
+		}
+	}
 	out := []ConversationEntry{}
 	// The act of an answer the app refused (a card's «ok») is timed too, but you
 	// did not answer: it follows its answer_without_reason (P-115).
@@ -106,8 +122,13 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 		}
 		entry := ConversationEntry{CreatedAt: ev.CreatedAt}
 		switch {
+		case ev.Type == store.EventHumanMessage && withdrawn[ev.Seq]:
+			continue
 		case ev.Type == store.EventHumanMessage:
 			entry.Kind, entry.Text = "message", str(data, "text")
+			if waiting[ev.Seq] {
+				entry.Queued, entry.N = true, ev.Seq
+			}
 			// P-114: the line under your message, while its signoff lasts.
 			if waits, _ := data["waits_signoff"].(bool); waits && inSignoff && ev.Seq > lastStep {
 				entry.WaitsSignoff = true

@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { editQueuedMessage, removeQueuedMessage } from "../api/client";
+import { canSaveEdit, isQueued } from "../queue";
 import type { ReactNode } from "react";
 import type { StreamDelta } from "../api/client";
 import type { ConversationEntry } from "../api/types";
@@ -9,7 +12,11 @@ import { RoundCard } from "./RoundCard";
 // events), then the turn in flight as it streams. When a turn ends the
 // page refetches the history and drops the stream, so nothing shows
 // twice.
-export function ConversationPanel({ lang, projectID, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience, defensePreparing, onRoundAct }: {
+export function ConversationPanel({ lang, projectID, entries, requestText, working, stream, rawStream, errorCode, report, disabled, onAnswerAudience, defensePreparing, onRoundAct, readOnly, onQueueChanged }: {
+  // B-101: a queued message stays yours to change while the agent works, unless
+  // this tab is read-only; a change reads the conversation again.
+  readOnly?: boolean;
+  onQueueChanged?: () => void;
   lang: Lang;
   // The project, for a round's card (backlog-r3 3.2).
   projectID: string;
@@ -60,7 +67,7 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
         i === lastReport && report ? (
           <div key={`${e.created_at}-${i}`}>{report}</div>
         ) : (
-          <Entry key={`${e.created_at}-${i}`} lang={lang} projectID={projectID} entry={e} disabled={disabled} onAnswerAudience={onAnswerAudience} onRoundAct={onRoundAct} />
+          <Entry key={`${e.created_at}-${i}`} lang={lang} projectID={projectID} entry={e} disabled={disabled} onAnswerAudience={onAnswerAudience} onRoundAct={onRoundAct} readOnly={readOnly} onQueueChanged={onQueueChanged} />
         ),
       )}
 
@@ -105,7 +112,68 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
   );
 }
 
-function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct }: {
+// B-101: the mark under a message that waits, with «Edit» and «Remove».
+function QueuedMark({ lang, projectID, n, text, readOnly, onChanged }: {
+  lang: Lang;
+  projectID: string;
+  n: number;
+  text: string;
+  readOnly?: boolean;
+  onChanged?: () => void;
+}) {
+  const t = (key: string) => translate(lang, key);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(text);
+  const [busy, setBusy] = useState(false);
+  const [late, setLate] = useState(false);
+
+  async function act(run: () => Promise<void>) {
+    setBusy(true);
+    setLate(false);
+    try {
+      await run();
+      setEditing(false);
+    } catch {
+      setLate(true); // it entered a step meanwhile
+    } finally {
+      setBusy(false);
+      onChanged?.();
+    }
+  }
+
+  return (
+    <div className="queued" role="status">
+      <span className="meta">{t("message.queued")}</span>
+      {editing ? (
+        <>
+          <textarea aria-label={t("message.queued_edit")} value={draft} onChange={(e) => setDraft(e.target.value)} />
+          <button type="button" className="small" disabled={busy || !canSaveEdit(draft)} onClick={() => void act(() => editQueuedMessage(projectID, n, draft))}>
+            {t("message.queued_save")}
+          </button>
+          <button type="button" className="small" disabled={busy} onClick={() => setEditing(false)}>
+            {t("message.queued_cancel")}
+          </button>
+        </>
+      ) : (
+        !readOnly && (
+          <>
+            <button type="button" className="link" disabled={busy} onClick={() => { setDraft(text); setEditing(true); }}>
+              {t("message.queued_edit")}
+            </button>
+            <button type="button" className="link" disabled={busy} onClick={() => void act(() => removeQueuedMessage(projectID, n))}>
+              {t("message.queued_remove")}
+            </button>
+          </>
+        )
+      )}
+      {late && <span className="meta">{t("message.queued_late")}</span>}
+    </div>
+  );
+}
+
+function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct, readOnly, onQueueChanged }: {
+  readOnly?: boolean;
+  onQueueChanged?: () => void;
   lang: Lang;
   projectID: string;
   entry: ConversationEntry;
@@ -119,6 +187,9 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct 
       return (
         <>
           <div className="msg me">{entry.text}</div>
+          {isQueued(entry) && (
+            <QueuedMark key={entry.n} lang={lang} projectID={projectID} n={entry.n ?? 0} text={entry.text ?? ""} readOnly={readOnly} onChanged={onQueueChanged} />
+          )}
           {entry.waits_signoff && <p className="meta" role="status">{t("message.waits_signoff")}</p>}
         </>
       );

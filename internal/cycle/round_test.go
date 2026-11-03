@@ -408,7 +408,7 @@ func TestB65_ProjectCapStopsTheRoundBeforeItLaunches(t *testing.T) {
 
 // P-20: while the round runs, a message of yours gets turn_running (the
 // API answers 409).
-func TestP20_MessageWhileTheRoundRunsIsRefused(t *testing.T) {
+func TestP20_MessageWhileTheRoundRunsQueues(t *testing.T) {
 	step := discoverStep("too_much_to_read", "["+openAlexPart+"]")
 	fixtures := append(principalSteps(t, step), readerText(0, validReaderOutput, 0.001))
 	_, runner, g := newRoundRunner(t, false, fixtures...)
@@ -420,8 +420,8 @@ func TestP20_MessageWhileTheRoundRunsIsRefused(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("no reader call")
 	}
-	if _, err := runner.StartTurn("p1", "¿Y ahora?"); !errors.Is(err, cycle.ErrTurnRunning) {
-		t.Fatalf("message during the round: %v", err)
+	if turn, err := runner.StartTurn("p1", "¿Y ahora?"); err != nil || turn != "" {
+		t.Fatalf("message during the round: %q %v, want queued (B-101)", turn, err)
 	}
 	close(g.gate)
 	if err := <-done; err != nil {
@@ -559,8 +559,8 @@ func TestB72_StartRoundSetsReasonAndParts(t *testing.T) {
 		t.Fatalf("StartRound: %q %q %v", label, turnID, err)
 	}
 	<-g.entered
-	if _, err := runner.StartTurn("p1", "hola"); !errors.Is(err, cycle.ErrTurnRunning) {
-		t.Fatalf("message during the round: %v", err)
+	if turn, err := runner.StartTurn("p1", "hola"); err != nil || turn != "" {
+		t.Fatalf("message during the round: %q %v, want queued (B-101)", turn, err)
 	}
 	if _, _, err := runner.StartRound("p1"); !errors.Is(err, cycle.ErrTurnRunning) {
 		t.Fatalf("second round: %v", err)

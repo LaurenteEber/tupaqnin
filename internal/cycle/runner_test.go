@@ -363,10 +363,10 @@ func TestB7_SecondTurnWhileOneRunsIsRejectedPerProject(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("first turn never reached the provider")
 	}
-	// [EL DISEÑO NO LO DICE] one turn per project: the second is
+	// One turn per project: a message queues (B-101); a synchronous turn is
 	// rejected instead of running at the same time.
-	if _, err := runner.StartTurn("p1", "second"); !errors.Is(err, cycle.ErrTurnRunning) {
-		t.Fatalf("StartTurn 2: got %v, want ErrTurnRunning", err)
+	if turn, err := runner.StartTurn("p1", "second"); err != nil || turn != "" {
+		t.Fatalf("StartTurn 2: %q %v, want queued", turn, err)
 	}
 	if err := runner.RunTurn(context.Background(), "p1", "turn-x", "second"); !errors.Is(err, cycle.ErrTurnRunning) {
 		t.Fatalf("RunTurn while busy: got %v, want ErrTurnRunning", err)

@@ -299,6 +299,12 @@ export interface ConversationEntry {
   kind: string;
   text?: string;
   /**
+   * Queued: on a message, it waits for the agent's next step (B-101), and N is
+   * what edits or removes it. Never shown.
+   */
+  queued?: boolean;
+  n?: number /* int */;
+  /**
    * WaitsSignoff: on a message, the agent answers it when the signoff in
    * progress ends (P-114).
    */

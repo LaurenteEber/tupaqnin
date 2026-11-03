@@ -3,6 +3,7 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -275,9 +276,8 @@ func TestB86_EveryHandlerThatClosesASignoffSaysSo(t *testing.T) {
 	}
 }
 
-// What shares POST /messages: in the normal mode, with a turn running, it still
-// answers 409 turn_running.
-func TestB83_TheNormalModeStillAnswers409ToAMessageDuringATurn(t *testing.T) {
+// B-101: in the normal mode too, with a turn running, a message queues.
+func TestB101_TheNormalModeQueuesAMessageDuringATurn(t *testing.T) {
 	h, _, projectID, hold, _ := modeAPI(t, nil)
 	base := "/api/projects/" + projectID
 	rec := do(t, h, http.MethodPost, base+"/messages", map[string]string{"text": "Hola."})
@@ -285,8 +285,35 @@ func TestB83_TheNormalModeStillAnswers409ToAMessageDuringATurn(t *testing.T) {
 		t.Fatalf("first: %d", rec.Code)
 	}
 	<-hold.entered
-	if rec := do(t, h, http.MethodPost, base+"/messages", map[string]string{"text": "Otra."}); rec.Code != http.StatusConflict {
-		t.Fatalf("second: %d, want 409", rec.Code)
+	rec = do(t, h, http.MethodPost, base+"/messages", map[string]string{"text": "Otra."})
+	if rec.Code != http.StatusAccepted || !decode[server.PostMessageResponse](t, rec).Queued {
+		t.Fatalf("second: %d %s, want 202 queued", rec.Code, rec.Body)
+	}
+	entries := decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, base+"/conversation", nil))
+	var mark *server.ConversationEntry
+	for i := range entries {
+		if entries[i].Kind == "message" && entries[i].Text == "Otra." {
+			mark = &entries[i]
+		}
+	}
+	if mark == nil || !mark.Queued || mark.N == 0 {
+		t.Fatalf("the queued message in the conversation: %+v", mark)
+	}
+	path := fmt.Sprintf("%s/messages/%d", base, mark.N)
+	if rec := do(t, h, http.MethodPut, path, map[string]string{"text": " "}); rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty edit: %d, want 400", rec.Code)
+	}
+	if rec := do(t, h, http.MethodDelete, path, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("remove: %d, want 204", rec.Code)
+	}
+	if rec := do(t, h, http.MethodDelete, path, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("remove twice: %d, want 409", rec.Code)
+	}
+	entries = decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, base+"/conversation", nil))
+	for _, e := range entries {
+		if e.Text == "Otra." {
+			t.Fatal("a removed message still shows")
+		}
 	}
 	close(hold.release)
 }

@@ -739,9 +739,6 @@ func TestB83_TheNormalModeStillRefusesToSignDuringATurn(t *testing.T) {
 	if _, err := runner.RequestSignoff(context.Background(), "p1", "sec-1"); !errors.Is(err, cycle.ErrTurnRunning) {
 		t.Fatalf("RequestSignoff: %v, want turn_running", err)
 	}
-	if _, err := runner.StartTurn("p1", "hola"); !errors.Is(err, cycle.ErrTurnRunning) {
-		t.Fatalf("StartTurn: %v, want turn_running", err)
-	}
 }
 
 // B-84: a step that only leaves what is yours «por aclarar» does not end the mode.

@@ -454,3 +454,21 @@ func (tx *Tx) EndEdge(edgeID string, ev EventInput) error {
 	_, err = tx.AppendEvent(edgeEvent(ev, "superseded", old))
 	return err
 }
+
+// WithdrawnMessages are the human_message events you took back while queued
+// (B-101), by seq: everything that reads your messages skips them.
+func WithdrawnMessages(events []Event) map[int]bool {
+	out := map[int]bool{}
+	for _, ev := range events {
+		if ev.Type != EventMessageWithdrawn {
+			continue
+		}
+		var data struct {
+			Message int `json:"message"`
+		}
+		if json.Unmarshal(ev.Data, &data) == nil {
+			out[data.Message] = true
+		}
+	}
+	return out
+}

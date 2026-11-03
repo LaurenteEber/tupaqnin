@@ -40,6 +40,8 @@ var (
 	ErrSignoffQueued = errors.New("cycle: the signoff is queued until the running step ends")
 	// ErrInvalidMode is a mode that is neither normal nor run_to_completion.
 	ErrInvalidMode = errors.New("cycle: invalid mode")
+	// ErrMessageNotQueued: the message already entered a step, or never waited (B-101).
+	ErrMessageNotQueued = errors.New("cycle: the message is no longer queued")
 	// ErrRunnerClosed is a turn asked for after Close.
 	ErrRunnerClosed = errors.New("cycle: the runner is closed")
 )
@@ -205,14 +207,11 @@ func (r *Runner) logTurnFailure(err error) {
 	}
 }
 
-// queueMessage queues a message sent while the slot is taken, when the mode is
-// on (B-83): human_message now, in literal, so you see it and it survives, and
-// into the next step. false: the mode is off and the caller refuses it.
-func (r *Runner) queueMessage(projectID, text string) (bool, error) {
-	mode, err := r.mode(r.ctx, projectID)
-	if err != nil || !mode.On() {
-		return false, err
-	}
+// queueMessage queues a message sent while the slot is taken (B-83, and B-101 in
+// the normal mode too): human_message now, in literal, so you see it and it
+// survives, and into the next step; if the chain ends first, its release opens
+// a turn with it.
+func (r *Runner) queueMessage(projectID, text string) error {
 	r.mu.Lock()
 	turnID := ""
 	if q := r.queues[projectID]; q != nil {
@@ -220,7 +219,7 @@ func (r *Runner) queueMessage(projectID, text string) (bool, error) {
 	}
 	r.mu.Unlock()
 	if err := r.writeQueuedMessage(projectID, turnID, text); err != nil {
-		return false, err
+		return err
 	}
 	r.mu.Lock()
 	r.queueOf(projectID).wake = true
@@ -233,7 +232,7 @@ func (r *Runner) queueMessage(projectID, text string) (bool, error) {
 	if free {
 		go r.runHandoff(projectID)
 	}
-	return true, nil
+	return nil
 }
 
 // writeQueuedMessage is your queued message in the history, in literal. Over the
@@ -260,14 +259,34 @@ func (r *Runner) writeQueuedMessage(projectID, turnID, text string) error {
 // loses none and none enters twice. A startup's «Your unanswered message» lines
 // count as delivered; that it repeats the first as its task does not.
 func (r *Runner) undeliveredMessages(ctx context.Context, projectID string) ([]string, error) {
+	queued, err := r.undelivered(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, m := range queued {
+		out = append(out, m.Text)
+	}
+	return out, nil
+}
+
+// QueuedMessage is a message of yours waiting for the next step (B-101): N is
+// its place in the history, which the page uses to edit or remove it.
+type QueuedMessage struct {
+	N    int
+	Text string
+}
+
+func (r *Runner) undelivered(ctx context.Context, projectID string) ([]QueuedMessage, error) {
 	events, err := r.db.EventsSince(ctx, projectID, 0)
 	if err != nil {
 		return nil, err
 	}
-	var queued []string
+	var queued []QueuedMessage
 	sent := map[string]int{} // every unanswered message of yours, by text
+	withdrawn := store.WithdrawnMessages(events)
 	for _, ev := range events {
-		if ev.Type != store.EventHumanMessage {
+		if ev.Type != store.EventHumanMessage || withdrawn[ev.Seq] {
 			continue
 		}
 		var data struct {
@@ -280,7 +299,7 @@ func (r *Runner) undeliveredMessages(ctx context.Context, projectID string) ([]s
 		}
 		sent[data.Text]++
 		if data.Queued {
-			queued = append(queued, data.Text)
+			queued = append(queued, QueuedMessage{N: ev.Seq, Text: data.Text})
 		}
 	}
 	if len(queued) == 0 {
@@ -297,18 +316,102 @@ func (r *Runner) undeliveredMessages(ctx context.Context, projectID string) ([]s
 		}
 	}
 	missing := map[string]int{}
-	for _, text := range queued {
-		missing[text] = min(missing[text]+1, sent[text]-deliveredCount(items, text))
+	for _, m := range queued {
+		missing[m.Text] = min(missing[m.Text]+1, sent[m.Text]-deliveredCount(items, m.Text))
 	}
-	var out []string
+	var out []QueuedMessage
 	for i := len(queued) - 1; i >= 0; i-- { // the last ones of an equal text are the new ones
-		if missing[queued[i]] > 0 {
-			missing[queued[i]]--
+		if missing[queued[i].Text] > 0 {
+			missing[queued[i].Text]--
 			out = append(out, queued[i])
 		}
 	}
 	slices.Reverse(out)
 	return out, nil
+}
+
+// takeQueued reads what enters the step about to run and marks it as entering:
+// from here on it can no longer be edited or removed, though it only counts as
+// delivered when the call is recorded, once the model answered.
+func (r *Runner) takeQueued(ctx context.Context, projectID string) ([]string, error) {
+	r.queueMu.Lock()
+	defer r.queueMu.Unlock()
+	queued, err := r.undelivered(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	entering := map[int]bool{}
+	var out []string
+	for _, m := range queued {
+		entering[m.N] = true
+		out = append(out, m.Text)
+	}
+	if r.entering == nil {
+		r.entering = map[string]map[int]bool{}
+	}
+	r.entering[projectID] = entering
+	return out, nil
+}
+
+// doneQueued: the step's call ended. What it delivered no longer shows as queued;
+// what a failed call did not deliver waits again.
+func (r *Runner) doneQueued(projectID string) {
+	r.queueMu.Lock()
+	defer r.queueMu.Unlock()
+	delete(r.entering, projectID)
+}
+
+// QueuedMessages are the messages still waiting: yours to edit or remove (B-101).
+func (r *Runner) QueuedMessages(ctx context.Context, projectID string) ([]QueuedMessage, error) {
+	r.queueMu.Lock()
+	defer r.queueMu.Unlock()
+	return r.waitingMessages(ctx, projectID)
+}
+
+// waitingMessages: queueMu is held.
+func (r *Runner) waitingMessages(ctx context.Context, projectID string) ([]QueuedMessage, error) {
+	queued, err := r.undelivered(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	entering := r.entering[projectID]
+	return slices.DeleteFunc(queued, func(m QueuedMessage) bool { return entering[m.N] }), nil
+}
+
+// WithdrawQueuedMessage takes back a message still waiting: it never enters a
+// step. ErrMessageNotQueued when it already did, or never waited.
+func (r *Runner) WithdrawQueuedMessage(ctx context.Context, projectID string, n int) error {
+	return r.changeQueued(ctx, projectID, n, func(tx *store.Tx) error { return nil })
+}
+
+// EditQueuedMessage replaces a message still waiting by your new text.
+// [EL DISEÑO NO LO DICE]: history only grows, so an edit is the old one withdrawn
+// and a new one queued, in one transaction; it moves to the end of the queue.
+func (r *Runner) EditQueuedMessage(ctx context.Context, projectID string, n int, text string) error {
+	return r.changeQueued(ctx, projectID, n, func(tx *store.Tx) error {
+		_, err := tx.AppendEvent(store.EventInput{Type: store.EventHumanMessage, Actor: "human",
+			Data: map[string]any{"text": text, "queued": true}})
+		return err
+	})
+}
+
+func (r *Runner) changeQueued(ctx context.Context, projectID string, n int, then func(*store.Tx) error) error {
+	r.queueMu.Lock()
+	defer r.queueMu.Unlock()
+	waiting, err := r.waitingMessages(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if !slices.ContainsFunc(waiting, func(m QueuedMessage) bool { return m.N == n }) {
+		return ErrMessageNotQueued
+	}
+	return r.db.Write(ctx, projectID, func(tx *store.Tx) error {
+		if _, err := tx.AppendEvent(store.EventInput{Type: store.EventMessageWithdrawn, Actor: "human",
+			Data: map[string]any{"message": n}}); err != nil {
+			return err
+		}
+		return then(tx)
+	})
 }
 
 // deliveredCount is how many times a message of yours entered the conversation:

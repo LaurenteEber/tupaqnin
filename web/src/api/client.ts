@@ -1,5 +1,6 @@
 import { saveRequest } from "../saveStatus";
 import { editorReleaseRequest, readTabId } from "../tab";
+import { queuedEditRequest, queuedMessagePath, queuedRemoveRequest } from "../queue";
 import type {
   UndoResponse,
   RoundCard,
@@ -644,6 +645,18 @@ export async function putMode(projectID: string, mode: string, message: string):
       body: JSON.stringify({ mode, message }),
     }),
   );
+}
+
+// B-101: a message still queued takes your new text, or goes away. Go answers
+// 409 once it entered a step.
+export async function editQueuedMessage(projectID: string, n: number, text: string): Promise<void> {
+  const res = await fetch(queuedMessagePath(projectID, n), queuedEditRequest(text));
+  if (!res.ok) throw new Error(`http_${res.status}`);
+}
+
+export async function removeQueuedMessage(projectID: string, n: number): Promise<void> {
+  const res = await fetch(queuedMessagePath(projectID, n), queuedRemoveRequest());
+  if (!res.ok) throw new Error(`http_${res.status}`);
 }
 
 export async function postMessage(

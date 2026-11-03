@@ -189,6 +189,10 @@ const (
 	// EventFlawDiscarded: «No aplica» on one of the judge's flaws, before
 	// the correction batch starts (backlog-r3 3.6, B-67).
 	EventFlawDiscarded EventType = "flaw_discarded"
+	// EventMessageWithdrawn: you took back a queued message before it entered a
+	// step (B-101). History only grows: the message stays, and this says it does
+	// not count. Its data names the human_message's seq.
+	EventMessageWithdrawn EventType = "message_withdrawn"
 )
 
 // Valid reports whether t is one of the table 1.3 event types.
@@ -201,7 +205,7 @@ func (t EventType) Valid() bool {
 		EventSourceNewVersion, EventRoleChanged, EventAudienceChanged,
 		EventEdge, EventAnswerWithoutReason, EventActTimed, EventMarkedCritical,
 		EventProbe, EventStartup, EventOutputRetry, EventSectionDetailsChanged, EventClaimAccepted,
-		EventPlanConfirmed, EventStopReportSeen, EventFlawDiscarded:
+		EventPlanConfirmed, EventStopReportSeen, EventFlawDiscarded, EventMessageWithdrawn:
 		return true
 	default:
 		return false

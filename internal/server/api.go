@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/LaurenteEber/tupaqnin/internal/checks"
@@ -475,8 +477,8 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	turnID, err := s.starter.StartTurn(projectID, req.Text)
-	// [EL DISEÑO NO LO DICE] One turn per project: a message sent
-	// while a turn runs is refused with 409 turn_running.
+	// One turn per project: a message sent while a turn runs queues (B-101); only
+	// a starter that refuses it answers 409 turn_running.
 	if errors.Is(err, cycle.ErrTurnRunning) {
 		writeError(w, http.StatusConflict, "turn_running")
 		return
@@ -486,4 +488,61 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeTurnStarted(w, turnID)
+}
+
+// MessageQueue is your messages waiting for the next step (B-101); the runner does.
+type MessageQueue interface {
+	QueuedMessages(ctx context.Context, projectID string) ([]cycle.QueuedMessage, error)
+	EditQueuedMessage(ctx context.Context, projectID string, n int, text string) error
+	WithdrawQueuedMessage(ctx context.Context, projectID string, n int) error
+}
+
+// PUT /api/projects/{projectID}/messages/{n} with {text}: a message still queued
+// takes your new text (B-101); 409 message_not_queued once it entered a step.
+func (s *Server) putQueuedMessage(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	var req PostMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body")
+		return
+	}
+	if strings.TrimSpace(req.Text) == "" {
+		writeError(w, http.StatusBadRequest, "empty_message")
+		return
+	}
+	s.changeQueuedMessage(w, r, func(q MessageQueue, n int) error {
+		return q.EditQueuedMessage(r.Context(), projectID, n, req.Text)
+	})
+}
+
+// DELETE /api/projects/{projectID}/messages/{n}: a message still queued is taken
+// back and never reaches the agent (B-101).
+func (s *Server) deleteQueuedMessage(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	s.changeQueuedMessage(w, r, func(q MessageQueue, n int) error {
+		return q.WithdrawQueuedMessage(r.Context(), projectID, n)
+	})
+}
+
+func (s *Server) changeQueuedMessage(w http.ResponseWriter, r *http.Request, change func(MessageQueue, int) error) {
+	n, err := strconv.Atoi(r.PathValue("n"))
+	q, ok := s.starter.(MessageQueue)
+	if err != nil || !ok {
+		writeError(w, http.StatusConflict, "message_not_queued")
+		return
+	}
+	switch err := change(q, n); {
+	case errors.Is(err, cycle.ErrMessageNotQueued):
+		writeError(w, http.StatusConflict, "message_not_queued")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal")
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

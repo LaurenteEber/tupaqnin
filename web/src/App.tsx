@@ -56,6 +56,7 @@ import { createErrorKey } from "./home";
 import { initialLang, translate, type Lang } from "./i18n";
 import { takeOverResult, type TakeOverResult } from "./tab";
 import { projectHash, readProjectHash, saveLang } from "./route";
+import { isQueued } from "./queue";
 import {
   IDLE_ACTIVITY,
   SUMMARY_POLL_MS,
@@ -119,7 +120,6 @@ export function App() {
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const watchedTurn = useRef("");
   const activeProject = useRef("");
-  const [messageQueued, setMessageQueued] = useState(false);
   const [signQueued, setSignQueued] = useState(false);
   const [historyBlockValue, setHistoryBlockValue] = useState(0);
   // A decision that covers no figure: its own history (P-41), opened
@@ -187,16 +187,20 @@ export function App() {
   // B-83: with the mode on and nothing followed, the app may open a chain when a
   // holder that is no chain ends: ask until it does or the mode ends.
   // [EL DISEÑO NO LO DICE]: how the page learns it: the summary, every 3 s.
+  // B-101: the same with a message of yours waiting, in the normal mode: a turn may
+  // open with it, and its mark goes when it enters a step.
   const modeOn = summary?.mode === "run_to_completion";
+  const messageWaits = conversation.some(isQueued);
   useEffect(() => {
-    if (!projectID || !modeOn || working) return;
+    if (!projectID || (!modeOn && !messageWaits) || working) return;
     const timer = window.setInterval(() => {
       void getSummary(projectID).then((s) => {
         if (activeProject.current === projectID) applySummary(s);
       });
+      if (messageWaits) void refreshConversation(projectID);
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [projectID, modeOn, working]);
+  }, [projectID, modeOn, messageWaits, working]);
 
   useEffect(() => {
     if (!projectID) return;
@@ -337,6 +341,7 @@ export function App() {
         if (startsStep(delta)) {
           void refreshSections(projectID);
           refreshSummary(projectID);
+          void refreshConversation(projectID); // a queued message that entered (B-101)
         }
         // B-64: a round started: its card shows in the conversation.
         const round = roundStarted(delta);
@@ -364,7 +369,6 @@ export function App() {
       },
       onStep: (payload) => {
         setWorking(false);
-        setMessageQueued(false);
         // The ended turn is now in the history: read it back and drop
         // the stream, so it does not show twice (U-5). The
         // understanding may have titled the project (U-1).
@@ -682,9 +686,8 @@ export function App() {
   async function send(text: string, fromReport = false): Promise<boolean> {
     if (!projectID) return false;
     await saveRef.current(); // always save before sending (§2)
-    // During the mode the running step's stream stays on screen (B-83).
-    const running = working && summary?.mode === "run_to_completion";
-    if (!running) clearStream();
+    // With a turn running the message queues, and its stream stays on screen (B-83, B-101).
+    if (!working) clearStream();
     setErrorCode("");
     let turn_id: string;
     let queued: boolean | undefined;
@@ -698,7 +701,6 @@ export function App() {
       return false;
     }
     void refreshConversation(projectID); // your message, from the history
-    setMessageQueued(Boolean(queued));
     if (!queued) watchTurn(turn_id);
     return true;
   }
@@ -974,6 +976,8 @@ export function App() {
                       if (turnID) watchTurn(turnID);
                     }}
                     disabled={!editor || working}
+                    readOnly={!editor}
+                    onQueueChanged={() => void refreshConversation(projectID)}
                     onAnswerAudience={(label, answer) => {
                       // P-86: the question keeps showing with its new state.
                       void answerAudienceQuestion(projectID, label, answer)
@@ -1188,7 +1192,6 @@ export function App() {
           <div className="composer">
             <div className="composer-box">
               <MessageInput lang={lang} disabled={!projectID || !editor} onSend={send} />
-              {messageQueued && <span className="hint" role="status">{t("message.queued")}</span>}
               <span className="hint">{t("chat.decisions_hint")}</span>
             </div>
           </div>
