@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { closedKey, proposalsTarget, proposalsToShow, turnToWatch } from "./proposals.ts";
+import { closedKey, heldBackKey, proposalsTarget, proposalsToShow, turnToWatch } from "./proposals.ts";
 import type { ProposalView } from "./api/graph";
 
 const catalog = (lang: string): Record<string, string> =>
@@ -46,4 +46,17 @@ test("the new step's turn goes to watchTurn, like every turn the page shows (B-7
   assert.match(panel, /onChanged\(turnToWatch\(/);
   const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
   assert.match(app, /function proposalActed\(turn: string\) \{[^}]*if \(turn\) watchTurn\(turn\)/s);
+});
+
+test("B-99: a proposal the app held back says why, in both languages", async () => {
+  const en = (await import("./i18n/en.json", { with: { type: "json" } })).default as Record<string, string>;
+  const es = (await import("./i18n/es.json", { with: { type: "json" } })).default as Record<string, string>;
+  for (const why of ["removes_half", "removes_support", "breaks_sentence", "rewrites_sentence_end"]) {
+    const key = heldBackKey({ why, state: "open" });
+    assert.equal(key, `proposal.state.${why}`);
+    assert.ok(en[key], key);
+    assert.ok(es[key], key);
+  }
+  assert.equal(heldBackKey({ why: "your_edit", state: "open" }), "");
+  assert.equal(heldBackKey({ why: "removes_half", state: "accepted" }), "");
 });

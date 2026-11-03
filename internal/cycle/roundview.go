@@ -66,6 +66,10 @@ type RoundView struct {
 	Flaws        []FlawView `json:"flaws,omitempty"`
 	LateFlaws    []FlawView `json:"late_flaws,omitempty"`
 	BatchStarted bool       `json:"batch_started,omitempty"`
+	// Changes and Proposed are what the correction batch did (B-99): each change
+	// with its flaw, and how many sections it left as proposals.
+	Changes  []graph.JudgeChange `json:"changes,omitempty"`
+	Proposed int                 `json:"proposed,omitempty"`
 }
 
 // RoundPartView is one reader of the card.

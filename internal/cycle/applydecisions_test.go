@@ -168,7 +168,7 @@ func TestB100_OnASignedSectionTheStepLeavesAProposal(t *testing.T) {
 	for _, ev := range eventsOfType(t, db, store.EventStateChanged) {
 		var d map[string]any
 		_ = json.Unmarshal(ev.Data, &d)
-		if d["section"] == "sec-1" && d["to"] == "open" {
+		if ev.Actor == "agent" && d["section"] == "sec-1" && d["to"] == "open" {
 			proposals++
 		}
 	}

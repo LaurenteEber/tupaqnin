@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { discardFlaw } from "../api/client";
 import type { RoundCard as RoundCardView } from "../api/types";
-import { flawOutcomeKey, offersNotApplicable, triageKey } from "../judge";
+import { correctionSummary, flawOutcomeKey, offersNotApplicable, triageKey } from "../judge";
 import { numberLocale, translate, type Lang } from "../i18n";
 
 // A judge round in the conversation (backlog-r3 3.6, B-67; pantallas
@@ -78,6 +78,26 @@ export function JudgeCard({ lang, projectID, card, reload }: {
             })}
           </ul>
         </>
+      )}
+      {/* B-99: what the correction did, each change beside the flaw it answers. */}
+      {(card.changes?.length ?? 0) + (card.proposed ?? 0) > 0 && (
+        <details className="judge-changes">
+          <summary>
+            {t(correctionSummary(card).found === 1 ? "judge.corrected_one" : "judge.corrected", { found: String(correctionSummary(card).found), corrected: String(correctionSummary(card).corrected), section })}
+            {" · "}
+            <span className="link">{t("judge.see_changes")}</span>
+          </summary>
+          {(card.proposed ?? 0) > 0 && <p className="meta">{t("judge.corrected_proposed")}</p>}
+          <ul>
+            {card.changes?.map((c, i) => (
+              <li key={i}>
+                {c.scenario && <p className="meta">{t("judge.change_flaw")}: {c.scenario}</p>}
+                <p><b>{t("proposal.leaves")}:</b> «{c.out}»</p>
+                <p><b>{t("proposal.enters")}:</b> {c.in ? <>«{c.in}»</> : t("judge.change_nothing")}</p>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
       {late.length > 0 && (
         <details>

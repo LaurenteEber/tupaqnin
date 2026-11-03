@@ -25,6 +25,11 @@ const (
 	ProposalFromSignoff      = "in_signoff"
 	ProposalFromPlan         = "plan_confirmed"
 	ProposalFromDisplacement = "displaced"
+	// B-99: changes the app does not apply without you seeing them.
+	ProposalRemovesHalf         = "removes_half"
+	ProposalRemovesSupport      = "removes_support"
+	ProposalBreaksSentence      = "breaks_sentence"
+	ProposalRewritesSentenceEnd = "rewrites_sentence_end"
 )
 
 // Why a proposal was discarded (B-75, B-76, B-73 d).

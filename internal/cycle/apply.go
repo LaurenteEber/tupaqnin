@@ -280,6 +280,8 @@ var beforeApplyWrite = func() {}
 // project is what ApplyStep reads before the write: the label
 // translation (only in graph, rule 7 of AGENTS) and current objects.
 type project struct {
+	// inJudgeBatch: this step is a correction batch (B-99).
+	inJudgeBatch bool
 	// stretch and reclassified are what rule 0 settled when applying.
 	stretch      string
 	reclassified []string
@@ -349,13 +351,20 @@ func (g *Gate) loadProject(ctx context.Context, projectID string) (*project, err
 		return nil, err
 	}
 	yourEdits := map[string]int{}
+	inBatch := false // B-99: a batch started and its step did not end yet (K-4)
 	for _, ev := range events {
 		yours := ev.Type == store.EventEdit && ev.Actor == "human" || ev.Type == store.EventEditUndone
 		if yours && ev.NewVersion > yourEdits[ev.ObjectID] {
 			yourEdits[ev.ObjectID] = ev.NewVersion
 		}
+		switch {
+		case ev.Type == store.EventStepEnded:
+			inBatch = false
+		case ev.Type == store.EventStateChanged && strings.Contains(string(ev.Data), `"batch_started":true`):
+			inBatch = true
+		}
 	}
-	p := &project{labels: labeler, byID: make(map[string]store.Object, len(objects)), yourEdits: yourEdits,
+	p := &project{inJudgeBatch: inBatch, labels: labeler, byID: make(map[string]store.Object, len(objects)), yourEdits: yourEdits,
 		edgesOut: make(map[string][]store.Edge), inSignoff: inSignoff, planConfirmed: planConfirmed}
 	p.versionText = func(id string, version int) (string, bool) {
 		versions, err := g.db.Versions(ctx, projectID, id)
@@ -758,17 +767,32 @@ func (p *project) validate(out stepOutput) (*plan, []string) {
 			}
 			e.start, e.end = found[0][0], found[0][1]
 			if item.Operation == "insert_after" {
+				// B-99: an insertion in the middle of a sentence is rejected, and the
+				// agent retries (as B-11).
+				if !endsSentenceAt(sp.base, e.end) {
+					fail(path+"/anchor", "the anchor does not end a sentence in %s; insert after a whole sentence", item.SectionID)
+					continue
+				}
 				e.start = e.end
 			}
 		}
 		sp.edits = append(sp.edits, e)
 	}
+	direct := pl.sections[:0]
 	for _, sp := range pl.sections {
 		if msg := overlap(sp); msg != "" {
 			fail("/new_text", "%s", msg)
 		}
 		sp.result = applyEdits(sp.base, sp.edits)
+		// B-99: what is drastic or breaks the text waits for you, as a proposal.
+		if why := p.drasticWhy(sp); why != "" {
+			sp.why = why
+			pl.proposals = append(pl.proposals, sp)
+			continue
+		}
+		direct = append(direct, sp)
 	}
+	pl.sections = direct
 	for _, sp := range pl.proposals {
 		if msg := overlap(sp); msg != "" {
 			fail("/new_text", "%s", msg)

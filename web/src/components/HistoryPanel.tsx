@@ -160,6 +160,13 @@ export function HistoryPanel({ lang, projectID, label, name, block, decision, on
             {e.kind === "text_change" ? (
               <span>
                 {localTime(e.at, lang)} · {t(`history.text_change.${e.actor}`)}
+                {/* B-99: the correction's change, with the flaw it answers. */}
+                {e.changes?.map((c, n) => (
+                  <span key={n} className="meta" style={{ display: "block" }}>
+                    {c.scenario && <>{t("judge.change_flaw")}: {c.scenario} · </>}
+                    {t("proposal.leaves")}: «{c.out}» · {t("proposal.enters")}: {c.in ? <>«{c.in}»</> : t("judge.change_nothing")}
+                  </span>
+                ))}
               </span>
             ) : e.kind === "datum" ? (
               e.datum && (

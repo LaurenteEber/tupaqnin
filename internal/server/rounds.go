@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -102,6 +103,9 @@ type RoundCard struct {
 	Flaws        []RoundFlaw `json:"flaws,omitempty"`
 	LateFlaws    []RoundFlaw `json:"late_flaws,omitempty"`
 	BatchStarted bool        `json:"batch_started,omitempty"`
+	// Changes and Proposed are what the correction batch did (B-99).
+	Changes  []graph.JudgeChange `json:"changes,omitempty"`
+	Proposed int                 `json:"proposed,omitempty"`
 }
 
 // RoundFlaw is one of the judge's flaws (cycle.FlawView): its number, the
@@ -269,6 +273,7 @@ func roundCard(v cycle.RoundView) RoundCard {
 		c.Section = &SectionRef{Label: v.Section, Title: v.SectionTitle}
 	}
 	c.Reason, c.Risks, c.JudgeStatus, c.BatchStarted = v.Reason, v.Risks, v.JudgeStatus, v.BatchStarted
+	c.Changes, c.Proposed = v.Changes, v.Proposed
 	c.Flaws, c.LateFlaws = roundFlaws(v.Flaws), roundFlaws(v.LateFlaws)
 	if v.Repeat != nil {
 		c.Repeat = &RoundRepeat{EstimatedCostUSD: v.Repeat.EstimatedCostUSD}

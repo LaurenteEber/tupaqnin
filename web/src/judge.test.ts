@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { flawOutcomeKey, offersNotApplicable, triageKey } from "./judge.ts";
+import { correctionSummary } from "./judge.ts";
 import { auditErrorCode, invitesRetry, roundErrorCode, roundKeepsPolling, sendErrorCode } from "./live.ts";
 
 const open = { state: "open", batch_started: false };
@@ -112,4 +113,10 @@ test("P-111: the report names the agent's pendings", () => {
     const catalog = JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"));
     assert.ok(catalog["stop_report.agent_pendings"], lang);
   }
+});
+
+test("B-99: the card says how many flaws were found and how many got a change", () => {
+  const card = { flaws: [{ n: 1 }, { n: 2 }, { n: 3 }], changes: [{ n: 1 }, { n: 3 }, { n: 3 }, {}] };
+  assert.deepEqual(correctionSummary(card), { found: 3, corrected: 2 });
+  assert.deepEqual(correctionSummary({}), { found: 0, corrected: 0 });
 });

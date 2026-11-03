@@ -21,3 +21,10 @@ export function flawOutcomeKey(flaw: { discarded?: boolean; verdict?: string }):
   if (flaw.discarded) return "judge.outcome.discarded";
   return flaw.verdict ? `judge.outcome.${flaw.verdict}` : "";
 }
+
+// B-99: the card's line: how many flaws the judge found and how many got a change.
+export function correctionSummary(card: { flaws?: { n: number; discarded?: boolean }[]; changes?: { n?: number }[] }): { found: number; corrected: number } {
+  const flaws = card.flaws ?? [];
+  const answered = new Set((card.changes ?? []).map((c) => c.n).filter((n) => n !== undefined));
+  return { found: flaws.length, corrected: flaws.filter((f) => answered.has(f.n)).length };
+}

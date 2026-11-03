@@ -1308,5 +1308,19 @@ func (r *Runner) judgeView(ctx context.Context, projectID string, body RoundBody
 	for _, f := range body.LateFlaws {
 		v.LateFlaws = append(v.LateFlaws, view(f))
 	}
+	round, err := r.db.GetObject(ctx, projectID, v.Label)
+	if err != nil {
+		return err
+	}
+	changes, proposed, err := graph.JudgeCorrections(ctx, r.db, projectID)
+	if err != nil {
+		return err
+	}
+	for _, c := range changes {
+		if c.Round == round.ID {
+			v.Changes = append(v.Changes, c)
+		}
+	}
+	v.Proposed = proposed[round.ID]
 	return nil
 }

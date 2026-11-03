@@ -135,8 +135,8 @@ type Runner struct {
 	// (B-101); entering is what the running step took, by project and seq.
 	queueMu  sync.Mutex
 	entering map[string]map[int]bool
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // editWait is one project's pending wait before its batch.

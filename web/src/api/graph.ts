@@ -455,6 +455,11 @@ export interface Entry {
   at: string;
   decision?: DecisionEntry;
   datum?: DatumEntry;
+  /**
+   * Changes: on a text change of a correction batch, what left and entered in
+   * this paragraph, with the flaw it answers (B-99).
+   */
+  changes?: { n?: number; scenario?: string; out: string; in: string }[];
 }
 /**
  * Entry kinds.

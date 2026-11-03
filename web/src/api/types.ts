@@ -728,6 +728,15 @@ export interface StartRoundResponse {
  * RoundCard is the round card as the page reads it (B-64), copied from
  * what Go computed (cycle.RoundView); labels only.
  */
+/**
+ * JudgeChange is one change of a correction batch (B-99), literal (rule 8).
+ */
+export interface JudgeChange {
+  n?: number /* int */;
+  scenario?: string;
+  out: string;
+  in: string;
+}
 export interface RoundCard {
   label: string;
   state: string;
@@ -773,6 +782,11 @@ export interface RoundCard {
   flaws?: RoundFlaw[];
   late_flaws?: RoundFlaw[];
   batch_started?: boolean;
+  /**
+   * Changes and Proposed are what the correction batch did (B-99).
+   */
+  changes?: JudgeChange[];
+  proposed?: number /* int */;
 }
 /**
  * RoundFlaw is one of the judge's flaws (cycle.FlawView): its number, the

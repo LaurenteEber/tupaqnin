@@ -13,6 +13,12 @@ export function proposalsToShow(all: ProposalView[], section?: string): Proposal
   return section ? all.filter((p) => p.section === section) : all.filter((p) => p.new_section && p.state === "open");
 }
 
+// B-99: why the app held back an open proposal instead of applying it; "" otherwise.
+export function heldBackKey(p: { why?: string; state: string }): string {
+  const held = ["removes_half", "removes_support", "breaks_sentence", "rewrites_sentence_end"];
+  return p.state === "open" && p.why && held.includes(p.why) ? `proposal.state.${p.why}` : "";
+}
+
 // The key of a closed proposal's line: its reason, or its state.
 export function closedKey(p: ProposalView): string {
   return p.why && p.why !== "discarded" ? `proposal.state.${p.why}` : `proposal.state.${p.state}`;

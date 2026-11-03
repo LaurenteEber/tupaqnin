@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { actOnProposal, listProposals } from "../api/client";
 import type { ProposalView } from "../api/graph";
 import { translate, type Lang } from "../i18n";
-import { closedKey, proposalsToShow, turnToWatch } from "../proposals";
+import { closedKey, heldBackKey, proposalsToShow, turnToWatch } from "../proposals";
 
 // The proposals in the document (backlog-r4 4.1, pantallas «Dónde va cada
 // vista de la rebanada 4»): with a section, the proposed text marked against
@@ -61,6 +61,8 @@ export function ProposalPanel({
         ) : (
           <div key={p.label} className={p.new_section ? "proposal proposal-new" : "proposal"}>
             <b>{p.new_section ? t("proposal.new_section", { title: p.new_section.title }) : t("proposal.title")}</b>
+            {/* B-99: why the app did not apply it. */}
+            {heldBackKey(p) && <p className="meta" role="status">{t(heldBackKey(p))}</p>}
             {!p.new_section && <span className="meta">{t(`proposal.origin.${p.origin}`)}</span>}
             {p.version_changed && <span className="meta">{t("proposal.version_changed")}</span>}
             {p.contrast.removed.map((text, i) => (

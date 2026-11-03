@@ -52,7 +52,10 @@ type Entry struct {
 	At       string         `json:"at"`
 	Decision *DecisionEntry `json:"decision,omitempty"`
 	Datum    *DatumEntry    `json:"datum,omitempty"`
-	seq      int
+	// Changes: on a text change of a correction batch, what left and entered in
+	// this paragraph, with the flaw it answers (B-99).
+	Changes []JudgeChange `json:"changes,omitempty"`
+	seq     int
 }
 
 // Entry kinds.
@@ -98,6 +101,10 @@ func BlockHistory(ctx context.Context, db *store.DB, projectID, sectionLabel str
 		textAt[v.Version], _ = body["text"].(string)
 	}
 
+	corrections, _, err := JudgeCorrections(ctx, db, projectID)
+	if err != nil {
+		return nil, err
+	}
 	var out []Entry
 	var steps []string
 	for _, ev := range events {
@@ -115,7 +122,13 @@ func BlockHistory(ctx context.Context, db *store.DB, projectID, sectionLabel str
 			in = editInBlock(b.Text, CompareString(textAt[ev.BaseVersion]), CompareString(textAt[ev.NewVersion]))
 		}
 		if in {
-			out = append(out, Entry{Kind: EntryTextChange, Version: ev.NewVersion, Actor: ev.Actor, At: ev.CreatedAt, seq: ev.Seq})
+			entry := Entry{Kind: EntryTextChange, Version: ev.NewVersion, Actor: ev.Actor, At: ev.CreatedAt, seq: ev.Seq}
+			for _, c := range corrections {
+				if c.Seq == ev.Seq && (c.In == "" || strings.Contains(b.Text, c.In)) {
+					entry.Changes = append(entry.Changes, c)
+				}
+			}
+			out = append(out, entry)
 			if ev.Actor == "agent" && ev.TurnID != "" {
 				steps = append(steps, ev.TurnID)
 			}
