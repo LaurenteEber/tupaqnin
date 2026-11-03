@@ -6,6 +6,7 @@ import {
   auditSection,
   continueFromStopReport,
   createProject,
+  getRound,
   getSummary,
   answerAudienceQuestion,
   getConversation,
@@ -55,14 +56,19 @@ import { createErrorKey } from "./home";
 import { initialLang, translate, type Lang } from "./i18n";
 import { takeOverResult, type TakeOverResult } from "./tab";
 import {
+  IDLE_ACTIVITY,
+  SUMMARY_POLL_MS,
   auditErrorCode,
   keepsAskingToSign,
+  nextActivity,
   pollDefense,
   roundErrorCode,
   roundStarted,
   sendErrorCode,
   startsStep,
+  statusLine,
   turnToFollow,
+  type AgentActivity,
 } from "./live";
 
 export function App() {
@@ -92,6 +98,9 @@ export function App() {
   const [requestText, setRequestText] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [working, setWorking] = useState(false);
+  // C.2: what the agent is doing, and how many things are yours (the frame's count).
+  const [activity, setActivity] = useState<AgentActivity>(IDLE_ACTIVITY);
+  const [todoCount, setTodoCount] = useState(0);
   // P-92: a defense after your answer is being prepared in the
   // background: the conversation says so and refreshes by itself.
   const [defensePreparing, setDefensePreparing] = useState(false);
@@ -189,6 +198,13 @@ export function App() {
       if (s.defense_preparing) setDefensePreparing(true); // e.g. after a reload (P-92)
     });
   }, [projectID, understandingKey]);
+
+  // C.2: the spend keeps up while a turn runs, also with no piece arriving.
+  useEffect(() => {
+    if (!projectID || !working) return;
+    const timer = window.setInterval(() => refreshSummary(projectID), SUMMARY_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [projectID, working]);
 
   // P-92: while the defense is prepared, ask every few seconds (with a
   // cap) until it ends; leaving the project stops asking.
@@ -290,20 +306,41 @@ export function App() {
     if (turn) watchTurn(turn);
   }
 
+  // C.2: the header's spend, read again; a failed read waits for the next one.
+  function refreshSummary(project: string) {
+    getSummary(project).then((s) => {
+      if (activeProject.current === project) applySummary(s);
+    }, () => undefined);
+  }
+
   function watchTurn(turn_id: string) {
     // A turn already followed is not followed twice: its stream replays from
     // the start, and the text would show twice (B-1).
     if (watchedTurn.current === turn_id) return;
     watchedTurn.current = turn_id;
     setWorking(true);
+    setActivity(IDLE_ACTIVITY);
     subscribeTurn(projectID, turn_id, {
       onDelta: (delta) => {
+        setActivity((prev) => nextActivity(prev, delta));
+        // It only names the section for the status line (C.2): never on screen.
+        if (delta.field === "section_id") return;
         // P-93: a new step's triage line means the step before it was
         // applied: the selected section's editor takes its new text.
-        if (startsStep(delta)) void refreshSections(projectID);
+        if (startsStep(delta)) {
+          void refreshSections(projectID);
+          refreshSummary(projectID);
+        }
         // B-64: a round started: its card shows in the conversation.
-        if (roundStarted(delta)) {
+        const round = roundStarted(delta);
+        if (round) {
           void refreshConversation(projectID);
+          refreshSummary(projectID);
+          // A judge's round says «reviewing», a readers' round «reading» (C.2).
+          void getRound(projectID, round).then(
+            (card) => card.kind === "judge" && setActivity({ kind: "judging", section: "" }),
+            () => undefined,
+          );
           return;
         }
         if (delta.field === "raw") {
@@ -448,6 +485,7 @@ export function App() {
       setErrorCode("");
       setDefensePreparing(false);
       setCreateError("");
+      setTodoCount(0);
       layout.setCenter("conv");
       setProjectID(id);
     }
@@ -697,6 +735,16 @@ export function App() {
   const historyOpen = Boolean(current && (historyBlock > 0 || historyDecision));
   const rightTab = effectiveTab(layout.rightTab, historyOpen);
 
+  // C.2: what the agent does, what is yours, or nothing. A section the stream names
+  // shows by its title, never its label.
+  const status = statusLine({
+    working,
+    defensePreparing,
+    activity,
+    sectionTitle: (label) => sections.find((s) => s.label === label)?.title ?? "",
+    todo: todoCount,
+  });
+
   const langSwitch = (
     <div className="lang-switch" role="group" aria-label="language">
       <button type="button" className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>
@@ -811,6 +859,13 @@ export function App() {
               )
             }
             model={summary && <ModelLine lang={lang} summary={summary} />}
+            status={
+              status && (
+                <p className="meta status-line" role="status">
+                  {t(status.key, status.params)}
+                </p>
+              )
+            }
             onToggleRight={() => layout.setRightOff(!layout.rightOff)}
           />
           {/* In both views: at a glance, it says why the document does not let you edit. */}
@@ -1118,6 +1173,7 @@ export function App() {
                 onReorder={editor ? (labels) => void reorder(labels) : undefined}
                 onSearchCandidate={editor ? (n) => void searchEvidence([n]) : undefined}
                 onDecisionActed={editor ? decisionActed : undefined}
+                onTodoCount={setTodoCount}
               />
               <NewSectionForm
                 key={projectID}

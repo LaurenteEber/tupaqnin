@@ -827,6 +827,9 @@ func (r *Runner) filtered(projectID, turnID string, f *fieldFilter) func(provide
 				fp.PublishFieldDelta(projectID, turnID, s)
 				continue
 			}
+			if s.Field == "section_id" {
+				continue // a label, only for the page's status line (C.2)
+			}
 			text := s.Text
 			if s.Start && f.published {
 				text = "\n\n" + text

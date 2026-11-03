@@ -53,7 +53,7 @@ func TestP28_StreamedPiecesCarryTheirFieldAndNoRawInTheDemoBuild(t *testing.T) {
 		}
 		byField[s.Field] += s.Text
 	}
-	want := []string{"triage_line", "text", "note", "triage_line", "note"}
+	want := []string{"triage_line", "section_id", "text", "section_id", "note", "triage_line", "note"}
 	if strings.Join(starts, ",") != strings.Join(want, ",") {
 		t.Fatalf("value starts: %v, want %v", starts, want)
 	}

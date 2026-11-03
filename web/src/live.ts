@@ -125,7 +125,85 @@ export function roundKeepsPolling(card: {
   state?: string;
 }): boolean {
   // A judge round's batch and recheck run in the turn (backlog-r3 3.6).
-  return card.running || card.parts.some((p) => p.status === "running") || (card.kind === "judge" && card.state === "open");
+  if (card.running || card.parts.some((p) => p.status === "running") || (card.kind === "judge" && card.state === "open")) return true;
+  // C.2: a round the principal asked for exists before its readers start (its
+  // step's checker runs in between): a part still pending has not started yet,
+  // and a card read in that window would otherwise never ask again.
+  return card.state !== "closed" && card.parts.some((p) => p.status === "pending");
+}
+
+// pollRound reads a round until it stops running, whoever opened it (a click or
+// a step, C.2). A failed read is asked again.
+export async function pollRound<C extends Parameters<typeof roundKeepsPolling>[0]>(p: {
+  read: () => Promise<C>;
+  onCard: (card: C) => void;
+  sleep: (ms: number) => Promise<void>;
+  cancelled: () => boolean;
+}): Promise<void> {
+  for (;;) {
+    try {
+      const card = await p.read();
+      if (p.cancelled()) return;
+      p.onCard(card);
+      if (!roundKeepsPolling(card)) return;
+    } catch {
+      if (p.cancelled()) return;
+    }
+    await p.sleep(ROUND_POLL_MS);
+    if (p.cancelled()) return;
+  }
+}
+
+// C.2: how often the header's spend is read again while a turn runs.
+// [inicial] in the backlog: 10 s.
+export const SUMMARY_POLL_MS = 10_000;
+
+// C.2: what the agent is doing, from the stream's pieces.
+export interface AgentActivity {
+  kind: "working" | "writing" | "reading" | "judging";
+  // The label of the section the step writes, when the stream named it.
+  section: string;
+}
+
+export const IDLE_ACTIVITY: AgentActivity = { kind: "working", section: "" };
+
+export function nextActivity(prev: AgentActivity, delta: { field?: string; text?: string; start?: boolean }): AgentActivity {
+  switch (delta.field) {
+    case "triage_line":
+      return delta.start ? IDLE_ACTIVITY : prev;
+    case "section_id":
+      return { ...prev, section: delta.start ? (delta.text ?? "") : prev.section + (delta.text ?? "") };
+    case "text":
+      return { ...prev, kind: "writing" };
+    case "round":
+      return { kind: "reading", section: "" };
+    default:
+      return prev;
+  }
+}
+
+// C.2: the header's line, computed from what already arrives: what the agent is
+// doing, or how many things are yours, or nothing. It returns a catalog key.
+export function statusLine(s: {
+  working: boolean;
+  defensePreparing: boolean;
+  activity: AgentActivity;
+  sectionTitle: (label: string) => string;
+  todo: number;
+}): { key: string; params?: Record<string, string> } | null {
+  if (s.working) {
+    if (s.activity.kind === "reading") return { key: "status.agent.reading" };
+    if (s.activity.kind === "judging") return { key: "status.agent.judging" };
+    if (s.activity.kind === "writing") {
+      const section = s.sectionTitle(s.activity.section);
+      return section ? { key: "status.agent.writing_section", params: { section } } : { key: "status.agent.writing" };
+    }
+    return { key: "status.agent.working" };
+  }
+  if (s.defensePreparing) return { key: "status.agent.defense" };
+  if (s.todo === 1) return { key: "status.yours.one" };
+  if (s.todo > 1) return { key: "status.yours.many", params: { n: String(s.todo) } };
+  return null;
 }
 
 // The bar's word for the mode on (P-115): Go says when it waits for your signoff.

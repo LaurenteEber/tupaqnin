@@ -26,7 +26,9 @@ export type TodoTarget =
 // Slice 2 (backlog-r2 2.7): the return line above it after 3 days or
 // more (M-2), the exact «sin ver» dot and the filter «solo lo que no
 // viste», all computed in Go.
-export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onDecisionHistory, onTodo, onReorder, onSearchCandidate, onDecisionActed }: {
+export function FramePanel({ lang, projectID, refreshKey, selected, onSection, onHistory, onDecisionHistory, onTodo, onReorder, onSearchCandidate, onDecisionActed, onTodoCount }: {
+  // C.2: how many lines «Lo que te toca» has, for the header's status line.
+  onTodoCount?: (count: number) => void;
   lang: Lang;
   projectID: string;
   refreshKey: string;
@@ -51,8 +53,11 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   const [unseenOnly, setUnseenOnly] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (projectID) setFrame(await getFrame(projectID));
-  }, [projectID]);
+    if (!projectID) return;
+    const next = await getFrame(projectID);
+    setFrame(next);
+    onTodoCount?.(next.todo.count);
+  }, [projectID, onTodoCount]);
 
   useEffect(() => {
     setFrame(null);

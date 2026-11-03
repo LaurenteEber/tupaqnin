@@ -41,7 +41,9 @@ type fieldFilter struct {
 
 // Keys streamed for the principal's step and for the understanding.
 var (
-	stepStreamKeys          = []string{"triage_line", "reply", "text", "note"}
+	// section_id never shows: it tells the page's status line which section the
+	// step writes (C.2).
+	stepStreamKeys          = []string{"triage_line", "reply", "section_id", "text", "note"}
 	understandingStreamKeys = []string{"understood"}
 )
 

@@ -348,6 +348,7 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .head-row > div.mode-bar { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .head-row > div.mode-bar textarea { font: inherit; width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; }
 .center-head .model-line { text-align: left; }
+.center-head .status-line { margin: 2px 0 0; color: var(--accent, inherit); font-weight: 600; }
 .center-notice { margin: 8px 16px 0; }
 .center-body { flex: 1; min-height: 0; position: relative; }
 /* Both views stay mounted, each with its own scroll: what you were typing in a

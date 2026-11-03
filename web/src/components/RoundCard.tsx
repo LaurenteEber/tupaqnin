@@ -5,7 +5,7 @@ import { coverageLines, findingReasonKey, offersLeaveOpen, offersRepeat } from "
 import { sourceHref } from "../provenance";
 import { numberLocale, translate, type Lang } from "../i18n";
 import { JudgeCard } from "./JudgeCard";
-import { ROUND_POLL_MS, roundKeepsPolling } from "../live";
+import { pollRound, roundKeepsPolling } from "../live";
 
 // The round card in the conversation (backlog-r3 3.2, B-64; pantallas
 // «Dónde va cada vista de la rebanada 3»): the question, what each
@@ -33,21 +33,14 @@ export function RoundCard({ lang, projectID, label, onAct }: {
 
   useEffect(() => {
     let live = true;
-    let timer = 0;
-    const read = async () => {
-      try {
-        const next = await getRound(projectID, label);
-        if (!live) return;
-        setCard(next);
-        if (roundKeepsPolling(next)) timer = window.setTimeout(() => void read(), ROUND_POLL_MS);
-      } catch {
-        if (live) timer = window.setTimeout(() => void read(), ROUND_POLL_MS);
-      }
-    };
-    void read();
+    void pollRound({
+      read: () => getRound(projectID, label),
+      onCard: setCard,
+      sleep: (ms) => new Promise((resolve) => window.setTimeout(resolve, ms)),
+      cancelled: () => !live,
+    });
     return () => {
       live = false;
-      window.clearTimeout(timer);
     };
   }, [projectID, label]);
 

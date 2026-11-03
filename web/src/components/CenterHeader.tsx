@@ -13,6 +13,7 @@ export function CenterHeader({
   title,
   mode,
   model,
+  status,
   onToggleRight,
 }: {
   lang: Lang;
@@ -23,6 +24,7 @@ export function CenterHeader({
   title: ReactNode;
   mode: ReactNode;
   model: ReactNode;
+  status?: ReactNode;
   onToggleRight: () => void;
 }) {
   const t = (key: string) => translate(lang, key);
@@ -48,6 +50,7 @@ export function CenterHeader({
         </button>
       </div>
       {model}
+      {status}
     </div>
   );
 }

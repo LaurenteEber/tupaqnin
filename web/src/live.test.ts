@@ -6,7 +6,11 @@ import {
   DEFENSE_POLL_CAP_MS,
   DEFENSE_POLL_MS,
   pollDefense,
+  IDLE_ACTIVITY,
+  nextActivity,
+  pollRound,
   roundKeepsPolling,
+  statusLine,
   roundStarted,
   sendErrorCode,
   keepsAskingToSign,
@@ -149,4 +153,79 @@ test("B-83: asking again for a queued signoff stops when the project changes", (
   assert.equal(keepsAskingToSign({ kind: "queued" }, "p1", "p1"), true);
   assert.equal(keepsAskingToSign({ kind: "queued" }, "p1", "p2"), false);
   assert.equal(keepsAskingToSign({ kind: "opened" }, "p1", "p1"), false);
+});
+
+test("C.2: a round whose readers have not started yet keeps asking; a closed one does not", () => {
+  assert.equal(roundKeepsPolling({ running: false, parts: [{ status: "pending" }], state: "open" }), true);
+  assert.equal(roundKeepsPolling({ running: false, parts: [{ status: "pending" }], state: "closed" }), false);
+});
+
+// The window Paula hit (B-64): the step wrote the round, the card read it before
+// its readers started, and it never asked again.
+test("C.2 (B-64): a round the principal started updates by itself, from a first read with nothing running", async () => {
+  const reads = [
+    { running: false, state: "open", parts: [{ status: "pending" }] },
+    { running: true, state: "open", parts: [{ status: "running" }] },
+    { running: true, state: "open", parts: [{ status: "returned" }] },
+    { running: false, state: "closed", parts: [{ status: "returned" }] },
+  ];
+  const shown: string[] = [];
+  let at = 0;
+  await pollRound({
+    read: async () => reads[at++],
+    onCard: (c) => shown.push(c.state + ":" + c.parts[0].status),
+    sleep: async () => {},
+    cancelled: () => false,
+  });
+  assert.deepEqual(shown, ["open:pending", "open:running", "open:returned", "closed:returned"]);
+});
+
+test("C.2: a failed read asks again, and leaving the project stops asking", async () => {
+  let reads = 0;
+  let left = false;
+  await pollRound({
+    read: async () => {
+      reads++;
+      if (reads === 1) throw new Error("http_500");
+      left = true;
+      return { running: true, parts: [] };
+    },
+    onCard: () => assert.fail("a card read after leaving does not show"),
+    sleep: async () => {},
+    cancelled: () => left,
+  });
+  assert.equal(reads, 2);
+});
+
+test("C.2: what the agent is doing follows the stream's pieces", () => {
+  const seq = (pieces: { field: string; text?: string; start?: boolean }[]) => pieces.reduce(nextActivity, IDLE_ACTIVITY);
+  assert.equal(seq([{ field: "triage_line", text: "Build", start: true }]).kind, "working");
+  assert.deepEqual(
+    seq([{ field: "section_id", text: "sec", start: true }, { field: "section_id", text: "-2" }, { field: "text", text: "x", start: true }]),
+    { kind: "writing", section: "sec-2" },
+  );
+  assert.equal(seq([{ field: "round", text: "rnd-1", start: true }]).kind, "reading");
+  assert.deepEqual(
+    seq([{ field: "section_id", text: "sec-2", start: true }, { field: "text", text: "x" }, { field: "triage_line", text: "Next", start: true }]),
+    IDLE_ACTIVITY,
+    "a new step starts over",
+  );
+});
+
+test("C.2: the status line for each event", () => {
+  const line = (over: Partial<Parameters<typeof statusLine>[0]>) =>
+    statusLine({ working: true, defensePreparing: false, activity: IDLE_ACTIVITY, sectionTitle: () => "", todo: 0, ...over });
+  assert.deepEqual(line({}), { key: "status.agent.working" });
+  assert.deepEqual(
+    line({ activity: { kind: "writing", section: "sec-2" }, sectionTitle: (l) => (l === "sec-2" ? "Síntesis" : "") }),
+    { key: "status.agent.writing_section", params: { section: "Síntesis" } },
+  );
+  assert.deepEqual(line({ activity: { kind: "writing", section: "new-1" } }), { key: "status.agent.writing" });
+  assert.deepEqual(line({ activity: { kind: "reading", section: "" } }), { key: "status.agent.reading" });
+  assert.deepEqual(line({ activity: { kind: "judging", section: "" } }), { key: "status.agent.judging" });
+  assert.deepEqual(line({ working: false, defensePreparing: true }), { key: "status.agent.defense" });
+  assert.deepEqual(line({ working: false, todo: 1 }), { key: "status.yours.one" });
+  assert.deepEqual(line({ working: false, todo: 3 }), { key: "status.yours.many", params: { n: "3" } });
+  assert.equal(line({ working: false }), null);
+  assert.deepEqual(line({ todo: 3 }), { key: "status.agent.working" }, "while it works it does not ask you");
 });
