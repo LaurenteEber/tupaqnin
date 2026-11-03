@@ -543,3 +543,58 @@ func TestB11_ATextChangeOfTheAgentBetweenTheReadAndTheStepStillRejectsIt(t *test
 		t.Fatalf("proposals: %d, want none", len(props))
 	}
 }
+
+// C.14, B-104: a figure copied from a source is linked as a datum however its power
+// is written, with its passage; a multiplication or a footnote stays what it was.
+func TestB104_AFigureFromASourceKeepsItsDatumAndItsPassage(t *testing.T) {
+	const scientific = "Se midieron 3,14 × 104 partículas por litro."
+	for _, c := range []struct {
+		name, source, text string
+		passage            string
+	}{
+		{"as in the source", scientific, "Se midieron 3,14 × 104 partículas por litro.", scientific},
+		{"its superscript corrected", scientific, "Se midieron 3,14 × 10⁴ partículas por litro.", scientific},
+		{"another form of the power", "Se midieron 3,14 × 10⁴ partículas por litro.", "Se midieron 3,14 × 10^4 partículas por litro.", "Se midieron 3,14 × 10⁴ partículas por litro."},
+		{"a multiplication", "Una pantalla de 1920 × 1080 píxeles.", "La pantalla tiene 1080 píxeles de alto.", "Una pantalla de 1920 × 1080 píxeles."},
+		{"a footnote mark", "Se incluyeron 120¹ pacientes.", "Se incluyeron 120 pacientes.", "Se incluyeron 120¹ pacientes."},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			db := seedStepProject(t)
+			ctx := context.Background()
+			if err := db.Write(ctx, "p1", func(tx *store.Tx) error {
+				src, err := tx.CreateObject(store.ObjectSource, "", map[string]any{"kind": "file", "filename": "z.md", "text": c.source},
+					store.EventInput{Type: store.EventStateChanged, Actor: "human"})
+				if err != nil {
+					return err
+				}
+				return tx.RecordDelivery(store.Delivery{Via: store.ViaRead, ObjectID: src.ID, Version: src.CurrentVersion})
+			}); err != nil {
+				t.Fatal(err)
+			}
+			text, _ := json.Marshal(" " + c.text)
+			applied := applyRecorded(t, db, json.RawMessage(`{"stretch":"build","triage_line":"Construir.","closing_risk":"none","note":"N.","new_text":[{"section_id":"sec-1","base_version":1,"anchor":"Cierre.","claim_origin":"material","operation":"insert_after","text":`+string(text)+`}],"used_sources":["src-2"]}`))
+			if !applied.Applied {
+				t.Fatalf("not applied: %v", applied.Errors)
+			}
+			sec, _ := object(t, db, "sec-1")
+			pending, err := graph.FiguresWithoutDecision(ctx, db, "p1", sec.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, n := range pending {
+				if n != "3,14" && n != "1920" {
+					t.Fatalf("pending %q in %v, want its datum to cover it", n, pending)
+				}
+			}
+			found := false
+			for _, e := range history(t, db, 1) {
+				if e.Kind == graph.EntryDatum && e.Datum.Passage == c.passage {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("no datum with the passage %q: %+v", c.passage, history(t, db, 1))
+			}
+		})
+	}
+}

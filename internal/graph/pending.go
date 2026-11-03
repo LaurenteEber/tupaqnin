@@ -104,13 +104,17 @@ func FiguresWithoutDecision(ctx context.Context, db store.Querier, projectID, se
 			return nil, err
 		}
 		if ok {
-			covered[NormalizeNumber(bodyString(d, "value"))] = true
+			value := NormalizeNumber(bodyString(d, "value"))
+			covered[value] = true
+			if power := LostPower(value); power != "" {
+				covered[power] = true // you corrected its lost superscript (B-104)
+			}
 		}
 	}
 	var out []string
 	seen := make(map[string]bool)
 	for _, n := range Numbers(bodyString(section, "text")) {
-		if covered[n.Value] || seen[n.Value] {
+		if covered[n.Value] || covered[NormalizeFigure(n.Raw)] || seen[n.Value] {
 			continue
 		}
 		seen[n.Value] = true

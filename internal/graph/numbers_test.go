@@ -41,7 +41,7 @@ func TestS3R4_ProvisionalIDsAreFoundAfterNormalizing(t *testing.T) {
 func TestB104_APowerIsTheSameFigureHoweverItIsWritten(t *testing.T) {
 	want := map[string]string{
 		"10⁴": "10^4", "10^4": "10^4", "1e4": "10^4", "1E4": "10^4", "10⁻³": "10^-3", "10^-3": "10^-3",
-		"3,14e4": "3.14×10^4", "1 500": "1500", "1,5": "1.5", "104": "104", "10": "10",
+		"3,14e4": "3.14e4", "1 500": "1500", "1,5": "1.5", "104": "104", "10": "10",
 	}
 	for raw, value := range want {
 		if got := graph.NormalizeFigure(raw); got != value {
@@ -68,5 +68,70 @@ func TestB104_APowerIsTheSameFigureHoweverItIsWritten(t *testing.T) {
 	}
 	if got := values("3,14 × 10⁵"); got == "3.14 10^4" {
 		t.Fatal("10⁵ is another figure")
+	}
+}
+
+// C.14: what is not a power stays what it was: an ordinary multiplication, a
+// footnote mark, and digits inside a code, a hash or a colour.
+func TestB104_WhatIsNotAPowerReadsAsBefore(t *testing.T) {
+	for text, want := range map[string]string{
+		"1920 × 1080":          "1920 1080",
+		"4 × 1024":             "4 1024",
+		"2 × 105 = 210":        "2 105 210",
+		"Se incluyeron 120¹.":  "120",
+		"ror.org/0003e4m70":    "0003",
+		"ror.org/02e6z0y17":    "02",
+		"1147691e-fd6d-41e9-a": "1147691 41",
+		"8e525e7":              "8",
+		"713e79d":              "713",
+		"#1e3322":              "1",
+		"2^10":                 "2 10",
+		"el lote 1e4f":         "1",
+		"10^4,5":               "10 4.5",
+	} {
+		var got []string
+		for _, n := range graph.Numbers(text) {
+			got = append(got, n.Value)
+		}
+		if strings.Join(got, " ") != want {
+			t.Errorf("Numbers(%q) = %q, want %q", text, strings.Join(got, " "), want)
+		}
+	}
+}
+
+// C.14: a power at the start of a line is a figure, not a list's numbering.
+func TestB104_APowerOpeningALineIsNotAListNumber(t *testing.T) {
+	for _, text := range []string{"10⁴.\nSigue", "1e4. Sigue", "10^4) Sigue"} {
+		if got := graph.Numbers(text); len(got) != 1 || got[0].Value != "10^4" {
+			t.Errorf("Numbers(%q) = %+v, want 10^4", text, got)
+		}
+	}
+}
+
+// C.14: the figure is still there only as a whole number: digits added around it
+// make another one.
+func TestB104_AFigureStillInReadsWholeNumbers(t *testing.T) {
+	for _, c := range []struct {
+		text, anchor string
+		want         bool
+	}{
+		{"son 3,14 × 10⁴ en total.", "3,14 × 104", true},
+		{"son 3,14 × 10^4.", "3,14 × 104", true},
+		{"son 3.14×10⁴, en total", "3,14 × 104", true},
+		{"vale 3,14.", "3,14", true},
+		{"son 13,14 × 10⁴ en total", "3,14 × 104", false},
+		{"son 3,14 × 10⁴⁵ en total", "3,14 × 104", false},
+		{"son 3,14 × 10^40 en total", "3,14 × 104", false},
+		{"son 10^45", "10⁴", false},
+		{"son 10^45", "1e4", false},
+		{"son 13.14", "3,14", false},
+		{"son 3.149", "3,14", false},
+		{"son 15.02", "5,0", false},
+		{"son 21.5", "1,5", false},
+		{"son 10^4", "10", false},
+	} {
+		if got := graph.FigureStillIn(c.text, c.anchor); got != c.want {
+			t.Errorf("FigureStillIn(%q, %q) = %v, want %v", c.text, c.anchor, got, c.want)
+		}
 	}
 }

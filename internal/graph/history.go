@@ -364,7 +364,7 @@ func SourcePassage(text, value, sentence string) string {
 	best, bestShared := "", -1
 	for _, line := range strings.Split(text, "\n") {
 		for _, loc := range numberSpans(line) {
-			if NormalizeNumber(line[loc[0]:loc[1]]) != want {
+			if !spanIsFigure(line, loc[0], loc[1], want) {
 				continue
 			}
 			candidate := sentenceAround(line, loc[0], loc[1])
@@ -388,7 +388,7 @@ func sentenceWith(text, value string) string {
 	want := NormalizeNumber(value)
 	for _, line := range strings.Split(text, "\n") {
 		for _, loc := range numberSpans(line) {
-			if NormalizeNumber(line[loc[0]:loc[1]]) == want {
+			if spanIsFigure(line, loc[0], loc[1], want) {
 				return sentenceAround(line, loc[0], loc[1])
 			}
 		}
