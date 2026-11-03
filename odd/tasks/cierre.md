@@ -33,7 +33,7 @@ Quoted verbatim from `docs/construccion/backlog-cierre.md` and from Eber's reque
 |---|---|---|---|---|
 | T1 | S1, S2, S3 | inline (pieces build on each other, no Writer trigger) | done | RED `tab.test.ts` (module missing), GREEN; `TestB102_*`; smoke `c1` (reload x3, real second tab) |
 | T2 | S4, S5, S6 | inline | done | RED `live.test.ts` (pending round stops asking), GREEN; `TestP28` updated; smoke `c2`, limited: the fake's turn lasts milliseconds, so the rise cannot be told from the read at its end |
-| T3 | S7, S8 | inline | pending | |
+| T3 | S7, S8 | inline | done | RED `route.test.ts` (module missing), GREEN; smoke `c3` |
 | T4 | S9, S10 | inline | pending | |
 | T5 | S11, S12, S13 | inline | pending | |
 | T6 | S14, S15, S16 | inline | pending | |

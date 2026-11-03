@@ -1,3 +1,4 @@
+import { pickLang } from "./route";
 import en from "./i18n/en.json";
 import es from "./i18n/es.json";
 
@@ -12,8 +13,7 @@ const catalogs: Record<Lang, Record<string, string>> = {
 };
 
 export function initialLang(): Lang {
-  const q = new URLSearchParams(window.location.search).get("lang");
-  return q === "es" ? "es" : "en";
+  return pickLang(window.location.search, () => globalThis.localStorage);
 }
 
 export function translate(lang: Lang, key: string, params?: Record<string, string>): string {

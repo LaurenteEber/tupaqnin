@@ -55,6 +55,7 @@ import { centerView, effectiveTab, routeTarget } from "./layout";
 import { createErrorKey } from "./home";
 import { initialLang, translate, type Lang } from "./i18n";
 import { takeOverResult, type TakeOverResult } from "./tab";
+import { projectHash, readProjectHash, saveLang } from "./route";
 import {
   IDLE_ACTIVITY,
   SUMMARY_POLL_MS,
@@ -72,7 +73,11 @@ import {
 } from "./live";
 
 export function App() {
-  const [lang, setLang] = useState<Lang>(initialLang);
+  const [lang, setLangState] = useState<Lang>(initialLang);
+  const setLang = (next: Lang) => {
+    setLangState(next);
+    saveLang(next, () => globalThis.localStorage); // C.3
+  };
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const layout = useLayout();
 
@@ -86,6 +91,8 @@ export function App() {
   const [projects, setProjects] = useState<ProjectLine[]>([]);
   const [understandingKey, setUnderstandingKey] = useState(0);
   const [projectID, setProjectID] = useState("");
+  // C.3: the project the address named on load, being checked; the home waits.
+  const [resuming, setResuming] = useState(() => readProjectHash(window.location.hash) !== "");
   const [sections, setSections] = useState<SectionView[]>([]);
   const [selected, setSelected] = useState("");
   // The streamed turn, by field (P-28): triage line, reply, text, note
@@ -497,6 +504,41 @@ export function App() {
     void refreshSession();
   }
 
+  // C.3: the project the address names opens if it is yours; if not, the home,
+  // with no error and the address clean.
+  function openFromHash(id: string) {
+    return getSummary(id).then(
+      () => openProject(id),
+      () => window.history.replaceState(null, "", window.location.pathname + window.location.search),
+    );
+  }
+
+  useEffect(() => {
+    const id = readProjectHash(window.location.hash);
+    if (id) void openFromHash(id).finally(() => setResuming(false));
+  }, []);
+
+  // Opening and closing write the address; once resumed, so it is not wiped first.
+  useEffect(() => {
+    if (resuming) return;
+    const next = projectHash(projectID);
+    if (window.location.hash !== next) {
+      window.history.pushState(null, "", window.location.pathname + window.location.search + next);
+    }
+  }, [projectID, resuming]);
+
+  // The browser's back and forward, and an address edited by hand.
+  useEffect(() => {
+    const follow = () => {
+      const id = readProjectHash(window.location.hash);
+      if (id === projectID) return;
+      if (id) void openFromHash(id);
+      else closeProject();
+    };
+    window.addEventListener("hashchange", follow);
+    return () => window.removeEventListener("hashchange", follow);
+  }, [projectID]);
+
   // «Crear usuario» and «Entrar» from the left: the home, with that form open.
   function openHomeForm(form: HomeForm) {
     setHomeForm((prev) => ({ form, tick: prev.tick + 1 }));
@@ -808,7 +850,7 @@ export function App() {
         right={null}
         center={
           <div className="center-home">
-            {(session !== undefined || sessionFailed) && (
+            {(session !== undefined || sessionFailed) && !resuming && (
               <HomePage
                 key={homeForm.tick}
                 openForm={homeForm.form}
