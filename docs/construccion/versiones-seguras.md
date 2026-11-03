@@ -1,6 +1,6 @@
 ---
 titulo: Versiones recomendadas del stack · seguridad de la cadena de dependencias
-estado: v0.3 · 29-oct · extensiones de TipTap de la 1.0 y librería de PDF aprobada · v0.2 · 29-oct · adoptada con cambios por Eber: se mantienen las versiones mayores actuales de la web; pnpm 12.16.1 · v0.1 · 29-oct · recomendación
+estado: v0.4 · 3-nov · golang.org/x/net a v0.62.0 por GO-2026-6860 · v0.3 · 29-oct · extensiones de TipTap de la 1.0 y librería de PDF aprobada · v0.2 · 29-oct · adoptada con cambios por Eber: se mantienen las versiones mayores actuales de la web; pnpm 12.16.1 · v0.1 · 29-oct · recomendación
 relacion: complementa B-19 (backlog-r1.md) y la pila de bloque-3-especificacion.md §7. No reemplaza ninguna decisión: lo que contradice el diseño está marcado.
 ---
 
@@ -57,6 +57,7 @@ allowBuilds:
 | modernc.org/sqlite | v1.61.0 | |
 | github.com/yuin/goldmark | v1.8.6 | GFM viene en `goldmark/extension` |
 | golang.org/x/text | v0.43.0 | |
+| golang.org/x/net | v0.62.0 | Sube desde v0.61.0 (3-nov) por GO-2026-6860 (CVE-2026-78661): complejidad cuadrática en `html.Parse` al unir nodos de texto, alcanzada por `evidence.htmlText` con páginas de terceros de hasta 5 MB; se corrige en v0.62.0, publicada el 27-oct (cumple los 7 días). GO-2026-6866, del mismo módulo, no se llama. Solo se usa `x/net/html` (B-60) |
 | github.com/gowebpki/jcs | v1.0.2 | |
 | github.com/gzuidhof/tygo | v0.2.21 | Con la directiva `tool` de `go.mod` (B-19) |
 | golang.org/x/crypto | v0.58.0 | Solo `bcrypt` (y `blowfish`, que lo usa), aprobada por Eber (B-90, 1-nov). Publicada el 9-oct. OSV marca GO-2026-5932 en `openpgp` para todas las versiones; la app no lo importa, aceptado por Eber el 2-nov. Instalar `govulncheck` antes del despliegue público |
