@@ -81,12 +81,13 @@ func SectionUndo(ctx context.Context, q store.Querier, projectID, sectionID stri
 	}
 	var run []undoEntry
 	reason := UndoReasonNoEdit
-	// joinable: the next save can still join the last edition; any other write of
-	// text ends it, on this section or another (C.20).
+	// joinable: the next save can still join the last edition (C.20). It ends with
+	// any write of text on this section, and with your own save or undo on another;
+	// the agent writing elsewhere does not end it, since nothing blocks the agent.
 	joinable := false
 	for _, ev := range events {
 		if ev.ObjectID != sectionID {
-			if ev.Type == store.EventEdit || ev.Type == store.EventEditUndone {
+			if ev.Type == store.EventEdit && ev.Actor == "human" || ev.Type == store.EventEditUndone {
 				joinable = false
 			}
 			continue

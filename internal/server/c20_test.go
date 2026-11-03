@@ -248,3 +248,41 @@ func TestC20_TheEstimateIsTheMedianOfTheProjectsAudits(t *testing.T) {
 	}
 
 }
+
+// Nothing blocks the agent: a chain writing elsewhere while you type does not
+// split your edition. Only your own write elsewhere ends it.
+func TestC20_AnAgentStepOnAnotherSectionDoesNotEndTheGroup(t *testing.T) {
+	h, db, base, _ := groupAPI(t, proposalText)
+	projectID := base[len("/api/projects/"):]
+	seedSignSection(t, db, projectID, "Otra sección larga. Se factura al mes.", false)
+	saveOn(t, h, base, "sec-1", "Uno.")
+	step := `{"stretch": "build", "triage_line": "T.", "closing_risk": "none", "note": "N.",
+	  "new_text": [{"section_id": "sec-2", "base_version": 1, "anchor": "al mes", "claim_origin": "material", "operation": "replace", "text": "al año"}]}`
+	if applied := stepOn(t, db, projectID, step); !applied.Applied || len(applied.Errors) != 0 {
+		t.Fatalf("step: %+v", applied)
+	}
+	if other := sectionDetail(t, h, base, "sec-2"); other["text"] != "Otra sección larga. Se factura al año." {
+		t.Fatalf("the agent's edit must apply on sec-2: %v", other)
+	}
+	saveOn(t, h, base, "sec-1", "Uno, dos.")
+
+	undoRoute(t, h, base, "sec-1")
+	if detail := sectionDetail(t, h, base, "sec-1"); detail["text"] != proposalText || detail["undo_available"] != false {
+		t.Fatalf("one click goes back to before both: %v", detail)
+	}
+}
+
+// Your own undo on another section ends it, as your save there does.
+func TestC20_YourUndoOnAnotherSectionEndsTheGroup(t *testing.T) {
+	h, db, base, later := groupAPI(t, proposalText)
+	seedSignSection(t, db, base[len("/api/projects/"):], "Otra sección.", false)
+	saveOn(t, h, base, "sec-2", "Otra sección, cambiada.")
+	*later += 6 * time.Second
+	saveOn(t, h, base, "sec-1", "Uno.")
+	undoRoute(t, h, base, "sec-2")
+	saveOn(t, h, base, "sec-1", "Uno, dos.")
+	undoRoute(t, h, base, "sec-1")
+	if detail := sectionDetail(t, h, base, "sec-1"); detail["text"] != "Uno." {
+		t.Fatalf("after one undo: %v", detail)
+	}
+}
