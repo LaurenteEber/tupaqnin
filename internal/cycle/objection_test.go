@@ -437,6 +437,7 @@ func TestB14_AnObjectionWithASignoffInProgressLeavesItOpenAndBlocksSigning(t *te
 	if err := gate.RecordExplanation(ctx, "p1", open.Label, "Lo explico yo."); err != nil {
 		t.Fatal(err)
 	}
+	coincideOnThesis(t, db, gate, open.Label) // its decisions are not critical (B-106)
 	if _, err := gate.ObjectDecision(ctx, "p1", "dec-2", objectReason); err != nil {
 		t.Fatal(err)
 	}

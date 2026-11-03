@@ -85,6 +85,9 @@ type SignoffBody struct {
 	Criteria           []SignedRef    `json:"criteria,omitempty"`
 	Sources            []SignedSource `json:"sources,omitempty"`
 	AnsweredCards      []string       `json:"answered_cards,omitempty"`
+	// Thesis is the section's thesis, chosen when the signoff opened
+	// (B-106). A signoff opened before B-106 has none and reads as it did.
+	Thesis *SignoffThesis `json:"thesis,omitempty"`
 	// Rounds are Wonder's results, beside the commitment, not inside it
 	// (specification §4).
 	Rounds []SignoffRound `json:"rounds"`
@@ -92,6 +95,24 @@ type SignoffBody struct {
 	// version differs (left · edited · missing_in_text · paused ·
 	// signed). The phase is still read from the history.
 	Ended string `json:"ended,omitempty"`
+}
+
+// The kinds of a section's thesis (B-106).
+const (
+	// ThesisConclusion: the section carries your «aquí se concluye» mark.
+	ThesisConclusion = "conclusion"
+	// ThesisDecision: no mark; a decision that holds the section up.
+	ThesisDecision = "decision"
+)
+
+// SignoffThesis is what Wonder asks about besides the critical decisions
+// (B-106). It is never a critical decision: Critical, the cards and every
+// Rule reading them stay as they are.
+type SignoffThesis struct {
+	Kind string `json:"kind"`
+	// DecisionID and Version name the decision of a ThesisDecision.
+	DecisionID string `json:"decision_id,omitempty"`
+	Version    int    `json:"version,omitempty"`
 }
 
 // SignedRef is an object by internal id and version.
@@ -344,6 +365,118 @@ func decisionInSection(ctx context.Context, q store.Querier, projectID, decision
 	return false, nil
 }
 
+// SectionThesis chooses what Wonder asks about besides the critical
+// decisions (B-106): your «aquí se concluye» mark or, without it, the first
+// current decision that holds the section up, critical or not, passing over
+// those another section's signature already answered for while the section
+// has another. nil when the section has neither: that signoff stays brief.
+//
+// [EL DISEÑO NO LO DICE]: B-106 says «la frase marcada», but the mark is on
+// the section (role conclusion, K-2), not on a sentence. So the thesis is what
+// the section concludes, and Wonder finds it in the text. Only your mark counts
+// (state confirmed): a role the principal only proposed does not.
+//
+// [EL DISEÑO NO LO DICE]: «ya preguntada» counts only the signed signoffs of
+// other sections (their critical decisions and thesis): a signoff you left,
+// that paused or is in progress is no signature, and signing the same section
+// again may ask the same thing.
+func SectionThesis(ctx context.Context, q store.Querier, projectID string, section store.Object) (*SignoffThesis, error) {
+	role, _ := bodyValue(section, "role").(map[string]any)
+	if role["value"] == "conclusion" && role["state"] == "confirmed" {
+		return &SignoffThesis{Kind: ThesisConclusion}, nil
+	}
+	decisions, err := q.ListObjects(ctx, projectID, store.ObjectDecision)
+	if err != nil {
+		return nil, err
+	}
+	var holding []store.Object
+	for _, dec := range decisions {
+		if dec.State == "superseded" || dec.State == "revoked" {
+			continue
+		}
+		in, err := decisionInSection(ctx, q, projectID, dec.ID, section.ID)
+		if err != nil {
+			return nil, err
+		}
+		if in {
+			holding = append(holding, dec)
+		}
+	}
+	if len(holding) == 0 {
+		return nil, nil
+	}
+	sort.Slice(holding, func(i, j int) bool { return labelNumber(holding[i].Label) < labelNumber(holding[j].Label) })
+	asked, err := askedElsewhere(ctx, q, projectID, section.ID)
+	if err != nil {
+		return nil, err
+	}
+	chosen := holding[0]
+	for _, dec := range holding {
+		if !asked[dec.ID] {
+			chosen = dec
+			break
+		}
+	}
+	return &SignoffThesis{Kind: ThesisDecision, DecisionID: chosen.ID, Version: chosen.CurrentVersion}, nil
+}
+
+// askedElsewhere are the decisions the signed signoffs of other sections
+// answered for.
+func askedElsewhere(ctx context.Context, q store.Querier, projectID, sectionID string) (map[string]bool, error) {
+	idx, _, err := loadSignoffs(ctx, q, projectID)
+	if err != nil {
+		return nil, err
+	}
+	asked := map[string]bool{}
+	for _, o := range idx.signoffs {
+		if bodyString(o, "section_id") == sectionID {
+			continue
+		}
+		if phase, _ := phaseOf(idx.events[o.ID]); phase != SignoffSigned {
+			continue
+		}
+		body, err := ParseSignoff(o)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range body.Critical {
+			asked[d.ID] = true
+		}
+		if body.Thesis != nil && body.Thesis.DecisionID != "" {
+			asked[body.Thesis.DecisionID] = true
+		}
+	}
+	return asked, nil
+}
+
+// ThesisPoint is the label of the entry the thesis adds to Wonder's
+// «decisions», "" when it adds none: a thesis that is already one of the
+// critical decisions, or a signoff with no thesis. A marked thesis is entered
+// under the section's own label.
+// [EL DISEÑO NO LO DICE]: the fixed output has no field for the thesis, and
+// the design's schema stays as it is: the point takes an entry in «decisions»,
+// whose label pattern admits sec-n, with the verdict, gap and new case each
+// entry already has.
+func (b SignoffBody) ThesisPoint(labels *Labeler, sectionLabel string) (string, error) {
+	if b.Thesis == nil {
+		return "", nil
+	}
+	if b.Thesis.Kind == ThesisConclusion {
+		return sectionLabel, nil
+	}
+	for _, d := range b.Critical {
+		if d.ID == b.Thesis.DecisionID {
+			return "", nil
+		}
+	}
+	return labels.ToLabel(b.Thesis.DecisionID)
+}
+
+// OriginApplies says the signoff has an origin question: fichas §2 and E-3 set
+// it on what is critical, and A-4 has none without critical decisions. A
+// signoff that only asks about the thesis keeps that.
+func (b SignoffBody) OriginApplies() bool { return len(b.Critical) > 0 }
+
 // OriginAssumption is the assumption of the origin question (fichas §9,
 // E-3): the one the most critical decisions of the section depend on,
 // following depends_on_assumption. Empty when there is no edge: then
@@ -419,7 +552,10 @@ type WonderVerdict struct {
 	// Number names the decision on screen: its place among the critical
 	// decisions, from 1. Never its label (rule 7) nor its statement,
 	// which is the answer (fichas §2 Firma: «sin la respuesta»; P-59).
-	Number  int    `json:"number"`
+	Number int `json:"number"`
+	// Thesis names the point on screen when it is the thesis and not a
+	// critical decision, by its kind and in words (B-106, P-59).
+	Thesis  string `json:"thesis,omitempty"`
 	Verdict string `json:"verdict"`
 	Missing string `json:"missing,omitempty"`
 	Passage string `json:"passage,omitempty"`
@@ -451,15 +587,18 @@ type SignoffView struct {
 	// PendingsAtCap are the agent's pendings when a cap stopped it: it can
 	// no longer close them, so they are listed apart and do not block
 	// (B3-20, Eber 2-nov). StoppedBy is that cap, as Runner.StoppedBy says.
-	PendingsAtCap     []Pending       `json:"pendings_at_cap"`
-	StoppedBy         string          `json:"stopped_by,omitempty"`
-	CriticalDecisions []string        `json:"critical_decisions"`
-	OriginAssumption  string          `json:"origin_assumption,omitempty"`
-	Explanation       string          `json:"explanation"`
-	OriginQuestion    string          `json:"origin_question"`
-	OriginAnswer      string          `json:"origin_answer"`
-	Verdicts          []WonderVerdict `json:"verdicts"`
-	Cases             []SignoffCase   `json:"cases"`
+	PendingsAtCap     []Pending `json:"pendings_at_cap"`
+	StoppedBy         string    `json:"stopped_by,omitempty"`
+	CriticalDecisions []string  `json:"critical_decisions"`
+	// Thesis is the kind of thesis asked besides the critical decisions
+	// (B-106), when it adds a point. In words on screen, without the answer.
+	Thesis           string          `json:"thesis,omitempty"`
+	OriginAssumption string          `json:"origin_assumption,omitempty"`
+	Explanation      string          `json:"explanation"`
+	OriginQuestion   string          `json:"origin_question"`
+	OriginAnswer     string          `json:"origin_answer"`
+	Verdicts         []WonderVerdict `json:"verdicts"`
+	Cases            []SignoffCase   `json:"cases"`
 	// OpenCase is the new case waiting for your answer, if any.
 	OpenCase          string `json:"open_case,omitempty"`
 	FailedCases       int    `json:"failed_cases"`
@@ -564,6 +703,13 @@ func SignoffDetailAtCap(ctx context.Context, db *store.DB, projectID, signLabel,
 			}
 		}
 	}
+	thesisPoint, err := body.ThesisPoint(labels, section.Label)
+	if err != nil {
+		return SignoffView{}, err
+	}
+	if thesisPoint != "" {
+		v.Thesis = body.Thesis.Kind
+	}
 	if body.OriginAssumptionID != "" {
 		v.OriginAssumption, _ = labels.ToLabel(body.OriginAssumptionID)
 	}
@@ -593,6 +739,15 @@ func SignoffDetailAtCap(ctx context.Context, db *store.DB, projectID, signLabel,
 				w.Passage = *d.Passage
 				if b := blockOf(blocks, []string{*d.Passage}); b > 0 {
 					w.Block = b
+				}
+			}
+			if d.Decision == thesisPoint {
+				w.Thesis = body.Thesis.Kind
+				// [EL DISEÑO NO LO DICE]: a section's conclusion has no point
+				// of its own in the text; its history opens on the last block,
+				// where a section usually concludes.
+				if w.Block == 0 && w.Thesis == ThesisConclusion {
+					w.Block = len(blocks)
 				}
 			}
 			w.HistoryOffered = w.Verdict != "match" &&
@@ -635,7 +790,8 @@ func figureAnchors(ctx context.Context, db *store.DB, projectID, sectionID strin
 	return out, nil
 }
 
-// WonderBrief is what Wonder receives (fichas §7, fila «Wonder»): the
+// WonderBrief is what Wonder receives (fichas §7, fila «Wonder», and the
+// thesis of B-106): the
 // brief of bloque-1.md §4, reduced. The request, criteria and premise in
 // literal; the section's current text; its history (the critical
 // decisions with their contrast, your «porque» and what they replaced);
@@ -691,10 +847,10 @@ func WonderBrief(ctx context.Context, db *store.DB, projectID, signID string) (s
 	line("%s", Delimit(DataSection, bodyString(section, "text")))
 	line("")
 	line("## Critical decisions of this section (one entry each in \"decisions\", by label)")
-	for _, ref := range body.Critical {
-		dec, err := db.GetObject(ctx, projectID, ref.ID)
+	decision := func(id string) error {
+		dec, err := db.GetObject(ctx, projectID, id)
 		if err != nil {
-			return "", err
+			return err
 		}
 		assumption := "no"
 		if v, _ := bodyValue(dec, "assumption").(bool); v {
@@ -713,7 +869,7 @@ func WonderBrief(ctx context.Context, db *store.DB, projectID, signID string) (s
 		}
 		edges, err := db.EdgesFrom(ctx, projectID, dec.ID)
 		if err != nil {
-			return "", err
+			return err
 		}
 		for _, e := range edges {
 			if e.Type != store.EdgeSupersedes {
@@ -721,14 +877,42 @@ func WonderBrief(ctx context.Context, db *store.DB, projectID, signID string) (s
 			}
 			old, err := db.GetObject(ctx, projectID, e.ToID)
 			if err != nil {
-				return "", err
+				return err
 			}
 			line("  It replaced %s: %s", old.Label, bodyString(old, "statement"))
+		}
+		return nil
+	}
+	for _, ref := range body.Critical {
+		if err := decision(ref.ID); err != nil {
+			return "", err
+		}
+	}
+	labels, err := NewLabeler(ctx, db, projectID)
+	if err != nil {
+		return "", err
+	}
+	point, err := body.ThesisPoint(labels, section.Label)
+	if err != nil {
+		return "", err
+	}
+	if point != "" {
+		line("")
+		line("## Thesis of this section (one more entry in \"decisions\", with the label %s)", point)
+		if body.Thesis.Kind == ThesisConclusion {
+			line("The person marked this section as the place where the document concludes. %s stands for what the section concludes: judge whether the explanation says it and why, as you judge a decision.", point)
+		} else {
+			line("The decision that holds this section up. It is not critical, and you judge it as you judge a critical decision.")
+			if err := decision(body.Thesis.DecisionID); err != nil {
+				return "", err
+			}
 		}
 	}
 	line("")
 	line("## Origin question")
-	if body.OriginAssumptionID != "" {
+	if !body.OriginApplies() {
+		line("Not applicable: this section has no critical decisions. Write \"not_applicable\" as the question, with answer null.")
+	} else if body.OriginAssumptionID != "" {
 		as, err := db.GetObject(ctx, projectID, body.OriginAssumptionID)
 		if err != nil {
 			return "", err
@@ -746,7 +930,7 @@ func WonderBrief(ctx context.Context, db *store.DB, projectID, signID string) (s
 	}
 	if body.OriginAnswer != "" {
 		line("The person's answer (literal): %s", body.OriginAnswer)
-	} else {
+	} else if body.OriginApplies() {
 		line("The person has not answered it yet: answer must be null.")
 	}
 	line("")

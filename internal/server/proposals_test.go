@@ -91,6 +91,16 @@ func signSection(t *testing.T, db *store.DB, projectID string) {
 	if err := gate.RecordExplanation(context.Background(), projectID, open.Label, "Lo explico yo."); err != nil {
 		t.Fatalf("RecordExplanation: %v", err)
 	}
+	if !open.Brief {
+		// A decision that is not critical is the thesis (B-106): one Wonder
+		// round about it, with no origin question.
+		out := `{"decisions": [{"decision": "dec-1", "verdict": "match", "missing": null, "passage": null}],
+			"origin_question": {"question": "not_applicable", "answer": null}, "previous_case": null, "new_case": null}`
+		res, err := gate.EndSignoffRound(context.Background(), projectID, "turn-w", open.Label, 1, json.RawMessage(out), "wonder high", false)
+		if err != nil || res.Outcome != cycle.OutcomeCoincides {
+			t.Fatalf("EndSignoffRound: %+v, %v", res, err)
+		}
+	}
 	if err := gate.Sign(context.Background(), projectID, open.Label); err != nil {
 		t.Fatalf("Sign: %v", err)
 	}

@@ -86,6 +86,9 @@ type Request struct {
 	// (B-39), so the fake can answer a stop report call it has no
 	// recording for (see Fake.Respond); Meta ignores it.
 	ReportDecisions []ReportDecision
+	// SignoffExpect is what a signoff call must answer, so the app's fake can
+	// fit its recording (see Fake.FitSignoff); Meta ignores it.
+	SignoffExpect *SignoffExpectation
 	// DefenseSection is the label of the section a defense call prepares
 	// (backlog-r2 2.6), so the fake can answer a judge call it has no
 	// recording for (see Fake.Respond); Meta ignores it.
@@ -245,6 +248,17 @@ func fillUsage(model string, u *Usage) {
 	}
 }
 
+// SignoffExpectation is what Wonder's output must hold for one signoff round.
+type SignoffExpectation struct {
+	// Labels are the entries of "decisions": the critical decisions and the
+	// thesis point, in order.
+	Labels []string
+	// OriginApplies says the signoff has an origin question.
+	OriginApplies bool
+	// OriginAnswered says the person already answered it.
+	OriginAnswered bool
+}
+
 // Fixture is one recorded call the fake provider replays (T-11).
 type Fixture struct {
 	Name string `json:"name"`
@@ -273,6 +287,13 @@ type Fake struct {
 	Recorder CallRecorder
 
 	fixtures []Fixture
+	// FitSignoff makes a signoff recording answer what the call expects, every
+	// entry a match: a recording names fixed labels, and with the thesis of
+	// B-106 the labels depend on the section. Only TQ_PROVIDER=fake sets it:
+	// a test's recording stays what the model said.
+	// [EL DISEÑO NO LO DICE]: how the fake answers a signoff it has no labels
+	// for; before B-106 every signoff of the fake named dec-1.
+	FitSignoff bool
 	// mu guards next: the readers of a round call the fake in parallel
 	// (backlog-r3 3.2).
 	mu   sync.Mutex
@@ -331,6 +352,9 @@ var _ Provider = (*Fake)(nil)
 // and returns its recorded items byte-for-byte.
 func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (Response, error) {
 	fx, ok := f.pick(req.TurnKind, req.Part)
+	if ok && f.FitSignoff && req.TurnKind == TurnSignoff && req.SignoffExpect != nil {
+		fx = fitSignoffFixture(fx, *req.SignoffExpect)
+	}
 	if !ok && req.TurnKind == TurnChecker {
 		fx, ok = noFindingsFixture(req.ProbeLabels), true
 	}
@@ -377,6 +401,48 @@ func (f *Fake) Respond(ctx context.Context, req Request, onDelta func(Delta)) (R
 		return Response{}, err
 	}
 	return resp, nil
+}
+
+// fitSignoffFixture rewrites a signoff recording for this round: one match per
+// expected label, and the origin question as checkWonder asks for it. A
+// recording that is not a Wonder output stays as it is.
+func fitSignoffFixture(fx Fixture, exp SignoffExpectation) Fixture {
+	var out struct {
+		OriginQuestion struct {
+			Question string `json:"question"`
+		} `json:"origin_question"`
+	}
+	if err := json.Unmarshal([]byte(textOfItems(fx.Items)), &out); err != nil {
+		return fx
+	}
+	question := out.OriginQuestion.Question
+	var answer any
+	switch {
+	case !exp.OriginApplies:
+		question = "not_applicable"
+	case exp.OriginAnswered:
+		answer = "answers"
+	}
+	entries := make([]map[string]any, 0, len(exp.Labels))
+	for _, l := range exp.Labels {
+		entries = append(entries, map[string]any{"decision": l, "verdict": "match", "missing": nil, "passage": nil})
+	}
+	text, err := json.Marshal(map[string]any{
+		"decisions":       entries,
+		"origin_question": map[string]any{"question": question, "answer": answer},
+		"previous_case":   nil, "new_case": nil,
+	})
+	if err != nil {
+		return fx
+	}
+	item, err := json.Marshal(map[string]any{"type": "message", "role": "assistant",
+		"content": []map[string]string{{"type": "output_text", "text": string(text)}}})
+	if err != nil {
+		return fx
+	}
+	fx.Deltas = []string{string(text)}
+	fx.Items = []json.RawMessage{item}
+	return fx
 }
 
 // noFindingsFixture is the fake's answer to a checker call without a

@@ -143,9 +143,14 @@ func (g *Gate) pendingsNow(ctx context.Context, projectID, sectionLabel string) 
 
 // RequestSignoff is 7a: only you ask to sign. With pendings or open
 // changes it lists them and opens nothing; with a signoff in progress
-// it returns that one; otherwise it opens a new sign-n, brief when the
-// section has no critical decisions (A-4), with the origin question's
-// assumption chosen in the graph (fichas §9).
+// it returns that one; otherwise it opens a new sign-n, with the thesis
+// (B-106) and the origin question's assumption chosen in the graph (fichas
+// §9). It is brief when there is nothing for Wonder to ask about: no critical
+// decisions (A-4) and no thesis.
+// [EL DISEÑO NO LO DICE]: B-106 asks about the thesis «aunque no sea crítica»,
+// so a section whose decisions are not critical, or with your mark, stops being
+// brief; with no origin question (OriginApplies) that costs one Wonder call when
+// everything matches. A section with no decisions and no mark stays brief.
 func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel string) (SignoffOpen, error) {
 	section, err := g.section(ctx, projectID, sectionLabel)
 	if err != nil {
@@ -185,8 +190,12 @@ func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel strin
 	if err != nil {
 		return SignoffOpen{}, err
 	}
+	thesis, err := graph.SectionThesis(ctx, g.db, projectID, section)
+	if err != nil {
+		return SignoffOpen{}, err
+	}
 	body := graph.SignoffBody{SectionID: section.ID, SectionVersion: section.CurrentVersion,
-		Brief: len(critical) == 0, Critical: []graph.SignedRef{}, OriginAssumptionID: origin,
+		Brief: len(critical) == 0 && thesis == nil, Critical: []graph.SignedRef{}, OriginAssumptionID: origin, Thesis: thesis,
 		Cases: []graph.SignoffCase{}, Rounds: []graph.SignoffRound{}}
 	for _, d := range critical {
 		body.Critical = append(body.Critical, graph.SignedRef{ID: d.ID, Version: d.CurrentVersion})
@@ -292,7 +301,7 @@ func (g *Gate) RecordAnswers(ctx context.Context, projectID, signLabel, originAn
 	if open && strings.TrimSpace(caseAnswer) == "" {
 		return ErrCaseAnswerRequired
 	}
-	if strings.TrimSpace(originAnswer) != "" {
+	if strings.TrimSpace(originAnswer) != "" && body.OriginApplies() {
 		body.OriginAnswer = originAnswer
 		parts = append(parts, "origin")
 	}
@@ -404,6 +413,18 @@ func (g *Gate) Sign(ctx context.Context, projectID, signLabel string) error {
 				return ErrSignoffOutdated
 			}
 		}
+		// A thesis decision that was replaced or revoked meanwhile is no
+		// longer what you explained, as with a critical one.
+		if body.Thesis != nil && body.Thesis.DecisionID != "" {
+			dec, err := tx.GetObject(ctx, projectID, body.Thesis.DecisionID)
+			if err != nil {
+				return err
+			}
+			if dec.State == "superseded" || dec.State == "revoked" {
+				return ErrSignoffOutdated
+			}
+			body.Thesis.Version = dec.CurrentVersion
+		}
 		return TrackCriticality(ctx, tx, "", func() error {
 			body.SectionFingerprint = fingerprint.Section(bodyStr(bodyOf(section), "text"))
 			body.AnsweredCards = []string{}
@@ -488,7 +509,8 @@ func (g *Gate) signoffOpenedAt(ctx context.Context, projectID, signID string) (t
 // and the Go checks: rule 4 of specification §3 rejects a new-n in
 // decision here too) and applies the round in one transaction
 // conditioned on the version read (B-13, B-14). Go decides «coincide»:
-// every decision match, the origin question answers and, if there was a
+// every entry match (the thesis's too, B-106: a gap in it is a gap like any
+// other), the origin question answers when it applies and, if there was a
 // case, the last one applies_well. missing_in_text cancels the signoff
 // with its passages; 2 cases that do not apply pause it (E-2).
 func (g *Gate) EndSignoffRound(ctx context.Context, projectID, turnID, signLabel string, attempt int,
@@ -552,7 +574,7 @@ func (g *Gate) EndSignoffRound(ctx context.Context, projectID, turnID, signLabel
 			break
 		}
 	}
-	answers := out.OriginQuestion.Answer != nil && *out.OriginQuestion.Answer == "answers"
+	answers := !body.OriginApplies() || out.OriginQuestion.Answer != nil && *out.OriginQuestion.Answer == "answers"
 	coincides := allMatch && answers && lastCaseWell
 	outcome := OutcomeOpen
 	switch {
@@ -566,7 +588,9 @@ func (g *Gate) EndSignoffRound(ctx context.Context, projectID, turnID, signLabel
 		outcome = OutcomeCase
 		body.Cases = append(body.Cases, graph.SignoffCase{Case: *out.NewCase})
 	}
-	body.OriginQuestion = out.OriginQuestion.Question
+	if body.OriginApplies() {
+		body.OriginQuestion = out.OriginQuestion.Question
+	}
 	body.Coincides = coincides
 	body.ContrastedBy = contrastedBy
 	if wonderUnavailable {
@@ -624,8 +648,30 @@ func pendingCase(body graph.SignoffBody) (int, bool) {
 	return n - 1, true
 }
 
+// wonderEntries are the labels Wonder's "decisions" must hold, in order: the
+// critical decisions and the thesis point.
+func wonderEntries(labels *graph.Labeler, body graph.SignoffBody, sectionLabel string) ([]string, error) {
+	order := make([]string, 0, len(body.Critical)+1)
+	for _, d := range body.Critical {
+		l, err := labels.ToLabel(d.ID)
+		if err != nil {
+			return nil, err
+		}
+		order = append(order, l)
+	}
+	thesis, err := body.ThesisPoint(labels, sectionLabel)
+	if err != nil {
+		return nil, err
+	}
+	if thesis != "" {
+		order = append(order, thesis)
+	}
+	return order, nil
+}
+
 // checkWonder applies the Go checks beyond the schema: rule 4 (no new-n
-// and no unknown label in decision), one entry per critical decision,
+// and no unknown label in decision), one entry per critical decision and
+// one for the thesis point (B-106),
 // what is missing named and the passage literal in the section, and the
 // judgments only of what you answered.
 // [EL DISEÑO NO LO DICE]: beyond rule 4, the schema's descriptions
@@ -636,15 +682,13 @@ func (g *Gate) checkWonder(ctx context.Context, projectID string, out graph.Wond
 	if err != nil {
 		return nil, err
 	}
+	order, err := wonderEntries(labels, body, section.Label)
+	if err != nil {
+		return nil, err
+	}
 	critical := map[string]bool{}
-	var order []string
-	for _, d := range body.Critical {
-		l, err := labels.ToLabel(d.ID)
-		if err != nil {
-			return nil, err
-		}
+	for _, l := range order {
 		critical[l] = true
-		order = append(order, l)
 	}
 	var errs []string
 	fail := func(path, format string, args ...any) { errs = append(errs, path+": "+fmt.Sprintf(format, args...)) }
@@ -678,10 +722,21 @@ func (g *Gate) checkWonder(ctx context.Context, projectID string, out graph.Wond
 		}
 	}
 	answer := out.OriginQuestion.Answer
-	if body.OriginAnswer == "" && answer != nil {
+	if !body.OriginApplies() {
+		// No origin question to answer, so a gap has only the new case to
+		// close it: without one the person could not go on.
+		if answer != nil {
+			fail("/origin_question/answer", "must be null: this signoff has no origin question")
+		}
+		for _, d := range out.Decisions {
+			if d.Verdict == "missing_in_explanation" && out.NewCase == nil {
+				fail("/new_case", "this gap needs a new case: there is no origin question here")
+				break
+			}
+		}
+	} else if body.OriginAnswer == "" && answer != nil {
 		fail("/origin_question/answer", "must be null: the person has not answered the origin question")
-	}
-	if body.OriginAnswer != "" && answer == nil {
+	} else if body.OriginAnswer != "" && answer == nil {
 		fail("/origin_question/answer", "judge the person's answer to the origin question")
 	}
 	_, judged := pendingCase(body)
@@ -814,7 +869,7 @@ func (r *Runner) RunSignoffRound(ctx context.Context, projectID, turnID, signLab
 // runSignoffRound is one call of B-13 with its brief (graph.WonderBrief,
 // labels only), one retry of the shape (fichas §7), and the round.
 func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLabel string) error {
-	sign, _, err := r.gate.signoff(ctx, projectID, signLabel)
+	sign, body, err := r.gate.signoff(ctx, projectID, signLabel)
 	if err != nil {
 		r.fail(projectID, turnID, "turn_failed")
 		return err
@@ -824,9 +879,14 @@ func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLab
 		r.fail(projectID, turnID, "turn_failed")
 		return err
 	}
+	expect, err := r.signoffExpectation(ctx, projectID, body)
+	if err != nil {
+		r.fail(projectID, turnID, "turn_failed")
+		return err
+	}
 	input := []json.RawMessage{userItem(brief)}
 	filter := newFieldFilter(nil) // Wonder's JSON is read on the signoff screen, not streamed
-	resp, model, effort, unavailable, err := r.callContraster(ctx, projectID, turnID, input, filter)
+	resp, model, effort, unavailable, err := r.callContraster(ctx, projectID, turnID, input, expect, filter)
 	if capErr, ok := asCap(err); ok {
 		r.publishCapStop(projectID, turnID, capErr)
 		return nil
@@ -843,7 +903,7 @@ func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLab
 	}
 	if result.Status == StatusRetry {
 		retry := append(append(append([]json.RawMessage{}, input...), resp.RawItems...), userItem(RetryMessage(result.Errors)))
-		resp, err = r.contrast(ctx, projectID, turnID, model, effort, retry, filter)
+		resp, err = r.contrast(ctx, projectID, turnID, model, effort, retry, expect, filter)
 		if capErr, ok := asCap(err); ok {
 			r.publishCapStop(projectID, turnID, capErr)
 			return nil
@@ -869,7 +929,24 @@ func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLab
 	return nil
 }
 
-func (r *Runner) contrast(ctx context.Context, projectID, turnID, model, effort string, input []json.RawMessage, f *fieldFilter) (provider.Response, error) {
+// signoffExpectation says what this round's output must hold, for the fake.
+func (r *Runner) signoffExpectation(ctx context.Context, projectID string, body graph.SignoffBody) (*provider.SignoffExpectation, error) {
+	section, err := r.db.GetObject(ctx, projectID, body.SectionID)
+	if err != nil {
+		return nil, err
+	}
+	labels, err := graph.NewLabeler(ctx, r.db, projectID)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := wonderEntries(labels, body, section.Label)
+	if err != nil {
+		return nil, err
+	}
+	return &provider.SignoffExpectation{Labels: entries, OriginApplies: body.OriginApplies(), OriginAnswered: body.OriginAnswer != ""}, nil
+}
+
+func (r *Runner) contrast(ctx context.Context, projectID, turnID, model, effort string, input []json.RawMessage, expect *provider.SignoffExpectation, f *fieldFilter) (provider.Response, error) {
 	schema, err := provider.TransportSchema(wonderSchema)
 	if err != nil {
 		return provider.Response{}, err
@@ -877,7 +954,7 @@ func (r *Runner) contrast(ctx context.Context, projectID, turnID, model, effort 
 	return r.prov.Respond(ctx, provider.Request{
 		ProjectID: projectID, TurnID: turnID,
 		Role: provider.RoleContraster, TurnKind: provider.TurnSignoff, Model: model, Effort: effort,
-		Instructions: contrasterInstructions, Input: input, Schema: schema, SchemaStrict: true,
+		Instructions: contrasterInstructions, Input: input, Schema: schema, SchemaStrict: true, SignoffExpect: expect,
 	}, r.filtered(projectID, turnID, f))
 }
 
@@ -885,10 +962,10 @@ func (r *Runner) contrast(ctx context.Context, projectID, turnID, model, effort 
 // available; when it still is not (or is not in models.go), Spark 1.3
 // xhigh contrasts and the round says so (flujos §3, B-20 (c)). Any other
 // error is an error of the turn.
-func (r *Runner) callContraster(ctx context.Context, projectID, turnID string, input []json.RawMessage, f *fieldFilter) (provider.Response, string, string, bool, error) {
+func (r *Runner) callContraster(ctx context.Context, projectID, turnID string, input []json.RawMessage, expect *provider.SignoffExpectation, f *fieldFilter) (provider.Response, string, string, bool, error) {
 	if provider.Known(provider.ContrasterModel) {
 		for try := 0; try < 2; try++ {
-			resp, err := r.contrast(ctx, projectID, turnID, provider.ContrasterModel, provider.ContrasterEffort, input, f)
+			resp, err := r.contrast(ctx, projectID, turnID, provider.ContrasterModel, provider.ContrasterEffort, input, expect, f)
 			if err == nil {
 				return resp, provider.ContrasterModel, provider.ContrasterEffort, false, nil
 			}
@@ -897,7 +974,7 @@ func (r *Runner) callContraster(ctx context.Context, projectID, turnID string, i
 			}
 		}
 	}
-	resp, err := r.contrast(ctx, projectID, turnID, provider.ContrasterFallbackModel, provider.ContrasterFallbackEffort, input, f)
+	resp, err := r.contrast(ctx, projectID, turnID, provider.ContrasterFallbackModel, provider.ContrasterFallbackEffort, input, expect, f)
 	return resp, provider.ContrasterFallbackModel, provider.ContrasterFallbackEffort, true, err
 }
 

@@ -276,6 +276,7 @@ func TestE1_SignReadsThePendingsInsideItsTransaction(t *testing.T) {
 	if err := gate.RecordExplanation(ctx, "p1", open.Label, "Lo explico yo."); err != nil {
 		t.Fatal(err)
 	}
+	coincideOnThesis(t, db, gate, open.Label) // its decisions are not critical (B-106)
 	gate.StoppedBy = func(ctx context.Context, projectID string) (string, error) {
 		_, err := cycle.NewGate(db).ObjectDecision(ctx, projectID, "dec-2", objectReason)
 		return "", err

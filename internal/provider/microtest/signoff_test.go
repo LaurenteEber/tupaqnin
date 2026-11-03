@@ -120,7 +120,7 @@ func newScenario(t *testing.T, meta provider.Provider, text string) *scenario {
 	err = db.Write(ctx, "p1", func(tx *store.Tx) error {
 		sec, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{
 			"title": "Regla de comparación", "text": text,
-			"role":         map[string]any{"value": "conclusion", "state": "confirmed"},
+			"role":         map[string]any{"value": "conclusion", "state": "proposed"},
 			"open_changes": []any{},
 		}, store.EventInput{Type: store.EventStateChanged, Actor: "agent"})
 		if err != nil {

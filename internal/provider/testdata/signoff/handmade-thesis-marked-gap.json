@@ -1,0 +1,26 @@
+{
+  "name": "handmade-thesis-marked-gap",
+  "turn_kind": "signoff",
+  "deltas": [
+    "{\"decisions\": [{\"decision\": \"dec-1\", \"verdict\": \"match\", \"missing\": null, \"passage\": null}, {\"decision\": \"sec-1\", \"verdict\": \"missing_in_explanation\", \"missing\": \"qué concluye la sección\", \"passage\": null}], \"origin_question\": {\"question\": \"¿De qué supuesto sale que la comparación sea justa?\", \"answer\": null}, \"previous_case\": null, \"new_case\": \"Una región pide abrir el piloto con el mismo personal. ¿Qué le respondes?\"}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"decisions\": [{\"decision\": \"dec-1\", \"verdict\": \"match\", \"missing\": null, \"passage\": null}, {\"decision\": \"sec-1\", \"verdict\": \"missing_in_explanation\", \"missing\": \"qué concluye la sección\", \"passage\": null}], \"origin_question\": {\"question\": \"¿De qué supuesto sale que la comparación sea justa?\", \"answer\": null}, \"previous_case\": null, \"new_case\": \"Una región pide abrir el piloto con el mismo personal. ¿Qué le respondes?\"}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 1800,
+    "output_tokens": 240,
+    "context_window": 1048576,
+    "cost_usd": 0.012
+  },
+  "delta_delay": 0
+}

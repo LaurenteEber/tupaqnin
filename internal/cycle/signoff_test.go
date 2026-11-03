@@ -25,7 +25,7 @@ func seedSignable(t *testing.T, db *store.DB, critical bool) (sectionID, decisio
 	err := db.Write(context.Background(), "p1", func(tx *store.Tx) error {
 		sec, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{
 			"title": "Regla de comparación", "text": signText,
-			"role":         map[string]any{"value": "conclusion", "state": "confirmed"},
+			"role":         map[string]any{"value": "conclusion", "state": "proposed"},
 			"open_changes": []any{},
 		}, store.EventInput{Type: store.EventStateChanged, Actor: "agent"})
 		if err != nil {

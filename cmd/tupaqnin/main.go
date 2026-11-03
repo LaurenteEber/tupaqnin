@@ -79,6 +79,7 @@ func main() {
 		}
 		fake := provider.NewFake(append(fixtures, readers...)...)
 		fake.Recorder = db
+		fake.FitSignoff = true
 		prov = fake
 		countTokens = func(ctx context.Context, input []json.RawMessage) (int, error) {
 			return fake.CountTokens(ctx, provider.PrincipalModel, input)

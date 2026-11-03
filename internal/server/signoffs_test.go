@@ -44,7 +44,7 @@ func seedSignSection(t *testing.T, db *store.DB, projectID, text string, critica
 	err := db.Write(context.Background(), projectID, func(tx *store.Tx) error {
 		sec, err := tx.CreateObject(store.ObjectSection, "draft", map[string]any{
 			"title": "Regla de comparación", "text": text,
-			"role":         map[string]any{"value": "conclusion", "state": "confirmed"},
+			"role":         map[string]any{"value": "conclusion", "state": "proposed"},
 			"open_changes": []any{},
 		}, store.EventInput{Type: store.EventStateChanged, Actor: "agent"})
 		if err != nil || !critical {

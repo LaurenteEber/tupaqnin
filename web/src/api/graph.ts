@@ -1098,6 +1098,11 @@ export interface SignoffBody {
   sources?: SignedSource[];
   answered_cards?: string[];
   /**
+   * Thesis is the section's thesis, chosen when the signoff opened
+   * (B-106). A signoff opened before B-106 has none and reads as it did.
+   */
+  thesis?: SignoffThesis;
+  /**
    * Rounds are Wonder's results, beside the commitment, not inside it
    * (specification §4).
    */
@@ -1108,6 +1113,27 @@ export interface SignoffBody {
    * signed). The phase is still read from the history.
    */
   ended?: string;
+}
+/**
+ * ThesisConclusion: the section carries your «aquí se concluye» mark.
+ */
+export const ThesisConclusion = "conclusion";
+/**
+ * ThesisDecision: no mark; a decision that holds the section up.
+ */
+export const ThesisDecision = "decision";
+/**
+ * SignoffThesis is what Wonder asks about besides the critical decisions
+ * (B-106). It is never a critical decision: Critical, the cards and every
+ * Rule reading them stay as they are.
+ */
+export interface SignoffThesis {
+  kind: string;
+  /**
+   * DecisionID and Version name the decision of a ThesisDecision.
+   */
+  decision_id?: string;
+  version?: number /* int */;
 }
 /**
  * SignedRef is an object by internal id and version.
@@ -1155,6 +1181,11 @@ export interface WonderVerdict {
    * which is the answer (fichas §2 Firma: «sin la respuesta»; P-59).
    */
   number: number /* int */;
+  /**
+   * Thesis names the point on screen when it is the thesis and not a
+   * critical decision, by its kind and in words (B-106, P-59).
+   */
+  thesis?: string;
   verdict: string;
   missing?: string;
   passage?: string;
@@ -1198,6 +1229,11 @@ export interface SignoffView {
   pendings_at_cap: Pending[];
   stopped_by?: string;
   critical_decisions: string[];
+  /**
+   * Thesis is the kind of thesis asked besides the critical decisions
+   * (B-106), when it adds a point. In words on screen, without the answer.
+   */
+  thesis?: string;
   origin_assumption?: string;
   explanation: string;
   origin_question: string;

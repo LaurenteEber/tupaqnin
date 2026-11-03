@@ -235,7 +235,15 @@ export function SignoffPanel({ lang, projectID, label, onClose, onReadFull }: {
         </li>
 
         <li>
-          <b>{view.brief ? t("signoff.explain_brief") : t("signoff.explain", { n: String(view.critical_decisions.length) })}</b>
+          <b>
+            {view.brief
+              ? t("signoff.explain_brief")
+              : view.critical_decisions.length === 0
+                ? t("signoff.explain_thesis")
+                : t("signoff.explain", { n: String(view.critical_decisions.length) })}
+          </b>
+          {/* B-106: in words, never the label nor the statement, which is the answer. */}
+          {view.thesis && <p className="meta">{t(`signoff.thesis_ask.${view.thesis}`)}</p>}
           {explained ? (
             <blockquote className="signoff-quote">{view.explanation}</blockquote>
           ) : (
@@ -289,7 +297,7 @@ export function SignoffPanel({ lang, projectID, label, onClose, onReadFull }: {
               {view.verdicts.map((v) => (
                 <li key={v.decision}>
                   {/* By its number, never its label nor its statement (P-59). */}
-                  {t("signoff.decision_number", { n: String(v.number) })} · {t(`signoff.verdict.${v.verdict}`)}
+                  {v.thesis ? t(`signoff.thesis.${v.thesis}`) : t("signoff.decision_number", { n: String(v.number) })} · {t(`signoff.verdict.${v.verdict}`)}
                   {v.missing && <> · {v.missing}</>}
                   {v.passage && <> · «{v.passage}»</>}
                   {/* P-41 corrected (30-oct, flujos §3): Go says when the history
