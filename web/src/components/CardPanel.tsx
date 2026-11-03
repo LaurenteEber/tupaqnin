@@ -3,6 +3,7 @@ import { answerCard, answerOpenQuestion, getTodo } from "../api/client";
 import type { CardView, OpenQuestionView } from "../api/types";
 import { anchoredScroll, draftHasText, draftsOf, dropDraft, holdOrder, setDraft, type CardDraft } from "../cardDrafts";
 import { translate, type Lang } from "../i18n";
+import { cardCounter } from "../noise";
 import { undoReasonKey } from "../undo";
 import { DecisionActions } from "./DecisionActions";
 
@@ -122,8 +123,13 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
 
   if (sent.length === 0 && closed.length === 0) return null;
 
+  const counter = (label: string) => (
+    <p className="meta card-counter">{t("card.counter", cardCounter(order.indexOf(label), order.length))}</p>
+  );
+
   const cardView = (card: CardView) => (
         <div key={card.label} id={`card-${card.label}`} className="card chat-card todo">
+          {counter(card.label)}
           <h3>
             {/* The decision by its statement, never its label (rule 7, P-59). */}
             {t("card.title", { statement: card.statement })} · {t("card.critical")}:{" "}
@@ -191,6 +197,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
 
   const questionView = (q: OpenQuestionView) => (
         <div key={q.label} id={`oq-${q.label}`} className="card chat-card todo">
+          {counter(q.label)}
           <h3>
             {t("oq.title")} ·{" "}
             {/* What it blocks, by title or statement, never by label (rule 7). */}

@@ -1,0 +1,34 @@
+// C.13: larger base type, the agent's note once per step, and a counter on the cards.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { cardCounter, withoutHistoryNotes } from "./noise.ts";
+import en from "./i18n/en.json" with { type: "json" };
+import es from "./i18n/es.json" with { type: "json" };
+
+test("C13: a note already in the history does not show again in the stream", () => {
+  const stream = [
+    { field: "triage_line", text: "Construir: uno." },
+    { field: "note", text: "La nota del paso uno." },
+    { field: "reply", text: "Respuesta." },
+    { field: "note", text: "La nota del paso dos." },
+  ];
+  const entries = [{ kind: "step", note: "La nota del paso uno." }];
+  assert.deepEqual(withoutHistoryNotes(stream, entries), [
+    { field: "triage_line", text: "Construir: uno." },
+    { field: "reply", text: "Respuesta." },
+    { field: "note", text: "La nota del paso dos." },
+  ]);
+  assert.equal(withoutHistoryNotes(stream, []).length, 4, "nothing in the history yet");
+});
+
+test("C13: the counter, in both languages", () => {
+  assert.deepEqual(cardCounter(1, 5), { n: "2", total: "5" });
+  assert.equal(en["card.counter"], "Card {n} of {total}");
+  assert.equal(es["card.counter"], "Tarjeta {n} de {total}");
+});
+
+test("C13: the base type is 15 px", () => {
+  const css = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
+  assert.match(css, /font: 15px\/1\.5 var\(--ui\)/);
+});

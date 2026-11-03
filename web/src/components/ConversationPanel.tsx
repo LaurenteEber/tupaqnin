@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { editQueuedMessage, removeQueuedMessage, retryQueuedMessage } from "../api/client";
 import { canSaveEdit, isQueued, queuedMark } from "../queue";
+import { withoutHistoryNotes } from "../noise";
 import type { ReactNode } from "react";
 import type { StreamDelta } from "../api/client";
 import type { ConversationEntry } from "../api/types";
@@ -80,7 +81,7 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
       {(working || stream.length > 0 || errorCode) && (
         <div className="turn-panel" aria-live="polite">
           {working && <p className="working">{t("turn.working")}</p>}
-          {stream.map((piece, i) =>
+          {withoutHistoryNotes(stream, entries).map((piece, i) =>
             piece.field === "reply" ? (
               <p key={i} className="reply">{plainAgentText(piece.text)}</p>
             ) : piece.field === "text" ? (

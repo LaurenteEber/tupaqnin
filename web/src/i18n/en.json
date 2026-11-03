@@ -86,6 +86,7 @@
   "understanding.pending": "The agent could not finish its understanding; it stays pending for the agent. You can write to it below.",
   "assent_list": "ok, okay, yes, yep, sure, fine, agreed, k, lgtm",
   "card.todo": "Yours to do",
+  "card.counter": "Card {n} of {total}",
   "card.title": "Card · {statement}",
   "card.critical": "why it needs you",
   "frame.todo.card_tag": "critical decision",
