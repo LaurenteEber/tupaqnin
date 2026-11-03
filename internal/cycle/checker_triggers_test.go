@@ -33,7 +33,11 @@ func checkerRunner(t *testing.T, db *store.DB, fixtures ...provider.Fixture) (*c
 	count := func(ctx context.Context, input []json.RawMessage) (int, error) {
 		return fake.CountTokens(ctx, provider.PrincipalModel, input)
 	}
-	return cycle.NewRunner(db, cap, count, &fakePublisher{}), cap
+	runner := cycle.NewRunner(db, cap, count, &fakePublisher{})
+	// An answer can start the step that applies it (B-100): it ends before the
+	// temporary directory goes.
+	t.Cleanup(func() { cycle.WaitTurnsForTest(runner) })
+	return runner, cap
 }
 
 // B-36: asking to sign runs the pending batch of your edits before the

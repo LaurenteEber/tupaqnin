@@ -45,6 +45,16 @@ type Gate struct {
 	// (Runner.StoppedBy): at a cap the agent's pendings do not block the
 	// signoff (B3-20, Eber 2-nov). Nil reads as no cap.
 	StoppedBy func(ctx context.Context, projectID string) (string, error)
+	// RunningTurn says which chain turn runs now (Runner.RunningTurn): a step in
+	// flight did not read an answer given meanwhile (B-100). Nil reads as none.
+	RunningTurn func(projectID string) string
+}
+
+func (g *Gate) runningTurn(projectID string) string {
+	if g.RunningTurn == nil {
+		return ""
+	}
+	return g.RunningTurn(projectID)
 }
 
 // NewGate returns a Gate over db.

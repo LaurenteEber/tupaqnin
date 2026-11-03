@@ -57,7 +57,7 @@ func sectionsTouchedBy(ctx context.Context, tx *store.Tx, born, replaced store.O
 
 // appliesData is what the answer's event says it changes (B-100); nil when the
 // answer changes no text, as «mantener».
-func appliesData(data map[string]any, sections []string, text, reason, decision string) map[string]any {
+func appliesData(data map[string]any, sections []string, text, reason, decision, during string) map[string]any {
 	if len(sections) == 0 {
 		return data
 	}
@@ -72,6 +72,9 @@ func appliesData(data map[string]any, sections []string, text, reason, decision 
 	data["applies_to"], data["applies_text"], data["applies_reason"] = unique, text, reason
 	if decision != "" {
 		data["applies_decision"] = decision
+	}
+	if during != "" {
+		data["applies_during"] = during
 	}
 	return data
 }

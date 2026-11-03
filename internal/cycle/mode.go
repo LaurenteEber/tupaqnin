@@ -571,6 +571,11 @@ func (r *Runner) runHandoff(projectID string) {
 		r.releaseTurn(projectID)
 		return
 	}
+	if apply { // this chain's release looks again (B-100)
+		r.mu.Lock()
+		r.queueOf(projectID).applyWanted = true
+		r.mu.Unlock()
+	}
 	r.beginChainTurn(projectID, turnID)
 	defer r.endTurn(r.ctx, projectID, turnID)
 	if err := r.runChain(r.ctx, projectID, turnID, "", false); err != nil {

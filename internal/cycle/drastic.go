@@ -41,7 +41,8 @@ func endsSentenceAt(text string, end int) bool {
 	if !closesSentence(text[:end]) {
 		return false
 	}
-	return rest[0] == ' ' || rest[0] == '\t'
+	// An anchor may bring the space after the period.
+	return rest[0] == ' ' || rest[0] == '\t' || text[end-1] == ' '
 }
 
 // startsSentenceAt says position start of text begins a sentence or a paragraph.
@@ -57,25 +58,30 @@ func isProse(block string) bool {
 		return false
 	}
 	switch b[0] {
-	case '#', '-', '*', '>', '|', '+':
+	case '#', '-', '*', '>', '|', '+', '`':
 		return false
 	}
 	digits := strings.TrimLeft(b, "0123456789")
 	return len(digits) == len(b) || !strings.HasPrefix(digits, ".")
 }
 
-// breaksASentence is (c): a paragraph the step changed is left without its close.
+// breaksASentence is (c): the step leaves more unfinished paragraphs than it found.
+// A paragraph is judged by its last line, so one that leads into a list or a table
+// is not unfinished, and one that was already open is not this step's.
 func breaksASentence(base, result string) bool {
-	before := map[string]bool{}
-	for _, b := range strings.Split(base, "\n\n") {
-		before[strings.TrimSpace(b)] = true
-	}
-	for _, b := range strings.Split(result, "\n\n") {
-		if !before[strings.TrimSpace(b)] && isProse(b) && !closesSentence(b) {
-			return true
+	return unfinishedParagraphs(result) > unfinishedParagraphs(base)
+}
+
+func unfinishedParagraphs(text string) int {
+	n := 0
+	for _, b := range strings.Split(text, "\n\n") {
+		b = strings.TrimSpace(b)
+		last := b[strings.LastIndex(b, "\n")+1:]
+		if isProse(last) && !closesSentence(last) {
+			n++
 		}
 	}
-	return false
+	return n
 }
 
 // rewritesASentenceEnd is what the case-5 batch did: a «replace» of the end of a

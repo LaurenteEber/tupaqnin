@@ -35,6 +35,9 @@ func UnappliedDecisions(ctx context.Context, q store.Querier, projectID string) 
 	}
 	type open struct {
 		section, text, reason, decision, source string
+		// during: the turn whose step was in flight when you answered. It did not
+		// read your answer, so what it writes closes nothing until it ends.
+		during string
 	}
 	var pending []open
 	for _, ev := range events {
@@ -42,19 +45,27 @@ func UnappliedDecisions(ctx context.Context, q store.Querier, projectID string) 
 			AppliesTo   []string `json:"applies_to"`
 			AppliesText string   `json:"applies_text"`
 			Reason      string   `json:"applies_reason"`
+			During      string   `json:"applies_during"`
 			Decision    string   `json:"applies_decision"`
 			Section     string   `json:"section"`
 			To          string   `json:"to"`
 		}
 		_ = json.Unmarshal(ev.Data, &data)
 		for _, section := range data.AppliesTo {
-			pending = append(pending, open{section: section, text: data.AppliesText, reason: data.Reason, decision: data.Decision, source: ev.ObjectID})
+			pending = append(pending, open{section: section, text: data.AppliesText, reason: data.Reason, decision: data.Decision, source: ev.ObjectID, during: data.During})
 		}
 		if ev.Actor != "agent" {
 			continue
 		}
 		kept := pending[:0]
 		for _, p := range pending {
+			if p.during != "" && p.during == ev.TurnID {
+				if ev.Type == store.EventStepEnded {
+					p.during = ""
+				}
+				kept = append(kept, p)
+				continue
+			}
 			if ev.ObjectID == p.section || data.To == "open" && data.Section != "" && sectionNamed(ctx, q, projectID, data.Section) == p.section {
 				continue
 			}

@@ -157,6 +157,7 @@ func NewRunner(db *store.DB, prov provider.Provider, count memory.TokenCounter, 
 		gate: NewGate(db), memory: memory.New(db), running: map[string]bool{}, preparing: map[string]int{},
 		waits: map[string]*editWait{}, queues: map[string]*modeQueue{}, ctx: ctx, cancel: cancel}
 	r.gate.StoppedBy = r.StoppedBy
+	r.gate.RunningTurn = r.RunningTurn
 	r.spend = newSpendGate(r, db, prov)
 	r.prov, r.checker = r.spend, NewChecker(r.spend)
 	return r
@@ -1509,6 +1510,11 @@ func (r *Runner) chainTurn(ctx context.Context, projectID, turnID, text string, 
 		return "", err
 	}
 	if on {
+		// B-100: the mode turned on during the one step does not end there: its
+		// chain opens the next turn, as at a boundary (B-83).
+		if reason == StopDecisionApplied {
+			reason = StopStepLimit
+		}
 		return r.modeBoundary(ctx, projectID, turnID, reason, last, lastApplied, lastText)
 	}
 	// B-37: every stop, the cuts of B-17 included, ends in the report.

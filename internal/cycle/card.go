@@ -88,6 +88,7 @@ func (g *Gate) AnswerCard(ctx context.Context, projectID, cardLabel, option, rea
 	}
 
 	var answer CardAnswer
+	during := g.runningTurn(projectID)
 	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		return TrackCriticality(ctx, tx, "", func() error {
 			card, err := tx.GetObject(ctx, projectID, card.ID)
@@ -137,7 +138,7 @@ func (g *Gate) AnswerCard(ctx context.Context, projectID, cardLabel, option, rea
 				if err != nil {
 					return err
 				}
-				answered = appliesData(answered, sections, bodyStr(bodyOf(born), "statement"), reason, born.Label)
+				answered = appliesData(answered, sections, bodyStr(bodyOf(born), "statement"), reason, born.Label, during)
 			}
 			if _, err := tx.UpdateObject(card.ID, card.CurrentVersion, "answered", cardBody,
 				human(store.EventStateChanged, answered)); err != nil {

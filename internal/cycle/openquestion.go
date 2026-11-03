@@ -100,6 +100,7 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 	}
 
 	answer := OpenQuestionAnswer{OpenQuestion: oq.Label}
+	during := g.runningTurn(projectID)
 	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		return TrackCriticality(ctx, tx, "", func() error {
 			oq, err := tx.GetObject(ctx, projectID, oq.ID)
@@ -156,7 +157,7 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 					}
 					sections = append(sections, used...)
 				}
-				resolved = appliesData(resolved, sections, chosenText, reason, answer.NewDecision)
+				resolved = appliesData(resolved, sections, chosenText, reason, answer.NewDecision, during)
 			}
 			if _, err := tx.UpdateObject(oq.ID, oq.CurrentVersion, "resolved", body,
 				store.EventInput{Type: store.EventStateChanged, Actor: "human", Reason: reason, Data: resolved}); err != nil {

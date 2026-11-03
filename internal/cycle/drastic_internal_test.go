@@ -17,7 +17,7 @@ func TestB99_EndsASentence(t *testing.T) {
 		at   string
 		want bool
 	}{{"La cifra es 3.", false}, {"La cifra", false}, {"La cifra es 3.14 en total.", true},
-		{"La cifra es 3.14 en total. Sigue otra.", true}, {"# Titulo", true}, {"Fin", true}} {
+		{"La cifra es 3.14 en total. Sigue otra.", true}, {"# Titulo", true}, {"Fin", true}, {"La cifra es 3.14 en total. ", true}} {
 		end := indexEnd(text, c.at)
 		if got := endsSentenceAt(text, end); got != c.want {
 			t.Errorf("after %q: %v, want %v", c.at, got, c.want)
@@ -45,6 +45,15 @@ func TestB99_BreaksASentence(t *testing.T) {
 	}
 	if breaksASentence(base, base+"\n\n# Otro\n\n- un punto") {
 		t.Fatal("a heading and a list: want false")
+	}
+	if breaksASentence(base, base+"\n\nTres hallazgos:\n- uno\n- dos") {
+		t.Fatal("a list after a single newline: want false")
+	}
+	if breaksASentence(base, base+"\n\nLos datos:\n| a | b |\n| 1 | 2 |") {
+		t.Fatal("a table after a single newline: want false")
+	}
+	if breaksASentence("Alcance: ver tabla", "Alcance: ver la tabla") {
+		t.Fatal("a paragraph that was already unclosed: want false")
 	}
 }
 

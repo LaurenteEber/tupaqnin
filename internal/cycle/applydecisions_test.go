@@ -8,6 +8,7 @@ import (
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
+	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -196,5 +197,89 @@ func TestB100_WithTheTurnBusyItWaitsForTheRelease(t *testing.T) {
 	cycle.WaitTurnsForTest(runner)
 	if len(cap.sent) != 1 || !strings.Contains(lastUserText(t, cap.sent[0]), "dec-4") {
 		t.Fatalf("after the release: %d calls", len(cap.sent))
+	}
+}
+
+// B-100, B-83: turning the mode on during the one step does not end it: the chain
+// goes on, as when it is turned on during any turn.
+func TestB100_TheModeActivatedDuringTheStepGoesOn(t *testing.T) {
+	db := cleanCardProject(t)
+	hold := &holdProvider{kind: provider.TurnStep, at: 1}
+	runner, cap, _ := modeRunnerOn(t, db, hold, textFixture(t, closesChange(t)),
+		loadAppFixture(t, "04-principal-no-work.json"), loadAppFixture(t, "04-principal-no-work.json"))
+	if _, err := runner.AnswerCard(context.Background(), "p1", "card-1", cycle.OptionOther, applyReason); err != nil {
+		t.Fatal(err)
+	}
+	<-hold.entered
+	if _, err := runner.SetMode(context.Background(), "p1", graph.ModeRunToCompletion, "Sigue hasta terminar."); err != nil {
+		t.Fatal(err)
+	}
+	close(hold.release)
+	cycle.WaitTurnsForTest(runner)
+	if len(cap.sent) < 2 {
+		t.Fatalf("step calls: %d, want the chain to go on", len(cap.sent))
+	}
+	for _, ev := range eventsOfType(t, db, store.EventModeSet) {
+		if strings.Contains(string(ev.Data), "decision_applied") {
+			t.Fatalf("the mode ended because of the one step: %s", ev.Data)
+		}
+	}
+}
+
+// B-100: a step already running when you answered did not read your answer: what it
+// writes does not close your decision, and the release applies it.
+func TestB100_AStepAlreadyRunningDoesNotCloseYourDecision(t *testing.T) {
+	db := cleanCardProject(t)
+	hold := &holdProvider{kind: provider.TurnStep, at: 1}
+	noWork := loadAppFixture(t, "04-principal-no-work.json")
+	runner, cap, _ := modeRunnerOn(t, db, hold,
+		editStep(t, db, map[string]any{"anchor": "Cierre.", "text": "Cierre revisado sin relación."}), noWork, noWork, noWork, noWork)
+	if _, err := runner.StartTurn("p1", "Sigue."); err != nil {
+		t.Fatal(err)
+	}
+	<-hold.entered
+	if _, err := runner.AnswerCard(context.Background(), "p1", "card-1", cycle.OptionOther, applyReason); err != nil {
+		t.Fatal(err)
+	}
+	close(hold.release)
+	cycle.WaitTurnsForTest(runner)
+	tasks := 0
+	for _, sent := range cap.sent {
+		if strings.Contains(lastUserText(t, sent), "does not say it yet") {
+			tasks++
+		}
+	}
+	left, _ := graph.UnappliedDecisions(context.Background(), db, "p1")
+	if tasks == 0 && len(left) == 0 {
+		t.Fatal("your decision closed with no step that read it")
+	}
+	if tasks != 1 {
+		t.Fatalf("apply tasks: %d, want the one step at the release", tasks)
+	}
+}
+
+// B-100: an answer and a message waiting for the same release: the message's chain
+// does not lose the one step.
+func TestB100_AMessageWaitingForTheSameReleaseKeepsTheStep(t *testing.T) {
+	db := cleanCardProject(t)
+	noWork := loadAppFixture(t, "04-principal-no-work.json")
+	runner, cap, _ := modeRunnerOn(t, db, nil, noWork, noWork, noWork)
+	end := cycle.HoldTurnForTest(runner, "p1")
+	if _, err := runner.AnswerCard(context.Background(), "p1", "card-1", cycle.OptionOther, applyReason); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runner.StartTurn("p1", "Una cosa más."); err != nil {
+		t.Fatal(err)
+	}
+	end()
+	cycle.WaitTurnsForTest(runner)
+	tasks := 0
+	for _, sent := range cap.sent {
+		if strings.Contains(lastUserText(t, sent), "does not say it yet") {
+			tasks++
+		}
+	}
+	if tasks != 1 {
+		t.Fatalf("apply tasks: %d in %d calls, want 1", tasks, len(cap.sent))
 	}
 }
