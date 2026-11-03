@@ -82,6 +82,22 @@ export function accountErrorText(code: string, retryAfterSeconds = 0): Text {
   return code === "too_many_attempts" ? { key, params: { seconds: String(retryAfterSeconds) } } : { key };
 }
 
+// C.8: the password field starts hidden, the toggle shows it, and submitting or
+// changing form hides it again. Never remembered.
+export type PasswordEvent = "toggle" | "submit" | "change_form";
+
+export function nextPasswordShown(shown: boolean, event: PasswordEvent): boolean {
+  return event === "toggle" ? !shown : false;
+}
+
+export function passwordFieldType(shown: boolean): "text" | "password" {
+  return shown ? "text" : "password";
+}
+
+export function passwordToggleKey(shown: boolean): string {
+  return shown ? "home.password_hide" : "home.password_show";
+}
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;

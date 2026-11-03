@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { AccountError, login, logout, register } from "../api/client";
 import type { ProjectLine, SessionView } from "../api/types";
-import { accountErrorText, activityAgo, createErrorKey, homeNoticeKeys, homeView, loginNoticeKey, projectProgress } from "../home";
+import { accountErrorText, activityAgo, createErrorKey, homeNoticeKeys, homeView, loginNoticeKey, nextPasswordShown, passwordFieldType, passwordToggleKey, projectProgress } from "../home";
 import { translate, type Lang } from "../i18n";
 
 export type HomeForm = "" | "register" | "login";
@@ -36,6 +36,7 @@ export function HomePage({
   const [form, setForm] = useState<Form>(askedForm);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordShown, setPasswordShown] = useState(false);
   const [formError, setFormError] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -47,6 +48,7 @@ export function HomePage({
   function openForm(next: Form) {
     setForm(next);
     setPassword("");
+    setPasswordShown((shown) => nextPasswordShown(shown, "change_form"));
     setFormError("");
   }
 
@@ -57,6 +59,7 @@ export function HomePage({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setPasswordShown((shown) => nextPasswordShown(shown, "submit"));
     setSending(true);
     setFormError("");
     try {
@@ -164,17 +167,28 @@ export function HomePage({
               onChange={(e) => setUsername(e.target.value)}
             />
           </label>
-          <label>
-            {t("home.password")}
-            <input
-              name="password"
-              type="password"
-              autoComplete={form === "register" ? "new-password" : "current-password"}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
+          <div className="home-password">
+            <label>
+              {t("home.password")}
+              <input
+                id="home-password"
+                name="password"
+                type={passwordFieldType(passwordShown)}
+                autoComplete={form === "register" ? "new-password" : "current-password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              aria-pressed={passwordShown}
+              aria-controls="home-password"
+              onClick={() => setPasswordShown((shown) => nextPasswordShown(shown, "toggle"))}
+            >
+              {t(passwordToggleKey(passwordShown))}
+            </button>
+          </div>
           {form === "register" && <p className="hint">{t("home.register_hint")}</p>}
           {form === "login" && loginNotice && <p className="home-warn">{t(loginNotice)}</p>}
           <button type="submit" className="primary" disabled={sending}>

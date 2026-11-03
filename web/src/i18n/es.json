@@ -613,6 +613,8 @@
   "home.signed_in": "Entraste como {account}",
   "home.username": "Usuario",
   "home.password": "Clave",
+  "home.password_show": "Mostrar",
+  "home.password_hide": "Ocultar",
   "home.register_hint": "Usuario de 3 a 32 caracteres (letras, números, _ . -) y clave de 10 a 64. Sin correo: la clave no se puede recuperar.",
   "home.login_moves_project": "Al entrar, tu proyecto abierto pasa a tu cuenta. Si tu cuenta ya tiene 3 proyectos, perderás este.",
   "home.account.error.username_taken": "Ese usuario ya existe.",

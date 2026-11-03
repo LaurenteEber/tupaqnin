@@ -230,6 +230,9 @@ details.afinar[open] { display: flex; flex-direction: column; gap: 8px; }
 .home-account { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .home-form { display: flex; flex-direction: column; gap: 8px; max-width: 320px; }
 .home-form label { display: flex; flex-direction: column; gap: 2px; }
+.home-password { display: flex; gap: 6px; align-items: flex-end; }
+.home-password label { flex: 1; min-width: 0; }
+.home-password input { width: 100%; box-sizing: border-box; }
 
 /* P-39: the two ways to start. */
 .empty-actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }

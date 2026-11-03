@@ -613,6 +613,8 @@
   "home.signed_in": "Signed in as {account}",
   "home.username": "User",
   "home.password": "Password",
+  "home.password_show": "Show",
+  "home.password_hide": "Hide",
   "home.register_hint": "User of 3 to 32 characters (letters, numbers, _ . -) and password of 10 to 64. No email: the password cannot be recovered.",
   "home.login_moves_project": "Signing in moves your open project to your account. If your account already has 3 projects, this one will be lost.",
   "home.account.error.username_taken": "That user already exists.",

@@ -12,6 +12,9 @@ import {
   homeView,
   leftBottom,
   loginNoticeKey,
+  nextPasswordShown,
+  passwordFieldType,
+  passwordToggleKey,
   projectLineTexts,
   projectNameText,
   projectProgress,
@@ -265,4 +268,20 @@ test("U.2: the left panel's texts are in both catalogs", () => {
       assert.ok(texts[key], `${lang}: ${key}`);
     }
   }
+});
+
+// C.8: the password you type can be seen while you type it, and only then.
+test("C8: the password starts hidden, shows on the toggle, and hides on submit or on changing form", () => {
+  assert.equal(passwordFieldType(false), "password");
+  assert.equal(passwordFieldType(true), "text");
+  assert.equal(nextPasswordShown(false, "toggle"), true);
+  assert.equal(nextPasswordShown(true, "toggle"), false);
+  assert.equal(nextPasswordShown(true, "submit"), false);
+  assert.equal(nextPasswordShown(true, "change_form"), false);
+  assert.equal(passwordToggleKey(false), "home.password_show");
+  assert.equal(passwordToggleKey(true), "home.password_hide");
+  assert.equal(catalog("en")["home.password_show"], "Show");
+  assert.equal(catalog("en")["home.password_hide"], "Hide");
+  assert.equal(catalog("es")["home.password_show"], "Mostrar");
+  assert.equal(catalog("es")["home.password_hide"], "Ocultar");
 });
