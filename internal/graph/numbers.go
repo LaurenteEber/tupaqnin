@@ -16,8 +16,21 @@ type Number struct {
 }
 
 // numberPattern is a sequence with at least one digit; digit groups may
-// be joined by a point, a comma or a no-break or thin space.
-var numberPattern = regexp.MustCompile("[0-9]+(?:[.,  ][0-9]+)*")
+// be joined by a point, a comma or a no-break or thin space. A power goes with
+// its digits: 10⁴, 10^4, 1e4 (B-104).
+var numberPattern = regexp.MustCompile("[0-9]+(?:[.,  ][0-9]+)*(?:\\^[-−]?[0-9]+|[⁰¹²³⁴-⁹⁻]+|[eE][-+]?[0-9]+)?")
+
+// lostSuperscript is a power of ten whose exponent came down to the line, as text
+// copied from a PDF leaves it: the «104» of «3,14 × 104» (B-104). Exponents from 1 and
+// up to two digits, so not «× 100» nor «× 1000», which are numbers.
+var lostSuperscript = regexp.MustCompile(`^10([1-9][0-9]?)$`)
+
+// exponent reads the superscript digits and sign of a power.
+var exponent = strings.NewReplacer("⁰", "0", "¹", "1", "²", "2", "³", "3", "⁴", "4",
+	"⁵", "5", "⁶", "6", "⁷", "7", "⁸", "8", "⁹", "9", "⁻", "-", "−", "-")
+
+// powerForm splits a number with a power: its base digits, the mark, and what follows.
+var powerForm = regexp.MustCompile(`^([0-9.]+?)(\^|[eE]|[⁰¹²³⁴-⁹⁻])(.*)$`)
 
 // labelBefore matches the end of a text that makes the next digits part
 // of a short label such as sec-3 or new-1 (B-20 b: labels do not count).
@@ -27,8 +40,62 @@ var labelBefore = regexp.MustCompile(`[a-z]{2,5}-$`)
 // thin spaces are dropped and a comma becomes a point. A rounded or
 // converted number is still different (fichas §3).
 func NormalizeNumber(raw string) string {
+	return NormalizeFigure(raw)
+}
+
+// NormalizeFigure is the one form figures compare in: its separators normalized
+// and a power as 10^4, however it is written (B-104): 10⁴, 10^4 and 1e4 are the same
+// figure, and 10⁵ another one.
+func NormalizeFigure(raw string) string {
 	r := strings.NewReplacer(" ", "", " ", "", ",", ".")
-	return r.Replace(raw)
+	value := r.Replace(raw)
+	m := powerForm.FindStringSubmatch(value)
+	if m == nil {
+		return value
+	}
+	base, mark, rest := m[1], m[2], m[3]
+	switch mark {
+	case "^":
+		return base + "^" + exponent.Replace(rest)
+	case "e", "E":
+		power := strings.TrimPrefix(exponent.Replace(rest), "+")
+		if base == "1" {
+			return "10^" + power
+		}
+		return base + "×10^" + power
+	}
+	return base + "^" + exponent.Replace(mark+rest)
+}
+
+// figureValue is a number's value where it stands: a lost superscript reads as the
+// power it was only after a «×».
+func figureValue(text string, start, end int) string {
+	raw := text[start:end]
+	if m := lostSuperscript.FindStringSubmatch(raw); m != nil &&
+		strings.HasSuffix(strings.TrimRightFunc(text[:start], unicode.IsSpace), "×") {
+		return "10^" + m[1]
+	}
+	return NormalizeFigure(raw)
+}
+
+// FigureStillIn says the figure of an anchor is still in the text, written as the
+// same figure: correcting «3,14 × 104» to «3,14 × 10⁴» did not remove it (B-104).
+func FigureStillIn(text, anchor string) bool {
+	return strings.Contains(figureText(text), figureText(anchor))
+}
+
+// figureText is a text with each number in its one form, for comparing passages.
+func figureText(text string) string {
+	compared := CompareString(text)
+	var b strings.Builder
+	last := 0
+	for _, loc := range numberSpans(compared) {
+		b.WriteString(compared[last:loc[0]])
+		b.WriteString(figureValue(compared, loc[0], loc[1]))
+		last = loc[1]
+	}
+	b.WriteString(compared[last:])
+	return strings.NewReplacer(" ×", "×", "× ", "×").Replace(b.String())
 }
 
 // Numbers returns the numbers of a text, by B-20 (b): a sequence with at
@@ -38,7 +105,7 @@ func Numbers(text string) []Number {
 	var out []Number
 	for _, loc := range numberSpans(text) {
 		raw := text[loc[0]:loc[1]]
-		out = append(out, Number{Raw: raw, Value: NormalizeNumber(raw)})
+		out = append(out, Number{Raw: raw, Value: figureValue(text, loc[0], loc[1])})
 	}
 	return out
 }

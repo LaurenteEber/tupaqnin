@@ -45,6 +45,9 @@ read in this project: copy the passage exactly as the tool returned
 it. Re-reading a source you no longer remember is cheap; writing a
 figure you did not read leaves it pending.
 
+Write a power with Unicode superscripts: «3,14 × 10⁴», never «3,14 × 104»
+or «3,14 × 10^4», also when the source lost the superscript.
+
 In the text, name a study as its readers know it: by its authors and
 year («Mason et al., 2018»), as the source states them. Never by its
 file name or a code from it (`T5`, `B4`): the reader does not know

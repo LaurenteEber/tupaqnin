@@ -131,6 +131,10 @@ func removedAnchors(ctx context.Context, q store.Querier, projectID, sectionID s
 			if bodyString(obj, "section_id") != sectionID || anchor == "" || len(base.Find(anchor)) == 0 || len(next.Find(anchor)) > 0 {
 				continue
 			}
+			// The same figure, written better, was not removed (B-104).
+			if kind.t == store.ObjectFigure && graph.FigureStillIn(next.Orig, anchor) {
+				continue
+			}
 			edges, err := q.EdgesFrom(ctx, projectID, obj.ID)
 			if err != nil {
 				return nil, err
