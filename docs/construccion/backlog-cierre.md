@@ -1,12 +1,12 @@
 ---
 titulo: Backlog de construcción · cierre (P0 de las pruebas con usuarios)
-estado: v0.1 · 3-nov · los 8 P0 de pruebas-usuarios-2nov.md (sin el 9: el caso 5 sigue en español) con las decisiones D-1 a D-3 de Eber
+estado: v0.2 · 3-nov · suma C.8: ver la clave al crear el usuario o entrar (Eber) · v0.1 · 3-nov · los 8 P0 de pruebas-usuarios-2nov.md (sin el 9: el caso 5 sigue en español) con las decisiones D-1 a D-3 de Eber
 relacion: implementa pruebas-usuarios-2nov.md §2 (hallazgos 1 a 8) y las decisiones B-99 a B-102. Mismo formato y mismo «Retorno» que backlog-r1.md. Va antes del despliegue público
 ---
 
 # Backlog · cierre
 
-**Respuesta:** 7 piezas, C.1 → C.7, en este orden. Al terminar, **nada de lo que haces se pierde ni queda sin efecto, y nada cambia sin que lo veas**: recargar no deja la pestaña en solo lectura ni te saca del proyecto; el gasto y lo que hace el agente están siempre a la vista; tus mensajes se encolan; tus decisiones llegan solas al texto; las correcciones del juez se muestran con lo que corrigen y, si son drásticas o rompen el texto, llegan como propuesta; y no hay ids ni jerga a la vista. **Horas: 9–13 `[inferencia]`.** Cada pieza en su commit; la que no quede en verde no se integra.
+**Respuesta:** 8 piezas, C.1 → C.8, en este orden. Al terminar, **nada de lo que haces se pierde ni queda sin efecto, y nada cambia sin que lo veas**: recargar no deja la pestaña en solo lectura ni te saca del proyecto; el gasto y lo que hace el agente están siempre a la vista; tus mensajes se encolan; tus decisiones llegan solas al texto; las correcciones del juez se muestran con lo que corrigen y, si son drásticas o rompen el texto, llegan como propuesta; y no hay ids ni jerga a la vista; al crear tu usuario puedes ver la clave que escribes. **Horas: 9,5–13,5 `[inferencia]`.** Cada pieza en su commit; la que no quede en verde no se integra.
 
 **Regla que guía esta rebanada (Eber, 3-nov, de las pruebas):** «Nada cambia sin que lo veas, y nada tuyo se pierde ni queda sin efecto». Sirve a la deuda cognitiva (siempre sabes qué cambió y por qué) y a un proceso intuitivo (no hay callejones: el siguiente paso siempre se ve o lo da la app).
 
@@ -14,7 +14,7 @@ relacion: implementa pruebas-usuarios-2nov.md §2 (hallazgos 1 a 8) y las decisi
 
 | # | Propuesta | En vez de | Elegiría la otra si… | Decisión de Eber |
 |---|---|---|---|---|
-| B-99 | **Correcciones del juez, siempre a la vista; drásticas o rotas, como propuesta** (precisa B-67). Tras el lote de corrección, la conversación muestra una tarjeta «El juez encontró n fallas · el agente corrigió m en ‹sección› · Ver cambios», y cada cambio con «Sale / Entra» junto a la falla que corrige, en las palabras del juez; lo mismo queda en la historia del párrafo. **Pasa a propuesta** (B-73, con su contraste) en vez de aplicarse, por regla de la app y sin modelo, cuando el cambio: (a) quita más de la mitad del texto de la sección `[inicial]`; (b) borra un párrafo que sostiene una decisión tuya o confirmada, o una cita vinculada; (c) deja una oración sin cerrar o inserta texto a mitad de oración. Además, una inserción cuya ancla no termina en un final de oración se rechaza y el agente reintenta (como B-11) | Aplicar todo en silencio (hoy) · toda corrección como propuesta (muchos clics; la persona apurada acepta sin leer) | Las pruebas muestran demasiadas propuestas | **Eber, 3-nov:** opción A |
+| B-99 | **Correcciones del juez, siempre a la vista; drásticas o rotas, como propuesta** (precisa B-67). Tras el lote de corrección, la conversación muestra una tarjeta «El juez encontró n fallas · el agente corrigió m en ‹sección› · Ver cambios», y cada cambio con «Sale / Entra» junto a la falla que corrige, en las palabras del juez; lo mismo queda en la historia del párrafo. **Pasa a propuesta** (B-73, con su contraste) en vez de aplicarse, por regla de la app y sin modelo, cuando el cambio: (a) quita más de la mitad del texto de la sección `[inicial]`; (b) borra un párrafo que sostiene una decisión tuya o confirmada, o una cita vinculada; (c) deja una oración sin cerrar o inserta texto a mitad de oración. Además, una inserción cuya ancla no termina en un final de oración se rechaza y el agente reintenta (como B-11) | Aplicar todo en silencio (hoy) · toda corrección como propuesta (muchos clics; la persona apurada acepta sin leer) | Las pruebas muestran demasiadas propuestas | **Eber, 3-nov:** opción A **Alcance (3-nov, retorno del cierre):** las reglas (a), (b) y (c) valen en todo paso del agente, no solo en el lote del juez, porque el diagnóstico mostró que fue un paso normal el que dejó la sección de ux-p1 en una frase; reescribir el final de una oración es propuesta solo en el lote. (a) mide lo que queda: reescribir con un largo parecido no cuenta como quitar |
 | B-100 | **Tus decisiones llegan solas al texto** (sigue el criterio de B-64). Al responder una tarjeta con «la otra», un «por aclarar» que bloquea secciones, o resolver una objeción a la otra opción, la app lanza **un** paso del agente para aplicarlo **cuando la sección afectada ya no tiene otras tarjetas ni «por aclarar» tuyos abiertos** (una tanda, no un paso por respuesta). Con «mantener» no se lanza nada. La tarjeta respondida dice «El agente actualizará ‹sección› con tu decisión»; el paso dice qué decisión aplicó; lo cambiado se ve como en B-99. En lo firmado llega como propuesta (B-73). Si no terminas de responder, no se lanza; el informe de parada lo lista («Tus decisiones aún no están en el texto de ‹sección›») con «Aplicarlas». Respeta los topes (B-89) y el modo normal: un paso, no una cadena | Esperar a que le escribas al agente (hoy: callejón) · un botón «Aplicar mis decisiones» (otro clic que descubrir) | Lanzarlo solo gasta de más en las pruebas | **Eber, 3-nov:** opción A |
 | B-101 | **Tus mensajes se encolan siempre** (extiende B-83 al modo normal). Con un turno en curso, el mensaje entra a la conversación al instante con «En cola · entra al siguiente paso del agente», editable y quitable mientras espera; el agente lo recibe en literal al empezar su siguiente paso (ya lee los mensajes sin respuesta); si la cadena iba a terminar, tu mensaje abre un turno apenas acaba el actual. La respuesta del agente dice «Respondo a tu mensaje: «…»» | El 409 `turn_running` que pierde el mensaje (hoy) · interrumpir el paso en curso | — | **Eber, 3-nov:** opción A |
 | B-102 | **La pestaña que recargas sigue editando.** `TAB_ID` en `sessionStorage` (sobrevive a la recarga de esa pestaña; una pestaña nueva tiene el suyo; si se duplica una pestaña, la copia lleva el mismo y la primera que renueva gana, como hoy) · `DELETE /api/projects/{id}/editor` `{tab_id}` libera la edición, y la página lo llama en `pagehide` con `navigator.sendBeacon` · el aviso de solo lectura suma **«Editar aquí»**, que toma la edición si la otra pestaña no renovó en 15 s `[inicial]`; si sí renovó, explica que otra pestaña está editando | Bajar los 45 s del lease (seguiría fallando) | — | **Se infiere:** hallazgo 1, causa confirmada (`client.ts:428`, `sections.go:20`) |
@@ -95,9 +95,20 @@ relacion: implementa pruebas-usuarios-2nov.md §2 (hallazgos 1 a 8) y las decisi
 | **Interfaz** | Reescribir cada texto de la lista de §3 en lenguaje llano (en y es); quitar todo id a la vista; las notas del agente sin monoespaciado; «Evidence from: falta material» y demás mezclas, en el idioma de la interfaz · el pie «Decisions are made in their cards…» pasa a «Las decisiones críticas se toman en sus tarjetas» |
 | **Listo cuando** | web: prueba que falle si un texto de la página tiene `oq-n`, `rnd-n`, `dec-n`, `card-n`, `sec-n` o `cit-n`; prueba de que cada texto de §3 cambió · humo: recorrer el caso 5 en inglés y en español sin ids ni mezclas |
 
+### C.8 · Ver la clave que escribes
+
+| Campo | Contenido |
+|---|---|
+| **Qué** | Al crear tu usuario (y al entrar) puedes ver la clave que estás escribiendo, para no equivocarte |
+| **Implementa** | Pedido de Eber del 3-nov · E.5 (formularios de cuenta) |
+| **Leer** | `web/src/components/HomePage.tsx` (formularios «Crear usuario» y «Entrar») · `home.ts` |
+| **Interfaz** | Junto al campo de la clave, un botón **«Mostrar» / «Ocultar»** (`type="button"`, `aria-pressed`, `aria-controls` al campo) que cambia el campo entre `type="password"` y `type="text"` · empieza oculta; vuelve a ocultarse al enviar el formulario o al cambiar de formulario · `autocomplete="new-password"` al crear y `"current-password"` al entrar · el texto, en `en.json` y `es.json` · nada de la clave se guarda ni se registra (T-10, B3-22) |
+| **Listo cuando** | web: el campo cambia de tipo al pulsar y vuelve a `password` al enviar (función pura o prueba del componente) · humo en Chrome sin cabeza: crear un usuario mostrando la clave y entrar con ella |
+| **No hacer** | Guardar la preferencia. Mostrar la clave en ningún otro lugar |
+
 ## Horas `[inferencia]`
 
-C.1: 1,5–2 · C.2: 1,5–2 · C.3: 0,5–1 · C.4: 1–1,5 · C.5: 1,5–2 · C.6: 2–3 · C.7: 1–1,5. **Total: 9–13 h.**
+C.1: 1,5–2 · C.2: 1,5–2 · C.3: 0,5–1 · C.4: 1–1,5 · C.5: 1,5–2 · C.6: 2–3 · C.7: 1–1,5 · C.8: 0,5. **Total: 9,5–13,5 h.**
 
 ## Retorno de cada pieza
 
