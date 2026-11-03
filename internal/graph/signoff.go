@@ -814,7 +814,7 @@ func WonderBrief(ctx context.Context, db *store.DB, projectID, signID string) (s
 	if err != nil {
 		return "", err
 	}
-	reasons, err := cardReasons(ctx, db, projectID)
+	reasons, err := CardReasons(ctx, db, projectID)
 	if err != nil {
 		return "", err
 	}

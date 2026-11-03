@@ -1,0 +1,26 @@
+{
+  "name": "handmade-rosa-cross-section",
+  "turn_kind": "checker",
+  "deltas": [
+    "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"contradicts\", \"passage\": \"Hay que renovar las redes primero.\"}], \"candidates\": [{\"type\": \"contradiction\", \"section\": \"sec-1\", \"new_passage\": \"Hay que renovar las redes primero.\", \"clashing_passage\": \"Priorizar sectorización y gestión de presiones antes de renovar redes.\", \"protected\": \"dec-1\", \"citation\": null, \"question\": \"¿Se renuevan las redes primero, o se sectoriza antes como dice la recomendación?\", \"options\": [{\"option\": \"Renovar las redes primero.\", \"contrast\": \"Cambia el orden de la recomendación.\", \"consequence\": \"La recomendación tendrá que reescribirse.\", \"risk\": \"Se gasta en redes sin datos del balance.\"}, {\"option\": \"Quitar esa frase del diagnóstico.\", \"contrast\": \"El diagnóstico no prescribe el orden.\", \"consequence\": \"El orden queda solo en la recomendación.\", \"risk\": \"El diagnóstico pierde su conclusión.\"}]}]}"
+  ],
+  "items": [
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "{\"probes\": [{\"protected\": \"req-1\", \"verdict\": \"no\", \"passage\": null}, {\"protected\": \"dec-1\", \"verdict\": \"contradicts\", \"passage\": \"Hay que renovar las redes primero.\"}], \"candidates\": [{\"type\": \"contradiction\", \"section\": \"sec-1\", \"new_passage\": \"Hay que renovar las redes primero.\", \"clashing_passage\": \"Priorizar sectorización y gestión de presiones antes de renovar redes.\", \"protected\": \"dec-1\", \"citation\": null, \"question\": \"¿Se renuevan las redes primero, o se sectoriza antes como dice la recomendación?\", \"options\": [{\"option\": \"Renovar las redes primero.\", \"contrast\": \"Cambia el orden de la recomendación.\", \"consequence\": \"La recomendación tendrá que reescribirse.\", \"risk\": \"Se gasta en redes sin datos del balance.\"}, {\"option\": \"Quitar esa frase del diagnóstico.\", \"contrast\": \"El diagnóstico no prescribe el orden.\", \"consequence\": \"El orden queda solo en la recomendación.\", \"risk\": \"El diagnóstico pierde su conclusión.\"}]}]}"
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 3300,
+    "output_tokens": 1450,
+    "context_window": 1048576,
+    "cost_usd": 0.0103
+  },
+  "delta_delay": 0
+}

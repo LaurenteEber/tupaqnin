@@ -186,6 +186,9 @@ func Open(ctx context.Context, tx *store.Tx, oq OpenQuestion) (store.Object, err
 // OriginObjection marks the «por aclarar» of an objection of yours (E-1).
 const OriginObjection = "objection"
 
+// OriginChecker is the origin of a «por aclarar» the checker opened.
+const OriginChecker = "checker"
+
 // OpenObjection moves the decision to in_open_question and opens the question of
 // B-81, inside tx: the app's two options from the decision itself, «mantener» and
 // «la otra», each with its contrast («elegiría la otra si»), its consequence (the

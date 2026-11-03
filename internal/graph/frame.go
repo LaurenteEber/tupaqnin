@@ -251,7 +251,7 @@ func ComputeFrame(ctx context.Context, db *store.DB, projectID string, layers Fr
 	if err != nil {
 		return Frame{}, err
 	}
-	reasons, err := cardReasons(ctx, db, projectID)
+	reasons, err := CardReasons(ctx, db, projectID)
 	if err != nil {
 		return Frame{}, err
 	}

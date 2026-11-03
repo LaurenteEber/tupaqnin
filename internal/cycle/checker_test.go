@@ -235,8 +235,10 @@ func TestB2x7_DeclaredByThePrincipalOpensNoSecondOpenQuestion(t *testing.T) {
 
 // B2-7, bloque-2 §5: the probes always carry every current critical
 // decision, even when the change does not touch it; besides, the
-// confirmed ones linked to what it touched, never the others; the
-// confirmed understanding with its cases, not the unconfirmed ones.
+// confirmed ones linked to what it touched and, since B-108, every current
+// decision of another section (dec-2 and dec-4, used in sec-1); never a
+// superseded one (dec-6); the confirmed understanding with its cases, not
+// the unconfirmed ones.
 func TestB2x7_ProbesAlwaysIncludeEveryCurrentCriticalDecision(t *testing.T) {
 	db := seedCheckerProject(t)
 	ctx := context.Background()
@@ -295,14 +297,14 @@ func TestB2x7_ProbesAlwaysIncludeEveryCurrentCriticalDecision(t *testing.T) {
 	for _, p := range probes {
 		got = append(got, p.Protected)
 	}
-	if want := "req-1,case-1,crit-1,prem-1,dec-1,dec-3,dec-5"; strings.Join(got, ",") != want {
+	if want := "req-1,case-1,crit-1,prem-1,dec-1,dec-2,dec-3,dec-4,dec-5"; strings.Join(got, ",") != want {
 		t.Fatalf("probes: %v, want %s", got, want)
 	}
 	brief, err := checks.Brief(ctx, db, "p1", change, probes)
 	if err != nil {
 		t.Fatalf("Brief: %v", err)
 	}
-	for _, want := range []string{"dec-3 (decision, agent): Contar solo microplásticos.",
+	for _, want := range []string{"Contar solo microplásticos.", "dec-5 (decision, confirmed): Medir en laboratorio.",
 		"case-1 (understanding case of crit-1, counts): Un estudio de laboratorio cuenta.", "New passage of section sec-2 «Método»"} {
 		if !strings.Contains(brief, want) {
 			t.Fatalf("brief lacks %q:\n%s", want, brief)

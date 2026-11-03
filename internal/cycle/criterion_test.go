@@ -105,7 +105,9 @@ func TestB46_ChangingACriterionCreatesItsNewVersionAndProbesTheAffectedSections(
 // every section with text.
 func TestB46_ACriterionNoDecisionAppliesIsProbedAgainstEverySectionWithText(t *testing.T) {
 	db := seedCriterionProject(t, false)
-	runner, cap := checkerRunner(t, db, checkerFixture(t, "no-findings"))
+	// No recording: this change writes two sections, so a decision of either is
+	// a probe (B-108), and the fake answers every probe it is given.
+	runner, cap := checkerRunner(t, db)
 	if _, err := runner.ChangeCriterion(context.Background(), "p1", "crit-1", newCriterion); err != nil {
 		t.Fatalf("ChangeCriterion: %v", err)
 	}

@@ -13,8 +13,9 @@ decided.
 
 - **Probes:** what is protected, by label and in literal: the person's
   request, the understanding cases (what counts and what does not for
-  each criterion), the criteria, the premise and decisions. Each probe
-  is a closed question: does the new passage contradict it?
+  each criterion), the criteria, the premise and decisions, also those
+  of other sections. Each probe is a closed question: does the new
+  passage contradict it?
 - **New passages:** the new text of each section the change wrote, by
   section label. Judge only these passages.
 - **New citations:** for each new citation, the claim in the text and
@@ -48,6 +49,10 @@ a schema. Use labels exactly as the brief gives them (for example
   - The premise is the person's idea of what the document will find.
     A new passage whose finding goes against it contradicts it, even
     when the passage is well supported.
+  - A decision the brief says is used in another section: you see its
+    statement and its reason, not that section's text. Judge the new
+    passage against them, as any other probe. In the `question` of a
+    clash, name both sections by their titles.
 - `candidates`: what you found, each with `section` (the label of the
   section of the new passage) and `new_passage` (copied exactly as it
   appears in the new text, long enough to be found, short enough to be

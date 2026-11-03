@@ -9,6 +9,7 @@ import (
 
 	"github.com/LaurenteEber/tupaqnin/internal/checks"
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
+	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -118,6 +119,18 @@ func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Obj
 	if err != nil {
 		return view, err
 	}
+	listed := map[string]bool{}
+	addSection := func(obj store.Object) {
+		if !listed[obj.ID] {
+			listed[obj.ID] = true
+			view.Sections = append(view.Sections, SectionRef{Label: obj.Label, Title: str(bodyMap(obj), "title")})
+		}
+	}
+	// B-108: a clash the checker found with a decision also names the sections
+	// that use it, read live: they are blocked through the decision, not by an
+	// edge of their own, so an answer's step stays on the section it clashed in.
+	clash := str(b, "origin") == checks.OriginChecker && str(b, "kind") == graph.CandidateContradiction
+	var using []store.Object
 	for _, e := range edges {
 		if e.Type != store.EdgeBlocks {
 			continue
@@ -128,10 +141,32 @@ func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Obj
 		}
 		switch obj.Type {
 		case store.ObjectSection:
-			view.Sections = append(view.Sections, SectionRef{Label: obj.Label, Title: str(bodyMap(obj), "title")})
+			addSection(obj)
 		case store.ObjectDecision:
 			view.Decisions = append(view.Decisions, str(bodyMap(obj), "statement"))
+			if !clash {
+				continue
+			}
+			used, err := s.db.EdgesFrom(ctx, projectID, obj.ID)
+			if err != nil {
+				return view, err
+			}
+			for _, u := range used {
+				if u.Type != store.EdgeUsedIn {
+					continue
+				}
+				sec, err := s.db.GetObject(ctx, projectID, u.ToID)
+				if err != nil {
+					return view, err
+				}
+				if sec.Type == store.ObjectSection {
+					using = append(using, sec)
+				}
+			}
 		}
+	}
+	for _, sec := range using {
+		addSection(sec)
 	}
 	return view, nil
 }

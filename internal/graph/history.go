@@ -460,7 +460,7 @@ func decisionAdder(ctx context.Context, db store.Querier, projectID string, even
 			born[ev.ObjectID] = ev
 		}
 	}
-	reasons, err := cardReasons(ctx, db, projectID)
+	reasons, err := CardReasons(ctx, db, projectID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -503,8 +503,8 @@ func decisionAdder(ctx context.Context, db store.Querier, projectID string, even
 	return add, out, nil
 }
 
-// cardReasons maps each decision to the «porque» of its answered card.
-func cardReasons(ctx context.Context, db store.Querier, projectID string) (map[string]string, error) {
+// CardReasons maps each decision to the «porque» of its answered card.
+func CardReasons(ctx context.Context, db store.Querier, projectID string) (map[string]string, error) {
 	cards, err := db.ListObjects(ctx, projectID, store.ObjectCard)
 	if err != nil {
 		return nil, err

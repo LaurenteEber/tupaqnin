@@ -46,6 +46,11 @@ type Probe struct {
 	Counts    bool   `json:"counts,omitempty"`
 	// State: a decision's state (human, confirmed, agent…).
 	State string `json:"state,omitempty"`
+	// Because and Elsewhere: a decision of another section than one the change
+	// writes (B-108): its «porque», and the sections that use it as
+	// «sec-n «title»».
+	Because   string   `json:"because,omitempty"`
+	Elsewhere []string `json:"elsewhere,omitempty"`
 }
 
 // Probes builds the probes of a change from the graph (fichas §3
@@ -54,8 +59,15 @@ type Probe struct {
 // the premise, every decision of yours and every current critical
 // decision, linked to the change or not; besides, the confirmed
 // decisions and those of a signed section that are linked to what the
-// change touched (used_in one of its sections). Each protected object
-// once, in that order.
+// change touched (used_in one of its sections); and every current decision
+// used in another section than one the change writes (B-108), with its
+// «porque» and not that section's text. Each protected object once, in that
+// order.
+// [EL DISEÑO NO LO DICE]: B-108 adds them as probes, so each gets its verdict
+// and a clash takes the path of any contradiction. A decision with no used_in
+// is of no section and a digest's passage is in no section: neither adds one.
+// A decision with no «porque» yet (the agent's, unanswered) goes with its
+// statement alone.
 // [EL DISEÑO NO LO DICE]: the backlog's signature has no reader; q is
 // added, as in RunRules.
 func Probes(ctx context.Context, q store.Querier, projectID string, change Change) ([]Probe, error) {
@@ -121,6 +133,10 @@ func Probes(ctx context.Context, q store.Querier, projectID string, change Chang
 	if err != nil {
 		return nil, err
 	}
+	reasons, err := graph.CardReasons(ctx, q, projectID)
+	if err != nil {
+		return nil, err
+	}
 	touched := map[string]bool{}
 	for _, id := range change.Sections {
 		touched[id] = true
@@ -130,7 +146,13 @@ func Probes(ctx context.Context, q store.Querier, projectID string, change Chang
 		return nil, err
 	}
 	signed := map[string]bool{}
+	sectionByID := map[string]store.Object{}
+	written := 0 // sections of the document this change writes
 	for _, s := range sections {
+		sectionByID[s.ID] = s
+		if touched[s.ID] {
+			written++
+		}
 		if s.State == "signed" || s.State == "changed_since_signoff" {
 			signed[s.ID] = true
 		}
@@ -143,17 +165,31 @@ func Probes(ctx context.Context, q store.Querier, projectID string, change Chang
 		if err != nil {
 			return nil, err
 		}
-		linked, inSigned := false, false
+		linked, inSigned, ofAnother := false, false, false
+		var usedIn []string
 		for _, e := range edges {
 			if e.Type != store.EdgeUsedIn {
 				continue
 			}
 			linked = linked || touched[e.ToID]
 			inSigned = inSigned || signed[e.ToID]
+			if sec, ok := sectionByID[e.ToID]; ok {
+				usedIn = append(usedIn, fmt.Sprintf("%s «%s»", sec.Label, bodyText(sec, "title")))
+				// Another section than one the change writes: this one is
+				// not written, or the change writes a second one.
+				ofAnother = ofAnother || (written > 0 && !touched[e.ToID]) || written > 1
+			}
 		}
 		if d.State == "human" || len(critical[d.ID]) > 0 ||
-			(linked && (d.State == "confirmed" || inSigned)) {
-			add(Probe{Protected: d.Label, Kind: string(d.Type), Text: bodyText(d, "statement"), State: d.State})
+			(linked && (d.State == "confirmed" || inSigned)) || ofAnother {
+			p := Probe{Protected: d.Label, Kind: string(d.Type), Text: bodyText(d, "statement"), State: d.State}
+			if ofAnother {
+				p.Because, p.Elsewhere = bodyText(d, "reason"), usedIn
+				if p.Because == "" {
+					p.Because = reasons[d.ID]
+				}
+			}
+			add(p)
 		}
 	}
 	return out, nil
@@ -412,6 +448,12 @@ func Brief(ctx context.Context, q store.Querier, projectID string, change Change
 				counts = "counts"
 			}
 			line("- %s (understanding case of %s, %s): %s", p.Protected, p.Criterion, counts, p.Text)
+		case len(p.Elsewhere) > 0:
+			text := p.Text
+			if p.Because != "" {
+				text += " Because: " + p.Because
+			}
+			line("- %s (%s, %s, used in %s): %s", p.Protected, p.Kind, p.State, strings.Join(p.Elsewhere, ", "), text)
 		case p.State != "":
 			line("- %s (%s, %s): %s", p.Protected, p.Kind, p.State, p.Text)
 		default:
@@ -828,7 +870,7 @@ func openQuestion(ctx context.Context, tx *store.Tx, projectID, turnID string, c
 	}
 	oq, err := Open(ctx, tx, OpenQuestion{Question: str(cand.Question), Options: options, DependsOn: dependsOn,
 		Premise: premiseID,
-		Extra: withExtra(extra, map[string]any{"origin": "checker", "kind": kind, "protected_id": protectedID,
+		Extra: withExtra(extra, map[string]any{"origin": OriginChecker, "kind": kind, "protected_id": protectedID,
 			"new_passage": cand.NewPassage, "clashing_passage": str(cand.ClashingPassage),
 			"undeclared_by_agent": change.Kind == AgentStep}),
 		Event: store.EventInput{Type: store.EventStateChanged, Actor: "agent", AgentRole: string(provider.RoleChecker), TurnID: turnID,
