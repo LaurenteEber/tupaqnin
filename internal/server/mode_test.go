@@ -559,3 +559,19 @@ func TestB101_ARetryFromTheConversationSendsAMessageThatWasNotSent(t *testing.T)
 		t.Fatalf("retry twice: %d, want 409", rec.Code)
 	}
 }
+
+// C.12: signing a section with no text is refused with that reason; nothing opens.
+func TestC12_SigningAnEmptySectionIsRefusedWithItsReason(t *testing.T) {
+	h, _, projectID, hold, _ := modeAPI(t, nil)
+	close(hold.release)
+	base := "/api/projects/" + projectID
+	rec := do(t, h, http.MethodPost, base+"/sections", map[string]string{"title": "Vacía"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	label := decode[server.SectionDetail](t, rec).Label
+	rec = do(t, h, http.MethodPost, base+"/sections/"+label+"/signoff", nil)
+	if rec.Code != http.StatusConflict || decode[server.SignoffBlocked](t, rec).Error != "section_empty" {
+		t.Fatalf("signing it: %d %s, want 409 section_empty", rec.Code, rec.Body)
+	}
+}

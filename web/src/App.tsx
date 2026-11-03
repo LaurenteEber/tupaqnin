@@ -57,6 +57,7 @@ import { initialLang, translate, type Lang } from "./i18n";
 import { takeOverResult, type TakeOverResult } from "./tab";
 import { projectHash, readProjectHash, saveLang } from "./route";
 import { isQueued } from "./queue";
+import { askToWriteParams, sectionHasNoText } from "./signEmpty";
 import {
   IDLE_ACTIVITY,
   SUMMARY_POLL_MS,
@@ -1068,7 +1069,7 @@ export function App() {
                     type="button"
                     id="sign-section"
                     className="primary small"
-                    disabled={!current || !editor || current.state === "signed"}
+                    disabled={!current || !editor || current.state === "signed" || sectionHasNoText(current)}
                     onClick={() => void askToSign()}
                   >
                     {t("doc.sign")}
@@ -1077,6 +1078,26 @@ export function App() {
                   {undoLineKey(undo.available, undo.reason) && <p className="meta">{t(undoLineKey(undo.available, undo.reason))}</p>}
                   {undoError && <p className="turn-error">{t(undoReasonKey(undoError))}</p>}
                   {signQueued && <p className="meta" role="status">{t("signoff.request.queued")}</p>}
+                  {current && sectionHasNoText(current) && (
+                    <div className="sign-blocked" role="status">
+                      <b>{t("signoff.blocked")}</b>
+                      <ul>
+                        <li>{t("signoff.empty.reason")}</li>
+                      </ul>
+                      {editor && (
+                        <button
+                          type="button"
+                          className="small"
+                          onClick={() => {
+                            layout.setCenter("conv");
+                            void send(t("signoff.empty.message", askToWriteParams(current)));
+                          }}
+                        >
+                          {t("signoff.empty.ask")}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {signBlocked && (
                     <div className="sign-blocked" role="status">
                       <b>{t("signoff.blocked")}</b>
