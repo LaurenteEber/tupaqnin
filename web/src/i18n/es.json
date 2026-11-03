@@ -612,6 +612,7 @@
   "digest.status.demo_cap": "Sin digesto: la demo llegó a un tope de gasto; queda la parte de la app.",
   "home.notice_title": "Aviso",
   "home.what": "Lo que firmas, lo entiendes y lo puedes defender: escribes un documento con un agente de IA; el agente trabaja y tú decides.",
+  "home.welcome": "Te damos la bienvenida a tupaqnin. Para empezar, prueba el caso de demo; si ya tienes tu documento, abre un proyecto en blanco.",
   "home.sensitive": "No subas datos sensibles.",
   "home.no_link": "Necesitas un link de invitación",
   "home.notice.no_account": "sin cuenta, tu proyecto se pierde al cerrar el navegador · descárgalo o crea tu usuario para conservarlo",

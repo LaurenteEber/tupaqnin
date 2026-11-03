@@ -612,6 +612,7 @@
   "digest.status.demo_cap": "No digest: the demo reached a spending cap; the app's part stays.",
   "home.notice_title": "Notice",
   "home.what": "What you sign, you understand and can defend: you write a document with an AI agent; the agent works and you decide.",
+  "home.welcome": "Welcome to tupaqnin. To start, try the demo case; if you already have your document, open a blank project.",
   "home.sensitive": "Do not upload sensitive data.",
   "home.no_link": "You need an invitation link",
   "home.notice.no_account": "without an account, your project is lost when you close the browser · download it or create your user to keep it",

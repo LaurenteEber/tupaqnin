@@ -48,6 +48,14 @@ export function homeNoticeKeys(session: HomeSession | null): string[] {
   return keys;
 }
 
+// C.18: the welcome for whoever came by a link. A session without an account can
+// only come from one (B-88, B-91). [EL DISEÑO NO LO DICE] Go does not say «first
+// visit», so a signed-in person gets none, and neither does anyone whose first
+// step is off (can_create false: your one project already exists, or the link is spent).
+export function homeWelcomeKey(session: HomeSession | null): string | null {
+  return session !== null && session.account === "" && session.can_create ? "home.welcome" : null;
+}
+
 // The login form's notice while you hold a project without an account (B-91).
 // It reads only what Go already sent about your session, never anything about
 // the name typed, so it does not tell who exists or how many projects they hold.

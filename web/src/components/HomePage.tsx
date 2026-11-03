@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { AccountError, login, logout, register } from "../api/client";
 import type { ProjectLine, SessionView } from "../api/types";
-import { accountErrorText, activityAgo, createErrorKey, homeNoticeKeys, homeView, loginNoticeKey, nextPasswordShown, passwordFieldType, passwordToggleKey, projectProgress } from "../home";
+import { accountErrorText, activityAgo, createErrorKey, homeNoticeKeys, homeView, homeWelcomeKey, loginNoticeKey, nextPasswordShown, passwordFieldType, passwordToggleKey, projectProgress } from "../home";
 import { translate, type Lang } from "../i18n";
 
 export type HomeForm = "" | "register" | "login";
@@ -41,6 +41,7 @@ export function HomePage({
   const [sending, setSending] = useState(false);
 
   const view = homeView(session);
+  const welcome = homeWelcomeKey(session);
   const refused = createErrorKey(createError, session);
   const loginNotice = loginNoticeKey(projects);
   const now = Date.now();
@@ -91,6 +92,7 @@ export function HomePage({
   return (
     <div className="home">
       <section className="home-notice" aria-label={t("home.notice_title")}>
+        {welcome && <p className="home-welcome">{t(welcome)}</p>}
         <p>{t("home.what")}</p>
         <p>{t("home.sensitive")}</p>
         {view.needsLink && !sessionFailed && <p className="home-warn">{t("home.no_link")}</p>}

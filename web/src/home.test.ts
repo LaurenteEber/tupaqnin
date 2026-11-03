@@ -10,6 +10,7 @@ import {
   createErrorKey,
   homeNoticeKeys,
   homeView,
+  homeWelcomeKey,
   leftBottom,
   loginNoticeKey,
   nextPasswordShown,
@@ -284,4 +285,37 @@ test("C8: the password starts hidden, shows on the toggle, and hides on submit o
   assert.equal(catalog("en")["home.password_hide"], "Hide");
   assert.equal(catalog("es")["home.password_show"], "Mostrar");
   assert.equal(catalog("es")["home.password_hide"], "Ocultar");
+});
+
+// C.18: whoever enters with a link sees the welcome and the first thing to do.
+test("C18: a session without an account came by a link, and gets the welcome", () => {
+  assert.equal(homeWelcomeKey(session()), "home.welcome");
+});
+
+test("C18: no session means no link, so no welcome", () => {
+  assert.equal(homeWelcomeKey(null), null);
+});
+
+test("C18: a signed-in person, returning, gets no welcome", () => {
+  assert.equal(homeWelcomeKey(session({ account: "paula" })), null);
+});
+
+test("C18: no welcome when its first step is off, as with your project already open", () => {
+  assert.equal(homeWelcomeKey(session({ can_create: false, cannot_create: "account_required" })), null);
+  assert.equal(homeWelcomeKey(session({ can_create: false, cannot_create: "link_budget" })), null);
+});
+
+test("C18: the line in both languages names tupaqnin and both buttons, without repeating home.what", () => {
+  assert.equal(
+    catalog("en")["home.welcome"],
+    "Welcome to tupaqnin. To start, try the demo case; if you already have your document, open a blank project.",
+  );
+  assert.equal(
+    catalog("es")["home.welcome"],
+    "Te damos la bienvenida a tupaqnin. Para empezar, prueba el caso de demo; si ya tienes tu documento, abre un proyecto en blanco.",
+  );
+  for (const lang of ["en", "es"]) {
+    const raw = readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8");
+    assert.equal(raw.split('"home.welcome"').length - 1, 1, lang);
+  }
 });
