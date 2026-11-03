@@ -7,6 +7,7 @@ import type { ConversationEntry } from "../api/types";
 import { translate, type Lang } from "../i18n";
 import { invitesRetry, stopKey } from "../live";
 import { RoundCard } from "./RoundCard";
+import { plainAgentText } from "../plain";
 
 // U-5: the conversation as the history keeps it (Go reads it from the
 // events), then the turn in flight as it streams. When a turn ends the
@@ -80,15 +81,15 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
           {working && <p className="working">{t("turn.working")}</p>}
           {stream.map((piece, i) =>
             piece.field === "reply" ? (
-              <p key={i} className="reply">{piece.text}</p>
+              <p key={i} className="reply">{plainAgentText(piece.text)}</p>
             ) : piece.field === "text" ? (
-              <div key={i} className="stream-text">{piece.text}</div>
+              <div key={i} className="stream-text">{plainAgentText(piece.text)}</div>
             ) : piece.field === "triage_line" ? (
-              <p key={i} className="triage">{piece.text}</p>
+              <p key={i} className="triage">{plainAgentText(piece.text)}</p>
             ) : piece.field === "note" ? (
               <details key={i} className="note">
                 <summary>{t("turn.note")}</summary>
-                <p className="meta">{piece.text}</p>
+                <p className="meta">{plainAgentText(piece.text)}</p>
               </details>
             ) : (
               <p key={i}>{piece.text}</p>
@@ -213,8 +214,8 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct,
       return (
         <div className="agent-step">
           {/* R-5: what the agent answers you, apart from its triage and note. */}
-          {entry.reply && <p className="reply">{entry.reply}</p>}
-          {entry.triage_line && <p className="triage">{entry.triage_line}</p>}
+          {entry.reply && <p className="reply">{plainAgentText(entry.reply)}</p>}
+          {entry.triage_line && <p className="triage">{plainAgentText(entry.triage_line)}</p>}
           {/* B-43: rule 0 moved a direct step to build; Go says why. */}
           {entry.reclassified && entry.reclassified.length > 0 && (
             <p className="triage">
@@ -226,7 +227,7 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct,
           {entry.note && (
             <details className="note">
               <summary>{t("turn.note")}</summary>
-              <p className="meta">{entry.note}</p>
+              <p className="meta">{plainAgentText(entry.note)}</p>
             </details>
           )}
           {entry.status === "agent_pending" && <p className="meta">{t("turn.status.agent_pending")}</p>}

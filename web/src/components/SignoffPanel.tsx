@@ -138,9 +138,9 @@ export function SignoffPanel({ lang, projectID, label, onClose }: {
   const explained = view.rounds > 0 || (view.brief && view.explanation !== "");
   // U-2: the model that contrasted, as Go recorded it («model effort»),
   // with its display name; before the first round, the planned one.
-  const [contrastModel, contrastEffort] = (view.contrasted_by ?? "").split(" ");
+  const [contrastModel] = (view.contrasted_by ?? "").split(" ");
   const contrastedBy = contrastModel
-    ? `${modelName(contrastModel)}${contrastEffort ? ` · ${t(`summary.effort.${contrastEffort}`)}` : ""}`
+    ? modelName(contrastModel)
     : view.wonder_unavailable ? t("signoff.contrasted_spark") : t("signoff.contrasted_wonder");
 
   return (

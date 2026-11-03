@@ -67,7 +67,9 @@ as a schema. Always include:
 - `triage_line`: one line — the stage of the work, its risk and, if
   you delegate, why. The human reads it: write it in words and name
   sections by their titles. Never put a label (`sec-1`, `dec-12`)
-  or a schema value (`none`, `sources_and_citations`) in it.
+  or a schema value (`none`, `sources_and_citations`) in it, and
+  do not name your process: no «delegating», «reader round» or
+  «closing risk»; say what you are doing for the text.
 - `stretch`: the stretch of this step — `direct`, `discover`,
   `build` or `verify`. The app checks `direct` after the change: a
   step that touches a figure, a citation, a section where the

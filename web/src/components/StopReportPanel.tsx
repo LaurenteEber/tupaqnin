@@ -4,6 +4,7 @@ import type { StopReportView } from "../api/types";
 import { detectedLine } from "../detected";
 import { translate, type Lang } from "../i18n";
 import { stopKey } from "../live";
+import { plainAgentText } from "../plain";
 
 // P6 (backlog-r2 2.5): the last stop report, in the conversation, folded
 // under its first line. Everything comes from Go: why it stopped, the
@@ -74,7 +75,7 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
   }
 
   const title = report.section ? report.section.title || t("section.untitled") : "";
-  const first = report.answer || t("stop_report.no_answer");
+  const first = plainAgentText(report.answer) || t("stop_report.no_answer");
   const continueText = t("stop_report.continue");
   const addressText = t("stop_report.address");
 
@@ -99,7 +100,7 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
         )}
         <details className="note">
           <summary>{t("stop_report.done", { n: String(report.done.length) })}</summary>
-          <ul>{report.done.map((d, i) => <li key={i}>{d}</li>)}</ul>
+          <ul>{report.done.map((d, i) => <li key={i}>{plainAgentText(d)}</li>)}</ul>
         </details>
         <details className="note">
           <summary>{t("stop_report.verified", { n: String(report.verified.length) })}</summary>
@@ -145,7 +146,7 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
             <ul>
               {report.decisions.map((d) => (
                 <li key={d.label}>
-                  {d.gist || d.statement}
+                  {plainAgentText(d.gist || d.statement)}
                   {d.sections.length > 0 && (
                     <span className="meta"> · {d.sections.map((s) => s.title || t("section.untitled")).join(" · ")}</span>
                   )}
@@ -154,7 +155,7 @@ export function StopReportPanel({ lang, projectID, refreshKey, disabled, onConti
             </ul>
           </details>
         )}
-        {report.next && <p className="triage">{t("stop_report.next")}: {report.next}</p>}
+        {report.next && <p className="triage">{t("stop_report.next")}: {plainAgentText(report.next)}</p>}
         {report.audience_questions.length > 0 && (
           <div className="note">
             <p className="meta">{t("stop_report.defense")}</p>

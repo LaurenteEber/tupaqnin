@@ -94,7 +94,7 @@ func applyTask(unapplied []graph.UnappliedDecision) string {
 		return ""
 	}
 	return "The person decided and the text does not say it yet. In this one step, update the text " +
-		"so it does, close the changes it opened, and say in `triage_line` which decision you applied:\n" +
+		"so it does, close the changes it opened, and say in `triage_line`, in words, which decision you applied:\n" +
 		strings.Join(lines, "\n")
 }
 

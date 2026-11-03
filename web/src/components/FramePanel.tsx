@@ -99,7 +99,7 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   }
   for (const c of frame.todo.cards) {
     todos.push({ key: c.label, text: t("frame.todo.card", { statement: c.statement }),
-      tag: t("card.critical"), target: { kind: "card", label: c.label } });
+      tag: t("frame.todo.card_tag"), target: { kind: "card", label: c.label } });
   }
   for (const q of frame.todo.open_questions ?? []) {
     todos.push({ key: q.label, text: t("frame.todo.open_question", { question: q.question }),

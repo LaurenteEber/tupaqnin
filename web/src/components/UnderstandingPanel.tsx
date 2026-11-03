@@ -1,3 +1,4 @@
+import { evidenceFromKey } from "../plain";
 import { useCallback, useEffect, useState } from "react";
 import {
   changeSectionDetails,
@@ -240,7 +241,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
                   )}
                   {s.evidence_from && (
                     <div className="meta">
-                      {t("understanding.plan.evidence_from")}: {s.evidence_from}
+                      {t("understanding.plan.evidence_from")}: {evidenceFromKey(s.evidence_from) ? t(evidenceFromKey(s.evidence_from)) : s.evidence_from}
                     </div>
                   )}
                   {correcting && (

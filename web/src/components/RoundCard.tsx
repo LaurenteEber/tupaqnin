@@ -104,7 +104,7 @@ export function RoundCard({ lang, projectID, label, onAct }: {
   return (
     <div className="agent-step round-card">
       <p className="meta">
-        {t("round.title", { label: card.label })} · {t(roundKeepsPolling(card) ? "round.running" : `round.state.${card.state}`)}
+        {t("round.title")} · {t(roundKeepsPolling(card) ? "round.running" : `round.state.${card.state}`)}
       </p>
       <p>
         <b>{card.question}</b>
@@ -128,7 +128,7 @@ export function RoundCard({ lang, projectID, label, onAct }: {
             {p.sources.length > 0 && (
               <span className="meta">
                 {" "}
-                · {p.sources.map((s) => (s.what_for ? `${s.label} (${s.what_for})` : s.label)).join(", ")}
+                · {p.sources.map((s) => s.what_for || t("round.source")).join(", ")}
               </span>
             )}
           </li>
