@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
 	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
@@ -30,6 +31,9 @@ type ConversationEntry struct {
 	// what edits or removes it. Never shown.
 	Queued bool `json:"queued,omitempty"`
 	N      int  `json:"n,omitempty"`
+	// NotSent: on a queued message, no step will read it (a failed step left it):
+	// the page says so and offers to retry.
+	NotSent bool `json:"not_sent,omitempty"`
 	// WaitsSignoff: on a message, the agent answers it when the signoff in
 	// progress ends (P-114).
 	WaitsSignoff bool   `json:"waits_signoff,omitempty"`
@@ -106,7 +110,7 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 		willApply[u.Source] = append(willApply[u.Source], u.Title)
 	}
 	withdrawn := store.WithdrawnMessages(events)
-	waiting := map[int]bool{}
+	waiting := map[int]cycle.QueuedMessage{}
 	if q, ok := s.starter.(MessageQueue); ok {
 		queued, err := q.QueuedMessages(r.Context(), projectID)
 		if err != nil {
@@ -114,7 +118,7 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, m := range queued {
-			waiting[m.N] = true
+			waiting[m.N] = m
 		}
 	}
 	out := []ConversationEntry{}
@@ -138,8 +142,8 @@ func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
 			continue
 		case ev.Type == store.EventHumanMessage:
 			entry.Kind, entry.Text = "message", str(data, "text")
-			if waiting[ev.Seq] {
-				entry.Queued, entry.N = true, ev.Seq
+			if m, ok := waiting[ev.Seq]; ok {
+				entry.Queued, entry.N, entry.NotSent = true, ev.Seq, m.NotSent
 			}
 			// P-114: the line under your message, while its signoff lasts.
 			if waits, _ := data["waits_signoff"].(bool); waits && inSignoff && ev.Seq > lastStep {

@@ -273,10 +273,12 @@ func (r *Runner) undeliveredMessages(ctx context.Context, projectID string) ([]s
 }
 
 // QueuedMessage is a message of yours waiting for the next step (B-101): N is
-// its place in the history, which the page uses to edit or remove it.
+// its place in the history, which the page uses to edit or remove it. NotSent: no
+// step will read it unless you send something or retry (queueStranded).
 type QueuedMessage struct {
-	N    int
-	Text string
+	N       int
+	Text    string
+	NotSent bool
 }
 
 func (r *Runner) undelivered(ctx context.Context, projectID string) ([]QueuedMessage, error) {
@@ -367,7 +369,56 @@ func (r *Runner) doneQueued(projectID string) {
 func (r *Runner) QueuedMessages(ctx context.Context, projectID string) ([]QueuedMessage, error) {
 	r.queueMu.Lock()
 	defer r.queueMu.Unlock()
-	return r.waitingMessages(ctx, projectID)
+	waiting, err := r.waitingMessages(ctx, projectID)
+	if err != nil || len(waiting) == 0 {
+		return waiting, err
+	}
+	stranded, err := r.queueStranded(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range waiting {
+		waiting[i].NotSent = stranded
+	}
+	return waiting, nil
+}
+
+// queueStranded says nobody will read the queue: the slot is free, no release is
+// about to take it up, and no signoff over the threshold keeps it for its close. A
+// failed step leaves it so, and so do a cap or a restart.
+func (r *Runner) queueStranded(ctx context.Context, projectID string) (bool, error) {
+	r.mu.Lock()
+	q := r.queues[projectID]
+	pending := r.running[projectID] || r.closed || (q != nil && q.wake)
+	r.mu.Unlock()
+	if pending {
+		return false, nil
+	}
+	waits, err := r.cleanupWaitsForSignoff(ctx, projectID)
+	return !waits, err
+}
+
+// RetryQueuedMessage is «Reintentar»: a message nobody would read opens a turn now,
+// the turn's id to follow, "" when something already reads the queue. The step reads
+// the whole queue in order, so every message waiting enters with it.
+// [EL DISEÑO NO LO DICE]: one route for one message; a retry of one sends them all,
+// since a step takes the queue whole (takeQueued).
+func (r *Runner) RetryQueuedMessage(ctx context.Context, projectID string, n int) (string, error) {
+	waiting, err := r.QueuedMessages(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	i := slices.IndexFunc(waiting, func(m QueuedMessage) bool { return m.N == n })
+	if i < 0 {
+		return "", ErrMessageNotQueued
+	}
+	if !waiting[i].NotSent {
+		return "", nil
+	}
+	r.mu.Lock()
+	r.queueOf(projectID).wake = true
+	r.mu.Unlock()
+	return r.openChain(projectID)
 }
 
 // waitingMessages: queueMu is held.

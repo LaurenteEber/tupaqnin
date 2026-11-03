@@ -495,6 +495,7 @@ type MessageQueue interface {
 	QueuedMessages(ctx context.Context, projectID string) ([]cycle.QueuedMessage, error)
 	EditQueuedMessage(ctx context.Context, projectID string, n int, text string) error
 	WithdrawQueuedMessage(ctx context.Context, projectID string, n int) error
+	RetryQueuedMessage(ctx context.Context, projectID string, n int) (string, error)
 }
 
 // PUT /api/projects/{projectID}/messages/{n} with {text}: a message still queued
@@ -528,6 +529,31 @@ func (s *Server) deleteQueuedMessage(w http.ResponseWriter, r *http.Request) {
 	s.changeQueuedMessage(w, r, func(q MessageQueue, n int) error {
 		return q.WithdrawQueuedMessage(r.Context(), projectID, n)
 	})
+}
+
+// POST /api/projects/{projectID}/messages/{n}/retry: a message no step would read is
+// sent now, 202 with the turn to follow; 409 message_not_queued once it entered one.
+// [EL DISEÑO NO LO DICE]: the route, for «Reintentar» (Eber, 3-nov).
+func (s *Server) retryQueuedMessage(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !s.requireProject(w, r, projectID) {
+		return
+	}
+	n, err := strconv.Atoi(r.PathValue("n"))
+	q, ok := s.starter.(MessageQueue)
+	if err != nil || !ok {
+		writeError(w, http.StatusConflict, "message_not_queued")
+		return
+	}
+	turnID, err := q.RetryQueuedMessage(r.Context(), projectID, n)
+	switch {
+	case errors.Is(err, cycle.ErrMessageNotQueued):
+		writeError(w, http.StatusConflict, "message_not_queued")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, "internal")
+	default:
+		writeTurnStarted(w, turnID)
+	}
 }
 
 func (s *Server) changeQueuedMessage(w http.ResponseWriter, r *http.Request, change func(MessageQueue, int) error) {

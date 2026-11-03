@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { editQueuedMessage, removeQueuedMessage } from "../api/client";
-import { canSaveEdit, isQueued } from "../queue";
+import { editQueuedMessage, removeQueuedMessage, retryQueuedMessage } from "../api/client";
+import { canSaveEdit, isQueued, queuedMark } from "../queue";
 import type { ReactNode } from "react";
 import type { StreamDelta } from "../api/client";
 import type { ConversationEntry } from "../api/types";
@@ -17,7 +17,8 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
   // B-101: a queued message stays yours to change while the agent works, unless
   // this tab is read-only; a change reads the conversation again.
   readOnly?: boolean;
-  onQueueChanged?: () => void;
+  // With a turn's id when a retry opened one, for the page to follow.
+  onQueueChanged?: (turnID?: string) => void;
   lang: Lang;
   // The project, for a round's card (backlog-r3 3.2).
   projectID: string;
@@ -113,14 +114,16 @@ export function ConversationPanel({ lang, projectID, entries, requestText, worki
   );
 }
 
-// B-101: the mark under a message that waits, with «Edit» and «Remove».
-function QueuedMark({ lang, projectID, n, text, readOnly, onChanged }: {
+// B-101: the mark under a message that waits, with «Edit» and «Remove», and «Retry»
+// when Go says no step will read it.
+function QueuedMark({ lang, projectID, n, text, notSent, readOnly, onChanged }: {
   lang: Lang;
   projectID: string;
   n: number;
   text: string;
+  notSent?: boolean;
   readOnly?: boolean;
-  onChanged?: () => void;
+  onChanged?: (turnID?: string) => void;
 }) {
   const t = (key: string) => translate(lang, key);
   const [editing, setEditing] = useState(false);
@@ -142,9 +145,26 @@ function QueuedMark({ lang, projectID, n, text, readOnly, onChanged }: {
     }
   }
 
+  // A failed retry leaves the mark as it is, still offering it; only a 409 means the
+  // message entered a step meanwhile.
+  async function retry() {
+    setBusy(true);
+    setLate(false);
+    let turnID: string | undefined;
+    try {
+      ({ turn_id: turnID } = await retryQueuedMessage(projectID, n));
+    } catch (e) {
+      setLate(e instanceof Error && e.message === "http_409");
+    } finally {
+      setBusy(false);
+      onChanged?.(turnID);
+    }
+  }
+
+  const mark = queuedMark(notSent);
   return (
     <div className="queued" role="status">
-      <span className="meta">{t("message.queued")}</span>
+      <span className={notSent ? "turn-error" : "meta"}>{t(mark.key)}</span>
       {editing ? (
         <>
           <textarea aria-label={t("message.queued_edit")} value={draft} onChange={(e) => setDraft(e.target.value)} />
@@ -158,6 +178,11 @@ function QueuedMark({ lang, projectID, n, text, readOnly, onChanged }: {
       ) : (
         !readOnly && (
           <>
+            {mark.retry && (
+              <button type="button" className="link" disabled={busy} onClick={() => void retry()}>
+                {t("message.queued_retry")}
+              </button>
+            )}
             <button type="button" className="link" disabled={busy} onClick={() => { setDraft(text); setEditing(true); }}>
               {t("message.queued_edit")}
             </button>
@@ -174,7 +199,7 @@ function QueuedMark({ lang, projectID, n, text, readOnly, onChanged }: {
 
 function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct, readOnly, onQueueChanged }: {
   readOnly?: boolean;
-  onQueueChanged?: () => void;
+  onQueueChanged?: (turnID?: string) => void;
   lang: Lang;
   projectID: string;
   entry: ConversationEntry;
@@ -189,7 +214,7 @@ function Entry({ lang, projectID, entry, disabled, onAnswerAudience, onRoundAct,
         <>
           <div className="msg me">{entry.text}</div>
           {isQueued(entry) && (
-            <QueuedMark key={entry.n} lang={lang} projectID={projectID} n={entry.n ?? 0} text={entry.text ?? ""} readOnly={readOnly} onChanged={onQueueChanged} />
+            <QueuedMark key={entry.n} lang={lang} projectID={projectID} n={entry.n ?? 0} text={entry.text ?? ""} notSent={entry.not_sent} readOnly={readOnly} onChanged={onQueueChanged} />
           )}
           {entry.waits_signoff && <p className="meta" role="status">{t("message.waits_signoff")}</p>}
         </>

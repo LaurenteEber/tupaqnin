@@ -674,6 +674,8 @@
   "message.queued_save": "Save",
   "message.queued_cancel": "Cancel",
   "message.queued_late": "It already entered the agent's step.",
+  "message.not_sent": "Not sent · the agent stopped before reading it",
+  "message.queued_retry": "Retry",
   "message.waits_signoff": "The agent will answer when the signoff ends.",
   "signoff.request.queued": "You asked to sign: it opens when the running step ends.",
   "turn.stop.mode_finished": "The agent finished the mode.",

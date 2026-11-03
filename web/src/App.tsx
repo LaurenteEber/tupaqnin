@@ -188,9 +188,10 @@ export function App() {
   // holder that is no chain ends: ask until it does or the mode ends.
   // [EL DISEÑO NO LO DICE]: how the page learns it: the summary, every 3 s.
   // B-100, B-101: the same with a message or a decision of yours waiting, in the
-  // normal mode: a turn may open with it, and its mark goes when it is taken.
+  // normal mode: a turn may open with it, and its mark goes when it is taken. And
+  // after a failed turn, whose message comes back only once the slot is released.
   const modeOn = summary?.mode === "run_to_completion";
-  const messageWaits = conversation.some((e) => isQueued(e) || (e.will_apply?.length ?? 0) > 0);
+  const messageWaits = errorCode !== "" || conversation.some((e) => isQueued(e) || (e.will_apply?.length ?? 0) > 0);
   useEffect(() => {
     if (!projectID || (!modeOn && !messageWaits) || working) return;
     const timer = window.setInterval(() => {
@@ -388,6 +389,7 @@ export function App() {
       onError: (code) => {
         setErrorCode(code);
         setWorking(false);
+        void refreshConversation(projectID); // a message the failed step did not deliver
       },
     });
   }
@@ -977,7 +979,13 @@ export function App() {
                     }}
                     disabled={!editor || working}
                     readOnly={!editor}
-                    onQueueChanged={() => void refreshConversation(projectID)}
+                    onQueueChanged={(turnID) => {
+                      void refreshConversation(projectID);
+                      if (!turnID) return;
+                      clearStream();
+                      setErrorCode("");
+                      watchTurn(turnID);
+                    }}
                     onAnswerAudience={(label, answer) => {
                       // P-86: the question keeps showing with its new state.
                       void answerAudienceQuestion(projectID, label, answer)

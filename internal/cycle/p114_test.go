@@ -140,6 +140,10 @@ func TestB86_YourMessageDuringASignoffOverTheThresholdWaitsAndTheCloseAnswersIt(
 	if data["text"] != msg || data["queued"] != true || data["waits_signoff"] != true {
 		t.Fatalf("your message: %v", data)
 	}
+	// The signoff's close answers it: it waits, and nothing says it was not sent.
+	if queued, err := runner.QueuedMessages(ctx, "p1"); err != nil || len(queued) != 1 || queued[0].NotSent {
+		t.Fatalf("during the signoff: %+v %v", queued, err)
+	}
 	if err := gate.LeaveSignoff(ctx, "p1", sign); err != nil {
 		t.Fatal(err)
 	}

@@ -314,6 +314,11 @@ export interface ConversationEntry {
   queued?: boolean;
   n?: number /* int */;
   /**
+   * NotSent: on a queued message, no step will read it (a failed step left it):
+   * the page says so and offers to retry.
+   */
+  not_sent?: boolean;
+  /**
    * WaitsSignoff: on a message, the agent answers it when the signoff in
    * progress ends (P-114).
    */

@@ -162,3 +162,53 @@ func TestB101_AMessageEnteringTheRunningStepCannotBeRemoved(t *testing.T) {
 	close(hold.release)
 	cycle.WaitTurnsForTest(runner)
 }
+
+// A step that fails leaves your message in the history with nobody to read it: it
+// says it was not sent, and «Reintentar» sends it now, once.
+func TestB101_AfterAProviderFailureAQueuedMessageSaysItWasNotSentAndRetrySendsIt(t *testing.T) {
+	down := errors.New("provider down")
+	hold := &holdProvider{kind: provider.TurnStep, at: 1, fail: map[int]error{}}
+	for n := 2; n <= 12; n++ {
+		hold.fail[n] = down
+	}
+	_, runner, cap, _ := newModeRunner(t, hold,
+		textFixture(t, pendingFigureStep), loadAppFixture(t, "04-principal-no-work.json"), loadAppFixture(t, "04-principal-no-work.json"))
+	ctx := context.Background()
+	if _, err := runner.StartTurn("p1", "Empieza."); err != nil {
+		t.Fatal(err)
+	}
+	<-hold.entered
+	const message = "Usa la serie de 2024, por favor."
+	if _, err := runner.StartTurn("p1", message); err != nil {
+		t.Fatal(err)
+	}
+	queued, err := runner.QueuedMessages(ctx, "p1")
+	if err != nil || len(queued) != 1 || queued[0].NotSent {
+		t.Fatalf("during the step it only waits: %+v %v", queued, err)
+	}
+	close(hold.release)
+	cycle.WaitTurnsForTest(runner)
+	queued, err = runner.QueuedMessages(ctx, "p1")
+	if err != nil || len(queued) != 1 || queued[0].Text != message || !queued[0].NotSent {
+		t.Fatalf("after the failure: %+v %v, want it marked not sent", queued, err)
+	}
+	if _, err := runner.RetryQueuedMessage(ctx, "p1", queued[0].N+1); !errors.Is(err, cycle.ErrMessageNotQueued) {
+		t.Fatalf("retry of a message that does not wait: %v", err)
+	}
+	calls := len(cap.sent)
+	hold.fail = nil // the provider is back
+	turn, err := runner.RetryQueuedMessage(ctx, "p1", queued[0].N)
+	if err != nil || turn == "" {
+		t.Fatalf("retry: %q %v, want a turn to follow", turn, err)
+	}
+	cycle.WaitTurnsForTest(runner)
+	if len(cap.sent) <= calls || lastUserText(t, cap.sent[calls]) != message {
+		t.Fatalf("the retried step's message: %d calls after %d", len(cap.sent), calls)
+	}
+	if queued, _ := runner.QueuedMessages(ctx, "p1"); len(queued) != 0 {
+		t.Fatalf("still queued after the retry: %+v", queued)
+	}
+	if _, err := runner.RetryQueuedMessage(ctx, "p1", queued[0].N); !errors.Is(err, cycle.ErrMessageNotQueued) {
+		t.Fatalf("retry after it entered: %v", err)
+	}
+}

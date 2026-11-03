@@ -3,9 +3,11 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,9 +23,14 @@ type heldSteps struct {
 	provider.Provider
 	entered, release chan struct{}
 	seen             bool
+	// failing: every step after the held one fails, as a provider that went down.
+	failing atomic.Bool
 }
 
 func (h *heldSteps) Respond(ctx context.Context, req provider.Request, d func(provider.Delta)) (provider.Response, error) {
+	if req.TurnKind == provider.TurnStep && h.seen && h.failing.Load() {
+		return provider.Response{}, errors.New("provider down")
+	}
 	if req.TurnKind == provider.TurnStep && !h.seen {
 		h.seen = true
 		close(h.entered)
@@ -500,5 +507,55 @@ func TestE1_TheOpenQuestionViewGivesYourReasonApart(t *testing.T) {
 	}
 	if q := todo.OpenQuestions[0]; q.ObjectionReason != reason || q.Question == reason {
 		t.Fatalf("question %q, reason %q", q.Question, q.ObjectionReason)
+	}
+}
+
+// The conversation says a queued message was not sent after a failure, and the
+// retry route sends it: 202 with the turn to follow, 409 once it no longer waits.
+func TestB101_ARetryFromTheConversationSendsAMessageThatWasNotSent(t *testing.T) {
+	h, _, projectID, hold, _ := modeAPI(t, nil)
+	base := "/api/projects/" + projectID
+	hold.failing.Store(true)
+	if rec := do(t, h, http.MethodPost, base+"/messages", map[string]string{"text": "Hola."}); rec.Code != http.StatusAccepted {
+		t.Fatalf("first: %d", rec.Code)
+	}
+	<-hold.entered
+	if rec := do(t, h, http.MethodPost, base+"/messages", map[string]string{"text": "Otra."}); rec.Code != http.StatusAccepted {
+		t.Fatalf("second: %d", rec.Code)
+	}
+	close(hold.release)
+	entry := func() *server.ConversationEntry {
+		for _, e := range decode[[]server.ConversationEntry](t, do(t, h, http.MethodGet, base+"/conversation", nil)) {
+			if e.Kind == "message" && e.Text == "Otra." {
+				return &e
+			}
+		}
+		return nil
+	}
+	var mark *server.ConversationEntry
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if mark = entry(); mark != nil && mark.NotSent {
+			break
+		}
+	}
+	if mark == nil || !mark.Queued || !mark.NotSent || mark.N == 0 {
+		t.Fatalf("after the failure: %+v, want queued and not sent", mark)
+	}
+	path := fmt.Sprintf("%s/messages/%d/retry", base, mark.N)
+	hold.failing.Store(false)
+	rec := do(t, h, http.MethodPost, path, nil)
+	if rec.Code != http.StatusAccepted || decode[server.PostMessageResponse](t, rec).TurnID == "" {
+		t.Fatalf("retry: %d %s, want 202 with a turn", rec.Code, rec.Body)
+	}
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if mark = entry(); mark != nil && !mark.Queued {
+			break
+		}
+	}
+	if mark == nil || mark.Queued || mark.NotSent {
+		t.Fatalf("after the retry: %+v, want it delivered", mark)
+	}
+	if rec := do(t, h, http.MethodPost, path, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("retry twice: %d, want 409", rec.Code)
 	}
 }

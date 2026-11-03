@@ -1,6 +1,6 @@
 import { saveRequest } from "../saveStatus";
 import { editorReleaseRequest, readTabId } from "../tab";
-import { queuedEditRequest, queuedMessagePath, queuedRemoveRequest } from "../queue";
+import { queuedEditRequest, queuedMessagePath, queuedRemoveRequest, queuedRetryPath } from "../queue";
 import type {
   UndoResponse,
   RoundCard,
@@ -657,6 +657,13 @@ export async function editQueuedMessage(projectID: string, n: number, text: stri
 export async function removeQueuedMessage(projectID: string, n: number): Promise<void> {
   const res = await fetch(queuedMessagePath(projectID, n), queuedRemoveRequest());
   if (!res.ok) throw new Error(`http_${res.status}`);
+}
+
+// «Reintentar»: the turn to follow, none when something already reads the queue.
+export async function retryQueuedMessage(projectID: string, n: number): Promise<PostMessageResponse> {
+  const res = await fetch(queuedRetryPath(projectID, n), { method: "POST" });
+  if (!res.ok) throw new Error(`http_${res.status}`);
+  return (await res.json()) as PostMessageResponse;
 }
 
 export async function postMessage(

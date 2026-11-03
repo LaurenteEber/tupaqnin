@@ -9,6 +9,16 @@ export function queuedMessagePath(projectID: string, n: number): string {
   return `/api/projects/${projectID}/messages/${n}`;
 }
 
+// «Reintentar»: a message that was not sent goes now.
+export function queuedRetryPath(projectID: string, n: number): string {
+  return `${queuedMessagePath(projectID, n)}/retry`;
+}
+
+// The mark's text, and whether it offers the retry: Go says it was not sent.
+export function queuedMark(notSent?: boolean): { key: string; retry: boolean } {
+  return notSent ? { key: "message.not_sent", retry: true } : { key: "message.queued", retry: false };
+}
+
 export function queuedEditRequest(text: string) {
   return { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) };
 }

@@ -674,6 +674,8 @@
   "message.queued_save": "Guardar",
   "message.queued_cancel": "Cancelar",
   "message.queued_late": "Ya entró al paso del agente.",
+  "message.not_sent": "No se envió · el agente se detuvo antes de leerlo",
+  "message.queued_retry": "Reintentar",
   "message.waits_signoff": "El agente responderá cuando termine la firma.",
   "signoff.request.queued": "Pediste firmar: se abre al terminar el paso en curso.",
   "turn.stop.mode_finished": "El agente terminó el modo.",
