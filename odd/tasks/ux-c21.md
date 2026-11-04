@@ -24,7 +24,7 @@ Quoted verbatim from L1.
 | T1 | S1, S2 | inline | done | `5bd3eb6`; gate exit 0; smoke bal-en, bal-es |
 | T2 | S3 | inline | done | RED then GREEN `TestB99_EveryProposalOriginHasATextInBothCatalogs`; gate exit 0; smoke c21-en, c21-es |
 | T3 | S4 | inline | done | RED then GREEN `C.22` in `proposals.test.ts`; gate exit 0; smoke c22-en, c22-es |
-| T4 | S5 | inline | pending | |
+| T4 | S5 | inline | done | RED then GREEN `C.23` in `cardDrafts.test.ts`; gate exit 0; smoke c23-en, c23-es |
 | T5 | S6 | inline | pending | |
 | T6 | S7 | inline | pending | |
 | T7 | S8 | inline | pending | |

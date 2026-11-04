@@ -167,7 +167,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
                   checked={drafts[card.label]?.option === "keep"}
                   onChange={() => write(card.label, { option: "keep" })}
                 />
-                {t("card.keep")}
+                {t("card.keep", { what: card.statement })}
               </label>
               <label>
                 <input
@@ -176,7 +176,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
                   checked={drafts[card.label]?.option === "other"}
                   onChange={() => write(card.label, { option: "other" })}
                 />
-                {t("card.other")}
+                {t("card.other", { what: card.instead_of })}
               </label>
             </>
           )}

@@ -80,3 +80,10 @@ test("TestB107: the other refusals of a question read as before", () => {
   assert.equal(questionErrorCode("http_500"), "failed");
   assert.equal(questionErrorCode("internal"), "failed");
 });
+
+test("C.23: a critical card's options say each statement, as the open questions do", () => {
+  assert.equal(es["card.keep"], "Mantener: {what}");
+  assert.equal(es["card.other"], "Cambiar a: {what}");
+  assert.equal(en["card.keep"], "Keep: {what}");
+  assert.equal(en["card.other"], "Change to: {what}");
+});
