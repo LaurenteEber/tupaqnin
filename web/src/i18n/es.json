@@ -611,7 +611,7 @@
   "warnings.flaw": "Falla que halló el juez:",
   "warnings.go_flaw": "Ir a las fallas",
   "warnings.underline.flaw": "Una falla que halló el juez: clic para ir",
-  "summary.spend.warn": "Llevas el 80 % del tope de este proyecto.",
+  "summary.spend.warn": "Llevas el 80 % de lo que el agente puede gastar en este proyecto.",
   "summary.spend.project_cap": "Este proyecto llegó a su tope: el agente se detuvo con su informe. Tu trabajo está intacto, y puedes seguir editando, respondiendo y firmando.",
   "summary.spend.link": "Se agotó el saldo de tu link: el agente se detuvo con su informe. Tu trabajo está intacto.",
   "summary.spend.day": "La demo llegó a su tope de hoy: el agente se detuvo con su informe. Tu trabajo está intacto.",

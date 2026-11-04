@@ -611,7 +611,7 @@
   "warnings.flaw": "Flaw the judge found:",
   "warnings.go_flaw": "Go to the flaws",
   "warnings.underline.flaw": "A flaw the judge found: click to go to it",
-  "summary.spend.warn": "You have used 80 % of this project's budget.",
+  "summary.spend.warn": "You have used 80 % of what the agent can spend on this project.",
   "summary.spend.project_cap": "This project reached its budget: the agent stopped with its report. Your work is intact, and you can still edit, answer and sign.",
   "summary.spend.link": "Your link's balance ran out: the agent stopped with its report. Your work is intact.",
   "summary.spend.day": "The demo reached its cap for today: the agent stopped with its report. Your work is intact.",

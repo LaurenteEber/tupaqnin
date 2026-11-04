@@ -199,20 +199,19 @@ func TestB3_20_SummaryWarnAndStoppedBy(t *testing.T) {
 	if v := summary(); v.Warn || v.StoppedBy != "" {
 		t.Fatalf("fresh: %+v", v)
 	}
-	spendOn(t, s.db, p, 2)
+	// B3-20 (4-nov): 80 % of what the agent can spend, 3 USD less the balance.
+	spendOn(t, s.db, p, 1.75)
 	if v := summary(); v.Warn || v.StoppedBy != "" {
-		t.Fatalf("under the cap less the balance: %+v", v)
-	}
-	// P-128: with a balance of 0.80 USD the agent stops before the 80 % of 3 USD.
-	spendOn(t, s.db, p, 0.39)
-	if v := summary(); v.Warn || v.StoppedBy != "project_cap" {
-		t.Fatalf("at the cap less the balance: %+v", v)
+		t.Fatalf("under 80 %%: %+v", v)
 	}
 	spendOn(t, s.db, p, 0.01)
-	if v := summary(); !v.Warn || v.StoppedBy != "project_cap" {
-		t.Fatalf("at 80 %%: %+v", v)
+	if v := summary(); !v.Warn || v.StoppedBy != "" {
+		t.Fatalf("at 80 %%, before the stop: %+v", v)
 	}
-	spendOn(t, s.db, p, 0.20)
+	spendOn(t, s.db, p, 0.84)
+	if v := summary(); !v.Warn || v.StoppedBy != "project_cap" {
+		t.Fatalf("at the cap less the balance: %+v", v)
+	}
 	s.runner.SpendCapDayUSD = 2
 	if v := summary(); v.StoppedBy != "project_cap" {
 		t.Fatalf("the project's cap comes first: %+v", v)

@@ -64,3 +64,9 @@ test("C.26: money has the locale's decimal separator", () => {
   assert.equal(moneyText(3, "es-ES"), "3,00");
   assert.equal(moneyText(0.34, "en-US"), "0.34");
 });
+
+test("B3-20: the warning says what its 80 % is of, in both languages", () => {
+  const read = (lang: string) => JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"))["summary.spend.warn"];
+  assert.equal(read("es"), "Llevas el 80 % de lo que el agente puede gastar en este proyecto.");
+  assert.equal(read("en"), "You have used 80 % of what the agent can spend on this project.");
+});

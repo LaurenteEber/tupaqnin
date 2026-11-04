@@ -9,6 +9,7 @@ import (
 
 	"github.com/LaurenteEber/tupaqnin/internal/cycle"
 	"github.com/LaurenteEber/tupaqnin/internal/graph"
+	"github.com/LaurenteEber/tupaqnin/internal/provider"
 	"github.com/LaurenteEber/tupaqnin/internal/store"
 )
 
@@ -259,7 +260,8 @@ type SummaryView struct {
 	// AuditEstimateUSD is what «Auditar sección» should cost (C.20), said before
 	// you press it: the median of the project's audits, or an initial value.
 	AuditEstimateUSD float64 `json:"audit_estimate_usd"`
-	// Warn: what the project spent is at 80 % of its cap or more (B3-20).
+	// Warn: what the project spent is at 80 % or more of what the agent can spend,
+	// its cap less the signoff's balance (B3-20).
 	Warn bool `json:"warn"`
 	// StoppedBy is the cap that keeps the agent from its next call (B-89):
 	// project_cap, link, day or total; empty when none does.
@@ -273,7 +275,8 @@ type SummaryView struct {
 	RunningTurn string `json:"running_turn,omitempty"`
 }
 
-// warnShare is where the bar's notice starts (B3-20: 80 % of the cap).
+// warnShare is where the bar's notice starts (B3-20: 80 % of what the agent can
+// spend, so it shows before the stop).
 const warnShare = 0.80
 
 // DefensePreparer reports a defense in preparation (P-92); the runner
@@ -298,7 +301,7 @@ func (s *Server) getSummary(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
 	}
-	view := SummaryView{SpentUSD: spent, CapUSD: s.projectCap, Warn: spent+1e-9 >= warnShare*s.projectCap}
+	view := SummaryView{SpentUSD: spent, CapUSD: s.projectCap, Warn: spent+1e-9 >= warnShare*(s.projectCap-provider.SignoffReserveUSD)}
 	if view.AuditEstimateUSD, err = cycle.AuditEstimate(r.Context(), s.db, projectID); err != nil {
 		writeError(w, http.StatusInternalServerError, "internal")
 		return
