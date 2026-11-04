@@ -21,8 +21,8 @@ Quoted verbatim from L1.
 
 | ID | Specs | Route | Status | Commit / evidence |
 |---|---|---|---|---|
-| T1 | S1, S2 | inline | done | commit `fix: P-128 the signoff balance pays 4 contrasts and says when it is spent`; gate exit 0; smoke bal-en, bal-es |
-| T2 | S3 | inline | pending | |
+| T1 | S1, S2 | inline | done | `5bd3eb6`; gate exit 0; smoke bal-en, bal-es |
+| T2 | S3 | inline | done | RED then GREEN `TestB99_EveryProposalOriginHasATextInBothCatalogs`; gate exit 0; smoke c21-en, c21-es |
 | T3 | S4 | inline | pending | |
 | T4 | S5 | inline | pending | |
 | T5 | S6 | inline | pending | |
