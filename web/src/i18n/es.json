@@ -667,6 +667,7 @@
   "proposal.new_section": "Sección propuesta: «{title}»",
   "proposal.leaves": "Sale",
   "proposal.enters": "Entra",
+  "proposal.enters_nothing": "nada (se borra)",
   "proposal.accept": "Aceptar",
   "proposal.discard": "Descartar",
   "proposal.contrast": "Contraste",

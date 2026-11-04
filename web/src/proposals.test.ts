@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { closedKey, heldBackKey, proposalsTarget, proposalsToShow, turnToWatch } from "./proposals.ts";
+import { closedKey, contrastLines, heldBackKey, proposalsTarget, proposalsToShow, turnToWatch } from "./proposals.ts";
 import type { ProposalView } from "./api/graph";
 
 const catalog = (lang: string): Record<string, string> =>
@@ -59,4 +59,23 @@ test("B-99: a proposal the app held back says why, in both languages", async () 
   }
   assert.equal(heldBackKey({ why: "your_edit", state: "open" }), "");
   assert.equal(heldBackKey({ why: "removes_half", state: "accepted" }), "");
+});
+
+test("C.22: a proposal that deletes paragraphs lists them once and enters nothing, once", () => {
+  const lines = contrastLines({ removed: ["One.", "Two.", "One."], added: ["", "  ", ""] });
+  assert.deepEqual(lines, { removed: ["One.", "Two."], added: [], entersNothing: true });
+});
+
+test("C.22: never an empty entry: only what really enters is listed", () => {
+  assert.deepEqual(contrastLines({ removed: ["One.", "Two."], added: ["", "New."] }), {
+    removed: ["One.", "Two."], added: ["New."], entersNothing: false,
+  });
+  // A new section removes nothing, and with nothing either way nothing is said.
+  assert.deepEqual(contrastLines({ removed: [], added: ["New."] }), { removed: [], added: ["New."], entersNothing: false });
+  assert.deepEqual(contrastLines({ removed: [], added: [""] }), { removed: [], added: [], entersNothing: false });
+});
+
+test("C.22: both catalogs say what enters when a proposal only deletes", () => {
+  assert.equal(es["proposal.enters_nothing"], "nada (se borra)");
+  assert.equal(en["proposal.enters_nothing"], "nothing (it is deleted)");
 });

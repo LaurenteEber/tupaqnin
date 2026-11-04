@@ -19,6 +19,15 @@ export function heldBackKey(p: { why?: string; state: string }): string {
   return p.state === "open" && p.why && held.includes(p.why) ? `proposal.state.${p.why}` : "";
 }
 
+// C.22: what a proposal's contrast lists. A step that deletes text carries one
+// empty entry per paragraph; they are not lines. Each removed paragraph is listed
+// once, and when nothing enters the panel says so, once.
+export function contrastLines(c: { removed: string[]; added: string[] }): { removed: string[]; added: string[]; entersNothing: boolean } {
+  const removed = [...new Set(c.removed.filter((text) => text.trim() !== ""))];
+  const added = c.added.filter((text) => text.trim() !== "");
+  return { removed, added, entersNothing: removed.length > 0 && added.length === 0 };
+}
+
 // The key of a closed proposal's line: its reason, or its state.
 export function closedKey(p: ProposalView): string {
   return p.why && p.why !== "discarded" ? `proposal.state.${p.why}` : `proposal.state.${p.state}`;

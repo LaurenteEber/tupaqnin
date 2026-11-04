@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { actOnProposal, listProposals } from "../api/client";
 import type { ProposalView } from "../api/graph";
 import { translate, type Lang } from "../i18n";
-import { closedKey, heldBackKey, proposalsToShow, turnToWatch } from "../proposals";
+import { closedKey, contrastLines, heldBackKey, proposalsToShow, turnToWatch } from "../proposals";
 
 // The proposals in the document (backlog-r4 4.1, pantallas «Dónde va cada
 // vista de la rebanada 4»): with a section, the proposed text marked against
@@ -53,8 +53,9 @@ export function ProposalPanel({
   return (
     <div className="proposals">
       {failed && <p className="meta">{t("proposal.error")}</p>}
-      {items.map((p) =>
-        p.state !== "open" ? (
+      {items.map((p) => {
+        const lines = contrastLines(p.contrast);
+        return p.state !== "open" ? (
           <p key={p.label} className="proposal-closed">
             {t("proposal.title")} · {t(closedKey(p))}: {p.text}
           </p>
@@ -65,18 +66,28 @@ export function ProposalPanel({
             {heldBackKey(p) && <p className="meta" role="status">{t(heldBackKey(p))}</p>}
             {!p.new_section && <span className="meta">{t(`proposal.origin.${p.origin}`)}</span>}
             {p.version_changed && <span className="meta">{t("proposal.version_changed")}</span>}
-            {p.contrast.removed.map((text, i) => (
-              <p key={`r${i}`}>
-                <span className="meta">{t("proposal.leaves")}: </span>
-                <del>{text}</del>
-              </p>
-            ))}
-            {p.contrast.added.map((text, i) => (
-              <p key={`a${i}`}>
+            {lines.removed.length > 0 && (
+              <div className="proposal-side">
+                <span className="meta">{t("proposal.leaves")}:</span>
+                {lines.removed.map((text, i) => (
+                  <p key={i}><del>{text}</del></p>
+                ))}
+              </div>
+            )}
+            {lines.added.length > 0 && (
+              <div className="proposal-side">
+                <span className="meta">{t("proposal.enters")}:</span>
+                {lines.added.map((text, i) => (
+                  <p key={i}><ins>{text}</ins></p>
+                ))}
+              </div>
+            )}
+            {lines.entersNothing && (
+              <p>
                 <span className="meta">{t("proposal.enters")}: </span>
-                <ins>{text}</ins>
+                {t("proposal.enters_nothing")}
               </p>
-            ))}
+            )}
             <details>
               <summary>{t("proposal.contrast")}</summary>
               {p.contrast.triage_line && <p>{p.contrast.triage_line}</p>}
@@ -102,8 +113,8 @@ export function ProposalPanel({
               </div>
             )}
           </div>
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

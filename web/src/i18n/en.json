@@ -667,6 +667,7 @@
   "proposal.new_section": "Proposed section: «{title}»",
   "proposal.leaves": "Leaves",
   "proposal.enters": "Enters",
+  "proposal.enters_nothing": "nothing (it is deleted)",
   "proposal.accept": "Accept",
   "proposal.discard": "Discard",
   "proposal.contrast": "Contrast",
