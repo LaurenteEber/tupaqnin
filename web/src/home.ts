@@ -25,6 +25,12 @@ export function cannotCreateKey(reason: string): string {
   return `home.cannot_create.${reason}`;
 }
 
+// C.25: the text of why a new project does not open, or null when it does: the
+// left column's buttons turn off for the same reason as the center's.
+export function createBlockedKey(session: HomeSession | null): string | null {
+  return session !== null && !session.can_create ? cannotCreateKey(session.cannot_create) : null;
+}
+
 // What the screen holds. No session (null) is «Necesitas un link de invitación»
 // and «Entrar»: only a link registers (B3-18), and entering asks for none (B-91).
 export function homeView(session: HomeSession | null) {
@@ -44,7 +50,8 @@ export function homeNoticeKeys(session: HomeSession | null): string[] {
   if (session === null) return [];
   const keys: string[] = [];
   if (session.account === "") keys.push("home.notice.no_account");
-  if (!session.can_create) keys.push(cannotCreateKey(session.cannot_create));
+  const blocked = createBlockedKey(session);
+  if (blocked) keys.push(blocked);
   return keys;
 }
 

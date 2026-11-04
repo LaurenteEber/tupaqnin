@@ -11,6 +11,7 @@ import {
   homeNoticeKeys,
   homeView,
   homeWelcomeKey,
+  createBlockedKey,
   leftBottom,
   loginNoticeKey,
   nextPasswordShown,
@@ -92,7 +93,6 @@ test("E.6: with no_session the home shows «Entrar» and not the list", () => {
 
   // The screen obeys the function: the list and the buttons only behind it.
   const page = readFileSync(new URL("./components/HomePage.tsx", import.meta.url), "utf8");
-  assert.match(page, /view\.list && /);
   assert.match(page, /view\.start && /);
   assert.match(page, /view\.needsLink && /);
   assert.match(page, /view\.login && /);
@@ -318,4 +318,23 @@ test("C18: the line in both languages names tupaqnin and both buttons, without r
     const raw = readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8");
     assert.equal(raw.split('"home.welcome"').length - 1, 1, lang);
   }
+});
+
+test("C.25: at the limit the left column's buttons are off for the reason of the center's", () => {
+  assert.equal(createBlockedKey(null), null);
+  assert.equal(createBlockedKey(session()), null);
+  const full = session({ account: "paula", can_create: false, cannot_create: "account_limit" });
+  assert.equal(createBlockedKey(full), "home.cannot_create.account_limit");
+  assert.ok(homeNoticeKeys(full).includes(createBlockedKey(full) ?? ""));
+  const left = readFileSync(new URL("./components/LeftPanel.tsx", import.meta.url), "utf8");
+  assert.equal(left.match(/disabled=\{blocked !== null\}/g)?.length, 2);
+});
+
+test("C.25: the project list and «Salir» show once, in the left column", () => {
+  const page = readFileSync(new URL("./components/HomePage.tsx", import.meta.url), "utf8");
+  const left = readFileSync(new URL("./components/LeftPanel.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(page, /home-list|home\.logout|project\.list/);
+  assert.match(left, /view\.list && /);
+  assert.match(left, /home\.logout/);
+  assert.match(left, /home\.no_projects/);
 });

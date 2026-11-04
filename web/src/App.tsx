@@ -902,7 +902,6 @@ export function App() {
                 sessionFailed={sessionFailed}
                 projects={projects}
                 createError={createError}
-                onOpen={openProject}
                 onNew={(template) => void newProject(template)}
                 onSessionChanged={async () => {
                   setCreateError("");

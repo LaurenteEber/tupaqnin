@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { AccountError, login, logout, register } from "../api/client";
+import { AccountError, login, register } from "../api/client";
 import type { ProjectLine, SessionView } from "../api/types";
-import { accountErrorText, activityAgo, createErrorKey, homeNoticeKeys, homeView, homeWelcomeKey, loginNoticeKey, nextPasswordShown, passwordFieldType, passwordToggleKey, projectProgress } from "../home";
+import { accountErrorText, createErrorKey, homeNoticeKeys, homeView, homeWelcomeKey, loginNoticeKey, nextPasswordShown, passwordFieldType, passwordToggleKey } from "../home";
 import { translate, type Lang } from "../i18n";
 
 export type HomeForm = "" | "register" | "login";
@@ -16,7 +16,6 @@ export function HomePage({
   projects,
   createError,
   openForm: askedForm = "",
-  onOpen,
   onNew,
   onSessionChanged,
 }: {
@@ -27,7 +26,6 @@ export function HomePage({
   createError: string;
   // The form the left panel asked for (U.2).
   openForm?: HomeForm;
-  onOpen: (id: string) => void;
   onNew: (template?: string) => void;
   onSessionChanged: () => Promise<void>;
 }) {
@@ -44,7 +42,6 @@ export function HomePage({
   const welcome = homeWelcomeKey(session);
   const refused = createErrorKey(createError, session);
   const loginNotice = loginNoticeKey(projects);
-  const now = Date.now();
 
   function openForm(next: Form) {
     setForm(next);
@@ -68,19 +65,6 @@ export function HomePage({
       setForm("");
       setUsername("");
       setPassword("");
-      await onSessionChanged();
-    } catch (e) {
-      showError(e);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function leave() {
-    setSending(true);
-    setFormError("");
-    try {
-      await logout();
       await onSessionChanged();
     } catch (e) {
       showError(e);
@@ -116,35 +100,7 @@ export function HomePage({
         </div>
       )}
 
-      {view.list && (
-        <section className="home-list" aria-label={t("project.list")}>
-          <h2>{t("project.list")}</h2>
-          {projects.length === 0 && <p className="meta">{t("home.no_projects")}</p>}
-          <ul>
-            {projects.map((p) => (
-              <li key={p.project_id}>
-                <button type="button" onClick={() => onOpen(p.project_id)}>
-                  {p.name || t("project.untitled")}
-                </button>
-                <span className="meta">
-                  {say(activityAgo(p.last_activity, now))} · {say(projectProgress(p))}
-                  {p.no_account && <> · {t("home.project.no_account")}</>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <div className="home-account">
-        {view.logout && (
-          <>
-            <span className="meta">{t("home.signed_in", { account: session?.account ?? "" })}</span>
-            <button type="button" disabled={sending} onClick={() => void leave()}>
-              {t("home.logout")}
-            </button>
-          </>
-        )}
         {view.register && (
           <button type="button" aria-expanded={form === "register"} onClick={() => openForm("register")}>
             {t("home.register")}

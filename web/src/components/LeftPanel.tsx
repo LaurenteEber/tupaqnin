@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { ProjectLine, SessionView } from "../api/types";
-import { leftBottom, projectLineTexts, projectNameText } from "../home";
+import { createBlockedKey, leftBottom, projectLineTexts, projectNameText } from "../home";
 import { translate, type Lang } from "../i18n";
 import type { HomeForm } from "./HomePage";
 
@@ -38,6 +38,7 @@ export function LeftPanel({
 }) {
   const t = (key: string, params?: Record<string, string>) => translate(lang, key, params);
   const view = leftBottom(session, projectID !== "");
+  const blocked = createBlockedKey(session);
   const now = Date.now();
   return (
     <aside className="left" aria-label={t("layout.projects")}>
@@ -55,11 +56,11 @@ export function LeftPanel({
       </div>
       {view.start && (
         <div className="left-actions">
-          <button type="button" className="nav-item" title={t("left.new")} aria-label={t("left.new")} onClick={() => onNew()}>
+          <button type="button" className="nav-item" title={blocked ? t(blocked) : t("left.new")} aria-label={t("left.new")} disabled={blocked !== null} onClick={() => onNew()}>
             <span className="ic">＋</span>
             {!off && <span>{t("left.new")}</span>}
           </button>
-          <button type="button" className="nav-item" title={t("project.demo")} aria-label={t("project.demo")} onClick={() => onNew("case-5")}>
+          <button type="button" className="nav-item" title={blocked ? t(blocked) : t("project.demo")} aria-label={t("project.demo")} disabled={blocked !== null} onClick={() => onNew("case-5")}>
             <span className="ic">▷</span>
             {!off && <span>{t("project.demo")}</span>}
           </button>
@@ -70,6 +71,7 @@ export function LeftPanel({
           {view.list && <div className="section-label">{t("project.list")}</div>}
           {view.list && (
             <nav className="projects" aria-label={t("project.list")}>
+              {projects.length === 0 && <p className="meta">{t("home.no_projects")}</p>}
               {projects.map((p) => {
                 const name = projectNameText(p);
                 return (
