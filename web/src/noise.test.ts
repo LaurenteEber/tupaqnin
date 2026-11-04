@@ -65,3 +65,10 @@ test("P-129: one is singular in the frame's counts, in both languages", () => {
   assert.doesNotMatch(read("./components/FramePanel.tsx"), /t\("(section\.pendings|frame\.unverified)"/);
   assert.doesNotMatch(read("./App.tsx"), /t\("section\.pendings"/);
 });
+
+test("P-129: one unconfirmed case is singular too", () => {
+  assert.equal(es["frame.todo.cases_n.one"], "1 caso");
+  assert.equal(en["frame.todo.cases_n.one"], "1 case");
+  const frame = readFileSync(new URL("./components/FramePanel.tsx", import.meta.url), "utf8");
+  assert.match(frame, /countKey\("frame\.todo\.cases_n", frame\.todo\.unconfirmed_cases\)/);
+});

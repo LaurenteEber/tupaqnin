@@ -159,6 +159,7 @@
   "frame.todo_empty": "Nada por ahora.",
   "frame.todo.cases": "Confirmar lo que entendí",
   "frame.todo.cases_n": "{n} casos",
+  "frame.todo.cases_n.one": "1 caso",
   "frame.todo.card": "Responder la tarjeta de «{statement}»",
   "frame.todo.sign": "Firmar «{section}»",
   "frame.todo.stop_report": "Informe sin ver",

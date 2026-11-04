@@ -159,6 +159,7 @@
   "frame.todo_empty": "Nothing for now.",
   "frame.todo.cases": "Confirm what I understood",
   "frame.todo.cases_n": "{n} cases",
+  "frame.todo.cases_n.one": "1 case",
   "frame.todo.card": "Answer the card of «{statement}»",
   "frame.todo.sign": "Sign «{section}»",
   "frame.todo.stop_report": "Stop report not seen",

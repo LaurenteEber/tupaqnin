@@ -96,7 +96,7 @@ export function FramePanel({ lang, projectID, refreshKey, selected, onSection, o
   const todos: { key: string; text: string; tag: string; target?: TodoTarget }[] = [];
   if (frame.todo.unconfirmed_cases > 0) {
     todos.push({ key: "cases", text: t("frame.todo.cases"),
-      tag: t("frame.todo.cases_n", { n: String(frame.todo.unconfirmed_cases) }), target: { kind: "cases" } });
+      tag: t(countKey("frame.todo.cases_n", frame.todo.unconfirmed_cases), { n: String(frame.todo.unconfirmed_cases) }), target: { kind: "cases" } });
   }
   for (const c of frame.todo.cards) {
     todos.push({ key: c.label, text: t("frame.todo.card", { statement: c.statement }),
