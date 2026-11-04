@@ -60,6 +60,9 @@ const (
 	OutcomeOpen          = "open"
 	OutcomePaused        = "paused"
 	OutcomeMissingInText = "missing_in_text"
+	// OutcomeThesisSkipped: Wonder failed and, without the thesis, nothing is left
+	// to retry: the signoff is brief or coincides (B3-20).
+	OutcomeThesisSkipped = "thesis_skipped"
 )
 
 // StatusFailed is a Wonder round whose output missed its shape twice:
@@ -162,7 +165,7 @@ func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel strin
 	if strings.TrimSpace(bodyStr(bodyOf(section), "text")) == "" {
 		return SignoffOpen{}, ErrSectionEmpty
 	}
-	pendings, _, _, err := g.pendingsNow(ctx, projectID, sectionLabel)
+	pendings, _, stoppedBy, err := g.pendingsNow(ctx, projectID, sectionLabel)
 	if err != nil {
 		return SignoffOpen{}, err
 	}
@@ -175,7 +178,12 @@ func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel strin
 	if active, ok, err := graph.ActiveSignoff(ctx, g.db, projectID, section.ID); err != nil {
 		return SignoffOpen{}, err
 	} else if ok {
-		body, err := graph.ParseSignoff(active)
+		if stoppedBy != "" {
+			if _, err := g.skipThesis(ctx, projectID, active.Label, ThesisSkippedCap); err != nil {
+				return SignoffOpen{}, err
+			}
+		}
+		_, body, err := g.signoff(ctx, projectID, active.Label)
 		if err != nil {
 			return SignoffOpen{}, err
 		}
@@ -200,6 +208,13 @@ func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel strin
 	for _, d := range critical {
 		body.Critical = append(body.Critical, graph.SignedRef{ID: d.ID, Version: d.CurrentVersion})
 	}
+	requested := map[string]any{"signoff_step": graph.StepRequested, "section": section.Label}
+	// B3-20: at a cap only the critical decisions are asked, and the history says so.
+	if stoppedBy != "" && body.AsksThesis() {
+		requested["thesis_skipped"] = ThesisSkippedCap
+		body.Thesis, body.Brief = nil, len(critical) == 0
+	}
+	requested["brief"] = body.Brief
 	var sign store.Object
 	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 		var err error
@@ -207,7 +222,7 @@ func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel strin
 		// routes table lists state_changed, with signoff_step in its data.
 		sign, err = tx.CreateObject(store.ObjectSignoff, "", body, store.EventInput{
 			Type: store.EventStateChanged, Actor: "human",
-			Data: map[string]any{"signoff_step": graph.StepRequested, "section": section.Label, "brief": body.Brief},
+			Data: requested,
 		})
 		return err
 	})
@@ -217,8 +232,123 @@ func (g *Gate) RequestSignoff(ctx context.Context, projectID, sectionLabel strin
 	return SignoffOpen{Opened: true, Label: sign.Label, Brief: body.Brief, Pendings: []graph.Pending{}}, nil
 }
 
+// Why a signoff stopped asking about the thesis (B3-20 over B-106).
+const (
+	ThesisSkippedCap          = "cap"
+	ThesisSkippedWonderFailed = "wonder_failed"
+)
+
+// SkipThesisAtCap drops the thesis question of a signoff in progress while a cap
+// stops the agent, and reports whether it did.
+func (g *Gate) SkipThesisAtCap(ctx context.Context, projectID, signLabel string) (bool, error) {
+	if g.StoppedBy == nil {
+		return false, nil
+	}
+	stoppedBy, err := g.StoppedBy(ctx, projectID)
+	if err != nil || stoppedBy == "" {
+		return false, err
+	}
+	return g.skipThesis(ctx, projectID, signLabel, ThesisSkippedCap)
+}
+
+// skipThesis leaves the signoff asking what it asked before B-106: the critical
+// decisions, or nothing (brief, A-4) when it has none. B3-20: «el tope nunca te
+// impide firmar».
+// What Wonder already said is read again without the thesis's entry, only while
+// nothing you wrote since waits for its judgment: those marks did not read it. With
+// the critical decisions matching and the last judged case well, an unanswered case
+// goes with the thesis, since nothing left asks for it; after a failed case it
+// stays, as the one way to close it. The rule for «coincide» is otherwise unchanged.
+// [EL DISEÑO NO LO DICE]: a case does not say which entry it came from, so with a
+// gap in a critical decision the case stays. The event is a state_changed with
+// signoff_step, like the rest of the signoff's steps. A write that lost the race
+// to a round skips nothing: the signoff's next act tries again.
+func (g *Gate) skipThesis(ctx context.Context, projectID, signLabel, reason string) (bool, error) {
+	sign, body, err := g.signoff(ctx, projectID, signLabel)
+	if err != nil {
+		return false, err
+	}
+	if !body.AsksThesis() {
+		return false, nil
+	}
+	section, err := g.db.GetObject(ctx, projectID, body.SectionID)
+	if err != nil {
+		return false, err
+	}
+	labels, err := graph.NewLabeler(ctx, g.db, projectID)
+	if err != nil {
+		return false, err
+	}
+	point, err := body.ThesisPoint(labels, section.Label)
+	if err != nil {
+		return false, err
+	}
+	unjudged, err := g.answersSinceLastRound(ctx, projectID, sign.ID)
+	if err != nil {
+		return false, err
+	}
+	body.Thesis = nil
+	allMatch, answers := true, !body.OriginApplies()
+	if n := len(body.Rounds); n > 0 {
+		var out graph.WonderOutput
+		if err := json.Unmarshal(body.Rounds[n-1].Output, &out); err != nil {
+			return false, fmt.Errorf("cycle: parse Wonder round: %w", err)
+		}
+		for _, d := range out.Decisions {
+			if d.Decision != point && d.Verdict != "match" {
+				allMatch = false
+			}
+		}
+		answers = answers || out.OriginQuestion.Answer != nil && *out.OriginQuestion.Answer == "answers"
+		if last := len(body.Cases) - 1; !unjudged && allMatch && last >= 0 && body.Cases[last].Result == "" && lastCaseWell(body) {
+			body.Cases = body.Cases[:last]
+		}
+	}
+	body.Brief = len(body.Critical) == 0
+	body.Coincides = !body.Brief && len(body.Rounds) > 0 && !unjudged && allMatch && answers && lastCaseWell(body)
+	err = g.db.Write(ctx, projectID, func(tx *store.Tx) error {
+		_, err := tx.UpdateObject(sign.ID, sign.CurrentVersion, "", body, store.EventInput{
+			Type: store.EventStateChanged, Actor: "app",
+			Data: map[string]any{"signoff_step": graph.StepThesisSkipped, "reason": reason, "brief": body.Brief},
+		})
+		return err
+	})
+	if errors.Is(err, store.ErrVersionConflict) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// answersSinceLastRound says your answers came after Wonder's last round: no round
+// has judged them.
+func (g *Gate) answersSinceLastRound(ctx context.Context, projectID, objectID string) (bool, error) {
+	events, err := g.db.EventsSince(ctx, projectID, 0)
+	if err != nil {
+		return false, err
+	}
+	unjudged := false
+	for _, ev := range events {
+		switch {
+		case ev.ObjectID != objectID:
+		case ev.Type == store.EventSignoffCase:
+			unjudged = false
+		case signoffStep(ev) == graph.StepAnswers:
+			unjudged = true
+		}
+	}
+	return unjudged, nil
+}
+
+func signoffStep(ev store.Event) string {
+	var data struct {
+		Step string `json:"signoff_step"`
+	}
+	_ = json.Unmarshal(ev.Data, &data)
+	return data.Step
+}
+
 // lastEventAt is when the signoff last asked you something: the time of
-// its last event.
+// its last event. The app dropping the thesis question asks nothing (K-11).
 func (g *Gate) lastEventAt(ctx context.Context, projectID, objectID string) (time.Time, error) {
 	events, err := g.db.EventsSince(ctx, projectID, 0)
 	if err != nil {
@@ -226,7 +356,7 @@ func (g *Gate) lastEventAt(ctx context.Context, projectID, objectID string) (tim
 	}
 	at := time.Now()
 	for _, ev := range events {
-		if ev.ObjectID == objectID {
+		if ev.ObjectID == objectID && signoffStep(ev) != graph.StepThesisSkipped {
 			at = parseStoredTime(ev.CreatedAt)
 		}
 	}
@@ -567,15 +697,8 @@ func (g *Gate) EndSignoffRound(ctx context.Context, projectID, turnID, signLabel
 			body.FailedCases++
 		}
 	}
-	lastCaseWell := true
-	for i := len(body.Cases) - 1; i >= 0; i-- {
-		if body.Cases[i].Result != "" {
-			lastCaseWell = body.Cases[i].Result == "applies_well"
-			break
-		}
-	}
 	answers := !body.OriginApplies() || out.OriginQuestion.Answer != nil && *out.OriginQuestion.Answer == "answers"
-	coincides := allMatch && answers && lastCaseWell
+	coincides := allMatch && answers && lastCaseWell(body)
 	outcome := OutcomeOpen
 	switch {
 	case len(passages) > 0:
@@ -637,6 +760,16 @@ func (g *Gate) EndSignoffRound(ctx context.Context, projectID, turnID, signLabel
 		return SignoffRoundResult{}, err
 	}
 	return SignoffRoundResult{Status: StatusAccepted, Outcome: outcome}, nil
+}
+
+// lastCaseWell says the last judged case, if there was one, applied well.
+func lastCaseWell(body graph.SignoffBody) bool {
+	for i := len(body.Cases) - 1; i >= 0; i-- {
+		if body.Cases[i].Result != "" {
+			return body.Cases[i].Result == "applies_well"
+		}
+	}
+	return true
 }
 
 // pendingCase is the last case, answered and not judged yet.
@@ -826,8 +959,27 @@ func (r *Runner) startSignoffRound(projectID, signLabel string, record func(cont
 		return "", ErrTurnRunning
 	}
 	ctx := context.Background()
+	// B3-20: a cap reached since the signoff opened. With what Wonder already
+	// said, skipping the thesis may leave nothing to send.
+	skipped, err := r.gate.SkipThesisAtCap(ctx, projectID, signLabel)
+	if err != nil {
+		r.releaseTurn(slot)
+		return "", err
+	}
+	if skipped {
+		_, body, err := r.gate.signoff(ctx, projectID, signLabel)
+		if err != nil || len(body.Rounds) > 0 && (body.Brief || body.Coincides) {
+			r.releaseTurn(slot)
+			return "", err
+		}
+	}
 	if err := record(ctx); err != nil {
 		r.releaseTurn(slot)
+		// The skip took away the case you were answering, and nothing else came
+		// with it: no error, the screen reloads with what is left to answer.
+		if skipped && errors.Is(err, ErrEmptyAnswer) {
+			return "", nil
+		}
 		return "", err
 	}
 	_, body, err := r.gate.signoff(ctx, projectID, signLabel)
@@ -888,11 +1040,12 @@ func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLab
 	filter := newFieldFilter(nil) // Wonder's JSON is read on the signoff screen, not streamed
 	resp, model, effort, unavailable, err := r.callContraster(ctx, projectID, turnID, input, expect, filter)
 	if capErr, ok := asCap(err); ok {
+		r.skipThesisAfterRefusal(ctx, projectID, signLabel)
 		r.publishCapStop(projectID, turnID, capErr)
 		return nil
 	}
 	if err != nil {
-		r.fail(projectID, turnID, "provider_error")
+		r.wonderFailed(ctx, projectID, turnID, signLabel, "provider_error")
 		return nil
 	}
 	contrastedBy := model + " " + effort
@@ -905,11 +1058,12 @@ func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLab
 		retry := append(append(append([]json.RawMessage{}, input...), resp.RawItems...), userItem(RetryMessage(result.Errors)))
 		resp, err = r.contrast(ctx, projectID, turnID, model, effort, retry, expect, filter)
 		if capErr, ok := asCap(err); ok {
+			r.skipThesisAfterRefusal(ctx, projectID, signLabel)
 			r.publishCapStop(projectID, turnID, capErr)
 			return nil
 		}
 		if err != nil {
-			r.fail(projectID, turnID, "provider_error")
+			r.wonderFailed(ctx, projectID, turnID, signLabel, "provider_error")
 			return nil
 		}
 		result, err = r.gate.EndSignoffRound(ctx, projectID, turnID, signLabel, 2, json.RawMessage(resp.Text), contrastedBy, unavailable)
@@ -919,14 +1073,46 @@ func (r *Runner) runSignoffRound(ctx context.Context, projectID, turnID, signLab
 		}
 	}
 	if result.Status != StatusAccepted {
-		r.fail(projectID, turnID, "turn_failed")
+		r.wonderFailed(ctx, projectID, turnID, signLabel, "turn_failed")
 		return nil
 	}
+	r.publishSignoffRound(projectID, turnID, signLabel, result.Status, result.Outcome)
+	return nil
+}
+
+func (r *Runner) publishSignoffRound(projectID, turnID, signLabel string, status StepStatus, outcome string) {
 	if r.pub != nil {
-		raw, _ := json.Marshal(map[string]any{"status": result.Status, "signoff": signLabel, "outcome": result.Outcome})
+		raw, _ := json.Marshal(map[string]any{"status": status, "signoff": signLabel, "outcome": outcome})
 		r.pub.PublishStep(projectID, turnID, raw)
 	}
-	return nil
+}
+
+// skipThesisAfterRefusal is a cap refusing Wonder's call: the question goes, and
+// whatever the write says, the turn ends as the cap's.
+func (r *Runner) skipThesisAfterRefusal(ctx context.Context, projectID, signLabel string) {
+	if _, err := r.gate.skipThesis(ctx, projectID, signLabel, ThesisSkippedCap); err != nil && r.Logger != nil {
+		r.Logger.Error("skip thesis failed", "error", err.Error())
+	}
+}
+
+// wonderFailed ends a round that did not come back (B3-20): the thesis question
+// goes. A signoff with critical decisions keeps the turn's error, to try again
+// on them alone, as before B-106; one left brief or coinciding has nothing to
+// retry, so the screen reloads with signing on, with no error.
+// [EL DISEÑO NO LO DICE]: «Wonder falla» is the round failing, after B-20 (c)'s
+// fallback: Spark contrasting is a round that came back, and keeps the thesis.
+func (r *Runner) wonderFailed(ctx context.Context, projectID, turnID, signLabel, code string) {
+	skipped, err := r.gate.skipThesis(ctx, projectID, signLabel, ThesisSkippedWonderFailed)
+	if err != nil && r.Logger != nil {
+		r.Logger.Error("skip thesis failed", "error", err.Error())
+	}
+	if skipped {
+		if _, body, err := r.gate.signoff(ctx, projectID, signLabel); err == nil && (body.Brief || body.Coincides) {
+			r.publishSignoffRound(projectID, turnID, signLabel, StatusAccepted, OutcomeThesisSkipped)
+			return
+		}
+	}
+	r.fail(projectID, turnID, code)
 }
 
 // signoffExpectation says what this round's output must hold, for the fake.

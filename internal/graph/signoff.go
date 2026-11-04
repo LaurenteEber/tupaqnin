@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,10 +53,11 @@ const PendingMissingInText = "missing_in_text"
 // The values of signoff_step in the data of a sign-n's events: the
 // request, your explanation, your answers and the signing.
 const (
-	StepRequested   = "requested"
-	StepExplanation = "explanation"
-	StepAnswers     = "answers"
-	StepSigned      = "signed"
+	StepRequested     = "requested"
+	StepExplanation   = "explanation"
+	StepAnswers       = "answers"
+	StepSigned        = "signed"
+	StepThesisSkipped = "thesis_skipped"
 )
 
 // SignoffBody is what a sign-n stores (specification §4, «lo que guarda
@@ -472,6 +474,23 @@ func (b SignoffBody) ThesisPoint(labels *Labeler, sectionLabel string) (string, 
 	return labels.ToLabel(b.Thesis.DecisionID)
 }
 
+// AsksThesis says the thesis adds a point to what Wonder asks: ThesisPoint's
+// answer without the labels. A thesis that is already a critical decision adds none.
+func (b SignoffBody) AsksThesis() bool {
+	if b.Thesis == nil {
+		return false
+	}
+	if b.Thesis.Kind == ThesisConclusion {
+		return true
+	}
+	for _, d := range b.Critical {
+		if d.ID == b.Thesis.DecisionID {
+			return false
+		}
+	}
+	return true
+}
+
 // OriginApplies says the signoff has an origin question: fichas §2 and E-3 set
 // it on what is critical, and A-4 has none without critical decisions. A
 // signoff that only asks about the thesis keeps that.
@@ -726,6 +745,11 @@ func SignoffDetailAtCap(ctx context.Context, db *store.DB, projectID, signLabel,
 			return SignoffView{}, err
 		}
 		for _, d := range out.Decisions {
+			// A thesis skipped after this round (B3-20) leaves its entry in the
+			// round's record, not on the screen.
+			if body.Thesis == nil && !slices.Contains(v.CriticalDecisions, d.Decision) {
+				continue
+			}
 			w := WonderVerdict{Decision: d.Decision, Verdict: d.Verdict, Block: blockOf(blocks, anchors[d.Decision])}
 			for i, l := range v.CriticalDecisions {
 				if l == d.Decision {

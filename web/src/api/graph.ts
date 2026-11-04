@@ -1063,6 +1063,11 @@ export const StepAnswers = "answers";
  */
 export const StepSigned = "signed";
 /**
+ * The values of signoff_step in the data of a sign-n's events: the
+ * request, your explanation, your answers and the signing.
+ */
+export const StepThesisSkipped = "thesis_skipped";
+/**
  * SignoffBody is what a sign-n stores (specification §4, «lo que guarda
  * la firma»; B-14: the section version, your explanation, the answers
  * and the result of each round). Ids are internal: the view and the
