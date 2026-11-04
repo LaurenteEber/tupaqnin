@@ -32,7 +32,7 @@ Quoted verbatim from L1.
 | T5 | S6, S10 | inline | done | RED then GREEN `TestC24_TheSaveOfATabThatLeavesSavesAndDoesNotClaimTheEdit`; gate exit 0; smoke c24-en, c24-es: wrote and closed three times, no notice, last text saved; crashed holder still shows the notice, by request |
 | T6 | S7 | inline | done | RED then GREEN `C.25` in `home.test.ts`; gate exit 0; smoke c25-en, c25-es (en `Sign out` once, the script looked for «Log out») |
 | T8 | S11 | inline | done | RED then GREEN `TestB3_20_SummaryWarnAndStoppedBy`; gate exit 0; smoke warn-en, warn-es |
-| T9 | S12 | inline | pending | |
+| T9 | S12 | inline | done | RED then GREEN `P-129` in `noise.test.ts`; gate exit 0; smoke plural-en, plural-es |
 | T7 | S8 | inline | done | RED then GREEN `C.26` in `noise.test.ts`, `spend.test.ts`; gate exit 0; smoke c26-oq, c26-doc, c26-file in en and es |
 
 ## Log

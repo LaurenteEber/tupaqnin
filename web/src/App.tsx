@@ -1,3 +1,4 @@
+import { countKey } from "./noise";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   claimEditor,
@@ -1081,7 +1082,7 @@ export function App() {
                         {t(`section.status.${current.state}`)}
                       </span>
                       {current.pendings > 0 && (
-                        <span className="st todo">{t("section.pendings", { n: String(current.pendings) })}</span>
+                        <span className="st todo">{t(countKey("section.pendings", current.pendings), { n: String(current.pendings) })}</span>
                       )}
                     </span>
                   ) : (

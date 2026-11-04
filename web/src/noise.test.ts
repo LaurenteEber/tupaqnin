@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { cardCounter, withoutHistoryNotes } from "./noise.ts";
+import { cardCounter, countKey, withoutHistoryNotes } from "./noise.ts";
 import en from "./i18n/en.json" with { type: "json" };
 import es from "./i18n/es.json" with { type: "json" };
 
@@ -50,4 +50,18 @@ test("C.26: the polish of the screens stays in their source", () => {
     assert.match(read(panel), /<FileButton/);
   }
   assert.match(read("./components/CardPanel.tsx"), /oq-option-body/);
+});
+
+test("P-129: one is singular in the frame's counts, in both languages", () => {
+  assert.equal(countKey("frame.unverified", 1), "frame.unverified.one");
+  assert.equal(countKey("frame.unverified", 2), "frame.unverified");
+  assert.equal(es["frame.unverified.one"], "1 párrafo sin verificar");
+  assert.equal(en["frame.unverified.one"], "1 unverified paragraph");
+  assert.equal(es["section.pendings.one"], "1 pendiente");
+  assert.equal(en["section.pendings.one"], "1 pending");
+  assert.equal(es["section.pendings"], "{n} pendientes");
+  assert.equal(es["frame.unverified"], "{n} párrafos sin verificar");
+  const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+  assert.doesNotMatch(read("./components/FramePanel.tsx"), /t\("(section\.pendings|frame\.unverified)"/);
+  assert.doesNotMatch(read("./App.tsx"), /t\("section\.pendings"/);
 });

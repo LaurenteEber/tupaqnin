@@ -7,6 +7,11 @@ export function withoutHistoryNotes<T extends { field?: string; text?: string }>
   return stream.filter((piece) => piece.field !== "note" || !inHistory.has(piece.text ?? ""));
 }
 
+// «1 pendiente», «2 pendientes»: the key of a count, whose singular ends in `.one`.
+export function countKey(key: string, n: number): string {
+  return n === 1 ? `${key}.one` : key;
+}
+
 // «Tarjeta 2 de 5», from a card's place in the list.
 export function cardCounter(index: number, total: number): { n: string; total: string } {
   return { n: String(index + 1), total: String(total) };

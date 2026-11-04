@@ -1,3 +1,4 @@
+import { countKey } from "../noise";
 import { useCallback, useEffect, useState } from "react";
 import { getFrame, markDecisionSeen } from "../api/client";
 import type { Frame, FrameDecision, FrameSection, ReturnLine } from "../api/graph";
@@ -270,7 +271,7 @@ function SkeletonSection({ section, active, onMove, first, last, ...props }: Dec
         {titleOf(section.label)}{" "}
         <span className={`st ${section.pendings > 0 ? "todo" : section.status === "signed" ? "signed" : "draft"}`}>
           {section.pendings > 0
-            ? t("section.pendings", { n: String(section.pendings) })
+            ? t(countKey("section.pendings", section.pendings), { n: String(section.pendings) })
             : t(`section.status.${section.status}`)}
         </span>
       </button>
@@ -287,7 +288,7 @@ function SkeletonSection({ section, active, onMove, first, last, ...props }: Dec
       {section.unverified > 0 && (
         // R-2: how many paragraphs have no verified origin; each one's
         // history says where it comes from.
-        <p className="meta">{t("frame.unverified", { n: String(section.unverified) })}</p>
+        <p className="meta">{t(countKey("frame.unverified", section.unverified), { n: String(section.unverified) })}</p>
       )}
       {section.first_line && <p className="first">{section.first_line}</p>}
       {section.decisions.map((d) => (
