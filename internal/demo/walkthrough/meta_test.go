@@ -100,10 +100,31 @@ func TestDemoCheck(t *testing.T) {
 	w.byGoal = true
 	section, sign, historyDecision := w.toSignoff()
 	w.wonderFirstRound(sign)
+	w.logThesis(t, sign)
 	want, names := stepEvents(section, historyDecision)
 	w.orderedEvents(want[:len(want)-afterFirstRound], names[:len(names)-afterFirstRound])
 	spent, _ := w.db.ProjectSpend(context.Background(), w.project)
 	t.Logf("walkthrough passed up to Wonder's first round: %d model calls, %.4f USD", len(rec.calls), spent)
+}
+
+// logThesis says whether this signoff asked about the thesis (B-106). It does not
+// fail the run: the thesis adds a point only when the first decision that holds the
+// section is not critical, and which one that is depends on the model. The run does
+// not mark the conclusion: a mark makes the section's decisions critical, with cards
+// that would block this signoff.
+func (w *walk) logThesis(t *testing.T, sign string) {
+	t.Helper()
+	var view graph.SignoffView
+	w.do("6 thesis", http.MethodGet, w.api("/signoffs/"+sign), nil, http.StatusOK, &view)
+	if view.Thesis == "" {
+		t.Logf("thesis: no point of its own (%d critical decisions already asked)", len(view.CriticalDecisions))
+		return
+	}
+	for _, v := range view.Verdicts {
+		if v.Thesis != "" {
+			t.Logf("thesis: %s, verdict %s, missing %q, history offered %v", v.Thesis, v.Verdict, v.Missing, v.HistoryOffered)
+		}
+	}
 }
 
 // campoReason answers the «por aclarar» on «campo» with a «porque».
