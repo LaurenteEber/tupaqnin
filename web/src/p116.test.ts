@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { claimLeavesState } from "./tab.ts";
 import { join } from "node:path";
 import { AUTOSAVE_DELAY_MS, KEEPALIVE_MAX_BYTES, createAutosave, editingKind, saveRequest, shouldAutosave } from "./saveStatus.ts";
 import { detectedLine } from "./detected.ts";
@@ -181,10 +182,12 @@ test("C.24: only a save as the page hides says it is leaving", () => {
   assert.equal(JSON.parse(saveRequest("tab-1", 3, "ñ".repeat(KEEPALIVE_MAX_BYTES), true).body).leaving, true);
 });
 
-test("C.24: a network error on the claim keeps the previous state", () => {
+test("C.24: only a network error on the claim keeps the previous state", () => {
+  assert.equal(claimLeavesState(new TypeError("Failed to fetch")), true);
+  // An answer from the server still turns the tab read-only, as before.
+  assert.equal(claimLeavesState(new Error("not_found")), false);
   const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(app, /claimEditor\(projectID\)\.then\(setEditor, \(\) => setEditor\(false\)\)/);
-  assert.match(app, /claimEditor\(projectID\)\.then\(setEditor, \(\) => \{\}\)/);
+  assert.match(app, /claimLeavesState\(e\)/);
 });
 
 test("P-116: the other saves are as they were, without keepalive", () => {

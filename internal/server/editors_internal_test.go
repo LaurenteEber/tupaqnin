@@ -73,3 +73,39 @@ func TestB102_TakeOverWithNoHolderOrFromYourself(t *testing.T) {
 		t.Fatal("from yourself: take-over refused")
 	}
 }
+
+// C.24: mayEdit answers what claim would, in every state of the lease, and changes
+// nothing.
+func TestC24_MayEditAnswersAsClaimWithoutTakingTheLease(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		held bool
+		age  time.Duration
+		tab  string
+		want bool
+	}{
+		{name: "no holder", tab: "b", want: true},
+		{name: "its own", held: true, tab: "a", want: true},
+		{name: "its own, lapsed", held: true, age: editorLease, tab: "a", want: true},
+		{name: "another's, live", held: true, age: editorLease - time.Nanosecond, tab: "b", want: false},
+		{name: "another's, lapsed", held: true, age: editorLease, tab: "b", want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, advance := editorsAt(time.Unix(1000, 0))
+			if tc.held {
+				e.claim("p", "a")
+			}
+			advance(tc.age)
+			before, ok := e.holders["p"]
+			if got := e.mayEdit("p", tc.tab); got != tc.want {
+				t.Fatalf("mayEdit: %v, want %v", got, tc.want)
+			}
+			if after, okAfter := e.holders["p"]; after != before || okAfter != ok {
+				t.Fatalf("the lease changed: %+v → %+v", before, after)
+			}
+			if got := e.claim("p", tc.tab); got != tc.want {
+				t.Fatalf("claim: %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

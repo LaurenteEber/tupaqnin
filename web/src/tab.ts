@@ -30,6 +30,13 @@ export function takeOverResult(editor: boolean): TakeOverResult {
   return editor ? "" : "busy";
 }
 
+// C.24: a claim that never arrived says nothing about who edits, so the state
+// stays. fetch rejects with a TypeError only then; any answer the server gave is
+// another error and turns the tab read-only.
+export function claimLeavesState(error: unknown): boolean {
+  return error instanceof TypeError;
+}
+
 // editorReleaseRequest frees the lease as the page goes. It is keepalive, not
 // sendBeacon: a beacon can only POST, and the route is a DELETE (B-102).
 export function editorReleaseRequest(tabID: string) {

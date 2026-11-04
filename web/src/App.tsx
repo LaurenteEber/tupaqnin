@@ -57,7 +57,7 @@ import { Shell, useLayout } from "./components/Shell";
 import { centerView, effectiveTab, routeTarget } from "./layout";
 import { createErrorKey } from "./home";
 import { initialLang, translate, type Lang, numberLocale } from "./i18n";
-import { takeOverResult, type TakeOverResult } from "./tab";
+import { takeOverResult, type TakeOverResult, claimLeavesState } from "./tab";
 import { projectHash, readProjectHash, saveLang } from "./route";
 import { isQueued } from "./queue";
 import { correctionMessage, oneAtATime, OPEN_CHANGE, pendingRoute, shownAbout } from "./catchUp";
@@ -165,12 +165,14 @@ export function App() {
 
   useEffect(() => {
     if (!projectID) return;
-    // C.24: a claim that did not arrive says nothing about who edits: the state stays.
-    const renew = () => void claimEditor(projectID).then(setEditor, () => {});
+    const renew = () =>
+      void claimEditor(projectID).then(setEditor, (e) => {
+        if (!claimLeavesState(e)) setEditor(false);
+      });
     renew();
     const timer = window.setInterval(renew, 15_000);
-    // B-102: a tab that goes frees the edit at once. A save fired on the same
-    // event may claim it back for this tab, which then lapses by itself.
+    // B-102: a tab that goes frees the edit at once. The save fired on the same
+    // event does not claim it back (C.24).
     const release = () => releaseEditor(projectID);
     window.addEventListener("pagehide", release);
     return () => {

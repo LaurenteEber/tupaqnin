@@ -50,6 +50,18 @@ func TestC24_TheSaveOfATabThatLeavesIsRefusedWhenAnotherTabEdits(t *testing.T) {
 	}
 }
 
+// C.24: leaving skips only the claim: a stale base is still a conflict.
+func TestC24_TheSaveOfATabThatLeavesKeepsTheVersionCheck(t *testing.T) {
+	h, base := sectionAPI(t)
+	if rec := do(t, h, http.MethodPut, base+"/sections/sec-1", map[string]any{"tab_id": "tab-a", "base_version": 1, "text": "Primera edición."}); rec.Code != http.StatusOK {
+		t.Fatalf("first save: %d %s", rec.Code, rec.Body.String())
+	}
+	rec := do(t, h, http.MethodPut, base+"/sections/sec-1", map[string]any{"tab_id": "tab-a", "base_version": 1, "text": "Sobre una base vieja.", "leaving": true})
+	if rec.Code != http.StatusConflict || decode[map[string]any](t, rec)["error"] != "version_conflict" {
+		t.Fatalf("got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 // C.24, previous behavior: an ordinary save still claims a free edit.
 func TestC24_AnOrdinarySaveStillClaimsTheEdit(t *testing.T) {
 	h, base := sectionAPI(t)
