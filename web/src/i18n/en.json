@@ -395,6 +395,8 @@
   "frame.todo.open_question": "Clarify: {question}",
   "pending.open_question": "Something to clarify is open",
   "card.error.question_closed": "This question is already resolved.",
+  "card.error.empty_statement": "Write your decision: empty, a sign alone or «ok» does not count.",
+  "card.error.same_statement": "That is the decision you objected to: write a different one, or keep it.",
   "turn.stop.section_ready": "The agent stopped: a section has no pendings left.",
   "turn.stop.unseen_decisions": "The agent stopped: decisions you have not seen piled up.",
   "turn.stop.human_only": "The agent stopped: only what you decide is left.",

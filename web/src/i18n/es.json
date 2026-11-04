@@ -395,6 +395,8 @@
   "frame.todo.open_question": "Aclarar: {question}",
   "pending.open_question": "Hay algo por aclarar abierto",
   "card.error.question_closed": "Esta pregunta ya se resolvió.",
+  "card.error.empty_statement": "Escribe tu decisión: vacía, un signo solo u «ok» no cuentan.",
+  "card.error.same_statement": "Esa es la decisión que objetaste: escribe otra distinta, o mantenla.",
   "turn.stop.section_ready": "El agente se detuvo: una sección quedó sin pendientes.",
   "turn.stop.unseen_decisions": "El agente se detuvo: se acumularon decisiones que no viste.",
   "turn.stop.human_only": "El agente se detuvo: solo queda lo que tú decides.",

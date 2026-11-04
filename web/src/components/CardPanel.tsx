@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { answerCard, answerOpenQuestion, answerOpenQuestionWithYours, getTodo } from "../api/client";
 import type { CardView, OpenQuestionView } from "../api/types";
-import { anchoredScroll, canApplyQuestion, draftHasText, draftsOf, dropDraft, holdOrder, OWN_OPTION, setDraft, type CardDraft } from "../cardDrafts";
+import { anchoredScroll, canApplyQuestion, draftHasText, draftsOf, dropDraft, holdOrder, isStatementError, OWN_OPTION, questionErrorCode, setDraft, type CardDraft } from "../cardDrafts";
 import { translate, type Lang } from "../i18n";
 import { cardCounter } from "../noise";
 import { undoReasonKey } from "../undo";
@@ -83,8 +83,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
       await refresh();
       onAnswered(res.defense_preparing === true, res.turn_id);
     } catch (e) {
-      const code = e instanceof Error && e.message === "http_422" ? "invalid_reason"
-        : e instanceof Error && e.message === "http_409" ? "question_closed" : "failed";
+      const code = questionErrorCode(e instanceof Error ? e.message : "");
       setErrors((prev) => ({ ...prev, [q.label]: code }));
       await refresh();
     }
@@ -252,6 +251,9 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
                     value={drafts[q.label]?.own ?? ""}
                     onChange={(e) => write(q.label, { own: e.target.value })}
                   />
+                  {isStatementError(errors[q.label]) && (
+                    <span className="turn-error" role="alert"> {t(`card.error.${errors[q.label]}`)}</span>
+                  )}
                 </label>
               )}
             </>
@@ -283,7 +285,7 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
             <button type="button" disabled={!canApplyQuestion(drafts[q.label])} onClick={() => void applyQuestion(q)}>
               {t("card.apply")}
             </button>
-            {errors[q.label] && <span className="turn-error" role="alert">{t(`card.error.${errors[q.label]}`)}</span>}
+            {errors[q.label] && !isStatementError(errors[q.label]) && <span className="turn-error" role="alert">{t(`card.error.${errors[q.label]}`)}</span>}
           </div>
         </div>
   );

@@ -312,6 +312,7 @@ func TestB107_TheRouteAnswersYourOption(t *testing.T) {
 	}
 	url := base + "/open-questions/" + label + "/answer"
 	const statement = "Cobrar por uso medido."
+	objected := " " + strings.ToUpper(objectedStatementOf(t, h, base, label)) + " "
 	own := func(option *int, statement, reason string) (int, string) {
 		rec := do(t, h, http.MethodPost, url, server.AnswerOpenQuestionRequest{Option: option, OwnStatement: &statement, Reason: reason})
 		return rec.Code, rec.Body.String()
@@ -325,6 +326,9 @@ func TestB107_TheRouteAnswersYourOption(t *testing.T) {
 	}{
 		{nil, statement, "ok", http.StatusUnprocessableEntity, "invalid_reason"},
 		{nil, " ", objectionReason, http.StatusUnprocessableEntity, "empty_statement"},
+		{nil, "...", objectionReason, http.StatusUnprocessableEntity, "empty_statement"},
+		{nil, "ok", objectionReason, http.StatusUnprocessableEntity, "empty_statement"},
+		{nil, objected, objectionReason, http.StatusUnprocessableEntity, "same_statement"},
 		{&zero, statement, objectionReason, http.StatusBadRequest, "invalid_option"},
 	} {
 		if code, body := own(tc.option, tc.statement, tc.reason); code != tc.status || !strings.Contains(body, tc.code) {
@@ -335,6 +339,20 @@ func TestB107_TheRouteAnswersYourOption(t *testing.T) {
 	if code != http.StatusOK || !strings.Contains(body, "new_decision") {
 		t.Fatalf("answer: %d %s", code, body)
 	}
+}
+
+// objectedStatementOf is the decision a «por aclarar» born from an objection names:
+// its question is that decision (P-115).
+func objectedStatementOf(t *testing.T, h http.Handler, base, label string) string {
+	t.Helper()
+	todo := decode[server.TodoView](t, do(t, h, http.MethodGet, base+"/todo", nil))
+	for _, q := range todo.OpenQuestions {
+		if q.Label == label {
+			return q.Question
+		}
+	}
+	t.Fatalf("no question %s in the todo", label)
+	return ""
 }
 
 // An ordinary «por aclarar» does not offer it, and the route refuses it.

@@ -18,7 +18,8 @@ var (
 	ErrNoOption = errors.New("cycle: the answer chooses no option")
 	// ErrOwnOptionNotOffered: only an objection's «por aclarar» takes your own option (B-107).
 	ErrOwnOptionNotOffered = errors.New("cycle: this open question does not offer your own option")
-	// ErrEmptyStatement: your own option has no statement (B-107).
+	ErrSameStatement       = errors.New("cycle: your own option is the objected decision")
+	// ErrEmptyStatement: your own option says nothing, by the «porque»'s rule (B-107).
 	ErrEmptyStatement = errors.New("cycle: your own option has no statement")
 )
 
@@ -68,7 +69,8 @@ func (g *Gate) AnswerOpenQuestion(ctx context.Context, projectID, label string, 
 // a decision of yours that replaces the objected one, down the same path as «la
 // otra». It joins the question's options as the one you chose, so what reads the
 // chosen option keeps reading it.
-// [EL DISEÑO NO LO DICE]: an empty statement is refused like an answer with no
+// [EL DISEÑO NO LO DICE]: a statement that does not pass ValidReason, or equals the
+// objected decision's after trimming and case, is refused like an answer with no
 // option (act_timed, still open); spaces around the statement do not count.
 func (g *Gate) AnswerObjectionWithYours(ctx context.Context, projectID, label, statement, reason string) (OpenQuestionAnswer, error) {
 	return g.answerQuestion(ctx, projectID, label, nil, &statement, reason)
@@ -90,7 +92,12 @@ func (g *Gate) answerQuestion(ctx context.Context, projectID, label string, opti
 	if own != nil && bodyStr(body, "origin") != checks.OriginObjection {
 		return OpenQuestionAnswer{}, ErrOwnOptionNotOffered
 	}
-	emptyOwn := own != nil && strings.TrimSpace(*own) == ""
+	var ownRefused error
+	if own != nil {
+		if ownRefused, err = g.refuseOwnStatement(ctx, projectID, body, *own); err != nil {
+			return OpenQuestionAnswer{}, err
+		}
+	}
 	opened, err := g.cardOpenedAt(ctx, projectID, oq.ID)
 	if err != nil {
 		return OpenQuestionAnswer{}, err
@@ -99,7 +106,7 @@ func (g *Gate) answerQuestion(ctx context.Context, projectID, label string, opti
 		Data: map[string]any{"act": "open_question", "label": oq.Label,
 			"duration_ms": time.Since(opened).Milliseconds()}}
 
-	if !ValidReason(reason) || (option == nil && own == nil) || emptyOwn {
+	if !ValidReason(reason) || (option == nil && own == nil) || ownRefused != nil {
 		err := g.db.Write(ctx, projectID, func(tx *store.Tx) error {
 			if !ValidReason(reason) {
 				data := map[string]any{"label": oq.Label, "option": nil}
@@ -123,8 +130,8 @@ func (g *Gate) answerQuestion(ctx context.Context, projectID, label string, opti
 		if !ValidReason(reason) {
 			return OpenQuestionAnswer{}, ErrInvalidReason
 		}
-		if emptyOwn {
-			return OpenQuestionAnswer{}, ErrEmptyStatement
+		if ownRefused != nil {
+			return OpenQuestionAnswer{}, ownRefused
 		}
 		return OpenQuestionAnswer{}, ErrNoOption
 	}
@@ -221,6 +228,23 @@ func (g *Gate) answerQuestion(ctx context.Context, projectID, label string, opti
 		return OpenQuestionAnswer{}, err
 	}
 	return answer, nil
+}
+
+// refuseOwnStatement is why your own option does not count (B-107), or nil: the
+// «porque»'s rule, and it cannot be the decision you objected to.
+func (g *Gate) refuseOwnStatement(ctx context.Context, projectID string, question map[string]any, statement string) (refusal, err error) {
+	if !ValidReason(statement) {
+		return ErrEmptyStatement, nil
+	}
+	keeps, _ := question["keeps"].(map[string]any)
+	objected, err := g.db.GetObject(ctx, projectID, bodyStr(keeps, "id"))
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(strings.TrimSpace(statement), strings.TrimSpace(bodyStr(bodyOf(objected), "statement"))) {
+		return ErrSameStatement, nil
+	}
+	return nil, nil
 }
 
 // applyKept applies the answer to what the question's first option

@@ -177,8 +177,9 @@ func (s *Server) openQuestionView(r *http.Request, projectID string, q store.Obj
 // invalid_reason (answer_without_reason recorded, still open), 422
 // option_required (no option chosen, still open), 400 invalid_option
 // (an index outside the list), 409 for one that is not open. B-107: 422
-// empty_statement, 400 own_option_not_offered, and 400 invalid_option with both an
-// option and your own.
+// empty_statement (the «porque»'s rule), 422 same_statement (the objected decision
+// again), 400 own_option_not_offered, and 400 invalid_option with both an option
+// and your own.
 func (s *Server) answerOpenQuestion(w http.ResponseWriter, r *http.Request) {
 	projectID := r.PathValue("projectID")
 	if !s.requireProject(w, r, projectID) {
@@ -214,6 +215,8 @@ func (s *Server) answerOpenQuestion(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "own_option_not_offered")
 	case errors.Is(err, cycle.ErrEmptyStatement):
 		writeError(w, http.StatusUnprocessableEntity, "empty_statement")
+	case errors.Is(err, cycle.ErrSameStatement):
+		writeError(w, http.StatusUnprocessableEntity, "same_statement")
 	case errors.Is(err, cycle.ErrOpenQuestionNotFound):
 		writeError(w, http.StatusNotFound, "open_question_not_found")
 	case errors.Is(err, cycle.ErrInvalidOption):

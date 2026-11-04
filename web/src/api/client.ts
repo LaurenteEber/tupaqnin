@@ -271,13 +271,14 @@ export async function answerOpenQuestionWithYours(
   ownStatement: string,
   reason: string,
 ): Promise<AnswerOpenQuestionResponse> {
-  return json(
-    await fetch(`/api/projects/${projectID}/open-questions/${label}/answer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ own_statement: ownStatement, reason }),
-    }),
-  );
+  const res = await fetch(`/api/projects/${projectID}/open-questions/${label}/answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ own_statement: ownStatement, reason }),
+  });
+  // Go's code, not the status: two refusals of your statement share a 422.
+  if (!res.ok) throw new Error(await errorCode(res));
+  return (await res.json()) as AnswerOpenQuestionResponse;
 }
 
 // With plan, the mark is changed from the «Entendí»'s card and also

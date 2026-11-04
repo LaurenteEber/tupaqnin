@@ -135,6 +135,55 @@ func TestB107_AnEmptyStatementIsRefusedAndNothingChanges(t *testing.T) {
 	}
 }
 
+// B-107: your statement has the «porque»'s rule: not only signs, not «ok».
+func TestB107_AStatementWithNoContentIsRefusedAndNothingChanges(t *testing.T) {
+	db, question := objectedProject(t)
+	before := decisionCount(t, db)
+	for _, statement := range []string{"...", " ¿? ", "—", "ok", "OK.", "Ok, dale.", "👍"} {
+		if _, err := cycle.NewGate(db).AnswerObjectionWithYours(context.Background(), "p1", question, statement, ownReason); !errors.Is(err, cycle.ErrEmptyStatement) {
+			t.Fatalf("%q: %v", statement, err)
+		}
+	}
+	q, body := object(t, db, question)
+	dec, _ := object(t, db, "dec-3")
+	if q.State != "open" || dec.State != "in_open_question" || decisionCount(t, db) != before || len(body["options"].([]any)) != 2 {
+		t.Fatalf("something changed: %s %s", q.State, dec.State)
+	}
+}
+
+// B-107: the objected decision again is no option of yours, after trimming and case.
+func TestB107_TheObjectedStatementAgainIsRefusedAndNothingChanges(t *testing.T) {
+	db, question := objectedProject(t)
+	_, objected := object(t, db, "dec-3")
+	statement, _ := objected["statement"].(string)
+	before := decisionCount(t, db)
+	for _, again := range []string{statement, "  " + strings.ToUpper(statement) + "\n", strings.ToLower(statement)} {
+		if _, err := cycle.NewGate(db).AnswerObjectionWithYours(context.Background(), "p1", question, again, ownReason); !errors.Is(err, cycle.ErrSameStatement) {
+			t.Fatalf("%q: %v", again, err)
+		}
+	}
+	q, body := object(t, db, question)
+	dec, _ := object(t, db, "dec-3")
+	if q.State != "open" || dec.State != "in_open_question" || decisionCount(t, db) != before || len(body["options"].([]any)) != 2 {
+		t.Fatalf("something changed: %s %s", q.State, dec.State)
+	}
+}
+
+// B-107: only equal counts: the objected statement with more to it is yours, literal.
+func TestB107_AStatementThatOnlyStartsLikeTheObjectedOneIsYours(t *testing.T) {
+	db, question := objectedProject(t)
+	_, objected := object(t, db, "dec-3")
+	statement, _ := objected["statement"].(string)
+	mine := statement + " Solo en 2024."
+	answer, err := cycle.NewGate(db).AnswerObjectionWithYours(context.Background(), "p1", question, mine, ownReason)
+	if err != nil {
+		t.Fatalf("answer: %v", err)
+	}
+	if _, body := object(t, db, answer.NewDecision); body["statement"] != mine {
+		t.Fatalf("born: %v", body)
+	}
+}
+
 // Only an objection's question offers it.
 func TestB107_AnOrdinaryQuestionRefusesIt(t *testing.T) {
 	db := cleanCardProject(t)

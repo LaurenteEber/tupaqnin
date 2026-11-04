@@ -1,7 +1,7 @@
 // C.11: a card you are writing in keeps its text and its place.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anchoredScroll, canApplyQuestion, draftHasText, draftsOf, dropDraft, holdOrder, OWN_OPTION, setDraft } from "./cardDrafts.ts";
+import { anchoredScroll, canApplyQuestion, draftHasText, isStatementError, questionErrorCode, draftsOf, dropDraft, holdOrder, OWN_OPTION, setDraft } from "./cardDrafts.ts";
 import en from "./i18n/en.json" with { type: "json" };
 import es from "./i18n/es.json" with { type: "json" };
 
@@ -61,4 +61,22 @@ test("TestB107: the third option, in en and es", () => {
   assert.equal(es["oq.own"], "Escribe la tuya");
   assert.equal(en["oq.own.statement"], "Your decision");
   assert.equal(es["oq.own.statement"], "Tu decisión");
+});
+
+test("TestB107: Go's refusal of your statement keeps its code, to show beside the field", () => {
+  assert.equal(questionErrorCode("empty_statement"), "empty_statement");
+  assert.equal(questionErrorCode("same_statement"), "same_statement");
+  assert.equal(isStatementError("empty_statement"), true);
+  assert.equal(isStatementError("same_statement"), true);
+  assert.equal(isStatementError("invalid_reason"), false);
+  assert.equal(isStatementError(undefined), false);
+});
+
+test("TestB107: the other refusals of a question read as before", () => {
+  assert.equal(questionErrorCode("http_422"), "invalid_reason");
+  assert.equal(questionErrorCode("invalid_reason"), "invalid_reason");
+  assert.equal(questionErrorCode("http_409"), "question_closed");
+  assert.equal(questionErrorCode("open_question_not_open"), "question_closed");
+  assert.equal(questionErrorCode("http_500"), "failed");
+  assert.equal(questionErrorCode("internal"), "failed");
 });

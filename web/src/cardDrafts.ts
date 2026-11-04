@@ -42,6 +42,28 @@ export function canApplyQuestion(draft: CardDraft | undefined): boolean {
   return draft.chosen !== OWN_OPTION || (draft.own ?? "").trim() !== "";
 }
 
+// A «por aclarar»'s refusal, to its on-screen code. Go decides; the page only names
+// it (rule 5). Your own option's refusals carry their code, to show beside its field.
+export function questionErrorCode(message: string): string {
+  switch (message) {
+    case "empty_statement":
+    case "same_statement":
+      return message;
+    case "http_422":
+    case "invalid_reason":
+      return "invalid_reason";
+    case "http_409":
+    case "open_question_not_open":
+      return "question_closed";
+    default:
+      return "failed";
+  }
+}
+
+export function isStatementError(code: string | undefined): boolean {
+  return code === "empty_statement" || code === "same_statement";
+}
+
 // The cards' order: as Go sent it, unless a card has text written; then the ones
 // you see stay in their place and the new ones go last.
 export function holdOrder(shown: string[], sent: string[], holding: boolean): string[] {
