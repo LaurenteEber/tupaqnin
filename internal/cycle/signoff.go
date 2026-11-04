@@ -959,27 +959,14 @@ func (r *Runner) startSignoffRound(projectID, signLabel string, record func(cont
 		return "", ErrTurnRunning
 	}
 	ctx := context.Background()
-	// B3-20: a cap reached since the signoff opened. With what Wonder already
-	// said, skipping the thesis may leave nothing to send.
-	skipped, err := r.gate.SkipThesisAtCap(ctx, projectID, signLabel)
-	if err != nil {
+	if err := record(ctx); err != nil {
 		r.releaseTurn(slot)
 		return "", err
 	}
-	if skipped {
-		_, body, err := r.gate.signoff(ctx, projectID, signLabel)
-		if err != nil || len(body.Rounds) > 0 && (body.Brief || body.Coincides) {
-			r.releaseTurn(slot)
-			return "", err
-		}
-	}
-	if err := record(ctx); err != nil {
+	// B3-20: a cap reached since the signoff opened. After your input, so what you
+	// sent stays: the next round judges it, and a section left brief needs no round.
+	if _, err := r.gate.SkipThesisAtCap(ctx, projectID, signLabel); err != nil {
 		r.releaseTurn(slot)
-		// The skip took away the case you were answering, and nothing else came
-		// with it: no error, the screen reloads with what is left to answer.
-		if skipped && errors.Is(err, ErrEmptyAnswer) {
-			return "", nil
-		}
 		return "", err
 	}
 	_, body, err := r.gate.signoff(ctx, projectID, signLabel)

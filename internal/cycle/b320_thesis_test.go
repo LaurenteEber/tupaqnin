@@ -610,12 +610,13 @@ func TestB320_TheSkipDoesNotResetYourTime(t *testing.T) {
 	}
 }
 
-// Answering a case the skip just took away is no error: the screen reloads and shows
-// what is left to answer, the origin question.
-func TestB320_AnAnswerToACaseTheSkipDroppedIsNoError(t *testing.T) {
+// What you send as the cap arrives is yours and is kept. A section left brief has
+// nothing to contrast: your reply stays and no model is called.
+func TestB320_AnAnswerSentAsTheCapArrivesIsKeptOnABriefSignoff(t *testing.T) {
 	db := openTemp(t)
-	criticalAndMark(t, db)
-	r := cycle.NewRunner(db, &failingWonder{text: "not called"}, nil, &fakePublisher{})
+	noCritical(t, db)
+	prov := &failingWonder{text: "not called"}
+	r := cycle.NewRunner(db, prov, nil, &fakePublisher{})
 	t.Cleanup(r.Close)
 	g := cycle.NewGate(db)
 	ctx := context.Background()
@@ -623,15 +624,65 @@ func TestB320_AnAnswerToACaseTheSkipDroppedIsNoError(t *testing.T) {
 	if err := g.RecordExplanation(ctx, "p1", open.Label, "Lo explico sin mirar."); err != nil {
 		t.Fatal(err)
 	}
-	if res := endRound(t, g, open.Label, wonderOutput(t, "handmade-thesis-marked-gap")); res.Outcome != cycle.OutcomeCase {
+	gap := `{"decisions": [{"decision": "dec-1", "verdict": "missing_in_explanation", "missing": "por qué", "passage": null}],
+		"origin_question": {"question": "not_applicable", "answer": null}, "previous_case": null, "new_case": "Caso A"}`
+	if res := endRound(t, g, open.Label, json.RawMessage(gap)); res.Outcome != cycle.OutcomeCase {
 		t.Fatalf("round: %+v", res)
 	}
 	spend(t, db, "p1", 3-provider.SignoffReserveUSD)
 	turn, err := r.SignoffAnswers("p1", open.Label, "", "Le digo que no.")
-	if err != nil || turn != "" {
-		t.Fatalf("turn %q, err %v", turn, err)
+	if err != nil || turn != "" || prov.calls != 0 {
+		t.Fatalf("turn %q, err %v, calls %d", turn, err, prov.calls)
 	}
-	if v := view(t, db, open.Label); v.OpenCase != "" || v.OriginQuestion == "" || v.CanSign {
+	v := view(t, db, open.Label)
+	if !v.Brief || !v.CanSign || len(v.Cases) != 1 || v.Cases[0].Answer != "Le digo que no." {
+		t.Fatalf("your reply must stay: %+v", v)
+	}
+	if err := g.Sign(ctx, "p1", open.Label); err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+}
+
+// With critical decisions your answers are stored and judged before signing: the
+// marks on your earlier origin answer do not open signing over the one you just sent.
+func TestB320_AnAnswerSentAsTheCapArrivesIsKeptAndJudged(t *testing.T) {
+	db := openTemp(t)
+	criticalAndMark(t, db)
+	prov := &failingWonder{text: string(caseWellOnDec1())}
+	r := cycle.NewRunner(db, prov, nil, &fakePublisher{})
+	t.Cleanup(r.Close)
+	g := cycle.NewGate(db)
+	ctx := context.Background()
+	open := openSection(t, g, "sec-1")
+	if err := g.RecordExplanation(ctx, "p1", open.Label, "Lo explico sin mirar."); err != nil {
+		t.Fatal(err)
+	}
+	if res := endRound(t, g, open.Label, wonderOutput(t, "handmade-thesis-marked-round1")); res.Status != cycle.StatusAccepted {
+		t.Fatalf("round 1: %+v", res)
+	}
+	if err := g.RecordAnswers(ctx, "p1", open.Label, "De la muestra.", ""); err != nil {
+		t.Fatal(err)
+	}
+	gap := `{"decisions": [{"decision": "dec-1", "verdict": "match", "missing": null, "passage": null},
+		{"decision": "sec-1", "verdict": "missing_in_explanation", "missing": "qué concluye", "passage": null}],
+		"origin_question": {"question": "¿De qué supuesto sale?", "answer": "answers"},
+		"previous_case": null, "new_case": "Caso B"}`
+	if res := endRound(t, g, open.Label, json.RawMessage(gap)); res.Outcome != cycle.OutcomeCase {
+		t.Fatalf("round 2: %+v", res)
+	}
+	spend(t, db, "p1", 3-provider.SignoffReserveUSD)
+	turn, err := r.SignoffAnswers("p1", open.Label, "De otra muestra.", "Respuesta B")
+	if err != nil || turn == "" {
+		t.Fatalf("your answers go to Wonder: turn %q, err %v", turn, err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	v := view(t, db, open.Label)
+	for v.Rounds < 3 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+		v = view(t, db, open.Label)
+	}
+	if v.Rounds != 3 || v.OriginAnswer != "De otra muestra." || v.Thesis != "" || !v.CanSign ||
+		len(v.Cases) != 1 || v.Cases[0].Answer != "Respuesta B" || v.Cases[0].Result != "applies_well" {
 		t.Fatalf("view: %+v", v)
 	}
 }
