@@ -106,8 +106,12 @@ func (s *Server) answerAlert(w http.ResponseWriter, r *http.Request) {
 }
 
 // editGroupWindow is the gap under which two saves are one edition (C.20,
-// [inicial]). It runs from the previous save, so a chain of close saves is one.
-const editGroupWindow = 5 * time.Second
+// [inicial]). It runs from the previous save, so a chain of close saves is one,
+// up to editGroupMax from the chain's first save, however fast you keep typing.
+const (
+	editGroupWindow = 5 * time.Second
+	editGroupMax    = 60 * time.Second
+)
 
 // lastSaves is each project's last save of yours, by the server's clock: what
 // tells a save that joins the edition before it (C.20). [EL DISEÑO NO LO DICE]:
@@ -122,21 +126,32 @@ type lastSaves struct {
 type lastSave struct {
 	sectionID string
 	at        time.Time
+	// first is when the edition this save belongs to began.
+	first time.Time
+}
+
+func (s lastSave) joinedBy(sectionID string, now time.Time) bool {
+	return s.sectionID == sectionID && now.Sub(s.at) < editGroupWindow && now.Sub(s.first) < editGroupMax
 }
 
 func newLastSaves() *lastSaves { return &lastSaves{last: map[string]lastSave{}} }
 
-// joins says the save comes under the window after the project's last save, and
-// that save was of this section: another section's save ended the edition.
+// joins says the save comes under the window after the project's last save, that
+// save was of this section (another section's save ended the edition), and the
+// edition is not yet editGroupMax old.
 func (l *lastSaves) joins(projectID, sectionID string, now time.Time) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	prev, ok := l.last[projectID]
-	return ok && prev.sectionID == sectionID && now.Sub(prev.at) < editGroupWindow
+	return ok && prev.joinedBy(sectionID, now)
 }
 
 func (l *lastSaves) record(projectID, sectionID string, now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.last[projectID] = lastSave{sectionID: sectionID, at: now}
+	first := now
+	if prev, ok := l.last[projectID]; ok && prev.joinedBy(sectionID, now) {
+		first = prev.first
+	}
+	l.last[projectID] = lastSave{sectionID: sectionID, at: now, first: first}
 }

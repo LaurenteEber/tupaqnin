@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"net/http"
 	"testing"
@@ -63,6 +64,47 @@ func TestB79_ThreeSavesWithASixSecondGapUndoOnlyTheThird(t *testing.T) {
 	undoRoute(t, h, base, "sec-1")
 	if detail := sectionDetail(t, h, base, "sec-1"); detail["text"] != proposalText || detail["undo_available"] != false {
 		t.Fatalf("the first two are one edition: %v", detail)
+	}
+}
+
+// C.20: a group ends 60 s after its first save, even while you keep typing:
+// «Deshacer» never takes back more than a minute of nonstop saves.
+func TestC20_AGroupEndsSixtySecondsAfterItsFirstSaveEvenWhileYouType(t *testing.T) {
+	h, _, base, later := groupAPI(t, proposalText)
+	lastOfFirstGroup := ""
+	for at := 0; at <= 56; at += 4 {
+		lastOfFirstGroup = fmt.Sprintf("Guardado a los %d s.", at)
+		saveOn(t, h, base, "sec-1", lastOfFirstGroup)
+		*later += 4 * time.Second
+	}
+	// Second 60: 4 s after the last save, 60 s after the first.
+	saveOn(t, h, base, "sec-1", "Guardado a los 60 s.")
+	*later += 4 * time.Second
+	saveOn(t, h, base, "sec-1", "Guardado a los 64 s.")
+
+	undoRoute(t, h, base, "sec-1")
+	if detail := sectionDetail(t, h, base, "sec-1"); detail["text"] != lastOfFirstGroup || detail["undo_available"] != true {
+		t.Fatalf("the second group goes alone, from second 60: %v", detail)
+	}
+	undoRoute(t, h, base, "sec-1")
+	if detail := sectionDetail(t, h, base, "sec-1"); detail["text"] != proposalText || detail["undo_available"] != false {
+		t.Fatalf("the first group is one edition: %v", detail)
+	}
+}
+
+// A new group counts its own 60 s, not the first group's.
+func TestC20_EachGroupCountsItsOwnSixtySeconds(t *testing.T) {
+	h, _, base, later := groupAPI(t, proposalText)
+	saveOn(t, h, base, "sec-1", "Uno.")
+	*later += 10 * time.Second
+	saveOn(t, h, base, "sec-1", "Otra edición, a los 10 s.")
+	for at := 14; at <= 66; at += 4 {
+		*later += 4 * time.Second
+		saveOn(t, h, base, "sec-1", fmt.Sprintf("Otra edición, a los %d s.", at))
+	}
+	undoRoute(t, h, base, "sec-1")
+	if detail := sectionDetail(t, h, base, "sec-1"); detail["text"] != "Uno." {
+		t.Fatalf("from second 10 to second 66 is under its 60 s: %v", detail)
 	}
 }
 
