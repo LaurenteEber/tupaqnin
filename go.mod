@@ -7,7 +7,7 @@ require (
 	github.com/gowebpki/jcs v1.0.2
 	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
-	github.com/yuin/goldmark v1.8.6
+	github.com/yuin/goldmark v1.8.7
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.62.0
 	golang.org/x/text v0.43.0
