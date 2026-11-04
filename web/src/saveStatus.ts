@@ -22,7 +22,8 @@ export const KEEPALIVE_MAX_BYTES = 60 * 1024;
 // saveRequest is the PUT of a section. Fired as the page hides it is keepalive, so
 // closing the tab does not cancel it (P-116).
 export function saveRequest(tabID: string, baseVersion: number, text: string, hiding: boolean) {
-  const body = JSON.stringify({ tab_id: tabID, base_version: baseVersion, text });
+  // C.24: a save as the page hides does not claim the edit for a tab that may be gone.
+  const body = JSON.stringify({ tab_id: tabID, base_version: baseVersion, text, ...(hiding ? { leaving: true } : {}) });
   const fits = new TextEncoder().encode(body).length <= KEEPALIVE_MAX_BYTES;
   return {
     method: "PUT",

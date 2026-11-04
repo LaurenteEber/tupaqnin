@@ -172,7 +172,19 @@ test("P-116: a save fired as the page hides is keepalive, so closing the tab doe
   const hiding = saveRequest("tab-1", 3, "Texto", true);
   assert.equal(hiding.keepalive, true);
   assert.equal(hiding.method, "PUT");
-  assert.deepEqual(JSON.parse(hiding.body), { tab_id: "tab-1", base_version: 3, text: "Texto" });
+  assert.deepEqual(JSON.parse(hiding.body), { tab_id: "tab-1", base_version: 3, text: "Texto", leaving: true });
+});
+
+test("C.24: only a save as the page hides says it is leaving", () => {
+  assert.equal(JSON.parse(saveRequest("tab-1", 3, "Texto", false).body).leaving, undefined);
+  // A body too long for keepalive still says it.
+  assert.equal(JSON.parse(saveRequest("tab-1", 3, "ñ".repeat(KEEPALIVE_MAX_BYTES), true).body).leaving, true);
+});
+
+test("C.24: a network error on the claim keeps the previous state", () => {
+  const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(app, /claimEditor\(projectID\)\.then\(setEditor, \(\) => setEditor\(false\)\)/);
+  assert.match(app, /claimEditor\(projectID\)\.then\(setEditor, \(\) => \{\}\)/);
 });
 
 test("P-116: the other saves are as they were, without keepalive", () => {

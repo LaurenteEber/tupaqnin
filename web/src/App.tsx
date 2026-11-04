@@ -164,7 +164,8 @@ export function App() {
 
   useEffect(() => {
     if (!projectID) return;
-    const renew = () => void claimEditor(projectID).then(setEditor, () => setEditor(false));
+    // C.24: a claim that did not arrive says nothing about who edits: the state stays.
+    const renew = () => void claimEditor(projectID).then(setEditor, () => {});
     renew();
     const timer = window.setInterval(renew, 15_000);
     // B-102: a tab that goes frees the edit at once. A save fired on the same

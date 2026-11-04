@@ -53,6 +53,15 @@ func (e *editors) claim(projectID, tab string) bool {
 	return true
 }
 
+// mayEdit reports what claim would answer, without taking or renewing the lease:
+// a tab that is leaving saves its last text and leaves the edit free (C.24).
+func (e *editors) mayEdit(projectID, tab string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	h, ok := e.holders[projectID]
+	return !ok || h.tab == tab || e.now().Sub(h.seen) >= editorLease
+}
+
 // release frees the lease when tab holds it; another tab's lease stays (B-102).
 func (e *editors) release(projectID, tab string) {
 	e.mu.Lock()

@@ -76,6 +76,8 @@ type PutSectionRequest struct {
 	TabID       string `json:"tab_id"`
 	BaseVersion int    `json:"base_version"`
 	Text        string `json:"text"`
+	// Leaving: the page is hiding, so this save does not claim the edit (C.24).
+	Leaving bool `json:"leaving,omitempty"`
 }
 
 type PostMessageRequest struct {
@@ -293,8 +295,13 @@ func (s *Server) putSection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Only one tab edits (specification §2): a save from another tab is
-	// refused.
-	if !s.editors.claim(projectID, req.TabID) {
+	// refused. One fired as its page hides is checked the same, without taking the
+	// edit for a tab that may be gone (C.24).
+	mayEdit := s.editors.claim
+	if req.Leaving {
+		mayEdit = s.editors.mayEdit
+	}
+	if !mayEdit(projectID, req.TabID) {
 		writeError(w, http.StatusConflict, "read_only_tab")
 		return
 	}
