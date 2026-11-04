@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { auditCostText, spendNoticeKey } from "./spend.ts";
+import { auditCostText, moneyText, spendNoticeKey } from "./spend.ts";
 
 const catalog = (lang: string): Record<string, string> =>
   JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"));
@@ -42,12 +42,12 @@ test("B3-20: «sin comprobar» does not say the checker failed: the cap may have
 });
 
 test("C20: the cost on «Audit section» comes from Go, formatted as the header's spend", () => {
-  assert.deepEqual(auditCostText(0.05), { key: "doc.audit.cost", params: { cost: "0.05" } });
-  assert.deepEqual(auditCostText(0.1234), { key: "doc.audit.cost", params: { cost: "0.12" } });
+  assert.deepEqual(auditCostText(0.05, "en-US"), { key: "doc.audit.cost", params: { cost: "0.05" } });
+  assert.deepEqual(auditCostText(0.1234, "en-US"), { key: "doc.audit.cost", params: { cost: "0.12" } });
 });
 
 test("C20: before Go answers, the button says no cost", () => {
-  assert.equal(auditCostText(undefined), null);
+  assert.equal(auditCostText(undefined, "en-US"), null);
 });
 
 test("C20: the cost's text, in both languages, once each", () => {
@@ -56,4 +56,11 @@ test("C20: the cost's text, in both languages, once each", () => {
     assert.equal(JSON.parse(raw)["doc.audit.cost"], want);
     assert.equal(raw.split('"doc.audit.cost"').length - 1, 1, lang);
   }
+});
+
+test("C.26: money has the locale's decimal separator", () => {
+  assert.deepEqual(auditCostText(0.05, "es-ES"), { key: "doc.audit.cost", params: { cost: "0,05" } });
+  assert.equal(moneyText(0.34, "es-ES"), "0,34");
+  assert.equal(moneyText(3, "es-ES"), "3,00");
+  assert.equal(moneyText(0.34, "en-US"), "0.34");
 });

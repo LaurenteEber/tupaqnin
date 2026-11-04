@@ -1,3 +1,4 @@
+import { FileButton } from "./FileButton";
 import { useEffect, useState } from "react";
 import { getRequest, putAudience, putCriterion, putRequest, submitRequest, uploadSource } from "../api/client";
 import type { RequestView } from "../api/types";
@@ -182,16 +183,7 @@ export function RequestPanel({
             <option value="calculation">{t("source.kind.calculation")}</option>
           </select>
         </label>
-        <input
-          type="file"
-          accept=".md,.txt,.csv,.pdf"
-          aria-label={t("source.upload")}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void upload(f);
-            e.target.value = "";
-          }}
-        />
+        <FileButton label={t("source.upload")} onFile={(f) => void upload(f)} />
       </div>
       {errorCode && <p className="turn-error">{t(`source.error.${errorCode}`)}</p>}
 

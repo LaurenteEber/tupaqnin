@@ -31,6 +31,11 @@ body {
   color: var(--ink);
   font: 15px/1.5 var(--ui);
 }
+input, textarea, select { font: inherit; }
+.file-button { position: relative; display: inline-flex; align-items: center; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font-size: 14px; cursor: pointer; }
+.file-button:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file-button.off { opacity: 0.5; cursor: default; }
+.file-button input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
 
 button {
   font: inherit;
@@ -128,8 +133,10 @@ button.small { padding: 3px 9px; font-size: 13px; }
 }
 .chat-card.todo { border-color: var(--todo); }
 .chat-card h2, .chat-card h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.oq-option-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .chat-card label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
 .chat-card label:has(> input[type="checkbox"]), .chat-card label:has(> input[type="radio"]) { flex-direction: row; align-items: center; }
+.chat-card label.oq-option:has(> input[type="radio"]) { align-items: flex-start; }
 .chat-card input:not([type]), .chat-card input[type="text"], .chat-card textarea, .chat-card select {
   font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); width: 100%;
 }

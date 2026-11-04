@@ -47,7 +47,7 @@ import { ModeBar } from "./components/ModeBar";
 import { ModelLine } from "./components/ModelLine";
 import { ProjectTitle } from "./components/ProjectTitle";
 import { HomePage, type HomeForm } from "./components/HomePage";
-import { auditCostText } from "./spend";
+import { auditCostText, moneyText } from "./spend";
 import { LeftPanel } from "./components/LeftPanel";
 import { RightPanel } from "./components/RightPanel";
 import { MarkdownPanel } from "./components/MarkdownPanel";
@@ -55,7 +55,7 @@ import { CenterHeader } from "./components/CenterHeader";
 import { Shell, useLayout } from "./components/Shell";
 import { centerView, effectiveTab, routeTarget } from "./layout";
 import { createErrorKey } from "./home";
-import { initialLang, translate, type Lang } from "./i18n";
+import { initialLang, translate, type Lang, numberLocale } from "./i18n";
 import { takeOverResult, type TakeOverResult } from "./tab";
 import { projectHash, readProjectHash, saveLang } from "./route";
 import { isQueued } from "./queue";
@@ -774,7 +774,7 @@ export function App() {
   }
 
   const current = sections.find((s) => s.label === selected);
-  const auditCost = auditCostText(summary?.audit_estimate_usd);
+  const auditCost = auditCostText(summary?.audit_estimate_usd, numberLocale(lang));
 
   // Avisos en el texto (backlog-r2 2.9): the chosen section's warnings,
   // computed and placed by Go, refetched when the section moves.
@@ -1275,7 +1275,7 @@ export function App() {
                         <>
                           <dt>{t("doc.trace.spent")}</dt>
                           <dd>
-                            {t("summary.spent", { spent: summary.spent_usd.toFixed(2), cap: summary.cap_usd.toFixed(2) })}
+                            {t("summary.spent", { spent: moneyText(summary.spent_usd, numberLocale(lang)), cap: moneyText(summary.cap_usd, numberLocale(lang)) })}
                           </dd>
                         </>
                       )}

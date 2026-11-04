@@ -27,7 +27,7 @@ Quoted verbatim from L1.
 | T4 | S5 | inline | done | RED then GREEN `C.23` in `cardDrafts.test.ts`; gate exit 0; smoke c23-en, c23-es |
 | T5 | S6 | inline | blocked | Diagnosis reported to Eber; fix waits for his answer («report before fixing») |
 | T6 | S7 | inline | done | RED then GREEN `C.25` in `home.test.ts`; gate exit 0; smoke c25-en, c25-es (en `Sign out` once, the script looked for «Log out») |
-| T7 | S8 | inline | pending | |
+| T7 | S8 | inline | done | RED then GREEN `C.26` in `noise.test.ts`, `spend.test.ts`; gate exit 0; smoke c26-oq, c26-doc, c26-file in en and es |
 
 ## Log
 

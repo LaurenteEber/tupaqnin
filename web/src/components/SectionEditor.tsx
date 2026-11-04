@@ -99,7 +99,7 @@ export function SectionEditor({
     extensions: [Document, BlockParagraph, Text, WarningUnderlines, OriginMarks],
     content: paragraphsHTML(initial.current),
     editorProps: {
-      attributes: { class: "section-editor-content" },
+      attributes: { class: "section-editor-content", spellcheck: "false" },
     },
     // P-115, P-116: what you type waits to be saved; no «Saved» until its PUT returns.
     onUpdate: ({ editor: e }) => {

@@ -222,13 +222,15 @@ export function CardPanel({ lang, projectID, refreshKey, onAnswered, onUndo, onD
                 checked={drafts[q.label]?.chosen === i}
                 onChange={() => write(q.label, { chosen: i })}
               />
-              {o.keep ? t("oq.keep", { what: o.option }) : o.other ? t("oq.other", { what: o.option }) : o.code ? t(`oq.scope.${o.code}`) : o.option}
-              {o.contrast && <span className="meta"> · {t("oq.contrast")}: {o.contrast}</span>}
-              {o.consequence && <span className="meta"> · {t("oq.consequence")}: {o.consequence}</span>}
-              {o.risk && <span className="meta"> · {t("oq.risk")}: {o.risk}</span>}
-              {o.risk_reasons && o.risk_reasons.length > 0 && (
-                <span className="meta"> · {t("oq.risk")}: {o.risk_reasons.map((r) => t(`card.reason.${r}`)).join(", ")}</span>
-              )}
+              <span className="oq-option-body">
+                <span>{o.keep ? t("oq.keep", { what: o.option }) : o.other ? t("oq.other", { what: o.option }) : o.code ? t(`oq.scope.${o.code}`) : o.option}</span>
+                {o.contrast && <span className="meta">{t("oq.contrast")}: {o.contrast}</span>}
+                {o.consequence && <span className="meta">{t("oq.consequence")}: {o.consequence}</span>}
+                {o.risk && <span className="meta">{t("oq.risk")}: {o.risk}</span>}
+                {o.risk_reasons && o.risk_reasons.length > 0 && (
+                  <span className="meta">{t("oq.risk")}: {o.risk_reasons.map((r) => t(`card.reason.${r}`)).join(", ")}</span>
+                )}
+              </span>
             </label>
           ))}
           {/* B-107: Go offers it, on an objection's question. Your words go as you wrote them. */}

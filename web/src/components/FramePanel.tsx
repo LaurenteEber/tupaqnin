@@ -274,7 +274,7 @@ function SkeletonSection({ section, active, onMove, first, last, ...props }: Dec
             : t(`section.status.${section.status}`)}
         </span>
       </button>
-      {onMove && (
+      {onMove && active && (
         <span className="move">
           <button type="button" className="link" disabled={first} onClick={() => onMove(-1)}>
             {t("frame.move_up")}

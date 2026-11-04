@@ -6,6 +6,11 @@ export function spendNoticeKey(s: { warn: boolean; stopped_by: string }): string
 }
 
 // C.20: what «Auditar» should cost, as Go estimated it and the bar writes spend.
-export function auditCostText(usd: number | undefined): { key: string; params: Record<string, string> } | null {
-  return usd === undefined ? null : { key: "doc.audit.cost", params: { cost: usd.toFixed(2) } };
+export function auditCostText(usd: number | undefined, locale: string): { key: string; params: Record<string, string> } | null {
+  return usd === undefined ? null : { key: "doc.audit.cost", params: { cost: moneyText(usd, locale) } };
+}
+
+// C.26: money on screen, with the locale's decimal separator.
+export function moneyText(usd: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(usd);
 }

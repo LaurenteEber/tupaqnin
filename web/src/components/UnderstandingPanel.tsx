@@ -1,3 +1,4 @@
+import { FileButton } from "./FileButton";
 import { evidenceFromKey } from "../plain";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -319,16 +320,7 @@ export function UnderstandingPanel({ lang, projectID, refreshKey, onRoleChanged,
         // R-4: without material, its two ways on: this and «Buscar evidencia».
         <p className="evidence">
           {t("understanding.no_material")}{" "}
-          <input
-            type="file"
-            accept=".md,.txt,.csv,.pdf"
-            aria-label={t("source.upload")}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void uploadMaterial(f);
-              e.target.value = "";
-            }}
-          />
+          <FileButton label={t("source.upload")} onFile={(f) => void uploadMaterial(f)} />
           {uploadError && <span className="turn-error"> {t(`source.error.${uploadError}`)}</span>}
         </p>
       )}
