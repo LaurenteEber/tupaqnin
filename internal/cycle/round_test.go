@@ -395,7 +395,7 @@ func TestB65_ProjectCapStopsTheRoundBeforeItLaunches(t *testing.T) {
 	fixtures := append(principalSteps(t, step), readerFixtures(t)...)
 	fixtures[0].Usage.CostUSD = 0.10 // the step fits; the round after it does not (B-89: less the signoff's balance)
 	db, runner, g := newRoundRunner(t, false, fixtures...)
-	if err := db.RecordModelCall(context.Background(), store.ModelCall{ProjectID: "p1", Role: "seed", CostUSD: 2.45}); err != nil {
+	if err := db.RecordModelCall(context.Background(), store.ModelCall{ProjectID: "p1", Role: "seed", CostUSD: 3 - provider.SignoffReserveUSD - provider.PrincipalReserveUSD}); err != nil {
 		t.Fatal(err)
 	}
 	runDiscover(t, runner, step)

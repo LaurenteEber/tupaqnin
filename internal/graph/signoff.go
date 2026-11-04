@@ -606,9 +606,12 @@ type SignoffView struct {
 	// PendingsAtCap are the agent's pendings when a cap stopped it: it can
 	// no longer close them, so they are listed apart and do not block
 	// (B3-20, Eber 2-nov). StoppedBy is that cap, as Runner.StoppedBy says.
-	PendingsAtCap     []Pending `json:"pendings_at_cap"`
-	StoppedBy         string    `json:"stopped_by,omitempty"`
-	CriticalDecisions []string  `json:"critical_decisions"`
+	PendingsAtCap []Pending `json:"pendings_at_cap"`
+	StoppedBy     string    `json:"stopped_by,omitempty"`
+	// BalanceSpent: this signoff still needs a contrast and the signoff's balance
+	// has no room for it, so it cannot end signed (B3-20, Eber 4-nov, P-128).
+	BalanceSpent      bool     `json:"balance_spent"`
+	CriticalDecisions []string `json:"critical_decisions"`
 	// Thesis is the kind of thesis asked besides the critical decisions
 	// (B-106), when it adds a point. In words on screen, without the answer.
 	Thesis           string          `json:"thesis,omitempty"`

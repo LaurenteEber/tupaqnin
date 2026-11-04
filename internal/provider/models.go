@@ -136,8 +136,8 @@ const (
 	// to 0.042 USD, over 4 to 6 calls).
 	ReaderReserveUSD = 0.05
 	// SignoffReserveUSD is set aside of the project's cap for the signoff
-	// (B3-20, B-89: ≈ 2 contrasts [inicial]).
-	SignoffReserveUSD = 0.40
+	// (B3-20, B-89; Eber, 4-nov, P-128: ≈ 4 contrasts [inicial]).
+	SignoffReserveUSD = 0.80
 )
 
 // ReserveUSD is what one call of this role and turn kind reserves at

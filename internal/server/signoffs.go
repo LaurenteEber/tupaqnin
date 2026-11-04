@@ -96,6 +96,11 @@ func signoffError(w http.ResponseWriter, err error) {
 	}
 }
 
+// SignoffBalanceChecker is what the runner knows of the signoff's balance (B3-20).
+type SignoffBalanceChecker interface {
+	SignoffBalanceSpent(ctx context.Context, projectID string) (bool, error)
+}
+
 // signoffGate is the gate of the signoff, knowing the caps when the runner
 // is there (B3-20, Eber 2-nov).
 func (s *Server) signoffGate() *cycle.Gate {
@@ -119,6 +124,14 @@ func (s *Server) writeSignoff(w http.ResponseWriter, r *http.Request, projectID,
 	if err != nil {
 		signoffError(w, cycle.ErrSignoffNotFound)
 		return
+	}
+	// A signoff that needs a contrast is one in progress with critical decisions
+	// that do not coincide yet: a brief one, or a thesis left out, calls no model.
+	if b, ok := s.starter.(SignoffBalanceChecker); ok && v.Phase == graph.SignoffInProgress && !v.Brief && !v.Coincides && len(v.CriticalDecisions) > 0 {
+		if v.BalanceSpent, err = b.SignoffBalanceSpent(r.Context(), projectID); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal")
+			return
+		}
 	}
 	writeJSON(w, status, v)
 }

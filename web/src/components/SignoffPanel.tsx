@@ -164,7 +164,7 @@ export function SignoffPanel({ lang, projectID, label, onClose, onReadFull }: {
 
   const title = view.section_title || t("section.untitled");
   const active = view.phase === "in_progress";
-  const explained = view.rounds > 0 || (view.brief && view.explanation !== "");
+  const explained = view.rounds > 0 || ((view.brief || view.balance_spent) && view.explanation !== "");
   // U-2: the model that contrasted, as Go recorded it («model effort»),
   // with its display name; before the first round, the planned one.
   const [contrastModel] = (view.contrasted_by ?? "").split(" ");
@@ -292,7 +292,7 @@ export function SignoffPanel({ lang, projectID, label, onClose, onReadFull }: {
             <b>{t("signoff.result", { model: contrastedBy })}</b>
             {contrasting && <p className="working">{t("signoff.contrasting")}</p>}
             {view.wonder_unavailable && <p className="meta">{t("signoff.wonder_unavailable")}</p>}
-            {view.rounds === 0 && !contrasting && <p className="meta">{t("signoff.no_result")}</p>}
+            {view.rounds === 0 && !contrasting && !view.balance_spent && <p className="meta">{t("signoff.no_result")}</p>}
             <ul className="signoff-verdicts">
               {view.verdicts.map((v) => (
                 <li key={v.decision}>
@@ -394,6 +394,8 @@ export function SignoffPanel({ lang, projectID, label, onClose, onReadFull }: {
       )}
 
       {errorCode && <p className="turn-error">{t(`signoff.error.${errorCode}`)}</p>}
+
+      {view.balance_spent && <p className="sign-blocked" role="status">{t("signoff.balance_spent")}</p>}
 
       <div className="signoff-actions">
         <button type="button" className="primary" disabled={!view.can_sign} onClick={() => void sign()}>

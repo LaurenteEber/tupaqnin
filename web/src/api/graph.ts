@@ -1233,6 +1233,11 @@ export interface SignoffView {
    */
   pendings_at_cap: Pending[];
   stopped_by?: string;
+  /**
+   * BalanceSpent: this signoff still needs a contrast and the signoff's balance
+   * has no room for it, so it cannot end signed (B3-20, Eber 4-nov, P-128).
+   */
+  balance_spent: boolean;
   critical_decisions: string[];
   /**
    * Thesis is the kind of thesis asked besides the critical decisions

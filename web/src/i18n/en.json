@@ -192,6 +192,7 @@
   "signoff.before": "1 · Before:",
   "signoff.before_none": "nothing pending",
   "signoff.at_cap_notice": "The agent stopped at the cap and can no longer close these. They do not block your signature: the history records that you signed with them open because of the cap.",
+  "signoff.balance_spent": "The signoff's balance is spent. Your explanation and your work stay saved; sections with no critical decisions can still be signed.",
   "signoff.explain": "2 · Explain without looking each critical decision ({n}) and why it was taken:",
   "signoff.explain_brief": "2 · This section has no critical decisions: say in 1–2 lines what it says.",
   "signoff.explain_thesis": "2 · Explain without looking what this section rests on:",

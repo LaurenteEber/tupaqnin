@@ -199,18 +199,20 @@ func TestB3_20_SummaryWarnAndStoppedBy(t *testing.T) {
 	if v := summary(); v.Warn || v.StoppedBy != "" {
 		t.Fatalf("fresh: %+v", v)
 	}
-	spendOn(t, s.db, p, 2.39)
+	spendOn(t, s.db, p, 2)
 	if v := summary(); v.Warn || v.StoppedBy != "" {
-		t.Fatalf("under 80 %%: %+v", v)
+		t.Fatalf("under the cap less the balance: %+v", v)
+	}
+	// P-128: with a balance of 0.80 USD the agent stops before the 80 % of 3 USD.
+	spendOn(t, s.db, p, 0.39)
+	if v := summary(); v.Warn || v.StoppedBy != "project_cap" {
+		t.Fatalf("at the cap less the balance: %+v", v)
 	}
 	spendOn(t, s.db, p, 0.01)
-	if v := summary(); !v.Warn || v.StoppedBy != "" {
+	if v := summary(); !v.Warn || v.StoppedBy != "project_cap" {
 		t.Fatalf("at 80 %%: %+v", v)
 	}
 	spendOn(t, s.db, p, 0.20)
-	if v := summary(); !v.Warn || v.StoppedBy != "project_cap" {
-		t.Fatalf("at the cap less the balance: %+v", v)
-	}
 	s.runner.SpendCapDayUSD = 2
 	if v := summary(); v.StoppedBy != "project_cap" {
 		t.Fatalf("the project's cap comes first: %+v", v)
@@ -307,3 +309,66 @@ func decodeBody[T any](t *testing.T, raw []byte) T {
 }
 
 func nowForLinks() time.Time { return time.Now() }
+
+// B3-20, P-128: with critical decisions and no room for another contrast, the
+// signoff's view says the balance is spent, so the screen can say why signing
+// stays impossible. Before that, and on a section that needs no contrast, it
+// does not.
+func TestB3_20_TheSignoffViewSaysWhenTheBalanceIsSpent(t *testing.T) {
+	s := newSpendAPI(t, nil)
+	cookie := newSessionCookie(t, s.db, budgetLink(t, s.db, "guests", 100))
+	p := s.project(t, cookie)
+	seedSignSection(t, s.db, p, plainText, true)
+	rec := s.do(http.MethodPost, "/api/projects/"+p+"/sections/sec-1/signoff", cookie, nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("ask to sign: %d %s", rec.Code, rec.Body.String())
+	}
+	label := decodeBody[graph.SignoffView](t, rec.Body.Bytes()).Label
+	view := func() graph.SignoffView {
+		t.Helper()
+		return decodeBody[graph.SignoffView](t, s.do(http.MethodGet, "/api/projects/"+p+"/signoffs/"+label, cookie, nil).Body.Bytes())
+	}
+	if v := view(); v.BalanceSpent {
+		t.Fatalf("fresh: %+v", v)
+	}
+	// The agent's stop is not the balance's: the reserve still pays a contrast.
+	spendOn(t, s.db, p, 3-provider.SignoffReserveUSD)
+	if v := view(); v.BalanceSpent || v.StoppedBy != "project_cap" {
+		t.Fatalf("at the cap less the balance: spent %v, stopped by %q", v.BalanceSpent, v.StoppedBy)
+	}
+	spendOn(t, s.db, p, provider.SignoffReserveUSD-provider.ContrasterReserveUSD+0.01)
+	v := view()
+	if !v.BalanceSpent || v.CanSign {
+		t.Fatalf("no room for a contrast: spent %v, can sign %v", v.BalanceSpent, v.CanSign)
+	}
+}
+
+// B3-20, P-128: the notice promises that a section with no critical decisions
+// can still be signed with the balance spent: it needs no contrast, and its view
+// says nothing is spent.
+func TestB3_20_ASectionWithNoCriticalDecisionsSignsWithTheBalanceSpent(t *testing.T) {
+	s := newSpendAPI(t, nil)
+	cookie := newSessionCookie(t, s.db, budgetLink(t, s.db, "guests", 100))
+	p := s.project(t, cookie)
+	seedSignSection(t, s.db, p, plainText, false)
+	spendOn(t, s.db, p, 3)
+	rec := s.do(http.MethodPost, "/api/projects/"+p+"/sections/sec-1/signoff", cookie, nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("ask to sign: %d %s", rec.Code, rec.Body.String())
+	}
+	v := decodeBody[graph.SignoffView](t, rec.Body.Bytes())
+	if !v.Brief || v.BalanceSpent {
+		t.Fatalf("brief %v, balance spent %v", v.Brief, v.BalanceSpent)
+	}
+	if rec := s.do(http.MethodPost, "/api/projects/"+p+"/signoffs/"+v.Label+"/explanation", cookie, map[string]string{"text": "Comparo solo estudios iguales."}); rec.Code >= 300 {
+		t.Fatalf("explain: %d %s", rec.Code, rec.Body.String())
+	}
+	before := s.calls.n
+	rec = s.do(http.MethodPost, "/api/projects/"+p+"/signoffs/"+v.Label+"/sign", cookie, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sign: %d %s", rec.Code, rec.Body.String())
+	}
+	if s.calls.n != before {
+		t.Fatalf("calls %d, want %d", s.calls.n, before)
+	}
+}

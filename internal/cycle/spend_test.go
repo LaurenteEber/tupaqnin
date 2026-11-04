@@ -120,7 +120,7 @@ func TestB3_20_PrincipalStopsAtProjectCap(t *testing.T) {
 // and the turn runs as ever.
 func TestB3_20_PrincipalRunsWhenItsReserveFits(t *testing.T) {
 	db, runner, c, pub := newCaptureRunner(t, loadAppFixture(t, "04-principal-no-work.json"))
-	spend(t, db, "p1", 2.45)
+	spend(t, db, "p1", 3-provider.SignoffReserveUSD-provider.PrincipalReserveUSD)
 	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Sigue."); err != nil {
 		t.Fatalf("RunTurn: %v", err)
 	}
@@ -487,7 +487,7 @@ func refusedCheck(t *testing.T) (*store.DB, *cycle.Runner, *captureProvider) {
 	step.Usage.CostUSD = 0.12
 	runner, c := checkerRunner(t, db, step, checkerFixture(t, "no-findings"))
 	t.Cleanup(runner.Close)
-	spend(t, db, "p1", 2.45)
+	spend(t, db, "p1", 3-provider.SignoffReserveUSD-provider.PrincipalReserveUSD)
 	if err := runner.RunTurn(context.Background(), "p1", "turn-1", "Escribe."); err != nil {
 		t.Fatalf("RunTurn: %v", err)
 	}
@@ -550,7 +550,7 @@ func TestB3_20_AskingToSignChecksWhatARefusedCheckerLeft(t *testing.T) {
 // the section stays «sin comprobar», listed apart.
 func TestB3_20_AskingToSignPastTheWholeCapOpensWithoutTheChecker(t *testing.T) {
 	db, runner, c := refusedCheck(t)
-	spend(t, db, "p1", 0.42) // 2.99
+	spend(t, db, "p1", provider.SignoffReserveUSD+0.02) // 2.99
 	before := len(eventsOfType(t, db, store.EventOutputRetry))
 	open, err := runner.RequestSignoff(context.Background(), "p1", "sec-1")
 	if err != nil || !open.Opened || len(open.Pendings) != 0 {

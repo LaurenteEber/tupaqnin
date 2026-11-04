@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -192,11 +193,11 @@ func TestB89_AContrasterPassesTheLinkCapUpToTheProjectBalance(t *testing.T) {
 	ctx := context.Background()
 	recordCost(t, db, "p1", provider.RolePrincipal, 1) // past the link: the principal's cost is not the balance
 
-	for i := range 2 {
+	for i := range contrastsInBalance() {
 		if _, err := r.prov.Respond(ctx, contrastOf("p1"), nil); err != nil {
 			t.Fatalf("contrast %d: %v", i+1, err)
 		}
-		recordCost(t, db, "p1", provider.RoleContraster, 0.20)
+		recordCost(t, db, "p1", provider.RoleContraster, provider.ContrasterReserveUSD)
 	}
 	_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
 	wantCap(t, "the balance spent", err, provider.CapDemoStop, provider.CapLink)
@@ -215,33 +216,39 @@ func TestB89_AContrasterPassesTheDayCapUpToTheProjectBalance(t *testing.T) {
 	if _, err := r.prov.Respond(ctx, contrastOf("p1"), nil); err != nil {
 		t.Fatalf("the contrast: %v", err)
 	}
-	recordCost(t, db, "p1", provider.RoleContraster, 0.40)
+	recordCost(t, db, "p1", provider.RoleContraster, provider.SignoffReserveUSD)
 	_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
 	wantCap(t, "the balance spent", err, provider.CapDemoStop, provider.CapDay)
 }
 
-// B-89: what is in flight counts against the balance: three contrasts at once
-// cannot pass it together.
+// contrastsInBalance is how many contrasts the signoff's balance pays (P-128: 4).
+func contrastsInBalance() int {
+	return int(math.Round(provider.SignoffReserveUSD / provider.ContrasterReserveUSD))
+}
+
+// B-89: what is in flight counts against the balance: one contrast more than it
+// pays cannot pass it with the others at once.
 func TestB89_ContrastsInFlightCountAgainstTheBalance(t *testing.T) {
 	inner := &blockingProvider{release: make(chan struct{})}
 	db, r := spendRunner(t, inner)
 	linkedProjects(t, db, 0.01, "p1")
 	ctx := context.Background()
-	done := make(chan error, 2)
-	for range 2 {
+	fit := contrastsInBalance()
+	done := make(chan error, fit)
+	for range fit {
 		go func() {
 			_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
 			done <- err
 		}()
 	}
 	deadline := time.Now().Add(2 * time.Second)
-	for inner.count() < 2 && time.Now().Before(deadline) {
+	for inner.count() < fit && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	_, err := r.prov.Respond(ctx, contrastOf("p1"), nil)
-	wantCap(t, "the third at once", err, provider.CapDemoStop, provider.CapLink)
+	wantCap(t, "one more at once", err, provider.CapDemoStop, provider.CapLink)
 	close(inner.release)
-	for range 2 {
+	for range fit {
 		if err := <-done; err != nil {
 			t.Fatalf("in flight: %v", err)
 		}

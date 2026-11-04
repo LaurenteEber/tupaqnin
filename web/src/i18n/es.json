@@ -191,6 +191,7 @@
   "signoff.leave": "Dejarla para después",
   "signoff.before": "1 · Antes:",
   "signoff.at_cap_notice": "El agente se detuvo por el tope y ya no puede cerrar estos pendientes. No bloquean tu firma: la historia registra que firmaste con ellos abiertos por el tope.",
+  "signoff.balance_spent": "Se agotó el saldo de la firma. Tu explicación y tu trabajo quedan guardados; las secciones sin decisiones críticas sí se pueden firmar.",
   "signoff.before_none": "nada pendiente",
   "signoff.explain": "2 · Explica sin mirar cada decisión crítica ({n}) y su porqué:",
   "signoff.explain_brief": "2 · Esta sección no tiene decisiones críticas: explica en 1–2 líneas qué dice.",

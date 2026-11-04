@@ -309,6 +309,19 @@ func (r *Runner) StoppedBy(ctx context.Context, projectID string) (string, error
 	return capErr.Cap, nil
 }
 
+// SignoffBalanceSpent reports that one more contrast would not fit, whatever cap
+// refuses it (B3-20, P-128). Like StoppedBy, it reads what was spent, not the
+// calls in flight, so a round running does not make it flicker.
+func (r *Runner) SignoffBalanceSpent(ctx context.Context, projectID string) (bool, error) {
+	st, err := r.db.ProjectSpendState(ctx, projectID, string(provider.RoleContraster), r.now())
+	if err != nil {
+		return false, err
+	}
+	idle := &spendGate{projectCap: r.projectCap, dayCap: r.dayCap, totalCap: r.totalCap}
+	amount := max(provider.ReserveUSD(provider.RoleContraster, provider.TurnSignoff), st.DearestUSD)
+	return idle.over(st, projectID, provider.RoleContraster, amount, true) != nil, nil
+}
+
 // CreateBlocked is why a link opens no new project (B-89, B3-20): the code
 // POST /api/projects answers, or "". A link «no alcanza» when the first
 // call of the principal would not fit in it, so a new project is not one
